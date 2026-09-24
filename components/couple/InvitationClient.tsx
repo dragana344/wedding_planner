@@ -1,0 +1,161 @@
+// components/couple/InvitationClient.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { INVITATION_TEMPLATES } from "@/lib/couple/invitation-templates";
+import type { Invitation } from "@/lib/couple/invitations";
+import { jsonOrThrow } from "@/lib/couple/client-utils";
+
+export function InvitationClient({
+  initialInvitation,
+  coupleNames,
+  eventDate,
+}: {
+  initialInvitation: Invitation | null;
+  coupleNames: string;
+  eventDate: string;
+}) {
+  const [invitation, setInvitation] = useState(initialInvitation);
+  const [templateId, setTemplateId] = useState(initialInvitation?.template_id ?? INVITATION_TEMPLATES[0].id);
+  const [message, setMessage] = useState(initialInvitation?.message ?? "");
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const inviteUrl = invitation ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${invitation.public_slug}` : null;
+
+  useEffect(() => {
+    if (!inviteUrl) {
+      setQrDataUrl(null);
+      return;
+    }
+    QRCode.toDataURL(inviteUrl).then(setQrDataUrl).catch(() => setQrDataUrl(null));
+  }, [inviteUrl]);
+
+  async function handleGenerate() {
+    setError(null);
+    setIsSaving(true);
+    try {
+      const saved = await jsonOrThrow(
+        await fetch("/api/couple/invitation", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template_id: templateId, message: message || null }),
+        })
+      );
+      setInvitation(saved);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate invitation.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      setError("Failed to copy link.");
+    }
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingPhoto(true);
+    try {
+      // uploadInvitationPhoto (Task 10) only updates an existing event_invitations
+      // row, so a photo picked before "Generate link" has been clicked would
+      // silently vanish — create the row first if it doesn't exist yet.
+      let current = invitation;
+      if (!current) {
+        current = await jsonOrThrow(
+          await fetch("/api/couple/invitation", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ template_id: templateId, message: message || null }),
+          })
+        );
+        setInvitation(current);
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await jsonOrThrow(await fetch("/api/couple/invitation/photo", { method: "POST", body: formData }));
+      setInvitation((prev) => (prev ? { ...prev, photo_path: result.photo_path } : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload photo.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <p className="lab-s" style={{ marginBottom: 8 }}>Choose a design</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {INVITATION_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => setTemplateId(template.id)}
+              aria-pressed={templateId === template.id}
+              className="ev"
+              style={{
+                textAlign: "left",
+                cursor: "pointer",
+                borderColor: templateId === template.id ? template.accentColor : undefined,
+                borderWidth: templateId === template.id ? 2 : 1,
+              }}
+            >
+              <p style={{ fontWeight: 700, margin: 0 }}>{template.name}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel" style={{ padding: 16 }}>
+        <p className="lab-s" style={{ marginBottom: 4 }}>Preview</p>
+        <p className="font-display text-2xl" style={{ color: (INVITATION_TEMPLATES.find((t) => t.id === templateId) ?? INVITATION_TEMPLATES[0]).accentColor, margin: 0 }}>
+          {coupleNames}
+        </p>
+        <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{eventDate}</p>
+        {message ? <p style={{ marginTop: 8, color: "var(--ink-2)", fontSize: 13.5 }}>{message}</p> : null}
+      </div>
+
+      <textarea className="fld" placeholder="Message (optional)" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} rows={3} />
+
+      <div>
+        <label htmlFor="invitation-photo" className="lab-s">
+          Photo (optional)
+        </label>
+        <input id="invitation-photo" aria-label="Photo (optional)" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
+        {isUploadingPhoto ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Uploading...</p> : null}
+        {invitation?.photo_path ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Photo uploaded.</p> : null}
+      </div>
+
+      {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
+      <button type="button" onClick={handleGenerate} disabled={isSaving} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
+        {isSaving ? "Saving..." : "Generate link"}
+      </button>
+
+      {invitation ? (
+        <div className="ev">
+          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>Share this link:</p>
+          <p style={{ wordBreak: "break-all", fontFamily: "var(--data)", fontSize: 13.5 }}>{inviteUrl}</p>
+          <button type="button" onClick={handleCopyLink} className="btn btn-ghost">
+            {isCopied ? "Copied!" : "Copy link"}
+          </button>
+          {qrDataUrl ? <img src={qrDataUrl} alt="Invitation QR code" style={{ marginTop: 8, height: 160, width: 160 }} /> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
