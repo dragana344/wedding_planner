@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconSprite } from "./IconSprite";
 import { Icon } from "./Icon";
 import { NAV_ITEMS, matchNavItem } from "./nav";
+import { OnboardingTour } from "./OnboardingTour";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -74,6 +75,7 @@ export function PanelShell({
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.href}
               className={[
                 item.href === active.href ? "on" : "",
                 item.ready ? "" : "soon",
@@ -166,6 +168,10 @@ export function PanelShell({
 
         {children}
       </div>
+
+      <Suspense fallback={null}>
+        <OnboardingTour />
+      </Suspense>
     </div>
   );
 }

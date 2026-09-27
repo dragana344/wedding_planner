@@ -69,6 +69,7 @@ export function IconSprite() {
         <symbol id="ic-tablet" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/></symbol>
         <symbol id="ic-mobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/><path d="M11 18h2"/></symbol>
         <symbol id="ic-life" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.4"/><path d="m6 6 3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/></symbol>
+        <symbol id="ic-photo" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8" fill="currentColor" stroke="none"/><path d="m4 17 5.5-5.5a2 2 0 0 1 2.8 0L17 16.2M14.5 13.7l1.2-1.2a2 2 0 0 1 2.8 0L20 14"/></symbol>
       </defs>
     </svg>
   );

@@ -96,7 +96,7 @@ function MenuItemDetailModal({
   onChanged: () => void;
 }) {
   const [name, setName] = useState(item.name);
-  const [tier, setTier] = useState<MenuItemTier>(item.tier);
+  const [tiers, setTiers] = useState<MenuItemTier[]>(item.tiers);
   const [course, setCourse] = useState<MenuItem["course"]>(item.course);
   const [allergenTags, setAllergenTags] = useState<string[]>(item.allergen_tags);
   const [isVegetarian, setIsVegetarian] = useState(item.is_vegetarian);
@@ -125,13 +125,23 @@ function MenuItemDetailModal({
     }
   }
 
+  function toggleTier(value: MenuItemTier) {
+    setTiers((current) =>
+      current.includes(value) ? current.filter((t) => t !== value) : [...current, value]
+    );
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (tiers.length === 0) {
+      setError("Изберете барем еден вид мени.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const input: MenuItemUpdateInput = {
-        tier,
+        tiers,
         course,
         name,
         allergen_tags: allergenTags,
@@ -190,11 +200,27 @@ function MenuItemDetailModal({
             <input id="edit-item-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="ev-field">
-            <label className="lab-s" htmlFor="edit-item-tier">Вид мени</label>
-            <select id="edit-item-tier" className="fld" value={tier} onChange={(e) => setTier(e.target.value as MenuItemTier)}>
-              <option value="everyday">Секојдневно</option>
-              <option value="special">Специјално</option>
-            </select>
+            <span className="lab-s">Вид мени</span>
+            <div style={{ display: "flex", gap: 16, paddingTop: 4 }}>
+              <div className="ev-check">
+                <input
+                  id="edit-item-tier-everyday"
+                  type="checkbox"
+                  checked={tiers.includes("everyday")}
+                  onChange={() => toggleTier("everyday")}
+                />
+                <label htmlFor="edit-item-tier-everyday">Секојдневно</label>
+              </div>
+              <div className="ev-check">
+                <input
+                  id="edit-item-tier-special"
+                  type="checkbox"
+                  checked={tiers.includes("special")}
+                  onChange={() => toggleTier("special")}
+                />
+                <label htmlFor="edit-item-tier-special">Специјално</label>
+              </div>
+            </div>
           </div>
           <div className="ev-field">
             <label className="lab-s" htmlFor="edit-item-course">Категорија</label>

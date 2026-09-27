@@ -1,11 +1,11 @@
 // lib/couple/checklist-templates.ts
 export const STARTER_CHECKLIST_TITLES: string[] = [
-  "Book photographer",
-  "Send invitations",
-  "Finalize guest list",
-  "Confirm menu selection",
-  "Arrange seating chart",
-  "Confirm final headcount with venue",
-  "Choose wedding attire",
-  "Plan the day-of timeline",
+  "Резервирај фотограф",
+  "Испрати покани",
+  "Финализирај список на гости",
+  "Потврди избор на мени",
+  "Распореди места за седење",
+  "Потврди краен број на гости со локалот",
+  "Избери венчална облека",
+  "Испланирај го редоследот на денот",
 ];

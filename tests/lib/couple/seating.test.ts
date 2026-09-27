@@ -120,6 +120,28 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     await admin.from("venues").delete().eq("id", venueB!.id);
   });
 
+  it("surfaces the real database error instead of masking it as an authorization failure", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Seating Error Surface Venue" }).select().single();
+    const { data: event } = await admin
+      .from("events")
+      .insert({ venue_id: venue!.id, couple_names: "Error & Surface", event_date: "2026-12-27" })
+      .select()
+      .single();
+
+    const actions = coupleSeatingActionsFor(event!.id);
+
+    // A malformed room id makes Postgres reject the query outright (invalid
+    // uuid syntax) rather than simply returning no rows — this must surface
+    // as that real error, not get relabeled as "Room is not assigned to this
+    // event.", which would hide a genuine DB failure behind a misleading
+    // authorization message.
+    await expect(actions.listFixedElements("not-a-valid-uuid")).rejects.not.toThrow(
+      "Room is not assigned to this event."
+    );
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
   it("rejects addElement when table_type_id belongs to a different room than room_id", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Couple Seating Table Type Venue" }).select().single();
     const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Room" }).select().single();

@@ -35,7 +35,7 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       setAddress("");
       setMapUrl("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add location.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на локацијата.");
     } finally {
       setIsSubmitting(false);
     }
@@ -47,7 +47,7 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       await jsonOrThrow(await fetch(`/api/couple/locations/${id}`, { method: "DELETE" }));
       setLocations((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete location.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на локацијата.");
     }
   }
 
@@ -77,7 +77,7 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       setLocations((prev) => prev.map((l) => (l.id === id ? updated : l)));
       setEditingId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update location.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на локацијата.");
     } finally {
       setIsSaving(false);
     }
@@ -88,15 +88,15 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       {locations.map((location) =>
         editingId === location.id ? (
           <div key={location.id} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input className="fld" placeholder="Label" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required aria-label="Edit label" />
-            <input className="fld" placeholder="Address (optional)" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} aria-label="Edit address" />
-            <input className="fld" placeholder="Map link (optional)" value={editMapUrl} onChange={(e) => setEditMapUrl(e.target.value)} aria-label="Edit map link" />
+            <input className="fld" placeholder="Назив" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required aria-label="Измени назив" />
+            <input className="fld" placeholder="Адреса (опционално)" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} aria-label="Измени адреса" />
+            <input className="fld" placeholder="Линк до мапа (опционално)" value={editMapUrl} onChange={(e) => setEditMapUrl(e.target.value)} aria-label="Измени линк до мапа" />
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" onClick={() => handleSaveEdit(location.id)} disabled={isSaving} className="btn btn-gold">
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? "Се зачувува..." : "Зачувај"}
               </button>
               <button type="button" onClick={cancelEdit} disabled={isSaving} className="btn btn-ghost">
-                Cancel
+                Откажи
               </button>
             </div>
           </div>
@@ -107,16 +107,16 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
               {location.address ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{location.address}</p> : null}
               {location.map_url ? (
                 <a href={location.map_url} target="_blank" rel="noreferrer" style={{ color: "var(--gold-lo)", fontSize: 13.5 }}>
-                  Open map
+                  Отвори мапа
                 </a>
               ) : null}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button type="button" onClick={() => startEdit(location)} aria-label="Edit" className="btn btn-ghost">
-                Edit
+              <button type="button" onClick={() => startEdit(location)} aria-label="Измени" className="btn btn-ghost">
+                Измени
               </button>
-              <button type="button" onClick={() => handleDelete(location.id)} aria-label="Delete" className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                Delete
+              <button type="button" onClick={() => handleDelete(location.id)} aria-label="Избриши" className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                Избриши
               </button>
             </div>
           </div>
@@ -124,12 +124,12 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       )}
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <input className="fld" placeholder="Label" value={label} onChange={(e) => setLabel(e.target.value)} required />
-        <input className="fld" placeholder="Address (optional)" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <input className="fld" placeholder="Map link (optional)" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} />
+        <input className="fld" placeholder="Назив" value={label} onChange={(e) => setLabel(e.target.value)} required />
+        <input className="fld" placeholder="Адреса (опционално)" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <input className="fld" placeholder="Линк до мапа (опционално)" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-          {isSubmitting ? "Adding..." : "Add"}
+          {isSubmitting ? "Се додава..." : "Додади"}
         </button>
       </form>
     </div>

@@ -35,7 +35,7 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
       setTitle("");
       setNotes("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add item.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на ставката.");
     } finally {
       setIsSubmitting(false);
     }
@@ -47,7 +47,7 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
       await jsonOrThrow(await fetch(`/api/couple/agenda/${id}`, { method: "DELETE" }));
       setItems((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete item.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на ставката.");
     }
   }
 
@@ -63,7 +63,7 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
       );
       setItems(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reorder.");
+      setError(err instanceof Error ? err.message : "Не успеа преуредувањето.");
     }
   }
 
@@ -93,7 +93,7 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
       setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
       setEditingId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update item.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на ставката.");
     } finally {
       setIsSaving(false);
     }
@@ -104,15 +104,15 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
       {items.map((item, idx) =>
         editingId === item.id ? (
           <div key={item.id} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input type="time" className="fld" value={editTime} onChange={(e) => setEditTime(e.target.value)} aria-label="Edit time" />
-            <input className="fld" placeholder="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required aria-label="Edit title" />
-            <input className="fld" placeholder="Notes (optional)" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} aria-label="Edit notes" />
+            <input type="time" className="fld" value={editTime} onChange={(e) => setEditTime(e.target.value)} aria-label="Измени време" />
+            <input className="fld" placeholder="Наслов" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required aria-label="Измени наслов" />
+            <input className="fld" placeholder="Белешки (опционално)" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} aria-label="Измени белешки" />
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" onClick={() => handleSaveEdit(item.id)} disabled={isSaving} className="btn btn-gold">
-                {isSaving ? "Saving..." : "Save"}
+                {isSaving ? "Се зачувува..." : "Зачувај"}
               </button>
               <button type="button" onClick={cancelEdit} disabled={isSaving} className="btn btn-ghost">
-                Cancel
+                Откажи
               </button>
             </div>
           </div>
@@ -124,17 +124,17 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
               {item.notes ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{item.notes}</p> : null}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button type="button" onClick={() => handleMove(item.id, "up")} disabled={idx === 0} aria-label="Move up" className="btn btn-ghost">
+              <button type="button" onClick={() => handleMove(item.id, "up")} disabled={idx === 0} aria-label="Помести нагоре" className="btn btn-ghost">
                 ↑
               </button>
-              <button type="button" onClick={() => handleMove(item.id, "down")} disabled={idx === items.length - 1} aria-label="Move down" className="btn btn-ghost">
+              <button type="button" onClick={() => handleMove(item.id, "down")} disabled={idx === items.length - 1} aria-label="Помести надолу" className="btn btn-ghost">
                 ↓
               </button>
-              <button type="button" onClick={() => startEdit(item)} aria-label="Edit" className="btn btn-ghost">
-                Edit
+              <button type="button" onClick={() => startEdit(item)} aria-label="Измени" className="btn btn-ghost">
+                Измени
               </button>
-              <button type="button" onClick={() => handleDelete(item.id)} aria-label="Delete" className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                Delete
+              <button type="button" onClick={() => handleDelete(item.id)} aria-label="Избриши" className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                Избриши
               </button>
             </div>
           </div>
@@ -143,11 +143,11 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="time" className="fld" value={time} onChange={(e) => setTime(e.target.value)} />
-        <input className="fld" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        <input className="fld" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <input className="fld" placeholder="Наслов" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <input className="fld" placeholder="Белешки (опционално)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-          {isSubmitting ? "Adding..." : "Add"}
+          {isSubmitting ? "Се додава..." : "Додади"}
         </button>
       </form>
     </div>

@@ -3,18 +3,18 @@ import { listGuests, addGuest, getGuestStats } from "@/lib/couple/guests";
 
 export async function GET(request: NextRequest) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     const [guests, stats] = await Promise.all([listGuests(eventId), getGuestStats(eventId)]);
     return NextResponse.json({ guests, stats });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to load guests." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на гостите." }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     const body = await request.json();
     const created = await addGuest(eventId, {
@@ -26,6 +26,6 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(created);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to add guest." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на гостинот." }, { status: 400 });
   }
 }

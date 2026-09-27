@@ -10,13 +10,15 @@ export interface MenuTemplate {
 
 /** 'everyday' = the restaurant's regular menu. 'special' = only offered for
  * weddings/graduations/etc — the pool standard packages and event custom
- * menus are built from. */
+ * menus are built from. An item can carry both tags at once (e.g. a dish
+ * sold daily that's also offered at weddings), so `tiers` is a set, not a
+ * single value. */
 export type MenuItemTier = "everyday" | "special";
 
 export interface MenuItem {
   id: string;
   venue_id: string;
-  tier: MenuItemTier;
+  tiers: MenuItemTier[];
   course: "starter" | "main" | "dessert" | "other";
   name: string;
   allergen_tags: string[];
@@ -28,7 +30,7 @@ export interface MenuItem {
 
 export interface MenuItemInput {
   venue_id: string;
-  tier: MenuItemTier;
+  tiers: MenuItemTier[];
   course: MenuItem["course"];
   name: string;
   allergen_tags: string[];
@@ -38,7 +40,7 @@ export interface MenuItemInput {
 }
 
 export interface MenuItemUpdateInput {
-  tier: MenuItemTier;
+  tiers: MenuItemTier[];
   course: MenuItem["course"];
   name: string;
   allergen_tags: string[];
@@ -48,7 +50,7 @@ export interface MenuItemUpdateInput {
   photo_path?: string | null;
 }
 
-const MENU_ITEM_COLUMNS = "id, venue_id, tier, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path";
+const MENU_ITEM_COLUMNS = "id, venue_id, tiers, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path";
 
 const MENU_ITEM_PHOTOS_BUCKET = "menu-item-photos";
 
@@ -168,7 +170,7 @@ export async function listMenuItems(
   client: SupabaseClient = resolveSupabaseClient()
 ): Promise<MenuItem[]> {
   let query = client.from("menu_items").select(MENU_ITEM_COLUMNS).eq("venue_id", venueId);
-  if (tier) query = query.eq("tier", tier);
+  if (tier) query = query.contains("tiers", [tier]);
   const { data, error } = await query.order("course").order("name");
   if (error) throw error;
   return data;

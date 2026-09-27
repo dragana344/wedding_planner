@@ -68,7 +68,7 @@ describe("lib/couple/notes", () => {
     expect(deriveNoteDisplay(null, "Book florist")).toEqual({ title: "Book florist", preview: "" });
 
     // Nothing at all falls back to a placeholder rather than an empty title.
-    expect(deriveNoteDisplay(null, "")).toEqual({ title: "Untitled note", preview: "" });
-    expect(deriveNoteDisplay("  ", "   ")).toEqual({ title: "Untitled note", preview: "" });
+    expect(deriveNoteDisplay(null, "")).toEqual({ title: "Белешка без наслов", preview: "" });
+    expect(deriveNoteDisplay("  ", "   ")).toEqual({ title: "Белешка без наслов", preview: "" });
   });
 });

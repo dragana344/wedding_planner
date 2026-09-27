@@ -20,13 +20,13 @@ describe("BudgetClient", () => {
     });
     render(<BudgetClient initialSummary={baseSummary} />);
 
-    expect(screen.getByText(/venue/i)).toBeInTheDocument();
+    expect(screen.getByText(/локал/i)).toBeInTheDocument();
     expect(screen.getByText("Restaurant X")).toBeInTheDocument();
     expect(screen.getByText("14000")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Item name"), { target: { value: "Florist Y" } });
-    fireEvent.change(screen.getByPlaceholderText("Estimated amount"), { target: { value: "800" } });
-    fireEvent.click(screen.getByRole("button", { name: /add item/i }));
+    fireEvent.change(screen.getByPlaceholderText("Име на ставка"), { target: { value: "Florist Y" } });
+    fireEvent.change(screen.getByPlaceholderText("Проценет износ"), { target: { value: "800" } });
+    fireEvent.click(screen.getByRole("button", { name: /додади ставка/i }));
 
     await waitFor(() => expect(screen.getByText("Florist Y")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(
@@ -42,9 +42,9 @@ describe("BudgetClient", () => {
     });
     render(<BudgetClient initialSummary={baseSummary} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /edit restaurant x/i }));
+    fireEvent.click(screen.getByRole("button", { name: /измени restaurant x/i }));
     fireEvent.change(screen.getByDisplayValue("Restaurant X"), { target: { value: "Restaurant X (confirmed)" } });
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(screen.getByRole("button", { name: /зачувај/i }));
 
     await waitFor(() => expect(screen.getByText("Restaurant X (confirmed)")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(
@@ -57,7 +57,7 @@ describe("BudgetClient", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
     render(<BudgetClient initialSummary={baseSummary} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /delete restaurant x/i }));
+    fireEvent.click(screen.getByRole("button", { name: /избриши restaurant x/i }));
 
     await waitFor(() => expect(screen.queryByText("Restaurant X")).not.toBeInTheDocument());
   });

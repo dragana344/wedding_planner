@@ -73,5 +73,5 @@ export function deriveNoteDisplay(title: string | null, content: string): { titl
   if (explicitTitle) {
     return { title: explicitTitle, preview: nonBlank[0] ?? "" };
   }
-  return { title: nonBlank[0] ?? "Untitled note", preview: nonBlank[1] ?? "" };
+  return { title: nonBlank[0] ?? "Белешка без наслов", preview: nonBlank[1] ?? "" };
 }

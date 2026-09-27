@@ -4,8 +4,8 @@ import { verifyEventCredentials } from "@/lib/couple/auth";
 import { createCoupleSession } from "@/lib/couple/session-token";
 
 const MESSAGES: Record<"invalid" | "locked", string> = {
-  invalid: "Invalid username or password.",
-  locked: "Too many attempts. Please try again in a few minutes.",
+  invalid: "Неточно корисничко име или лозинка.",
+  locked: "Премногу обиди. Обидете се повторно за неколку минути.",
 };
 
 export async function POST(request: NextRequest) {
@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
   try {
     ({ username, password } = await request.json());
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ error: "Неважечко JSON тело" }, { status: 400 });
   }
   if (!username || !password) {
-    return NextResponse.json({ error: "Username and password are required." }, { status: 400 });
+    return NextResponse.json({ error: "Задолжителни се корисничкото име и лозинката." }, { status: 400 });
   }
 
   const result = await verifyEventCredentials(username, password);

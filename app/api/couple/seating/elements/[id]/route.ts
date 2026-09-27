@@ -3,7 +3,7 @@ import { coupleSeatingActionsFor } from "@/lib/couple/seating";
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     const body = await request.json();
     const actions = coupleSeatingActionsFor(eventId);
@@ -16,19 +16,19 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (body.type === "rotation") {
       return NextResponse.json(await actions.rotateElement(params.id, body.rotation_deg));
     }
-    return NextResponse.json({ error: "Unknown update type." }, { status: 400 });
+    return NextResponse.json({ error: "Непознат тип на ажурирање." }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update element." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа ажурирањето на елементот." }, { status: 400 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     await coupleSeatingActionsFor(eventId).deleteElement(params.id);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to delete element." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа бришењето на елементот." }, { status: 400 });
   }
 }

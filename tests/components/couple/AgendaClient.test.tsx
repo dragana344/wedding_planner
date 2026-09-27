@@ -18,8 +18,8 @@ describe("AgendaClient", () => {
     expect(screen.getByText("Собирање гости")).toBeInTheDocument();
     expect(screen.getByText("Церемонија")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Title"), { target: { value: "Вечера" } });
-    fireEvent.click(screen.getByRole("button", { name: /add/i }));
+    fireEvent.change(screen.getByPlaceholderText("Наслов"), { target: { value: "Вечера" } });
+    fireEvent.click(screen.getByRole("button", { name: /додади/i }));
 
     await waitFor(() => expect(screen.getByText("Вечера")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(
@@ -32,7 +32,7 @@ describe("AgendaClient", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
     render(<AgendaClient initialItems={items} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /избриши/i })[0]);
 
     await waitFor(() => expect(screen.queryByText("Собирање гости")).not.toBeInTheDocument());
   });
@@ -44,11 +44,11 @@ describe("AgendaClient", () => {
     });
     render(<AgendaClient initialItems={items} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /^edit$/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^измени$/i })[0]);
 
-    const titleInput = screen.getByLabelText("Edit title");
+    const titleInput = screen.getByLabelText("Измени наслов");
     fireEvent.change(titleInput, { target: { value: "Изменето" } });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^зачувај$/i }));
 
     await waitFor(() => expect(screen.getByText("Изменето")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(

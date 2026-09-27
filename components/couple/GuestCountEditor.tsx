@@ -21,11 +21,11 @@ export function GuestCountEditor({ initialValue }: { initialValue: number | null
       });
       if (!response.ok) {
         const { error: message } = await response.json();
-        throw new Error(message ?? "Failed to save guest count.");
+        throw new Error(message ?? "Не успеа зачувувањето на бројот на гости.");
       }
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save guest count.");
+      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на бројот на гости.");
     } finally {
       setIsSaving(false);
     }
@@ -35,7 +35,7 @@ export function GuestCountEditor({ initialValue }: { initialValue: number | null
     <form onSubmit={handleSave} style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
       <div style={{ width: 140 }}>
         <label htmlFor="guest-count" className="lab-s">
-          Estimated guests
+          Проценет број на гости
         </label>
         <input
           id="guest-count"
@@ -50,9 +50,9 @@ export function GuestCountEditor({ initialValue }: { initialValue: number | null
         />
       </div>
       <button type="submit" disabled={isSaving} className="btn btn-gold">
-        {isSaving ? "Saving..." : "Save"}
+        {isSaving ? "Се зачувува..." : "Зачувај"}
       </button>
-      {saved ? <span style={{ color: "var(--ok)", fontSize: 13.5 }}>Saved</span> : null}
+      {saved ? <span style={{ color: "var(--ok)", fontSize: 13.5 }}>Зачувано</span> : null}
       {error ? <span style={{ color: "var(--bad)", fontSize: 13.5 }}>{error}</span> : null}
     </form>
   );

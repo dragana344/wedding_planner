@@ -18,8 +18,8 @@ describe("InvitationClient", () => {
     render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" />);
 
     fireEvent.click(screen.getByRole("button", { name: /елегантен златен/i }));
-    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: "Се радуваме!" } });
-    fireEvent.click(screen.getByRole("button", { name: /generate link/i }));
+    fireEvent.change(screen.getByPlaceholderText(/порака/i), { target: { value: "Се радуваме!" } });
+    fireEvent.click(screen.getByRole("button", { name: /генерирај линк/i }));
 
     await waitFor(() => expect(screen.getByText(/abc123/i)).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(
@@ -29,6 +29,44 @@ describe("InvitationClient", () => {
         body: JSON.stringify({ template_id: "elegant-gold", message: "Се радуваме!" }),
       })
     );
+  });
+
+  it("labels the button 'Зачувај промени' (not 'Генерирај линк') once an invitation exists, and switching templates updates the same link", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        event_id: "e1",
+        template_id: "royal-green",
+        message: null,
+        photo_path: null,
+        public_slug: "existing-slug",
+      }),
+    });
+    render(
+      <InvitationClient
+        initialInvitation={{ event_id: "e1", template_id: "romantic-floral", message: null, photo_path: null, public_slug: "existing-slug" }}
+        coupleNames="Ана & Марко"
+        eventDate="2027-06-15"
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /^генерирај линк$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /зачувај промени/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /кралско писмо/i }));
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/couple/invitation",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ template_id: "royal-green", message: null }),
+        })
+      )
+    );
+    // Same slug stays — switching templates updates the existing link in place.
+    expect(await screen.findByText(/existing-slug/i)).toBeInTheDocument();
   });
 
   it("uploads a photo separately via the photo endpoint", async () => {
@@ -42,7 +80,7 @@ describe("InvitationClient", () => {
     );
 
     const file = new File(["photo-bytes"], "photo.jpg", { type: "image/jpeg" });
-    const input = screen.getByLabelText(/photo/i);
+    const input = screen.getByLabelText(/фотографија/i);
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() =>
@@ -76,7 +114,7 @@ describe("InvitationClient", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
+    fireEvent.click(screen.getByRole("button", { name: /копирај линк/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/invite/existing-slug")));
   });
@@ -104,7 +142,7 @@ describe("InvitationClient", () => {
     render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" />);
 
     const file = new File(["photo-bytes"], "photo.jpg", { type: "image/jpeg" });
-    const input = screen.getByLabelText(/photo/i);
+    const input = screen.getByLabelText(/фотографија/i);
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() =>

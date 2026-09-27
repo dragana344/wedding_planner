@@ -62,7 +62,7 @@ describe("lib/couple/dashboard: getEventSummary", () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Dashboard Lib Venue 2" }).select().single();
     const { data: item } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Dish" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Dish" })
       .select()
       .single();
     const { data: event } = await admin

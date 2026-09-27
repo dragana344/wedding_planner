@@ -37,19 +37,19 @@ export default function CoupleLoginPage() {
 
   return (
     <AuthScreen
-      eyebrow="Your event"
-      tagline="Plan your agenda, guests, menu, budget, and seating — all in one place."
-      title="Sign in to your event"
+      eyebrow="Вашиот настан"
+      tagline="Планирајте ги вашата агенда, гости, мени, буџет и распоред — сè на едно место."
+      title="Најавете се на вашиот настан"
     >
       <form onSubmit={handleSubmit}>
         <div className="auth-field">
           <label className="lab-s" htmlFor="couple-login-username">
-            Username
+            Корисничко име
           </label>
           <input
             id="couple-login-username"
             className="fld"
-            placeholder="Username"
+            placeholder="Корисничко име"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -57,12 +57,12 @@ export default function CoupleLoginPage() {
         </div>
         <div className="auth-field">
           <label className="lab-s" htmlFor="couple-login-password">
-            Password
+            Лозинка
           </label>
           <input
             id="couple-login-password"
             className="fld"
-            placeholder="Password"
+            placeholder="Лозинка"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -71,7 +71,7 @@ export default function CoupleLoginPage() {
         </div>
         {error ? <p className="auth-error">{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ width: "100%", justifyContent: "center" }}>
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? "Се најавува..." : "Најави се"}
         </button>
       </form>
     </AuthScreen>

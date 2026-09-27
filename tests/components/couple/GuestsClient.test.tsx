@@ -21,12 +21,12 @@ describe("GuestsClient", () => {
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
     expect(screen.getByText("Ана Петровска")).toBeInTheDocument();
-    expect(screen.getByText("Total")).toBeInTheDocument(); // total stat tile
-    expect(screen.queryByText("Bride's side")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Side")).not.toBeInTheDocument();
+    expect(screen.getByText("Вкупно")).toBeInTheDocument(); // total stat tile
+    expect(screen.queryByText("Страна на невестата")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Страна")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Full name"), { target: { value: "Марко С." } });
-    fireEvent.click(screen.getByRole("button", { name: /add guest/i }));
+    fireEvent.change(screen.getByPlaceholderText("Име и презиме"), { target: { value: "Марко С." } });
+    fireEvent.click(screen.getByRole("button", { name: /додади гостин/i }));
 
     await waitFor(() => expect(screen.getByText("Марко С.")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(
@@ -47,7 +47,7 @@ describe("GuestsClient", () => {
       });
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
-    fireEvent.change(screen.getByLabelText(/status for ана петровска/i), { target: { value: "confirmed" } });
+    fireEvent.change(screen.getByLabelText(/статус за ана петровска/i), { target: { value: "confirmed" } });
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
@@ -68,11 +68,11 @@ describe("GuestsClient", () => {
     });
     render(<GuestsClient initialGuests={weddingGuests} initialStats={stats} eventType="wedding" />);
 
-    expect(screen.getByRole("heading", { name: "Bride's side" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Groom's side" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Side")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Страна на невестата" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Страна на младоженецот" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Страна")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /move ана петровска to the other side/i }));
+    fireEvent.click(screen.getByRole("button", { name: /премести ана петровска на другата страна/i }));
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(

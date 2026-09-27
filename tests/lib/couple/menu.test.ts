@@ -15,7 +15,7 @@ describe("lib/couple/menu", () => {
     const { data: template } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Classic" }).select().single();
     const { data: item } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Steak" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Steak" })
       .select()
       .single();
     await admin.from("menu_template_items").insert({ menu_template_id: template!.id, menu_item_id: item!.id });
@@ -43,12 +43,12 @@ describe("lib/couple/menu", () => {
     const { data: template } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "T" }).select().single();
     const { data: itemA } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "starter", name: "Soup" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "starter", name: "Soup" })
       .select()
       .single();
     const { data: itemB } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Fish" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Fish" })
       .select()
       .single();
     await admin.from("menu_template_items").insert([
@@ -104,14 +104,14 @@ describe("lib/couple/menu", () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Owner Venue 2" }).select().single();
     const { data: ownItem } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "starter", name: "Salad" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "starter", name: "Salad" })
       .select()
       .single();
 
     const { data: otherVenue } = await admin.from("venues").insert({ name: "Other Venue 2" }).select().single();
     const { data: foreignItem } = await admin
       .from("menu_items")
-      .insert({ venue_id: otherVenue!.id, tier: "special", course: "main", name: "Foreign Dish" })
+      .insert({ venue_id: otherVenue!.id, tiers: ["special"], course: "main", name: "Foreign Dish" })
       .select()
       .single();
 
@@ -139,8 +139,8 @@ describe("lib/couple/menu: quantity split", () => {
   it("sets, gets, and replaces quantities, allowing one blank item per course", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Quantity Venue" }).select().single();
     const { data: event } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "Quantity Couple", event_date: "2027-05-01" }).select().single();
-    const { data: chicken } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Печено пиле" }).select().single();
-    const { data: veg } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Вегетаријанско" }).select().single();
+    const { data: chicken } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Печено пиле" }).select().single();
+    const { data: veg } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Вегетаријанско" }).select().single();
 
     await setMenuItemQuantities(event!.id, [
       { menu_item_id: chicken!.id, guest_count: null },
@@ -161,8 +161,8 @@ describe("lib/couple/menu: quantity split", () => {
   it("clears quantity rows for items dropped from a new custom selection", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Prune Venue" }).select().single();
     const { data: event } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "Prune Couple", event_date: "2027-05-03" }).select().single();
-    const { data: itemA } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Kept Dish" }).select().single();
-    const { data: itemB } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Dropped Dish" }).select().single();
+    const { data: itemA } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Kept Dish" }).select().single();
+    const { data: itemB } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Dropped Dish" }).select().single();
 
     await setEventMenuSelection(event!.id, { mode: "custom", menuItemIds: [itemA!.id, itemB!.id] });
     await setMenuItemQuantities(event!.id, [
@@ -182,8 +182,8 @@ describe("lib/couple/menu: quantity split", () => {
   it("rejects more than one blank item within the same course", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Quantity Reject Venue" }).select().single();
     const { data: event } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "C", event_date: "2027-05-02" }).select().single();
-    const { data: main1 } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "A" }).select().single();
-    const { data: main2 } = await admin.from("menu_items").insert({ venue_id: venue!.id, tier: "special", course: "main", name: "B" }).select().single();
+    const { data: main1 } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "A" }).select().single();
+    const { data: main2 } = await admin.from("menu_items").insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "B" }).select().single();
 
     await expect(
       setMenuItemQuantities(event!.id, [

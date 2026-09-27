@@ -105,7 +105,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
         setSaveState((current) => (current === "saving" ? "saved" : current));
       } catch (err) {
         if (generationRef.current !== generation) return;
-        setError(err instanceof Error ? err.message : "Failed to save note.");
+        setError(err instanceof Error ? err.message : "Не успеа зачувувањето на белешката.");
         setSaveState("error");
       }
     }, AUTOSAVE_DELAY_MS);
@@ -131,7 +131,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
     try {
       await persist(draftId, draftTitle, draftContent);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save note.");
+      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на белешката.");
       setSaveState("error");
     }
   }
@@ -149,7 +149,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
         await deleteNoteApi(draftId);
         setNotes((prev) => prev.filter((n) => n.id !== draftId));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete note.");
+        setError(err instanceof Error ? err.message : "Не успеа бришењето на белешката.");
         return;
       }
     }
@@ -193,13 +193,13 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
 
   const statusLabel =
     saveState === "saving"
-      ? "Saving..."
+      ? "Се зачувува..."
       : saveState === "pending"
-        ? "Unsaved changes"
+        ? "Незачувани промени"
         : saveState === "saved"
-          ? "Saved"
+          ? "Зачувано"
           : saveState === "error"
-            ? "Failed to save"
+            ? "Не успеа зачувувањето"
             : "";
 
   const canDelete = draftId !== null || !isBlank(draftTitle, draftContent);
@@ -210,7 +210,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
         <input
           value={draftTitle}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Title"
+          placeholder="Наслов"
           style={{
             border: 0,
             borderBottom: "1px solid var(--line)",
@@ -225,7 +225,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
           className="fld"
           value={draftContent}
           onChange={(e) => handleContentChange(e.target.value)}
-          placeholder="Vendor questions, ideas, things to ask the venue — jot down anything here."
+          placeholder="Прашања за добавувачи, идеи, работи што треба да ги прашате локалот — запишете било што тука."
           rows={10}
           style={{ resize: "vertical", minHeight: 180, lineHeight: 1.6, border: 0, padding: "2px" }}
         />
@@ -236,7 +236,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
           <div style={{ display: "flex", gap: 8 }}>
             {saveState === "error" ? (
               <button type="button" onClick={flushDraft} className="btn btn-ghost" style={{ padding: "4px 12px" }}>
-                Retry
+                Обиди се повторно
               </button>
             ) : null}
             <button
@@ -246,10 +246,10 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
               className="btn btn-ghost"
               style={{ padding: "4px 12px", color: canDelete ? "var(--bad)" : undefined }}
             >
-              Delete
+              Избриши
             </button>
             <button type="button" onClick={handleSave} className="btn btn-gold" style={{ padding: "4px 14px" }}>
-              Save &amp; new
+              Зачувај и нова
             </button>
           </div>
         </div>
@@ -258,7 +258,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {notes.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--muted)" }}>No saved notes yet.</p>
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>Сè уште нема зачувани белешки.</p>
         ) : (
           notes.map((note) => {
             const display = deriveNoteDisplay(note.title, note.content);

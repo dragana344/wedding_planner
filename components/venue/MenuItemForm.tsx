@@ -13,7 +13,7 @@ export function MenuItemForm({
   defaultTier: MenuItemTier;
   onSaved: () => void;
 }) {
-  const [tier, setTier] = useState<MenuItemTier>(defaultTier);
+  const [tiers, setTiers] = useState<MenuItemTier[]>([defaultTier]);
   const [name, setName] = useState("");
   const [course, setCourse] = useState<MenuItem["course"]>("main");
   const [allergenTags, setAllergenTags] = useState<string[]>([]);
@@ -24,14 +24,24 @@ export function MenuItemForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  function toggleTier(value: MenuItemTier) {
+    setTiers((current) =>
+      current.includes(value) ? current.filter((t) => t !== value) : [...current, value]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (tiers.length === 0) {
+      setError("Изберете барем еден вид мени.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const item = await addMenuItem({
         venue_id: venueId,
-        tier,
+        tiers,
         course,
         name,
         allergen_tags: allergenTags,
@@ -43,7 +53,7 @@ export function MenuItemForm({
       if (photoFile) {
         const photoPath = await uploadMenuItemPhoto(venueId, item.id, photoFile);
         await updateMenuItem(item.id, {
-          tier: item.tier,
+          tiers: item.tiers,
           course: item.course,
           name: item.name,
           allergen_tags: item.allergen_tags,
@@ -56,6 +66,7 @@ export function MenuItemForm({
 
       onSaved();
       setName("");
+      setTiers([defaultTier]);
       setAllergenTags([]);
       setPrice("");
       setPhotoFile(null);
@@ -83,13 +94,27 @@ export function MenuItemForm({
           />
         </div>
         <div className="ev-field">
-          <label className="lab-s" htmlFor="new-item-tier">
-            Вид мени
-          </label>
-          <select id="new-item-tier" className="fld" value={tier} onChange={(e) => setTier(e.target.value as MenuItemTier)}>
-            <option value="everyday">Секојдневно</option>
-            <option value="special">Специјално</option>
-          </select>
+          <span className="lab-s">Вид мени</span>
+          <div style={{ display: "flex", gap: 16, paddingTop: 4 }}>
+            <div className="ev-check">
+              <input
+                id="new-item-tier-everyday"
+                type="checkbox"
+                checked={tiers.includes("everyday")}
+                onChange={() => toggleTier("everyday")}
+              />
+              <label htmlFor="new-item-tier-everyday">Секојдневно</label>
+            </div>
+            <div className="ev-check">
+              <input
+                id="new-item-tier-special"
+                type="checkbox"
+                checked={tiers.includes("special")}
+                onChange={() => toggleTier("special")}
+              />
+              <label htmlFor="new-item-tier-special">Специјално</label>
+            </div>
+          </div>
         </div>
         <div className="ev-field">
           <label className="lab-s" htmlFor="new-item-course">

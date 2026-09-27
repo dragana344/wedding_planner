@@ -3,7 +3,7 @@ import { updateAgendaItem, deleteAgendaItem, moveAgendaItem } from "@/lib/couple
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     const body = await request.json();
     if (body.type === "move") {
@@ -16,17 +16,17 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     });
     return NextResponse.json(updated);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update item." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа ажурирањето на ставката." }, { status: 400 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     await deleteAgendaItem(eventId, params.id);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to delete item." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа бришењето на ставката." }, { status: 400 });
   }
 }

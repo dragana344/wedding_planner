@@ -43,7 +43,7 @@ export default async function CoupleSeatingPage({ params }: { params: { roomId: 
       actions={coupleSeatingClientActions}
       skipInitialization
       backHref="/couple"
-      backLabel="← Back to dashboard"
+      backLabel="← Назад кон почетна"
     />
   );
 }

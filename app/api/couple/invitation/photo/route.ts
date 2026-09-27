@@ -4,14 +4,14 @@ import { uploadInvitationPhoto } from "@/lib/couple/invitations";
 
 export async function POST(request: NextRequest) {
   const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
   try {
     const formData = await request.formData();
     const file = formData.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "No file provided." }, { status: 400 });
+    if (!(file instanceof File)) return NextResponse.json({ error: "Не е доставена датотека." }, { status: 400 });
     const path = await uploadInvitationPhoto(eventId, file);
     return NextResponse.json({ photo_path: path });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to upload photo." }, { status: 400 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата." }, { status: 400 });
   }
 }

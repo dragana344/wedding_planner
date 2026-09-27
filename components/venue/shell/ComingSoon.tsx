@@ -4,7 +4,17 @@ import { Icon } from "./Icon";
  * Placeholder for nav sections that exist in the approved design but have no
  * data layer yet. Keeps the panel's IA complete instead of hiding the gap.
  */
-export function ComingSoon({ icon, title, note }: { icon: string; title: string; note: string }) {
+export function ComingSoon({
+  icon,
+  title,
+  note,
+  badge = "Наскоро",
+}: {
+  icon: string;
+  title: string;
+  note: string;
+  badge?: string;
+}) {
   return (
     <div className="wrap">
       <section className="panel">
@@ -29,7 +39,7 @@ export function ComingSoon({ icon, title, note }: { icon: string; title: string;
             className="pill p-warn"
             style={{ marginTop: 18, display: "inline-flex" }}
           >
-            Наскоро
+            {badge}
           </span>
         </div>
       </section>

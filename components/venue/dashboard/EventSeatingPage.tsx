@@ -71,7 +71,7 @@ export function EventSeatingPage({
   actions = venueSeatingActions,
   skipInitialization = false,
   backHref = "/venue/events",
-  backLabel = "← Back to events",
+  backLabel = "← Назад кон настани",
   onBack,
 }: {
   eventId: string;
@@ -147,7 +147,7 @@ export function EventSeatingPage({
         setConfirmedAt(await actions.getConfirmedAt!(eventId, room.id));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update confirmation. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на потврдата. Обидете се повторно.");
     } finally {
       setIsTogglingConfirm(false);
     }
@@ -179,14 +179,14 @@ export function EventSeatingPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add element. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на елементот. Обидете се повторно.");
     }
   }
 
   async function handleAddTable(tableType: TableType) {
     setError(null);
     if (tablesPlacedForType(tableType.id) >= tableType.quantity) {
-      setError(`All ${tableType.name} tables are already placed.`);
+      setError(`Сите маси од тип „${tableType.name}“ се веќе поставени.`);
       return;
     }
     try {
@@ -204,7 +204,7 @@ export function EventSeatingPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add table. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
     }
   }
 
@@ -215,7 +215,7 @@ export function EventSeatingPage({
       await actions.moveElement(id, xCm, yCm);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to move element. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа поместувањето на елементот. Обидете се повторно.");
     }
   }
 
@@ -226,7 +226,7 @@ export function EventSeatingPage({
       await actions.resizeElement(id, widthCm, heightCm);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resize element. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа менувањето на големината на елементот. Обидете се повторно.");
     }
   }
 
@@ -238,7 +238,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete element. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на елементот. Обидете се повторно.");
     }
   }
 
@@ -249,7 +249,7 @@ export function EventSeatingPage({
       await actions.rotateElement(id, rotationDeg);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to rotate element. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа ротирањето на елементот. Обидете се повторно.");
     }
   }
 
@@ -260,7 +260,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revert to standard. Please try again.");
+      setError(err instanceof Error ? err.message : "Не успеа враќањето на стандардниот распоред. Обидете се повторно.");
     }
   }
 
@@ -274,7 +274,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nothing to undo.");
+      setError(err instanceof Error ? err.message : "Нема што да се врати.");
     } finally {
       setIsUndoing(false);
     }
@@ -326,18 +326,18 @@ export function EventSeatingPage({
           {backLabel}
         </Link>
       )}
-      <h1 className="mb-1 font-display text-3xl text-neutral-900">{room.name} — Seating</h1>
+      <h1 className="mb-1 font-display text-3xl text-neutral-900">{room.name} — Распоред на маси</h1>
       <p className="mb-1 text-sm text-neutral-500">{eventName}</p>
       <p className="mb-6 text-sm font-medium text-neutral-900">
-        <span className="inline-flex items-center rounded-full bg-lilac-light px-3 py-1">{seatedCount} seated</span>
+        <span className="inline-flex items-center rounded-full bg-lilac-light px-3 py-1">{seatedCount} седишта</span>
       </p>
 
       <div className="mb-3 flex flex-wrap gap-2">
         <button type="button" onClick={() => handleAddMovable("stage")} className={PALETTE_BUTTON_CLASS}>
-          + Stage
+          + Бина
         </button>
         <button type="button" onClick={() => handleAddMovable("dance_floor")} className={PALETTE_BUTTON_CLASS}>
-          + Dance floor
+          + Плоштад за танцување
         </button>
         <button type="button" onClick={() => handleAddMovable("bar_movable")} className={PALETTE_BUTTON_CLASS}>
           + Movable bar
@@ -354,10 +354,10 @@ export function EventSeatingPage({
           </button>
         ))}
         <button type="button" onClick={handleRevert} className={PALETTE_BUTTON_CLASS}>
-          Revert to standard
+          Врати на стандарден распоред
         </button>
         <button type="button" onClick={handleUndo} disabled={!canUndo || isUndoing} className={PALETTE_BUTTON_CLASS}>
-          {isUndoing ? "Undoing..." : "Undo"}
+          {isUndoing ? "Се враќа..." : "Врати"}
         </button>
       </div>
 

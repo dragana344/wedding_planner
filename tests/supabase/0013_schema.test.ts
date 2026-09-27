@@ -164,7 +164,7 @@ describe("0013 schema: couple dashboard auth", () => {
   it("lets venue staff read event_custom_menu_items for their own event only", async () => {
     const { data: menuItem } = await admin
       .from("menu_items")
-      .insert({ venue_id: venueAId, tier: "special", course: "main", name: "0013 Dish" })
+      .insert({ venue_id: venueAId, tiers: ["special"], course: "main", name: "0013 Dish" })
       .select()
       .single();
     await admin.from("event_custom_menu_items").insert({ event_id: eventAId, menu_item_id: menuItem!.id });

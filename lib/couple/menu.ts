@@ -26,7 +26,7 @@ export async function getVenueMenuOptions(eventId: string): Promise<VenueMenuOpt
   const { data: templates } = await client
     .from("menu_templates")
     .select(
-      "id, venue_id, name, description, menu_template_items(menu_items(id, venue_id, tier, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path))"
+      "id, venue_id, name, description, menu_template_items(menu_items(id, venue_id, tiers, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path))"
     )
     .eq("venue_id", event.venue_id)
     .order("name");
@@ -43,9 +43,9 @@ export async function getVenueMenuOptions(eventId: string): Promise<VenueMenuOpt
 
   const { data: specialItems } = await client
     .from("menu_items")
-    .select("id, venue_id, tier, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path")
+    .select("id, venue_id, tiers, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path")
     .eq("venue_id", event.venue_id)
-    .eq("tier", "special")
+    .contains("tiers", ["special"])
     .order("course")
     .order("name");
 

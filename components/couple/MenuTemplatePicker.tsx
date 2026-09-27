@@ -6,6 +6,13 @@ import type { MenuSelection, MenuItemQuantity } from "@/lib/couple/menu";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { ImageLightbox } from "@/components/venue/dashboard/ImageLightbox";
 
+const COURSE_LABELS: Record<MenuItem["course"], string> = {
+  starter: "предјадење",
+  main: "главно јадење",
+  dessert: "десерт",
+  other: "друго",
+};
+
 function quantityKey(templateId: string, menuItemId: string) {
   return `${templateId}:${menuItemId}`;
 }
@@ -62,7 +69,7 @@ export function MenuTemplatePicker({
 
     const coursesWithMultiple = new Set(items.map((item) => item.course).filter((c) => courseHasMultipleItems(items, c)));
     if (Array.from(coursesWithMultiple).some((course) => blankCountForCourse(templateId, items, course) > 1)) {
-      setError("Only one item per course can be left blank.");
+      setError("Само едно јадење по категорија може да остане без бројка.");
       return;
     }
 
@@ -73,7 +80,7 @@ export function MenuTemplatePicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "template", menu_template_id: templateId }),
       });
-      if (!response.ok) throw new Error("Failed to select this menu.");
+      if (!response.ok) throw new Error("Не успеа изборот на ова мени.");
       await jsonOrThrow(
         await fetch("/api/couple/menu/quantities", {
           method: "PATCH",
@@ -88,7 +95,7 @@ export function MenuTemplatePicker({
       );
       setSelectedId(templateId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to select this menu.");
+      setError(err instanceof Error ? err.message : "Не успеа изборот на ова мени.");
     } finally {
       setIsSaving(false);
     }
@@ -96,7 +103,7 @@ export function MenuTemplatePicker({
 
   return (
     <section>
-      <h2 className="panel-t" style={{ marginBottom: 12 }}>Choose one of our menus</h2>
+      <h2 className="panel-t" style={{ marginBottom: 12 }}>Изберете едно од нашите менија</h2>
       {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, marginBottom: 8 }}>{error}</p> : null}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {templates.map((template) => (
@@ -113,7 +120,7 @@ export function MenuTemplatePicker({
                 disabled={isSaving || selectedId === template.id}
                 className={selectedId === template.id ? "btn btn-ghost" : "btn btn-gold"}
               >
-                {selectedId === template.id ? "Selected" : "Choose this menu"}
+                {selectedId === template.id ? "Избрано" : "Избери го ова мени"}
               </button>
             </div>
             <ul style={{ display: "flex", flexDirection: "column", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>
@@ -134,7 +141,7 @@ export function MenuTemplatePicker({
                       <div className="menu-item-thumb menu-item-thumb-empty" />
                     )}
                     <span style={{ color: "var(--muted)", fontSize: 13.5 }}>
-                      {item.name} ({item.course})
+                      {item.name} ({COURSE_LABELS[item.course]})
                     </span>
                   </li>
                 );
@@ -144,22 +151,22 @@ export function MenuTemplatePicker({
               .filter((course) => courseHasMultipleItems(template.items, course))
               .map((course) => (
                 <div key={course} style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <p className="lab-s" style={{ margin: 0 }}>Guest counts for {course}</p>
+                  <p className="lab-s" style={{ margin: 0 }}>Број на гости за {COURSE_LABELS[course]}</p>
                   {template.items
                     .filter((item) => item.course === course)
                     .map((item) => {
                       const key = quantityKey(template.id, item.id);
                       return (
                         <div key={item.id}>
-                          <label htmlFor={`qty-${key}`} className="lab-s">Guest count for {item.name}</label>
+                          <label htmlFor={`qty-${key}`} className="lab-s">Број на гости за {item.name}</label>
                           <input
                             id={`qty-${key}`}
-                            aria-label={`Guest count for ${item.name}`}
+                            aria-label={`Број на гости за ${item.name}`}
                             className="fld"
                             type="number"
                             min={1}
                             value={quantities[key] ?? ""}
-                            placeholder="rest"
+                            placeholder="останато"
                             onChange={(e) =>
                               setQuantities((prev) => ({
                                 ...prev,
@@ -173,12 +180,12 @@ export function MenuTemplatePicker({
                   {guestCountEstimate !== null &&
                   explicitTotalForCourse(template.id, template.items, course) > guestCountEstimate ? (
                     <p style={{ color: "var(--warn)", fontSize: 13.5, margin: 0 }}>
-                      These counts ({explicitTotalForCourse(template.id, template.items, course)}) already exceed the
-                      estimated guest count ({guestCountEstimate}) — you can still save.
+                      Овие бројки ({explicitTotalForCourse(template.id, template.items, course)}) веќе го надминуваат
+                      проценетиот број на гости ({guestCountEstimate}) — сепак можете да зачувате.
                     </p>
                   ) : null}
                   {blankCountForCourse(template.id, template.items, course) > 1 ? (
-                    <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>Only one item per course can be left blank.</p>
+                    <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>Само едно јадење по категорија може да остане без бројка.</p>
                   ) : null}
                 </div>
               ))}

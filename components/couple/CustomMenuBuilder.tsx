@@ -6,6 +6,13 @@ import type { MenuSelection, MenuItemQuantity } from "@/lib/couple/menu";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { ImageLightbox } from "@/components/venue/dashboard/ImageLightbox";
 
+const COURSE_LABELS: Record<MenuItem["course"], string> = {
+  starter: "предјадење",
+  main: "главно јадење",
+  dessert: "десерт",
+  other: "друго",
+};
+
 export function CustomMenuBuilder({
   items,
   currentSelection,
@@ -68,7 +75,7 @@ export function CustomMenuBuilder({
 
     const coursesWithMultiple = new Set(selected.map((item) => item.course).filter(courseHasMultipleItems));
     if (Array.from(coursesWithMultiple).some((course) => blankCountForCourse(course) > 1)) {
-      setError("Only one item per course can be left blank.");
+      setError("Само едно јадење по категорија може да остане без бројка.");
       return;
     }
 
@@ -79,7 +86,7 @@ export function CustomMenuBuilder({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "custom", menu_item_ids: Array.from(selectedIds) }),
       });
-      if (!response.ok) throw new Error("Failed to save your custom menu.");
+      if (!response.ok) throw new Error("Не успеа зачувувањето на вашето сопствено мени.");
       await jsonOrThrow(
         await fetch("/api/couple/menu/quantities", {
           method: "PATCH",
@@ -91,7 +98,7 @@ export function CustomMenuBuilder({
       );
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save your custom menu.");
+      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на вашето сопствено мени.");
     } finally {
       setIsSaving(false);
     }
@@ -99,10 +106,10 @@ export function CustomMenuBuilder({
 
   return (
     <section>
-      <h2 className="panel-t" style={{ marginBottom: 12 }}>Or build your own</h2>
+      <h2 className="panel-t" style={{ marginBottom: 12 }}>Или составете сопствено</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <p className="lab-s" style={{ marginBottom: 8 }}>Available dishes (drag into your menu)</p>
+          <p className="lab-s" style={{ marginBottom: 8 }}>Достапни јадења (повлечете во вашето мени)</p>
           <ul style={{ display: "flex", flexDirection: "column", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>
             {allItems
               .filter((item) => !selectedIds.has(item.id))
@@ -132,7 +139,7 @@ export function CustomMenuBuilder({
                     ) : (
                       <div className="menu-item-thumb menu-item-thumb-empty" />
                     )}
-                    {item.name} ({item.course})
+                    {item.name} ({COURSE_LABELS[item.course]})
                   </li>
                 );
               })}
@@ -144,9 +151,9 @@ export function CustomMenuBuilder({
           data-testid="custom-menu-drop-zone"
           style={{ minHeight: 128, borderRadius: 14, border: "2px dashed var(--line)", padding: 12 }}
         >
-          <p className="lab-s" style={{ marginBottom: 8 }}>Your menu</p>
+          <p className="lab-s" style={{ marginBottom: 8 }}>Вашето мени</p>
           {Array.from(selectedIds).length === 0 ? (
-            <p style={{ color: "var(--faint)", fontSize: 13.5 }}>Drag dishes here.</p>
+            <p style={{ color: "var(--faint)", fontSize: 13.5 }}>Повлечете јадења тука.</p>
           ) : (
             <ul style={{ display: "flex", flexDirection: "column", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>
               {allItems
@@ -173,10 +180,10 @@ export function CustomMenuBuilder({
                         ) : (
                           <div className="menu-item-thumb menu-item-thumb-empty" />
                         )}
-                        {item.name} ({item.course})
+                        {item.name} ({COURSE_LABELS[item.course]})
                       </span>
                       <button type="button" onClick={() => removeItem(item.id)} className="btn btn-ghost" style={{ padding: "4px 10px" }}>
-                        Remove
+                        Отстрани
                       </button>
                     </li>
                   );
@@ -189,20 +196,20 @@ export function CustomMenuBuilder({
         .filter(courseHasMultipleItems)
         .map((course) => (
           <div key={course} style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-            <p className="lab-s" style={{ margin: 0 }}>Guest counts for {course}</p>
+            <p className="lab-s" style={{ margin: 0 }}>Број на гости за {COURSE_LABELS[course]}</p>
             {selected
               .filter((item) => item.course === course)
               .map((item) => (
                 <div key={item.id}>
-                  <label htmlFor={`qty-${item.id}`} className="lab-s">Guest count for {item.name}</label>
+                  <label htmlFor={`qty-${item.id}`} className="lab-s">Број на гости за {item.name}</label>
                   <input
                     id={`qty-${item.id}`}
-                    aria-label={`Guest count for ${item.name}`}
+                    aria-label={`Број на гости за ${item.name}`}
                     className="fld"
                     type="number"
                     min={1}
                     value={quantities[item.id] ?? ""}
-                    placeholder="rest"
+                    placeholder="останато"
                     onChange={(e) =>
                       setQuantities((prev) => ({ ...prev, [item.id]: e.target.value ? Number(e.target.value) : null }))
                     }
@@ -211,20 +218,20 @@ export function CustomMenuBuilder({
               ))}
             {guestCountEstimate !== null && explicitTotalForCourse(course) > guestCountEstimate ? (
               <p style={{ color: "var(--warn)", fontSize: 13.5, margin: 0 }}>
-                These counts ({explicitTotalForCourse(course)}) already exceed the estimated guest count (
-                {guestCountEstimate}) — you can still save.
+                Овие бројки ({explicitTotalForCourse(course)}) веќе го надминуваат проценетиот број на гости (
+                {guestCountEstimate}) — сепак можете да зачувате.
               </p>
             ) : null}
             {blankCountForCourse(course) > 1 ? (
-              <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>Only one item per course can be left blank.</p>
+              <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>Само едно јадење по категорија може да остане без бројка.</p>
             ) : null}
           </div>
         ))}
       {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, marginTop: 8 }}>{error}</p> : null}
       <button type="button" onClick={handleSave} disabled={isSaving} className="btn btn-gold" style={{ marginTop: 12 }}>
-        {isSaving ? "Saving..." : "Save custom menu"}
+        {isSaving ? "Се зачувува..." : "Зачувај сопствено мени"}
       </button>
-      {saved ? <span style={{ marginLeft: 10, color: "var(--ok)", fontSize: 13.5 }}>Saved</span> : null}
+      {saved ? <span style={{ marginLeft: 10, color: "var(--ok)", fontSize: 13.5 }}>Зачувано</span> : null}
       {zoomed ? <ImageLightbox src={zoomed.src} alt={zoomed.alt} onClose={() => setZoomed(null)} /> : null}
     </section>
   );

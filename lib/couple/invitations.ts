@@ -71,6 +71,7 @@ export async function uploadInvitationPhoto(eventId: string, file: File): Promis
 export interface PublicInvitation {
   couple_names: string;
   event_date: string;
+  start_time: string | null;
   venue_name: string;
   room_names: string[];
   template_id: string;
@@ -90,7 +91,7 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
 
   const { data: event } = await client
     .from("events")
-    .select("couple_names, event_date, venue_id, event_rooms(rooms(name))")
+    .select("couple_names, event_date, start_time, venue_id, event_rooms(rooms(name))")
     .eq("id", invitation.event_id)
     .single();
   if (!event) return null;
@@ -103,6 +104,7 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
   return {
     couple_names: event.couple_names,
     event_date: event.event_date,
+    start_time: event.start_time,
     venue_name: venue?.name ?? "",
     room_names: roomNames,
     template_id: invitation.template_id,

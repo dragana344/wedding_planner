@@ -4,17 +4,17 @@ export interface BudgetCategory {
 }
 
 export const BUDGET_CATEGORIES: BudgetCategory[] = [
-  { id: "catering", label: "Catering" },
-  { id: "photography", label: "Photography" },
-  { id: "videography", label: "Videography" },
-  { id: "flowers_decor", label: "Flowers & Decor" },
-  { id: "music_entertainment", label: "Music & Entertainment" },
-  { id: "attire", label: "Attire" },
-  { id: "invitations_stationery", label: "Invitations & Stationery" },
-  { id: "transportation", label: "Transportation" },
-  { id: "other", label: "Other" },
+  { id: "catering", label: "Кетеринг" },
+  { id: "photography", label: "Фотографија" },
+  { id: "videography", label: "Видеографија" },
+  { id: "flowers_decor", label: "Цвеќиња и декор" },
+  { id: "music_entertainment", label: "Музика и забава" },
+  { id: "attire", label: "Облека" },
+  { id: "invitations_stationery", label: "Покани и канцелариски материјал" },
+  { id: "transportation", label: "Превоз" },
+  { id: "other", label: "Друго" },
 ];
 
 export function getBudgetCategoryLabel(id: string): string {
-  return BUDGET_CATEGORIES.find((c) => c.id === id)?.label ?? "Other";
+  return BUDGET_CATEGORIES.find((c) => c.id === id)?.label ?? "Друго";
 }

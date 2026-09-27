@@ -32,7 +32,7 @@ describe("menus data layer", () => {
   it("adds items to the venue's shared pool, tagged by tier", async () => {
     const item = await addMenuItem({
       venue_id: venueId,
-      tier: "special",
+      tiers: ["special"],
       course: "main",
       name: "Grilled chicken",
       allergen_tags: ["gluten"],
@@ -42,11 +42,11 @@ describe("menus data layer", () => {
     });
     expect(item.price).toBe(12.5);
     expect(item.photo_path).toBeNull();
-    expect(item.tier).toBe("special");
+    expect(item.tiers).toEqual(["special"]);
 
     const everydayItem = await addMenuItem({
       venue_id: venueId,
-      tier: "everyday",
+      tiers: ["everyday"],
       course: "starter",
       name: "House salad",
       allergen_tags: [],
@@ -66,10 +66,31 @@ describe("menus data layer", () => {
     await deleteMenuItem(everydayItem.id);
   });
 
+  it("lets a single item belong to both the everyday and special menus at once", async () => {
+    const item = await addMenuItem({
+      venue_id: venueId,
+      tiers: ["everyday", "special"],
+      course: "main",
+      name: "Печено пиле",
+      allergen_tags: [],
+      is_vegetarian: false,
+      is_vegan: false,
+      price: 8,
+    });
+    expect(item.tiers.sort()).toEqual(["everyday", "special"]);
+
+    const everyday = await listMenuItems(venueId, "everyday");
+    const special = await listMenuItems(venueId, "special");
+    expect(everyday.some((i) => i.id === item.id)).toBe(true);
+    expect(special.some((i) => i.id === item.id)).toBe(true);
+
+    await deleteMenuItem(item.id);
+  });
+
   it("lets the same pool item belong to more than one standard package, and deleting a template doesn't delete the item", async () => {
     const chicken = await addMenuItem({
       venue_id: venueId,
-      tier: "special",
+      tiers: ["special"],
       course: "main",
       name: "Печено пиле",
       allergen_tags: [],
@@ -105,7 +126,7 @@ describe("menus data layer", () => {
     const template = await createMenuTemplate(venueId, "Seasonal Menu");
     const soup = await addMenuItem({
       venue_id: venueId,
-      tier: "special",
+      tiers: ["special"],
       course: "starter",
       name: "Soup",
       allergen_tags: [],

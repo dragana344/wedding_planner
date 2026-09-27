@@ -15,12 +15,13 @@ async function assertRoomBelongsToEvent(
   eventId: string,
   roomId: string
 ): Promise<void> {
-  const { data } = await client
+  const { data, error } = await client
     .from("event_rooms")
     .select("room_id")
     .eq("event_id", eventId)
     .eq("room_id", roomId)
     .maybeSingle();
+  if (error) throw error;
   if (!data) throw new Error("Room is not assigned to this event.");
 }
 
@@ -29,11 +30,12 @@ async function assertTableTypeBelongsToRoom(
   roomId: string,
   tableTypeId: string
 ): Promise<void> {
-  const { data } = await client
+  const { data, error } = await client
     .from("table_types")
     .select("room_id")
     .eq("id", tableTypeId)
     .maybeSingle();
+  if (error) throw error;
   if (!data || data.room_id !== roomId) throw new Error("Table type does not belong to this room.");
 }
 

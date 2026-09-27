@@ -24,8 +24,15 @@ export function InvitationClient({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  // Set only after mount — window.location.origin doesn't exist during SSR,
+  // so computing it inline would render "" server-side and the real origin
+  // client-side, tripping a hydration mismatch on this link's text.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
-  const inviteUrl = invitation ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${invitation.public_slug}` : null;
+  const inviteUrl = invitation ? `${origin}/invite/${invitation.public_slug}` : null;
 
   useEffect(() => {
     if (!inviteUrl) {
@@ -48,7 +55,7 @@ export function InvitationClient({
       );
       setInvitation(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate invitation.");
+      setError(err instanceof Error ? err.message : "Не успеа генерирањето на поканата.");
     } finally {
       setIsSaving(false);
     }
@@ -61,7 +68,7 @@ export function InvitationClient({
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     } catch {
-      setError("Failed to copy link.");
+      setError("Не успеа копирањето на линкот.");
     }
   }
 
@@ -90,7 +97,7 @@ export function InvitationClient({
       const result = await jsonOrThrow(await fetch("/api/couple/invitation/photo", { method: "POST", body: formData }));
       setInvitation((prev) => (prev ? { ...prev, photo_path: result.photo_path } : prev));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload photo.");
+      setError(err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата.");
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -99,7 +106,7 @@ export function InvitationClient({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <p className="lab-s" style={{ marginBottom: 8 }}>Choose a design</p>
+        <p className="lab-s" style={{ marginBottom: 8 }}>Изберете дизајн</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {INVITATION_TEMPLATES.map((template) => (
             <button
@@ -122,7 +129,7 @@ export function InvitationClient({
       </div>
 
       <div className="panel" style={{ padding: 16 }}>
-        <p className="lab-s" style={{ marginBottom: 4 }}>Preview</p>
+        <p className="lab-s" style={{ marginBottom: 4 }}>Преглед</p>
         <p className="font-display text-2xl" style={{ color: (INVITATION_TEMPLATES.find((t) => t.id === templateId) ?? INVITATION_TEMPLATES[0]).accentColor, margin: 0 }}>
           {coupleNames}
         </p>
@@ -130,30 +137,30 @@ export function InvitationClient({
         {message ? <p style={{ marginTop: 8, color: "var(--ink-2)", fontSize: 13.5 }}>{message}</p> : null}
       </div>
 
-      <textarea className="fld" placeholder="Message (optional)" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} rows={3} />
+      <textarea className="fld" placeholder="Порака (опционално)" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} rows={3} />
 
       <div>
         <label htmlFor="invitation-photo" className="lab-s">
-          Photo (optional)
+          Фотографија (опционално)
         </label>
-        <input id="invitation-photo" aria-label="Photo (optional)" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
-        {isUploadingPhoto ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Uploading...</p> : null}
-        {invitation?.photo_path ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Photo uploaded.</p> : null}
+        <input id="invitation-photo" aria-label="Фотографија (опционално)" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
+        {isUploadingPhoto ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Се прикачува...</p> : null}
+        {invitation?.photo_path ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Фотографијата е прикачена.</p> : null}
       </div>
 
       {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
       <button type="button" onClick={handleGenerate} disabled={isSaving} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-        {isSaving ? "Saving..." : "Generate link"}
+        {isSaving ? "Се зачувува..." : invitation ? "Зачувај промени" : "Генерирај линк"}
       </button>
 
       {invitation ? (
         <div className="ev">
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>Share this link:</p>
+          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>Споделете го овој линк:</p>
           <p style={{ wordBreak: "break-all", fontFamily: "var(--data)", fontSize: 13.5 }}>{inviteUrl}</p>
           <button type="button" onClick={handleCopyLink} className="btn btn-ghost">
-            {isCopied ? "Copied!" : "Copy link"}
+            {isCopied ? "Копирано!" : "Копирај линк"}
           </button>
-          {qrDataUrl ? <img src={qrDataUrl} alt="Invitation QR code" style={{ marginTop: 8, height: 160, width: 160 }} /> : null}
+          {qrDataUrl ? <img src={qrDataUrl} alt="QR код на поканата" style={{ marginTop: 8, height: 160, width: 160 }} /> : null}
         </div>
       ) : null}
     </div>

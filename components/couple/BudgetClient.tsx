@@ -4,6 +4,7 @@ import { useState } from "react";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { BUDGET_CATEGORIES, getBudgetCategoryLabel } from "@/lib/couple/budget-categories";
 import type { BudgetItem, BudgetSummary } from "@/lib/couple/budget";
+import { Icon } from "@/components/venue/shell/Icon";
 
 interface ItemFormState {
   category: string;
@@ -70,7 +71,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
       }));
       setForm(EMPTY_FORM);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add item.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на ставката.");
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +110,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
       });
       setEditingId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update item.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на ставката.");
     }
   }
 
@@ -124,7 +125,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
         return { ...prev, items, totalEstimated, totalPaid, remaining: totalEstimated - totalPaid };
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete item.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на ставката.");
     }
   }
 
@@ -132,29 +133,32 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="tiles" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}>
         <div className="tile">
+          <span className="badge"><Icon name="chart" size="lg" /></span>
           <div>
             <div className="num">{summary.totalEstimated}</div>
-            <div className="lab">Estimated</div>
+            <div className="lab">Проценето</div>
           </div>
         </div>
         <div className="tile">
+          <span className="badge"><Icon name="tick" size="lg" /></span>
           <div>
             <div className="num">{summary.totalPaid}</div>
-            <div className="lab">Paid so far</div>
+            <div className="lab">Платено досега</div>
           </div>
         </div>
         <div className="tile">
+          <span className="badge"><Icon name="case" size="lg" /></span>
           <div>
             <div className="num">{summary.remaining}</div>
-            <div className="lab">Remaining</div>
+            <div className="lab">Преостанато</div>
           </div>
         </div>
       </div>
 
       <div className="ev">
-        <p style={{ fontWeight: 700, margin: 0 }}>Venue</p>
+        <p style={{ fontWeight: 700, margin: 0 }}>Локал</p>
         <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-          Estimated: {summary.venue.estimated_amount ?? "Not set"} · Paid: {summary.venue.paid_amount ?? "Not set"}
+          Проценето: {summary.venue.estimated_amount ?? "Не е поставено"} · Платено: {summary.venue.paid_amount ?? "Не е поставено"}
         </p>
       </div>
 
@@ -173,7 +177,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                 {editForm.category === "other" ? (
                   <input
                     className="fld"
-                    placeholder="Custom category"
+                    placeholder="Сопствена категорија"
                     value={editForm.custom_label}
                     onChange={(e) => setEditForm({ ...editForm, custom_label: e.target.value })}
                   />
@@ -181,24 +185,24 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                 <input className="fld" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                 <input
                   className="fld"
-                  placeholder="Estimated amount"
+                  placeholder="Проценет износ"
                   type="number"
                   value={editForm.estimated_amount}
                   onChange={(e) => setEditForm({ ...editForm, estimated_amount: e.target.value })}
                 />
                 <input
                   className="fld"
-                  placeholder="Paid so far"
+                  placeholder="Платено досега"
                   type="number"
                   value={editForm.paid_amount}
                   onChange={(e) => setEditForm({ ...editForm, paid_amount: e.target.value })}
                 />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" onClick={() => handleSaveEdit(item.id)} className="btn btn-gold">
-                    Save
+                    Зачувај
                   </button>
                   <button type="button" onClick={cancelEdit} className="btn btn-ghost">
-                    Cancel
+                    Откажи
                   </button>
                 </div>
               </div>
@@ -210,15 +214,15 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                   </p>
                   <p style={{ fontWeight: 700, margin: 0 }}>{item.name}</p>
                   <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-                    Estimated: {item.estimated_amount ?? "—"} · Paid: {item.paid_amount}
+                    Проценето: {item.estimated_amount ?? "—"} · Платено: {item.paid_amount}
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button type="button" onClick={() => startEdit(item)} aria-label={`Edit ${item.name}`} className="btn btn-ghost">
-                    Edit
+                  <button type="button" onClick={() => startEdit(item)} aria-label={`Измени ${item.name}`} className="btn btn-ghost">
+                    Измени
                   </button>
-                  <button type="button" onClick={() => handleDelete(item.id)} aria-label={`Delete ${item.name}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                    Delete
+                  <button type="button" onClick={() => handleDelete(item.id)} aria-label={`Избриши ${item.name}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                    Избриши
                   </button>
                 </div>
               </div>
@@ -236,26 +240,26 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
           ))}
         </select>
         {form.category === "other" ? (
-          <input className="fld" placeholder="Custom category" value={form.custom_label} onChange={(e) => setForm({ ...form, custom_label: e.target.value })} />
+          <input className="fld" placeholder="Сопствена категорија" value={form.custom_label} onChange={(e) => setForm({ ...form, custom_label: e.target.value })} />
         ) : null}
-        <input className="fld" placeholder="Item name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        <input className="fld" placeholder="Име на ставка" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         <input
           className="fld"
-          placeholder="Estimated amount"
+          placeholder="Проценет износ"
           type="number"
           value={form.estimated_amount}
           onChange={(e) => setForm({ ...form, estimated_amount: e.target.value })}
         />
         <input
           className="fld"
-          placeholder="Paid so far"
+          placeholder="Платено досега"
           type="number"
           value={form.paid_amount}
           onChange={(e) => setForm({ ...form, paid_amount: e.target.value })}
         />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-          {isSubmitting ? "Adding..." : "Add item"}
+          {isSubmitting ? "Се додава..." : "Додади ставка"}
         </button>
       </form>
     </div>

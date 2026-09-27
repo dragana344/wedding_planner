@@ -106,12 +106,12 @@ describe("events data layer: listEventsWithDetails seatedCount", () => {
       .single();
     const { data: chicken } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Roast Chicken" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Roast Chicken" })
       .select()
       .single();
     const { data: cake } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "dessert", name: "Birthday Cake" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "dessert", name: "Birthday Cake" })
       .select()
       .single();
     await admin

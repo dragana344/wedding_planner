@@ -16,8 +16,8 @@ describe("LocationsClient", () => {
 
     expect(screen.getByText("Црква")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Label"), { target: { value: "Ресторан" } });
-    fireEvent.click(screen.getByRole("button", { name: /add/i }));
+    fireEvent.change(screen.getByPlaceholderText("Назив"), { target: { value: "Ресторан" } });
+    fireEvent.click(screen.getByRole("button", { name: /додади/i }));
 
     await waitFor(() => expect(screen.getByText("Ресторан")).toBeInTheDocument());
   });
@@ -26,7 +26,7 @@ describe("LocationsClient", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
     render(<LocationsClient initialLocations={locations} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
+    fireEvent.click(screen.getByRole("button", { name: /избриши/i }));
 
     await waitFor(() => expect(screen.queryByText("Црква")).not.toBeInTheDocument());
   });
@@ -38,11 +38,11 @@ describe("LocationsClient", () => {
     });
     render(<LocationsClient initialLocations={locations} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^измени$/i }));
 
-    const labelInput = screen.getByLabelText("Edit label");
+    const labelInput = screen.getByLabelText("Измени назив");
     fireEvent.change(labelInput, { target: { value: "Изменето" } });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^зачувај$/i }));
 
     await waitFor(() => expect(screen.getByText("Изменето")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(

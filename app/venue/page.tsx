@@ -26,11 +26,32 @@ function isoOf(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Today's calendar date in Macedonia, regardless of what timezone the server
+ * process itself runs in (e.g. a host defaulting to UTC). Without this, a
+ * server clock even a couple of hours off from Europe/Skopje can disagree
+ * with the venue's own "today" right around local midnight — an event
+ * dated "today" wouldn't count in these stats until the server's clock
+ * caught up. The rest of this page only ever reads calendar-day components
+ * (year/month/date) off `now`, never the real instant, so a Date built from
+ * Skopje's wall-clock date stays internally consistent for all of it.
+ */
+function skopjeToday(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Skopje",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return new Date(Number(map.year), Number(map.month) - 1, Number(map.day));
+}
+
 export default async function VenueHomePage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
 
-  const now = new Date();
+  const now = skopjeToday();
   const today = isoOf(now);
 
   const [rooms, menuTemplates, allEvents, todayReservations] = await Promise.all([

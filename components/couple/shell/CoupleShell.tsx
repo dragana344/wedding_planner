@@ -33,7 +33,7 @@ export function CoupleShell({
           className="side-toggle"
           type="button"
           onClick={() => setMini((v) => !v)}
-          aria-label={mini ? "Expand menu" : "Collapse menu"}
+          aria-label={mini ? "Прошири мени" : "Собери мени"}
           aria-expanded={!mini}
         >
           <Icon name={mini ? "right" : "left"} size="sm" />
@@ -48,16 +48,19 @@ export function CoupleShell({
           </svg>
           <div>
             <div className="brand-name">{coupleNames}</div>
-            <div className="brand-sub">YOUR EVENT</div>
+            <div className="brand-sub">ВАШИОТ НАСТАН</div>
           </div>
         </div>
 
-        <nav className="nav" aria-label="Main navigation">
+        <nav className="nav" aria-label="Главна навигација">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={item.href === active.href ? "on" : ""}
+              className={[
+                item.href === active.href ? "on" : "",
+                item.ready ? "" : "soon",
+              ].filter(Boolean).join(" ")}
               aria-current={item.href === active.href ? "page" : undefined}
             >
               <Icon name={item.icon} />
@@ -80,7 +83,7 @@ export function CoupleShell({
             <div className="meta-item">
               <Icon name="cal" size="lg" style={{ color: "var(--ink-2)" }} />
               <div>
-                <div className="meta-lab">Event date</div>
+                <div className="meta-lab">Датум на настанот</div>
                 <div className="meta-val">{eventDate}</div>
               </div>
             </div>

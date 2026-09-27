@@ -46,7 +46,7 @@ describe("0022 schema: organizer tools", () => {
 
     const { data: menuItem } = await admin
       .from("menu_items")
-      .insert({ venue_id: venue!.id, tier: "special", course: "main", name: "Печено пиле" })
+      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Печено пиле" })
       .select()
       .single();
 

@@ -10,7 +10,7 @@ export function LogoutButton() {
   }
   return (
     <button type="button" onClick={handleLogout} className="btn btn-ghost">
-      Log out
+      Одјави се
     </button>
   );
 }

@@ -23,10 +23,10 @@ describe("ChecklistClient", () => {
     render(<ChecklistClient initialItems={items} initialStats={stats} />);
 
     expect(screen.getByText("Book photographer")).toBeInTheDocument();
-    expect(screen.getByText(/1 open/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 отворени/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Task title"), { target: { value: "Send invitations" } });
-    fireEvent.click(screen.getByRole("button", { name: /add task/i }));
+    fireEvent.change(screen.getByPlaceholderText("Наслов на задачата"), { target: { value: "Send invitations" } });
+    fireEvent.click(screen.getByRole("button", { name: /додади задача/i }));
 
     await waitFor(() => expect(screen.getByText("Send invitations")).toBeInTheDocument());
   });
@@ -67,9 +67,9 @@ describe("ChecklistClient", () => {
     });
     render(<ChecklistClient initialItems={items} initialStats={stats} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /edit book photographer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /измени book photographer/i }));
     fireEvent.change(screen.getByDisplayValue("Book photographer"), { target: { value: "Book photographer (booked!)" } });
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(screen.getByRole("button", { name: /зачувај/i }));
 
     await waitFor(() => expect(screen.getByText("Book photographer (booked!)")).toBeInTheDocument());
   });
@@ -86,7 +86,7 @@ describe("ChecklistClient", () => {
     });
     render(<ChecklistClient initialItems={items} initialStats={stats} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /delete book photographer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /избриши book photographer/i }));
 
     await waitFor(() => expect(screen.queryByText("Book photographer")).not.toBeInTheDocument());
   });
@@ -118,8 +118,8 @@ describe("ChecklistClient", () => {
     });
     render(<ChecklistClient initialItems={items} initialStats={stats} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/add an option or subtask/i), { target: { value: "Photographer A" } });
-    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    fireEvent.change(screen.getByPlaceholderText(/додади опција или подзадача/i), { target: { value: "Photographer A" } });
+    fireEvent.click(screen.getByRole("button", { name: /^додади$/i }));
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
@@ -137,7 +137,7 @@ describe("ChecklistClient", () => {
       )
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete Photographer A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Избриши Photographer A" }));
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith("/api/couple/checklist/c1/subtasks/s1", expect.objectContaining({ method: "DELETE" }))
     );
@@ -153,6 +153,6 @@ describe("ChecklistClient", () => {
     render(<ChecklistClient initialItems={overdueItems} initialStats={overdueStats} />);
 
     expect(screen.getByText("Confirm florist")).toBeInTheDocument();
-    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getByText("Задоцнето")).toBeInTheDocument();
   });
 });

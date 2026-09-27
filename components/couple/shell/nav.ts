@@ -4,6 +4,11 @@ export type CoupleNavItem = {
   label: string;
   title: string;
   subtitle: string;
+  /** false marks a section that exists in the approved design but has no
+   * data layer yet — it renders a "Coming soon" placeholder rather than
+   * being hidden, so the sidebar matches the design and the gap stays
+   * visible. Mirrors the venue panel's own `ready` convention. */
+  ready: boolean;
 };
 
 /**
@@ -12,22 +17,26 @@ export type CoupleNavItem = {
  */
 export function buildCoupleNavItems(rooms: { id: string; name: string }[]): CoupleNavItem[] {
   return [
-    { href: "/couple", icon: "home", label: "Overview", title: "OVERVIEW", subtitle: "Your event at a glance" },
+    { href: "/couple", icon: "home", label: "Почетна", title: "ПОЧЕТНА", subtitle: "Преглед на вашиот настан", ready: true },
     ...rooms.map((room) => ({
       href: `/couple/seating/${room.id}`,
       icon: "tables",
-      label: rooms.length > 1 ? `Seating — ${room.name}` : "Seating",
-      title: "SEATING",
+      label: rooms.length > 1 ? `Распоред — ${room.name}` : "Распоред",
+      title: "РАСПОРЕД",
       subtitle: room.name,
+      ready: true,
     })),
-    { href: "/couple/menu", icon: "menu", label: "Menu", title: "MENU", subtitle: "Choose your menu" },
-    { href: "/couple/agenda", icon: "cal-dot", label: "Agenda", title: "AGENDA", subtitle: "Your day, planned out" },
-    { href: "/couple/locations", icon: "pin", label: "Locations", title: "LOCATIONS", subtitle: "Where everything happens" },
-    { href: "/couple/guests", icon: "users", label: "Guests", title: "GUESTS", subtitle: "Guest list and RSVPs" },
-    { href: "/couple/budget", icon: "chart", label: "Budget", title: "BUDGET", subtitle: "Track your spending" },
-    { href: "/couple/checklist", icon: "check", label: "Checklist", title: "CHECKLIST", subtitle: "Wedding planning tasks" },
-    { href: "/couple/notes", icon: "note", label: "Notes", title: "NOTES", subtitle: "Jot down anything, anytime" },
-    { href: "/couple/invitation", icon: "heart", label: "Invitation", title: "INVITATION", subtitle: "Build and share your invite" },
+    { href: "/couple/menu", icon: "menu", label: "Мени", title: "МЕНИ", subtitle: "Изберете го вашето мени", ready: true },
+    { href: "/couple/agenda", icon: "cal-dot", label: "Агенда", title: "АГЕНДА", subtitle: "Вашиот ден, испланиран", ready: true },
+    { href: "/couple/locations", icon: "pin", label: "Локации", title: "ЛОКАЦИИ", subtitle: "Каде се случува сè", ready: true },
+    { href: "/couple/guests", icon: "users", label: "Гости", title: "ГОСТИ", subtitle: "Список на гости и потврди", ready: true },
+    { href: "/couple/budget", icon: "chart", label: "Буџет", title: "БУЏЕТ", subtitle: "Следете ги трошоците", ready: true },
+    { href: "/couple/checklist", icon: "check", label: "Чеклиста", title: "ЧЕКЛИСТА", subtitle: "Задачи за планирање на свадбата", ready: true },
+    { href: "/couple/notes", icon: "note", label: "Белешки", title: "БЕЛЕШКИ", subtitle: "Запишете било што, било кога", ready: true },
+    { href: "/couple/invitation", icon: "heart", label: "Покана", title: "ПОКАНА", subtitle: "Создадете и споделете ја вашата покана", ready: true },
+    { href: "/couple/greetings", icon: "gift", label: "Честитки", title: "ЧЕСТИТКИ", subtitle: "Честитки од вашите гости", ready: false },
+    { href: "/couple/messages", icon: "msg", label: "Пораки", title: "ПОРАКИ", subtitle: "Пораки од гостите и локалот", ready: false },
+    { href: "/couple/album", icon: "photo", label: "Албум", title: "АЛБУМ", subtitle: "Фотографии од вашето славење", ready: false },
   ];
 }
 

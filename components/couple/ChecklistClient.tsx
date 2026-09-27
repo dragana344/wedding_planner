@@ -25,7 +25,7 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
       setNewTitle("");
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add subtask.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на подзадачата.");
     } finally {
       setIsSubmitting(false);
     }
@@ -43,7 +43,7 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
       );
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update subtask.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на подзадачата.");
     }
   }
 
@@ -53,7 +53,7 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
       await jsonOrThrow(await fetch(`/api/couple/checklist/${item.id}/subtasks/${subtaskId}`, { method: "DELETE" }));
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete subtask.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на подзадачата.");
     }
   }
 
@@ -73,7 +73,7 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
           <button
             type="button"
             onClick={() => handleDelete(subtask.id)}
-            aria-label={`Delete ${subtask.title}`}
+            aria-label={`Избриши ${subtask.title}`}
             className="btn btn-ghost"
             style={{ color: "var(--bad)", padding: "2px 8px" }}
           >
@@ -84,13 +84,13 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
       <form onSubmit={handleAdd} style={{ display: "flex", gap: 8 }}>
         <input
           className="fld"
-          placeholder="Add an option or subtask..."
+          placeholder="Додади опција или подзадача..."
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           style={{ fontSize: 13.5 }}
         />
         <button type="submit" disabled={isSubmitting} className="btn btn-ghost" style={{ padding: "4px 12px" }}>
-          Add
+          Додади
         </button>
       </form>
       {error ? <p style={{ color: "var(--bad)", fontSize: 12.5, margin: 0 }}>{error}</p> : null}
@@ -137,7 +137,7 @@ export function ChecklistClient({
       setDueDate("");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add task.");
+      setError(err instanceof Error ? err.message : "Не успеа додавањето на задачата.");
     } finally {
       setIsSubmitting(false);
     }
@@ -155,7 +155,7 @@ export function ChecklistClient({
       );
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update task.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на задачата.");
     }
   }
 
@@ -182,7 +182,7 @@ export function ChecklistClient({
       setEditingId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update task.");
+      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на задачата.");
     }
   }
 
@@ -192,7 +192,7 @@ export function ChecklistClient({
       await jsonOrThrow(await fetch(`/api/couple/checklist/${itemId}`, { method: "DELETE" }));
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete task.");
+      setError(err instanceof Error ? err.message : "Не успеа бришењето на задачата.");
     }
   }
 
@@ -201,9 +201,9 @@ export function ChecklistClient({
       <div className="ev">
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>
           {stats.open === 0
-            ? "All done"
-            : `${stats.open} open${stats.overdue > 0 ? ` · ${stats.overdue} overdue` : ""}${
-                stats.done > 0 ? ` · ${stats.done} done` : ""
+            ? "Сè е завршено"
+            : `${stats.open} отворени${stats.overdue > 0 ? ` · ${stats.overdue} задоцнети` : ""}${
+                stats.done > 0 ? ` · ${stats.done} завршени` : ""
               }`}
         </p>
       </div>
@@ -220,10 +220,10 @@ export function ChecklistClient({
                 <input className="fld" type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" onClick={() => handleSaveEdit(item.id)} className="btn btn-gold">
-                    Save
+                    Зачувај
                   </button>
                   <button type="button" onClick={cancelEdit} className="btn btn-ghost">
-                    Cancel
+                    Откажи
                   </button>
                 </div>
               </div>
@@ -240,18 +240,18 @@ export function ChecklistClient({
                     <p style={{ fontWeight: 700, margin: 0 }}>{item.title}</p>
                     {item.due_date ? (
                       <p style={{ margin: 0, fontSize: 13.5, color: isOverdue ? "var(--bad)" : "var(--muted)" }}>
-                        Due {item.due_date}
-                        {isOverdue ? <span style={{ marginLeft: 8, fontWeight: 700 }}>Overdue</span> : null}
+                        Рок {item.due_date}
+                        {isOverdue ? <span style={{ marginLeft: 8, fontWeight: 700 }}>Задоцнето</span> : null}
                       </p>
                     ) : null}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button type="button" onClick={() => startEdit(item)} aria-label={`Edit ${item.title}`} className="btn btn-ghost">
-                    Edit
+                  <button type="button" onClick={() => startEdit(item)} aria-label={`Измени ${item.title}`} className="btn btn-ghost">
+                    Измени
                   </button>
-                  <button type="button" onClick={() => handleDelete(item.id)} aria-label={`Delete ${item.title}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                    Delete
+                  <button type="button" onClick={() => handleDelete(item.id)} aria-label={`Избриши ${item.title}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                    Избриши
                   </button>
                 </div>
               </div>
@@ -263,11 +263,11 @@ export function ChecklistClient({
       </div>
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <input className="fld" placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <input className="fld" placeholder="Наслов на задачата" value={title} onChange={(e) => setTitle(e.target.value)} required />
         <input className="fld" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-          {isSubmitting ? "Adding..." : "Add task"}
+          {isSubmitting ? "Се додава..." : "Додади задача"}
         </button>
       </form>
     </div>

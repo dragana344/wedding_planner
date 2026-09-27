@@ -25,7 +25,7 @@ describe("0002 schema: menu_templates, menu_items", () => {
       .from("menu_items")
       .insert({
         venue_id: venue!.id,
-        tier: "special",
+        tiers: ["special"],
         course: "main",
         name: "Grilled chicken",
         allergen_tags: ["gluten"],
