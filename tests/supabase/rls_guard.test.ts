@@ -23,6 +23,7 @@ const STAFF_TABLES = [
   "event_layout_elements",
   "reservations",
   "reservation_tables",
+  "audit_log",
 ];
 
 /** Tables only server code touches, with the service-role client. No API-role grants, no policies. */

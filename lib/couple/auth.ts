@@ -1,4 +1,5 @@
 // lib/couple/auth.ts
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export async function verifyEventCredentials(

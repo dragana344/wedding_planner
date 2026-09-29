@@ -3,6 +3,27 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { InvitationClient } from "@/components/couple/InvitationClient";
 
+// SEC-005: the photo goes straight to Storage with a signed upload.
+const uploadToSignedUrl = vi.hoisted(() => vi.fn(async () => ({ data: { path: "p" }, error: null })));
+vi.mock("@/lib/supabase/client", () => ({
+  createBrowserSupabaseClient: () => ({ storage: { from: () => ({ uploadToSignedUrl }) } }),
+}));
+
+/** fetch for the two-step photo flow (+ the invitation row endpoint). */
+function photoFetch(extra: (url: string) => unknown = () => undefined) {
+  return vi.fn().mockImplementation((url: string) => {
+    const custom = extra(url);
+    if (custom) return Promise.resolve(custom);
+    if (url === "/api/couple/invitation/photo") {
+      return Promise.resolve({ ok: true, json: async () => ({ path: "uploads/e1/abc", token: "tok" }) });
+    }
+    if (url === "/api/couple/invitation/photo/confirm") {
+      return Promise.resolve({ ok: true, json: async () => ({ photo_path: "e1-123.jpg" }) });
+    }
+    return Promise.reject(new Error(`Unexpected fetch call: ${url}`));
+  });
+}
+
 describe("InvitationClient", () => {
   it("lets the couple pick a template, add a message, and generate a link", async () => {
     global.fetch = vi.fn().mockResolvedValue({
@@ -69,8 +90,8 @@ describe("InvitationClient", () => {
     expect(await screen.findByText(/existing-slug/i)).toBeInTheDocument();
   });
 
-  it("uploads a photo separately via the photo endpoint", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ photo_path: "e1-123.jpg" }) });
+  it("uploads a photo straight to Storage, then confirms it", async () => {
+    global.fetch = photoFetch();
     render(
       <InvitationClient
         initialInvitation={{ event_id: "e1", template_id: "romantic-floral", message: null, photo_path: null, public_slug: "existing-slug" }}
@@ -85,10 +106,27 @@ describe("InvitationClient", () => {
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
-        "/api/couple/invitation/photo",
-        expect.objectContaining({ method: "POST" })
+        "/api/couple/invitation/photo/confirm",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ path: "uploads/e1/abc" }) })
       )
     );
+    expect(uploadToSignedUrl).toHaveBeenCalledWith("uploads/e1/abc", "tok", file, expect.objectContaining({ contentType: "image/jpeg" }));
+    expect(await screen.findByText(/Фотографијата е прикачена/)).toBeInTheDocument();
+  });
+
+  it("shows the app's message when Storage refuses the file", async () => {
+    global.fetch = photoFetch();
+    uploadToSignedUrl.mockResolvedValueOnce({ data: null, error: new Error("mime type not supported") } as never);
+    render(
+      <InvitationClient
+        initialInvitation={{ event_id: "e1", template_id: "romantic-floral", message: null, photo_path: null, public_slug: "existing-slug" }}
+        coupleNames="Ана & Марко"
+        eventDate="2027-06-15"
+      />
+    );
+    fireEvent.change(screen.getByLabelText(/фотографија/i), { target: { files: [new File(["<svg/>"], "x.svg", { type: "image/svg+xml" })] } });
+    expect(await screen.findByText(/не е поддржана слика или е преголема/)).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/couple/invitation/photo/confirm", expect.anything());
   });
 
   it("shows the existing link immediately when an invitation already exists", () => {
@@ -120,24 +158,14 @@ describe("InvitationClient", () => {
   });
 
   it("creates the invitation row first when a photo is picked before any invitation exists", async () => {
-    global.fetch = vi.fn().mockImplementation((url: string) => {
-      if (url === "/api/couple/invitation") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            event_id: "e1",
-            template_id: "romantic-floral",
-            message: null,
-            photo_path: null,
-            public_slug: "new-slug",
-          }),
-        });
-      }
-      if (url === "/api/couple/invitation/photo") {
-        return Promise.resolve({ ok: true, json: async () => ({ photo_path: "e1-456.jpg" }) });
-      }
-      return Promise.reject(new Error(`Unexpected fetch call: ${url}`));
-    });
+    global.fetch = photoFetch((url) =>
+      url === "/api/couple/invitation"
+        ? {
+            ok: true,
+            json: async () => ({ event_id: "e1", template_id: "romantic-floral", message: null, photo_path: null, public_slug: "new-slug" }),
+          }
+        : undefined,
+    );
 
     render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" />);
 

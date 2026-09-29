@@ -1,4 +1,6 @@
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export type RsvpStatus = "invited" | "confirmed" | "declined" | "pending";
 export type GuestSide = "bride" | "groom";
@@ -12,6 +14,9 @@ export interface Guest {
   rsvp_status: RsvpStatus;
   notes: string | null;
   side: GuestSide | null;
+  /** SEC-021: when the public invitation link last set this guest's answer. */
+  rsvp_changed_via_link_at?: string | null;
+  rsvp_previous_status?: RsvpStatus | null;
 }
 
 export interface GuestInput {
@@ -31,13 +36,18 @@ export interface GuestStats {
   totalAttending: number;
 }
 
-const COLUMNS = "id, event_id, full_name, phone, party_size, rsvp_status, notes, side";
+const COLUMNS = "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status";
 
 export async function listGuests(eventId: string): Promise<Guest[]> {
   const client = createServiceRoleClient();
-  const { data, error } = await client.from("event_guests").select(COLUMNS).eq("event_id", eventId).order("created_at");
+  const { data, error } = await client
+    .from("event_guests")
+    .select(COLUMNS)
+    .eq("event_id", eventId)
+    .order("created_at")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "event_guests");
 }
 
 export async function addGuest(eventId: string, input: GuestInput): Promise<Guest> {

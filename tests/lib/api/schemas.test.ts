@@ -216,3 +216,15 @@ describe("public schemas", () => {
     expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201) }).success).toBe(false);
   });
 });
+
+describe("location map links (SEC-025 SR-11)", () => {
+  it("accepts web links and empty values, refuses other schemes", async () => {
+    const { locationBody } = await import("@/lib/api/schemas");
+    for (const ok of ["https://maps.app.goo.gl/abc", "http://example.com", "", null]) {
+      expect(locationBody.safeParse({ label: "Сала", map_url: ok }).success, String(ok)).toBe(true);
+    }
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "ftp://x"]) {
+      expect(locationBody.safeParse({ label: "Сала", map_url: bad }).success, bad).toBe(false);
+    }
+  });
+});

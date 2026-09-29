@@ -1,11 +1,18 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 
-export async function createServerSupabaseClient() {
+/**
+ * One client per request: memoized with React `cache()` so a layout and the
+ * page it wraps share it (and so share memoized lookups keyed on it, like
+ * getCurrentVenue). Outside a server render `cache()` is a pass-through.
+ */
+export const createServerSupabaseClient = cache(async () => {
   const cookieStore = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl(),
+    supabaseAnonKey(),
     {
       cookies: {
         getAll() {
@@ -26,4 +33,4 @@ export async function createServerSupabaseClient() {
       },
     }
   );
-}
+});

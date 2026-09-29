@@ -1,0 +1,86 @@
+name: Deploy production
+
+# CICD-003: production deploys only from main, only after CI passed, and
+# migrations are applied before the app version that needs them goes live.
+# Preview deployments come from Vercel's Git integration (production
+# auto-deploys from main are disabled in vercel.json).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply database migrations
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    # The `production` environment requires a reviewer's approval (GitHub →
+    # Settings → Environments) and holds the secrets below.
+    environment: production
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+      # DATA-003: the production schema must equal what the migrations
+      # already applied there produce. Anything else is a dashboard edit.
+      - name: Drift check (production vs applied migrations)
+        run: |
+          applied=$(npx supabase migration list --linked --output-format json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const m=JSON.parse(s).migrations;console.log(m.filter(x=>x.remote&&!x.local).map(x=>x.remote).join(" "))})')
+          if [ -n "$applied" ]; then echo "Production has migrations that are not in the repo: $applied"; exit 1; fi
+      - name: Apply pending migrations
+        run: npx supabase db push --linked --yes
+      - name: Schema drift after push must be empty
+        run: |
+          drift=$(npx supabase db diff --linked --schema public)
+          if [ -n "$drift" ]; then echo "$drift"; echo "Production schema differs from migrations (dashboard edit?)."; exit 1; fi
+
+  deploy:
+    name: Deploy app to Vercel production
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm i -g vercel@latest
+      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --env RELEASE_SHA=${{ github.event.workflow_run.head_sha }})
+          echo "Deployed $url"
+      - name: Smoke check
+        run: |
+          for i in 1 2 3 4 5 6; do
+            body=$(curl -fsS "${{ vars.PRODUCTION_URL }}/api/health") && echo "$body" | grep -q '"ok":true' && echo "$body" && exit 0
+            sleep 10
+          done
+          echo "Production health check failed after deploy"; exit 1

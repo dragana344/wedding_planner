@@ -1,7 +1,7 @@
 import "server-only";
-import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { pseudonymize } from "@/lib/security/pseudonym";
 
 /**
  * Fixed-window rate limiting for public and credential endpoints (SEC-002),
@@ -45,7 +45,7 @@ export async function checkRateLimit(
   subject: string,
   store: RateLimitStore = postgresRateLimitStore,
 ): Promise<RateLimitResult> {
-  const key = `${rule.bucket}:${createHash("sha256").update(subject).digest("hex")}`;
+  const key = `${rule.bucket}:${pseudonymize("rate-limit", subject)}`;
   try {
     const hits = await store(key, rule.windowSeconds);
     return hits > rule.limit ? { ok: false, status: 429 } : { ok: true };

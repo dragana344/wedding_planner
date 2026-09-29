@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { POST as login } from "@/app/api/couple/login/route";
 import { POST as logout } from "@/app/api/couple/logout/route";
-import { middleware } from "@/middleware";
+import { proxy as middleware } from "@/proxy";
 
 // End to end over the real route handlers and middleware: a couple logs in,
 // the cookie (raw token) is accepted by middleware even though only its hash

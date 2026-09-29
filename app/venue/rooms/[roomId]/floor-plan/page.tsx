@@ -8,13 +8,14 @@ import { RoomFloorPlanPage } from "@/components/venue/dashboard/RoomFloorPlanPag
 export default async function RoomFloorPlanRoute({
   params,
 }: {
-  params: { roomId: string };
+  params: Promise<{ roomId: string }>;
 }) {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
   if (!venueId) notFound();
 
-  const room = await getRoomById(params.roomId, supabase);
+  const { roomId } = await params;
+  const room = await getRoomById(roomId, supabase);
   if (!room || room.venue_id !== venueId) notFound();
 
   const [fixedElements, layoutElements, tableTypes] = await Promise.all([

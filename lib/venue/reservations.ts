@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import type { EventType } from "./events";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 /**
  * Arrival-based lifecycle: reserved (booked, guests not here yet) -> seated
@@ -108,9 +109,10 @@ export async function listReservations(
     .select(RESERVATION_COLUMNS)
     .eq("venue_id", venueId)
     .order("date", { ascending: false })
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS); // newest first, so older history is what a bound drops
   if (error) throw error;
-  return (data ?? []).map(mapRow);
+  return checkListBound(data, "reservations").map(mapRow);
 }
 
 export async function listReservationsForDate(
@@ -123,7 +125,8 @@ export async function listReservationsForDate(
     .select(RESERVATION_COLUMNS)
     .eq("venue_id", venueId)
     .eq("date", date)
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }
@@ -139,7 +142,8 @@ export async function listReservationsForRoom(
     .eq("room_id", roomId)
     .eq("date", date)
     .not("status", "in", `(${INACTIVE_STATUSES.join(",")})`)
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }

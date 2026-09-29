@@ -1,3 +1,4 @@
+import "server-only";
 import { randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -187,36 +188,22 @@ async function addDraftElement(
 async function confirmSeating(eventId: string, roomId: string, client: SupabaseClient): Promise<void> {
   const draftElements = await getOrInitDraft(eventId, roomId, client);
 
-  const { error: deleteError } = await client
-    .from("event_layout_elements")
-    .delete()
-    .eq("event_id", eventId)
-    .eq("room_id", roomId);
-  if (deleteError) throw deleteError;
-
-  if (draftElements.length > 0) {
-    const { error: insertError } = await client.from("event_layout_elements").insert(
-      draftElements.map((el) => ({
-        event_id: eventId,
-        room_id: roomId,
-        element_type: el.element_type,
-        table_type_id: el.table_type_id,
-        x_cm: el.x_cm,
-        y_cm: el.y_cm,
-        width_cm: el.width_cm,
-        length_cm: el.length_cm,
-        rotation_deg: el.rotation_deg,
-        label: el.label,
-      }))
-    );
-    if (insertError) throw insertError;
-  }
-
-  const { confirmedAt } = await readEventJsonColumns(client, eventId);
-  const { error } = await client
-    .from("events")
-    .update({ seating_confirmed_at: { ...confirmedAt, [roomId]: new Date().toISOString() } })
-    .eq("id", eventId);
+  // REL-005: replace + stamp in one transaction (migration 0041).
+  const { error } = await client.rpc("confirm_event_seating", {
+    p_event_id: eventId,
+    p_room_id: roomId,
+    p_elements: draftElements.map((el) => ({
+      element_type: el.element_type,
+      table_type_id: el.table_type_id,
+      x_cm: el.x_cm,
+      y_cm: el.y_cm,
+      width_cm: el.width_cm,
+      length_cm: el.length_cm,
+      rotation_deg: el.rotation_deg,
+      label: el.label,
+    })),
+    p_confirmed_at: new Date().toISOString(),
+  });
   if (error) throw error;
 }
 

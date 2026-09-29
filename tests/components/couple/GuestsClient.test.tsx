@@ -85,3 +85,29 @@ describe("GuestsClient", () => {
     );
   });
 });
+
+describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
+  it("shows when the link last changed a guest's answer and what it was before", () => {
+    render(
+      <GuestsClient
+        initialGuests={[
+          {
+            id: "g-link",
+            event_id: "e1",
+            full_name: "Ана Ристова",
+            phone: null,
+            party_size: 1,
+            rsvp_status: "declined",
+            notes: null,
+            side: null,
+            rsvp_changed_via_link_at: "2026-10-03T10:15:00Z",
+            rsvp_previous_status: "confirmed",
+          },
+        ]}
+        initialStats={{ total: 1, confirmed: 0, declined: 1, pending: 0, invited: 0, totalAttending: 0 }}
+        eventType="birthday"
+      />,
+    );
+    expect(screen.getByText(/Одговор преку поканата: .*\(претходно: Потврден\)/)).toBeInTheDocument();
+  });
+});

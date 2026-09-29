@@ -376,7 +376,12 @@ describe("RLS isolation (TEST-003)", () => {
       const { rows } = await db.query<{ table_name: string }>(`
         select distinct table_name from information_schema.role_table_grants
         where table_schema = 'public' and grantee = 'authenticated' order by 1`);
-      expect(CASES.map((c) => c.table).sort()).toEqual(rows.map((r) => r.table_name).sort());
+      // audit_log is select-only for staff (no CRUD to isolate); its venue
+      // scoping is tested in audit_log.test.ts.
+      const READ_ONLY_TESTED_ELSEWHERE = new Set(["audit_log"]);
+      expect(CASES.map((c) => c.table).sort()).toEqual(
+        rows.map((r) => r.table_name).filter((t) => !READ_ONLY_TESTED_ELSEWHERE.has(t)).sort(),
+      );
     } finally {
       await db.end();
     }
@@ -414,7 +419,9 @@ describe("RLS isolation (TEST-003)", () => {
       for (const values of c.inserts(A, B)) {
         const { data, error } = await staffA.from(c.table).insert(values).select();
         if (c.table === "venues" && data) strayVenueIds.push(...(data as { id: string }[]).map((v) => v.id));
-        expect(error?.code, `${c.table} insert ${JSON.stringify(values)}`).toBe("42501");
+        // 42501: RLS refused it; 23514: the same-venue reference trigger
+        // (migration 0045) refused it first. Either way nothing is written.
+        expect(["42501", "23514"], `${c.table} insert ${JSON.stringify(values)}`).toContain(error?.code);
       }
     });
 
@@ -458,7 +465,7 @@ describe("RLS isolation (TEST-003)", () => {
       const before = await adminRead(table, key());
       expect(before).toHaveLength(1);
       const { error } = await filtered(staffA.from(table).update(patch()), key());
-      expect(error?.code).toBe("42501");
+      expect(["42501", "23514"]).toContain(error?.code);
       expect(await adminRead(table, key())).toEqual(before);
     });
   });

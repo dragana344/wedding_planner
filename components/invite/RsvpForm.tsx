@@ -1,8 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
-export function RsvpForm({ slug, accentColor }: { slug: string; accentColor: string }) {
+export function RsvpForm({
+  slug,
+  accentColor,
+  coupleNames,
+  venueName,
+}: {
+  slug: string;
+  accentColor: string;
+  coupleNames?: string;
+  venueName?: string;
+}) {
   const [fullName, setFullName] = useState("");
   const [attending, setAttending] = useState<boolean | null>(null);
   const [partySize, setPartySize] = useState("1");
@@ -119,6 +130,17 @@ export function RsvpForm({ slug, accentColor }: { slug: string; accentColor: str
       ) : null}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {/* COMP-001 / R1-03: information at the point of collection (Art. 13). */}
+      <p className="text-xs leading-relaxed text-neutral-500">
+        Вашиот одговор (име, доаѓање, број на лица) и секоја негова промена ги гледаат {coupleNames || "домаќините на настанот"}. Одговорен
+        за податоците е {venueName ? `локалот ${venueName}` : "локалот"}, кој може да ги извезе или избрише; платформата КАДЕ СУМ? ги
+        обработува во негово име. Повеќе во{" "}
+        <Link href="/privacy" target="_blank" className="underline">
+          Политиката за приватност
+        </Link>
+        .
+      </p>
 
       <button
         type="submit"

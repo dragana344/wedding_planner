@@ -70,9 +70,8 @@ export async function setEventMenuSelection(
   eventId: string,
   selection: { mode: "template"; menuTemplateId: string } | { mode: "custom"; menuItemIds: string[] }
 ): Promise<void> {
-  // Defence in depth behind the route schema: these ids end up in PostgREST
-  // filters (see pruneStaleMenuItemQuantities), so reject anything that is
-  // not a UUID before any query is built.
+  // Defence in depth behind the route schema: only UUIDs ever reach a query
+  // (these ids were once interpolated into a raw PostgREST filter).
   if (selection.mode === "template") assertUuids([selection.menuTemplateId], INVALID_MENU_ID_ERROR);
   else assertUuids(selection.menuItemIds, INVALID_MENU_ID_ERROR);
 
@@ -90,15 +89,12 @@ export async function setEventMenuSelection(
       .maybeSingle();
     if (!template) throw new Error("Menu template does not belong to this venue.");
 
-    const { error } = await client.from("events").update({ menu_template_id: selection.menuTemplateId }).eq("id", eventId);
+    // REL-005: set template, clear custom picks, prune quantities, atomically.
+    const { error } = await client.rpc("set_event_menu_template", {
+      p_event_id: eventId,
+      p_template_id: selection.menuTemplateId,
+    });
     if (error) throw error;
-    await client.from("event_custom_menu_items").delete().eq("event_id", eventId);
-
-    const { data: templateItems } = await client
-      .from("menu_template_items")
-      .select("menu_item_id")
-      .eq("menu_template_id", selection.menuTemplateId);
-    await pruneStaleMenuItemQuantities(client, eventId, (templateItems ?? []).map((i) => i.menu_item_id));
     return;
   }
 
@@ -113,43 +109,11 @@ export async function setEventMenuSelection(
     }
   }
 
-  const { error: clearError } = await client.from("events").update({ menu_template_id: null }).eq("id", eventId);
-  if (clearError) throw clearError;
-  await client.from("event_custom_menu_items").delete().eq("event_id", eventId);
-  if (selection.menuItemIds.length > 0) {
-    const { error: insertError } = await client
-      .from("event_custom_menu_items")
-      .insert(selection.menuItemIds.map((menuItemId) => ({ event_id: eventId, menu_item_id: menuItemId })));
-    if (insertError) throw insertError;
-  }
-
-  await pruneStaleMenuItemQuantities(client, eventId, selection.menuItemIds);
-}
-
-/**
- * Deletes rows in event_menu_item_quantities for this event whose
- * menu_item_id is not part of the newly-selected menu. Keeps quantity rows
- * from being orphaned when an organizer switches menu mode or drops items
- * from their selection.
- */
-async function pruneStaleMenuItemQuantities(
-  client: ReturnType<typeof createServiceRoleClient>,
-  eventId: string,
-  selectedMenuItemIds: string[]
-): Promise<void> {
-  // The ids are interpolated into a raw PostgREST `in` list below; a value
-  // such as "x),menu_item_id.not.is.null" would otherwise rewrite the filter.
-  assertUuids(selectedMenuItemIds, INVALID_MENU_ID_ERROR);
-  if (selectedMenuItemIds.length === 0) {
-    const { error } = await client.from("event_menu_item_quantities").delete().eq("event_id", eventId);
-    if (error) throw error;
-    return;
-  }
-  const { error } = await client
-    .from("event_menu_item_quantities")
-    .delete()
-    .eq("event_id", eventId)
-    .not("menu_item_id", "in", `(${selectedMenuItemIds.join(",")})`);
+  // REL-005: clear template, replace picks, prune quantities, atomically.
+  const { error } = await client.rpc("set_event_menu_custom", {
+    p_event_id: eventId,
+    p_menu_item_ids: selection.menuItemIds,
+  });
   if (error) throw error;
 }
 
@@ -193,13 +157,10 @@ export async function setMenuItemQuantities(eventId: string, quantities: MenuIte
     }
   }
 
-  const { error: deleteError } = await client.from("event_menu_item_quantities").delete().eq("event_id", eventId);
-  if (deleteError) throw deleteError;
-
-  if (quantities.length > 0) {
-    const { error: insertError } = await client
-      .from("event_menu_item_quantities")
-      .insert(quantities.map((q) => ({ event_id: eventId, menu_item_id: q.menu_item_id, guest_count: q.guest_count })));
-    if (insertError) throw insertError;
-  }
+  // REL-005: delete + insert in one transaction (migration 0041).
+  const { error } = await client.rpc("replace_menu_item_quantities", {
+    p_event_id: eventId,
+    p_quantities: quantities.map((q) => ({ menu_item_id: q.menu_item_id, guest_count: q.guest_count })),
+  });
+  if (error) throw error;
 }

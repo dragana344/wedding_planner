@@ -30,6 +30,7 @@ import {
 } from "@/lib/venue/credentials";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
+import { confirmationMatches } from "@/lib/privacy/confirm";
 
 export function EventEditForm({
   event,
@@ -84,6 +85,12 @@ export function EventEditForm({
   const [isSavingFinance, setIsSavingFinance] = useState(false);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [seatingRoom, setSeatingRoom] = useState<Room | null>(null);
+  // DATA-006: erase this event's couple and guest data (typed confirmation).
+  const [confirmingErase, setConfirmingErase] = useState(false);
+  const [eraseConfirm, setEraseConfirm] = useState("");
+  const [isErasing, setIsErasing] = useState(false);
+  const [eraseError, setEraseError] = useState<string | null>(null);
+  const canErase = confirmationMatches(eraseConfirm, event.couple_names);
 
   const selectedMenuTemplate = menuTemplates.find((m) => m.id === event.menu_template_id);
   const hasMenu = Boolean(selectedMenuTemplate) || event.customMenuItems.length > 0;
@@ -103,7 +110,6 @@ export function EventEditForm({
     getEventUsername(event.id)
       .then(setUsername)
       .finally(() => setIsLoadingUsername(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id]);
 
   async function handleRegeneratePassword() {
@@ -226,6 +232,29 @@ export function EventEditForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа бришењето на настанот. Обидете се повторно.");
       setIsDeleting(false);
+    }
+  }
+
+  async function handleErasePersonalData(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canErase) return;
+    setEraseError(null);
+    setIsErasing(true);
+    try {
+      const res = await fetch("/api/venue/privacy/erase-event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event_id: event.id, confirm: eraseConfirm }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Не успеа бришењето на личните податоци.");
+      }
+      onChanged();
+      onClose();
+    } catch (err) {
+      setEraseError(err instanceof Error ? err.message : "Не успеа бришењето на личните податоци.");
+      setIsErasing(false);
     }
   }
 
@@ -606,6 +635,62 @@ export function EventEditForm({
         {readOnly ? null : (
           <button type="button" onClick={handleRegeneratePassword} disabled={isRegenerating} className="btn btn-ghost">
             {isRegenerating ? "Се генерира..." : "Генерирај нова лозинка"}
+          </button>
+        )}
+      </fieldset>
+
+      <fieldset className="ev-fieldset">
+        <legend className="lab-s">Лични податоци</legend>
+        {confirmingErase ? (
+          <form onSubmit={handleErasePersonalData}>
+            <p className="ev-hint" style={{ margin: "0 0 8px" }}>
+              Трајно се бришат гостите, белешките, буџетот, агендата, локациите, поканата, фотографиите и пристапот
+              за паровите, како и контактот на славениците. Датумот, просториите и финансиите остануваат.
+            </p>
+            <div className="ev-field ev-field-wide" style={{ marginBottom: 10 }}>
+              <label className="lab-s" htmlFor="erase-confirm">
+                За потврда, внесете: <b>{event.couple_names}</b>
+              </label>
+              <input
+                id="erase-confirm"
+                className="fld"
+                value={eraseConfirm}
+                onChange={(e) => setEraseConfirm(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            {eraseError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{eraseError}</p> : null}
+            <span style={{ display: "flex", gap: 8 }}>
+              <button
+                type="submit"
+                className="btn btn-ghost"
+                style={{ color: "var(--bad)" }}
+                disabled={!canErase || isErasing}
+              >
+                {isErasing ? "Се брише..." : "Трајно избриши"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setConfirmingErase(false);
+                  setEraseConfirm("");
+                  setEraseError(null);
+                }}
+                disabled={isErasing}
+              >
+                Откажи
+              </button>
+            </span>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ color: "var(--bad)" }}
+            onClick={() => setConfirmingErase(true)}
+          >
+            Избриши ги личните податоци за овој настан
           </button>
         )}
       </fieldset>

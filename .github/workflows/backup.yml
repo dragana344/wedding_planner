@@ -1,0 +1,82 @@
+name: Backup
+
+# DATA-001: nightly off-site copy of the production database and storage
+# objects to Cloudflare R2 (Supabase's own daily backups stay on as the first
+# line; they do not include Storage). OBS-003: a separate check fails when the
+# newest backup is older than 36 hours, which alerts through GitHub's failed
+# workflow notifications.
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Dump database (schema, roles, data)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backup
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
+          gzip backup/*.sql
+      - name: Download storage objects
+        env:
+          SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_REF }}.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backup/download-storage.mjs backup/storage
+      - name: Encrypt and upload to R2
+        env:
+          # Symmetric key, also kept offline in the owner's password manager:
+          # without it the archives cannot be restored.
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          test -n "$BACKUP_ENCRYPTION_KEY" || { echo "::error::BACKUP_ENCRYPTION_KEY is not set"; exit 1; }
+          stamp=$(date -u +%Y-%m-%dT%H%MZ)
+          tar -czf - backup | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_ENCRYPTION_KEY -out "backup-$stamp.tar.gz.enc"
+          aws s3 cp "backup-$stamp.tar.gz.enc" "s3://$R2_BUCKET/daily/backup-$stamp.tar.gz.enc" --endpoint-url "$R2_ENDPOINT"
+          echo "Uploaded daily/backup-$stamp.tar.gz.enc ($(du -h "backup-$stamp.tar.gz.enc" | cut -f1))"
+          rm -rf backup "backup-$stamp.tar.gz.enc"
+
+  freshness:
+    needs: backup
+    if: always()
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - name: Newest backup is under 36 hours old
+        run: |
+          newest=$(aws s3api list-objects-v2 --bucket "${{ secrets.R2_BUCKET }}" --prefix daily/ --endpoint-url "${{ secrets.R2_ENDPOINT }}" \
+            --query 'sort_by(Contents, &LastModified)[-1].LastModified' --output text)
+          echo "Newest backup: $newest"
+          age=$(( $(date -u +%s) - $(date -u -d "$newest" +%s) ))
+          if [ "$age" -gt $((36 * 3600)) ]; then echo "::error::Newest backup is $((age / 3600))h old"; exit 1; fi

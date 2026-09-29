@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { withCoupleEvent } from "@/lib/api/handler";
+import { errorResponse, withCoupleEvent } from "@/lib/api/handler";
 import { contactInfoBody } from "@/lib/api/schemas";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // No fallbackError: this route never caught handler errors, so they still
 // propagate to Next.js unchanged.
 export const PATCH = withCoupleEvent(
-  async ({ eventId, body }) => {
+  async ({ eventId, body, request }) => {
     const client = createServiceRoleClient();
     const { error } = await client
       .from("events")
@@ -16,7 +16,7 @@ export const PATCH = withCoupleEvent(
         contact_phone: body.contact_phone ?? null,
       })
       .eq("id", eventId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) return errorResponse(error, "Не успеа зачувувањето на контакт податоците.", request); // SEC-003 / SR-04
     return NextResponse.json({ ok: true });
   },
   { invalidJsonError: "Неважечко JSON тело", body: contactInfoBody },

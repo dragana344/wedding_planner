@@ -278,7 +278,11 @@ describe("public routes", () => {
       { slug: "abcDEF123_-x" },
     );
     expect(ok).toEqual({ status: 200, body: { ok: true } });
-    expect(rsvp.submitRsvpBySlug).toHaveBeenCalledWith("abcDEF123_-x", { fullName: "Ана", attending: true, partySize: 3 });
+    expect(rsvp.submitRsvpBySlug).toHaveBeenCalledWith(
+      "abcDEF123_-x",
+      { fullName: "Ана", attending: true, partySize: 3 },
+      expect.objectContaining({ ip: expect.any(String) }),
+    );
   });
 
   it("contact: rejects an over-long message", async () => {

@@ -10,6 +10,7 @@ import { listEventsWithDetails, type EventDetail } from "@/lib/venue/events";
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
+import { localIsoDate, todayIn } from "@/lib/date";
 
 type Filter = "all" | "upcoming" | "today" | "week" | "month" | "done";
 
@@ -81,7 +82,7 @@ export function EventsClient({
   const [editing, setEditing] = useState<EventDetail | null>(null);
   const [viewingMenuFor, setViewingMenuFor] = useState<EventDetail | null>(null);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => todayIn(), []);
 
   // Week runs Monday–Sunday, matching the calendar view and local convention.
   const { weekEnd, monthEnd } = useMemo(() => {
@@ -91,8 +92,8 @@ export function EventsClient({
     end.setDate(now.getDate() + (6 - dow));
     const mEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return {
-      weekEnd: end.toISOString().slice(0, 10),
-      monthEnd: mEnd.toISOString().slice(0, 10),
+      weekEnd: localIsoDate(end),
+      monthEnd: localIsoDate(mEnd),
     };
   }, [today]);
 

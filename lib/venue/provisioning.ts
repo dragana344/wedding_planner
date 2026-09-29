@@ -1,3 +1,4 @@
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
@@ -12,27 +13,27 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * never a client-supplied value.
  */
 export async function provisionVenueForUser(userId: string, venueName: string): Promise<{ venue_id: string }> {
-  const client = createServiceRoleClient();
+  // REL-005: venue + staff row in one transaction (migration 0041).
+  const { data, error } = await createServiceRoleClient().rpc("provision_venue", {
+    p_user_id: userId,
+    p_venue_name: venueName,
+  });
+  if (error) throw error;
+  return { venue_id: data as string };
+}
 
-  const { data: existing, error: existingError } = await client
-    .from("venue_staff")
-    .select("venue_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (existingError) throw existingError;
-  if (existing) return { venue_id: existing.venue_id };
-
-  const { data: venue, error: venueError } = await client
+/**
+ * COMP-001 / R1-06: records that the venue accepted `termsVersion` of the
+ * Terms of Service (which include the Data Processing Agreement), now.
+ * Idempotent: a venue that already accepted this version keeps its original
+ * timestamp, so a retried signup does not move it. Service role only; a
+ * trigger (migration 0046) stops browser clients from writing these columns.
+ */
+export async function recordTermsAcceptance(venueId: string, termsVersion: string): Promise<void> {
+  const { error } = await createServiceRoleClient()
     .from("venues")
-    .insert({ name: venueName })
-    .select("id")
-    .single();
-  if (venueError) throw venueError;
-
-  const { error: staffError } = await client
-    .from("venue_staff")
-    .insert({ user_id: userId, venue_id: venue.id });
-  if (staffError) throw staffError;
-
-  return { venue_id: venue.id };
+    .update({ terms_version: termsVersion, terms_accepted_at: new Date().toISOString() })
+    .eq("id", venueId)
+    .or(`terms_version.is.null,terms_version.neq."${termsVersion}"`);
+  if (error) throw error;
 }

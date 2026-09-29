@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
-import { middleware } from "@/middleware";
+import { proxy as middleware } from "@/proxy";
 
 // REL-004: with Supabase unreachable, the couple session check (awaited by
 // middleware on every couple request) gives up within its bound.

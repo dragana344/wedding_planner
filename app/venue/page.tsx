@@ -7,6 +7,7 @@ import { listReservationsForDate } from "@/lib/venue/reservations";
 import { listFixedElements, listRoomLayoutElements } from "@/lib/venue/floorplan";
 import { peakConcurrentGuests } from "@/lib/venue/occupancy";
 import { DashboardClient, type RoomLayout } from "@/components/venue/dashboard/DashboardClient";
+import { todayIn } from "@/lib/date";
 
 // This page has no client-side refetch mechanism of its own — every stat,
 // list, and calendar dot is computed server-side on each render. Without
@@ -37,14 +38,8 @@ function isoOf(d: Date) {
  * Skopje's wall-clock date stays internally consistent for all of it.
  */
 function skopjeToday(): Date {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Skopje",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  return new Date(Number(map.year), Number(map.month) - 1, Number(map.day));
+  const [year, month, day] = todayIn().split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 export default async function VenueHomePage() {

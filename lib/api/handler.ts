@@ -4,7 +4,7 @@
 // route used to hand-copy:
 //
 //   1. resolve the caller (for couple routes: the `x-couple-event-id` header
-//      that middleware.ts injects after validating the session cookie),
+//      that proxy.ts injects after validating the session cookie),
 //   2. validate the dynamic params and parse + validate the JSON body
 //      against the route's schemas (SEC-004, lib/api/schemas.ts),
 //   3. turn a thrown error into the route's `{ error }` JSON response.
@@ -29,8 +29,11 @@ export const NOT_AUTHENTICATED_ERROR = "Не сте најавени";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type JsonBody = any;
 
-/** Next 14 passes dynamic route segments as the handler's second argument. */
-export type RouteContext<P> = { params: P };
+/**
+ * Next.js passes dynamic route segments as the handler's second argument; since
+ * Next 15 they arrive as a Promise. A plain object is accepted too (tests).
+ */
+export type RouteContext<P> = { params: Promise<P> | P };
 
 export type RouteHandler<P> = (request: NextRequest, context: RouteContext<P>) => Promise<Response>;
 
@@ -188,8 +191,8 @@ export function withPublic<P = Record<string, never>, B = JsonBody>(
   options: HandlerOptions<B, P> = {},
 ): RouteHandler<P> {
   return (request, context) =>
-    withRequestLog(request, () =>
-      run(request, context?.params, options, (req, params, body) => handler({ request: req, params, body })),
+    withRequestLog(request, async () =>
+      run(request, await context?.params, options, (req, params, body) => handler({ request: req, params, body })),
     );
 }
 
@@ -206,7 +209,7 @@ export function withCoupleEvent<P = Record<string, never>, B = JsonBody>(
     withRequestLog(request, async () => {
       const eventId = request.headers.get(COUPLE_EVENT_HEADER);
       if (!eventId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
-      return run(request, context?.params, options, (req, params, body) =>
+      return run(request, await context?.params, options, (req, params, body) =>
         handler({ request: req, params, body, eventId }),
       );
     });

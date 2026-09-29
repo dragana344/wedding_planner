@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { errorResponse, withPublic } from "@/lib/api/handler";
 import { RSVP_INVALID_ERROR, RSVP_NOT_FOUND_ERROR, rsvpBody, slugParams } from "@/lib/api/schemas";
 import { submitRsvpBySlug } from "@/lib/couple/rsvp";
+import { REQUEST_ID_HEADER } from "@/lib/log";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
 // The slug and body are checked by the wrapper, outside the error boundary
@@ -15,11 +16,11 @@ export const POST = withPublic(
     const limit = await checkRateLimit(RATE_LIMITS.rsvp, `${params.slug}:${clientIp(request)}`);
     if (!limit.ok) return rateLimitedResponse(limit);
     try {
-      await submitRsvpBySlug(params.slug, {
-        fullName: body.full_name,
-        attending: body.attending,
-        partySize: body.party_size ?? 1,
-      });
+      await submitRsvpBySlug(
+        params.slug,
+        { fullName: body.full_name, attending: body.attending, partySize: body.party_size ?? 1 },
+        { ip: clientIp(request), requestId: request.headers.get(REQUEST_ID_HEADER) },
+      );
       return NextResponse.json({ ok: true });
     } catch (err) {
       return errorResponse(err, "Failed to submit RSVP.", request);

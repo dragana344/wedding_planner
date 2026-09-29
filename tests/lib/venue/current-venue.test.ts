@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { getCurrentVenueId } from "@/lib/venue/current-venue";
+import { getCurrentVenue, getCurrentVenueId } from "@/lib/venue/current-venue";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +42,16 @@ describe("getCurrentVenueId", () => {
 
     const result = await getCurrentVenueId(client);
     expect(result).toBe(venueId);
+  });
+
+  it("getCurrentVenue returns the venue's id and name in one lookup", async () => {
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    await client.auth.signInWithPassword({ email: staffEmail, password });
+
+    expect(await getCurrentVenue(client)).toEqual({ id: venueId, name: "Current Venue Test" });
   });
 
   it("returns null when there is no signed-in user", async () => {

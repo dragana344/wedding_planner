@@ -68,3 +68,12 @@ describe("RsvpForm", () => {
     expect(await screen.findByText("Invitation not found.")).toBeInTheDocument();
   });
 });
+
+describe("RsvpForm privacy notice (COMP-001 R1-03)", () => {
+  it("tells the guest who sees the answer, who is responsible, and links the policy", () => {
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" coupleNames="Ана и Марко" venueName="Сала Лотос" />);
+    expect(screen.getByText(/ги гледаат Ана и Марко/)).toBeInTheDocument();
+    expect(screen.getByText(/локалот Сала Лотос/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Политиката за приватност" })).toHaveAttribute("href", "/privacy");
+  });
+});

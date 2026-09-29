@@ -1,6 +1,9 @@
 // lib/couple/checklist.ts
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { STARTER_CHECKLIST_TITLES } from "@/lib/couple/checklist-templates";
+import { todayIn } from "@/lib/date";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface ChecklistSubtask {
   id: string;
@@ -55,9 +58,10 @@ export async function listChecklistItems(eventId: string): Promise<ChecklistItem
   const { data, error } = await client
     .from("event_checklist_items")
     .select(COLUMNS_WITH_SUBTASKS)
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  const items = (data ?? []).map(mapItem);
+  const items = checkListBound(data, "event_checklist_items").map(mapItem);
 
   if (items.length === 0) {
     const { data: claimed, error: claimError } = await client
@@ -79,7 +83,8 @@ export async function listChecklistItems(eventId: string): Promise<ChecklistItem
         .from("event_checklist_items")
         .select(COLUMNS_WITH_SUBTASKS)
         .eq("event_id", eventId)
-        .order("created_at");
+        .order("created_at")
+        .limit(MAX_LIST_ROWS);
       if (reselectError) throw reselectError;
       return sortChecklistItems((seeded ?? []).map(mapItem));
     }
@@ -215,7 +220,7 @@ export async function deleteSubtask(eventId: string, itemId: string, subtaskId: 
 }
 
 export function computeChecklistStats(items: ChecklistItem[]): ChecklistStats {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIn();
   return {
     total: items.length,
     open: items.filter((i) => !i.is_done).length,

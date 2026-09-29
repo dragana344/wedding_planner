@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface EventSummary {
   id: string;
@@ -13,9 +14,10 @@ export async function listEvents(venueId: string): Promise<EventSummary[]> {
     .from("events")
     .select("id, couple_names, event_date, guest_count_estimate")
     .eq("venue_id", venueId)
-    .order("event_date");
+    .order("event_date")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "events");
 }
 
 /** Lifecycle of an event as tracked by venue staff. Mirrors the DB check constraint. */
@@ -70,8 +72,10 @@ export async function listEventsWithDetails(
     )
     .eq("venue_id", venueId)
     .order("event_date")
-    .order("start_time", { nullsFirst: false });
+    .order("start_time", { nullsFirst: false })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
+  checkListBound(data, "events (details)");
 
   return (data ?? []).map((event) => {
     const layoutElements = (event.event_layout_elements ?? []) as unknown as {
@@ -150,7 +154,8 @@ export async function listEventsForCalendar(
     .eq("venue_id", venueId)
     .gte("event_date", monthStart)
     .lt("event_date", monthEndExclusive)
-    .order("event_date");
+    .order("event_date")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
 
   return (data ?? []).map((event) => ({

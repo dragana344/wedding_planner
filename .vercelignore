@@ -1,0 +1,8 @@
+.env*
+!.env.local.example
+CLAUDE.md
+production-tasks
+tests
+supabase/.temp
+.next
+node_modules

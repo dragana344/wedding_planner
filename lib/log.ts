@@ -7,7 +7,7 @@ type Level = "info" | "warn" | "error";
 
 const SENSITIVE_KEY = /pass(word)?|token|secret|cookie|authorization|api[-_]?key|full_?name|guest_?name|phone|e-?mail|notes?$|message|content|address/i;
 
-function redact(value: unknown, depth = 0): unknown {
+export function redact(value: unknown, depth = 0): unknown {
   if (depth > 4 || value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1));
   return Object.fromEntries(

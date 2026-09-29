@@ -1,6 +1,9 @@
 // lib/couple/invitations.ts
-import { randomBytes } from "crypto";
+import "server-only";
+import { randomBytes, randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { IMAGE_SNIFF_BYTES, sniffImageType } from "@/lib/image-type";
+import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 export interface Invitation {
   event_id: string;
@@ -57,15 +60,78 @@ export function getInvitationPhotoUrl(photoPath: string | null): string | null {
   return data.publicUrl;
 }
 
-export async function uploadInvitationPhoto(eventId: string, file: File): Promise<string> {
-  const extension = file.name.split(".").pop() ?? "jpg";
-  const path = `${eventId}-${Date.now()}.${extension}`;
-  const client = createServiceRoleClient();
-  const { error: uploadError } = await client.storage.from(BUCKET).upload(path, file, { upsert: true });
-  if (uploadError) throw uploadError;
-  const { error } = await client.from("event_invitations").update({ photo_path: path }).eq("event_id", eventId);
+const UPLOAD_PREFIX = "uploads";
+const UPLOAD_PATH = /^uploads\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/;
+export const UNSUPPORTED_PHOTO_ERROR = "Датотеката не е поддржана слика. Изберете JPEG, PNG, WebP, GIF или AVIF.";
+export const INVALID_UPLOAD_ERROR = "Неважечко прикачување.";
+
+/**
+ * SEC-005, step 1: a one-time signed upload for a server-chosen staging path,
+ * so the photo goes from the browser straight to Storage (Vercel caps function
+ * request bodies at 4.5 MB). The bucket enforces image content types and the
+ * 50 MB limit (migration 0040).
+ */
+export async function createInvitationPhotoUpload(eventId: string): Promise<{ path: string; token: string }> {
+  const path = `${UPLOAD_PREFIX}/${eventId}/${randomUUID()}`;
+  const { data, error } = await createServiceRoleClient().storage.from(BUCKET).createSignedUploadUrl(path);
   if (error) throw error;
-  return path;
+  return { path: data.path, token: data.token };
+}
+
+/** First bytes of a stored object, without downloading the whole photo. */
+async function readObjectHead(path: string): Promise<Uint8Array | null> {
+  const { data, error } = await createServiceRoleClient().storage.from(BUCKET).createSignedUrl(path, 60);
+  if (error) return null;
+  const response = await fetch(data.signedUrl, { headers: { Range: `bytes=0-${IMAGE_SNIFF_BYTES - 1}` }, cache: "no-store" });
+  if (!response.ok || !response.body) return null;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (length < IMAGE_SNIFF_BYTES) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    length += value.length;
+  }
+  await reader.cancel().catch(() => {});
+  const head = new Uint8Array(Math.min(length, IMAGE_SNIFF_BYTES));
+  let offset = 0;
+  for (const chunk of chunks) {
+    const take = Math.min(chunk.length, head.length - offset);
+    head.set(chunk.subarray(0, take), offset);
+    offset += take;
+    if (offset >= head.length) break;
+  }
+  return head;
+}
+
+/**
+ * SEC-005, step 2: check the uploaded bytes really are a supported image,
+ * then move it to its final name (extension from the sniffed type, never the
+ * file name) and point the invitation at it. Anything else is deleted. The
+ * previous photo is queued for deletion by migration 0038's trigger.
+ */
+export async function confirmInvitationPhotoUpload(eventId: string, uploadPath: string): Promise<string> {
+  if (!UPLOAD_PATH.test(uploadPath) || !uploadPath.startsWith(`${UPLOAD_PREFIX}/${eventId}/`)) {
+    throw new Error(INVALID_UPLOAD_ERROR);
+  }
+  const client = createServiceRoleClient();
+  const head = await readObjectHead(uploadPath);
+  if (!head) throw new Error(INVALID_UPLOAD_ERROR);
+
+  const extension = sniffImageType(head);
+  if (!extension) {
+    await client.storage.from(BUCKET).remove([uploadPath]);
+    throw new Error(UNSUPPORTED_PHOTO_ERROR);
+  }
+
+  const finalPath = `${eventId}-${Date.now()}.${extension}`;
+  const { error: moveError } = await client.storage.from(BUCKET).move(uploadPath, finalPath);
+  if (moveError) throw moveError;
+  const { error } = await client.from("event_invitations").update({ photo_path: finalPath }).eq("event_id", eventId);
+  if (error) throw error;
+  await drainStorageCleanupQueue().catch(() => {}); // the replaced photo; the hourly cron retries on failure
+  return finalPath;
 }
 
 export interface PublicInvitation {

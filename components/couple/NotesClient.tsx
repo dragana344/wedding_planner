@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
-import { deriveNoteDisplay, type Note } from "@/lib/couple/notes";
+import type { Note } from "@/lib/couple/notes";
+import { deriveNoteDisplay } from "@/lib/couple/note-display";
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 

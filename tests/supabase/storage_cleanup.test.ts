@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
+import { drainStorageCleanupQueue, sweepStaleInvitationUploads } from "@/lib/storage-cleanup";
 import { GET as cronGET } from "@/app/api/cron/storage-cleanup/route";
 
 // DATA-011: deleting rows (directly or by cascade) or replacing a photo
@@ -107,5 +107,13 @@ describe("storage cleanup (DATA-011)", () => {
     );
     expect(allowed.status).toBe(200);
     delete process.env.CRON_SECRET;
+  });
+
+  it("sweeps unconfirmed invitation uploads older than a day, keeping fresh ones (SEC-005)", async () => {
+    const path = `uploads/${venueId}/00000000-0000-4000-8000-000000000001`;
+    await put("invitation-photos", path);
+    expect((await sweepStaleInvitationUploads(24 * 60 * 60 * 1000)).removed).toBe(0);
+    await sweepStaleInvitationUploads(-1); // everything counts as stale
+    expect(await publicStatus("invitation-photos", path)).not.toBe(200);
   });
 });

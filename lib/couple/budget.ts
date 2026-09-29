@@ -1,5 +1,7 @@
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { BUDGET_CATEGORIES } from "@/lib/couple/budget-categories";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface BudgetItem {
   id: string;
@@ -54,9 +56,10 @@ export async function listBudgetItems(eventId: string): Promise<BudgetItem[]> {
     .from("event_budget_items")
     .select(COLUMNS)
     .eq("event_id", eventId)
-    .order("created_at");
+    .order("created_at")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return sortBudgetItems(data);
+  return sortBudgetItems(checkListBound(data, "event_budget_items"));
 }
 
 export async function addBudgetItem(eventId: string, input: BudgetItemInput): Promise<BudgetItem> {

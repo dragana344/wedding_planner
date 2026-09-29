@@ -229,7 +229,12 @@ export default function Home() {
         <Link href="/signup" className="btn btn-gold">Започни бесплатно</Link>
       </div>
 
-      <footer className="mkt-footer">© 2026 Каде сум? Сите права задржани.</footer>
+      <footer className="mkt-footer">
+        <Link href="/privacy" style={{ color: "var(--muted)" }}>Политика за приватност</Link>
+        {" · "}
+        <Link href="/terms" style={{ color: "var(--muted)" }}>Услови за користење</Link>
+        <div style={{ marginTop: 8 }}>© 2026 Каде сум? Сите права задржани.</div>
+      </footer>
     </div>
   );
 }

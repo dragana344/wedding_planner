@@ -2,8 +2,8 @@ create extension if not exists pgcrypto;
 
 alter table venues add column layout_lock_password_hash text;
 alter table venues alter column layout_lock_password_hash
-  set default crypt('0000', gen_salt('bf'));
-update venues set layout_lock_password_hash = crypt('0000', gen_salt('bf'))
+  set default extensions.crypt('0000', extensions.gen_salt('bf'));
+update venues set layout_lock_password_hash = extensions.crypt('0000', extensions.gen_salt('bf'))
   where layout_lock_password_hash is null;
 
 alter table rooms add column width_cm numeric not null default 2000;
@@ -18,7 +18,7 @@ security definer
 as $$
 begin
   update venues
-  set layout_lock_password_hash = crypt(p_password, gen_salt('bf'))
+  set layout_lock_password_hash = extensions.crypt(p_password, extensions.gen_salt('bf'))
   where id = p_venue_id and is_venue_staff_for(p_venue_id);
   return found;
 end;
@@ -34,7 +34,7 @@ as $$
     select 1 from venues
     where id = p_venue_id
       and is_venue_staff_for(p_venue_id)
-      and layout_lock_password_hash = crypt(p_password, layout_lock_password_hash)
+      and layout_lock_password_hash = extensions.crypt(p_password, layout_lock_password_hash)
   );
 $$;
 

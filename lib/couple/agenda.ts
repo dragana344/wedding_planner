@@ -1,4 +1,6 @@
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface AgendaItem {
   id: string;
@@ -23,9 +25,10 @@ export async function listAgendaItems(eventId: string): Promise<AgendaItem[]> {
     .from("event_agenda_items")
     .select(COLUMNS)
     .eq("event_id", eventId)
-    .order("sort_order");
+    .order("sort_order")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "event_agenda_items");
 }
 
 export async function addAgendaItem(eventId: string, input: AgendaItemInput): Promise<AgendaItem> {
@@ -87,10 +90,9 @@ export async function moveAgendaItem(
 
   const a = items[idx];
   const b = items[swapIdx];
-  const { error: errorA } = await client.from("event_agenda_items").update({ sort_order: b.sort_order }).eq("id", a.id);
-  if (errorA) throw errorA;
-  const { error: errorB } = await client.from("event_agenda_items").update({ sort_order: a.sort_order }).eq("id", b.id);
-  if (errorB) throw errorB;
+  // REL-005: both updates in one statement (migration 0041).
+  const { error } = await client.rpc("swap_agenda_items", { p_event_id: eventId, p_item_a: a.id, p_item_b: b.id });
+  if (error) throw error;
 
   return listAgendaItems(eventId);
 }

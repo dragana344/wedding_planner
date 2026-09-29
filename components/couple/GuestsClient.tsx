@@ -12,6 +12,17 @@ const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
   { value: "declined", label: "Одбиен" },
 ];
 
+/** SEC-021: when the public invitation link last changed a guest's answer, in venue time. */
+function formatLinkChange(iso: string): string {
+  return new Intl.DateTimeFormat("mk-MK", {
+    timeZone: "Europe/Skopje",
+    day: "numeric",
+    month: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
 const SIDE_OPTIONS: { value: GuestSide; label: string }[] = [
   { value: "bride", label: "Страна на невестата" },
   { value: "groom", label: "Страна на младоженецот" },
@@ -127,6 +138,14 @@ export function GuestsClient({
             {guest.phone ?? "Нема телефон"} · {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
           </p>
           {guest.notes ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{guest.notes}</p> : null}
+          {guest.rsvp_changed_via_link_at ? (
+            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: 0 }}>
+              Одговор преку поканата: {formatLinkChange(guest.rsvp_changed_via_link_at)}
+              {guest.rsvp_previous_status
+                ? ` (претходно: ${STATUS_OPTIONS.find((o) => o.value === guest.rsvp_previous_status)?.label ?? guest.rsvp_previous_status})`
+                : ""}
+            </p>
+          ) : null}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <label htmlFor={`status-${guest.id}`} className="sr-only">

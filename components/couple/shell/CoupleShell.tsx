@@ -68,6 +68,9 @@ export function CoupleShell({
             </Link>
           ))}
         </nav>
+        <Link href="/privacy" target="_blank" style={{ display: "block", padding: "12px 20px", fontSize: 12.5, color: "var(--muted)" }}>
+          Политика за приватност
+        </Link>
       </aside>
 
       <div className="main">

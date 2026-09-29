@@ -8,8 +8,8 @@ const admin = createClient(
 
 let venueAId: string;
 let venueBId: string;
-let staffAEmail = "0013-staff-a@test.local";
-let staffAPassword = "test-password-123";
+const staffAEmail = "0013-staff-a@test.local";
+const staffAPassword = "test-password-123";
 let staffAUserId: string;
 let eventAId: string;
 

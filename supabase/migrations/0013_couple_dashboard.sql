@@ -77,7 +77,7 @@ begin
     raise exception 'Not authorized to set credentials for this event.';
   end if;
   insert into event_credentials (event_id, username, password_hash)
-  values (p_event_id, p_username, crypt(p_password, gen_salt('bf')));
+  values (p_event_id, p_username, extensions.crypt(p_password, extensions.gen_salt('bf')));
 end;
 $$;
 
@@ -93,7 +93,7 @@ begin
     raise exception 'Not authorized to change credentials for this event.';
   end if;
   update event_credentials
-    set password_hash = crypt(p_password, gen_salt('bf')), failed_attempts = 0, locked_until = null
+    set password_hash = extensions.crypt(p_password, extensions.gen_salt('bf')), failed_attempts = 0, locked_until = null
     where event_id = p_event_id;
 end;
 $$;
@@ -131,7 +131,7 @@ begin
     return;
   end if;
 
-  if cred.password_hash = crypt(p_password, cred.password_hash) then
+  if cred.password_hash = extensions.crypt(p_password, cred.password_hash) then
     update event_credentials set failed_attempts = 0, locked_until = null
       where event_credentials.event_id = cred.event_id;
     return query select cred.event_id, null::text;

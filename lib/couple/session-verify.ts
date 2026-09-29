@@ -6,6 +6,7 @@ import { hashSessionToken } from "@/lib/couple/session-hash";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SESSION_LOOKUP_TIMEOUT_MS = 3000;
 export const SESSION_DURATION_MS = 30 * DAY_MS;
+export const SESSION_MAX_AGE_MS = 90 * DAY_MS;
 
 // Middleware validates the session on every couple request. Sliding the
 // expiry on each of those would write to the database per request; renew at
@@ -24,7 +25,7 @@ export async function validateAndRenewCoupleSession(token: string): Promise<{ ev
   // the whole couple area.
   const { data } = await client
     .from("couple_sessions")
-    .select("event_id, expires_at")
+    .select("event_id, expires_at, created_at")
     .eq("token", tokenHash)
     .abortSignal(AbortSignal.timeout(SESSION_LOOKUP_TIMEOUT_MS))
     .maybeSingle();
@@ -32,6 +33,9 @@ export async function validateAndRenewCoupleSession(token: string): Promise<{ ev
   if (!data) return null;
   const expiresAt = new Date(data.expires_at).getTime();
   if (expiresAt <= Date.now()) return null;
+  // SEC-025 SR-06: sliding renewal never extends a session past 90 days from
+  // login; then the couple signs in again.
+  if (Date.now() - new Date(data.created_at).getTime() > SESSION_MAX_AGE_MS) return null;
 
   if (expiresAt - Date.now() < RENEW_WHEN_REMAINING_BELOW_MS) {
     const newExpiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();

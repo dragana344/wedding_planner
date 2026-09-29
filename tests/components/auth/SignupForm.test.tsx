@@ -95,3 +95,12 @@ describe("SignupForm", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 });
+
+describe("SignupForm legal notice (COMP-001)", () => {
+  it("links the terms, the DPA and the privacy policy under the signup button", () => {
+    render(<SignupForm />);
+    expect(screen.getByRole("link", { name: "Условите за користење" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Договорот за обработка на лични податоци" })).toHaveAttribute("href", "/dpa");
+    expect(screen.getByRole("link", { name: "Политиката за приватност" })).toHaveAttribute("href", "/privacy");
+  });
+});

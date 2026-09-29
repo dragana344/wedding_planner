@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,23 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  // SEC-016: set when the password is right but the account has a TOTP factor.
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+
+  // An aal1 session of an MFA user lands here (the panel finds no staff row
+  // until the code is given): go straight to the code step if the browser
+  // still holds that session.
+  useEffect(() => {
+    let cancelled = false;
+    pendingSecondFactor(createBrowserSupabaseClient())
+      .then((factorId) => {
+        if (!cancelled && factorId) setMfaFactorId(factorId);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +42,11 @@ export default function LoginPage() {
         setError(signInError.message);
         return;
       }
+      const factorId = await pendingSecondFactor(supabase);
+      if (factorId) {
+        setMfaFactorId(factorId);
+        return;
+      }
       router.push("/venue");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -34,6 +57,19 @@ export default function LoginPage() {
 
   if (showForgotPassword) {
     return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
+  }
+
+  if (mfaFactorId) {
+    return (
+      <MfaCodeForm
+        factorId={mfaFactorId}
+        onVerified={() => router.push("/venue")}
+        onBack={() => {
+          setMfaFactorId(null);
+          setPassword("");
+        }}
+      />
+    );
   }
 
   return (

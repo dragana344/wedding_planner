@@ -1,18 +1,20 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getCurrentVenueId } from "@/lib/venue/current-venue";
+import { getCurrentVenue } from "@/lib/venue/current-venue";
 import { PanelShell } from "@/components/venue/shell/PanelShell";
 import "./panel.css";
 
+// Private area: keep out of search engines (COMP-004).
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 export default async function VenueLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabaseClient();
-  const venueId = await getCurrentVenueId(supabase);
+  const venue = await getCurrentVenue(supabase);
 
-  if (!venueId) {
+  if (!venue) {
     redirect("/login");
   }
 
-  const { data: venue } = await supabase.from("venues").select("name").eq("id", venueId).single();
-
-  return <PanelShell venueName={venue?.name ?? "Локал"}>{children}</PanelShell>;
+  return <PanelShell venueName={venue.name}>{children}</PanelShell>;
 }

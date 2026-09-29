@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
@@ -98,14 +99,33 @@ export function SignupForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          minLength={6}
+          minLength={10}
+          aria-describedby="signup-password-hint"
           required
         />
+        <p id="signup-password-hint" className="ev-hint" style={{ margin: "4px 0 0" }}>
+          Најмалку 10 знаци.
+        </p>
       </div>
       {error ? <p className="auth-error">{error}</p> : null}
       <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ width: "100%", justifyContent: "center" }}>
         {isSubmitting ? "Се регистрира..." : "Регистрирај се"}
       </button>
+      <p className="ev-hint" style={{ margin: "10px 0 0", textAlign: "center" }}>
+        Со регистрацијата се согласувате со{" "}
+        <Link href="/terms" target="_blank">
+          Условите за користење
+        </Link>{" "}
+        и{" "}
+        <Link href="/dpa" target="_blank">
+          Договорот за обработка на лични податоци
+        </Link>{" "}
+        и потврдувате дека ја прочитавте{" "}
+        <Link href="/privacy" target="_blank">
+          Политиката за приватност
+        </Link>
+        .
+      </p>
     </form>
   );
 }

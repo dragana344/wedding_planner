@@ -114,7 +114,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Поддршка",
     title: "ПОДДРШКА",
     subtitle: "Помош и контакт со поддршка",
-    ready: false,
+    ready: true,
   },
 ];
 

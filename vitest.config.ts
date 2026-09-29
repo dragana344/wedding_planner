@@ -13,6 +13,8 @@ export const unitTestFiles = [
   "tests/lib/api/**/*.test.ts",
   "tests/security/**/*.test.ts",
   "tests/lib/security/**/*.test.ts",
+  "tests/lib/date.test.ts",
+  "tests/lib/pure/**/*.test.ts",
 ];
 
 export default defineConfig({
@@ -22,6 +24,14 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     include: unitTestFiles,
+    coverage: {
+      provider: "v8",
+      include: ["lib/**", "app/api/**", "proxy.ts"],
+      reporter: ["text-summary", "html"],
+      reportsDirectory: "coverage/unit",
+      // TEST-006: floors at the measured baseline (29 Sep 2026); ratchet up.
+      thresholds: { statements: 43, branches: 79, functions: 31, lines: 43 },
+    },
   },
   resolve: {
     alias: {

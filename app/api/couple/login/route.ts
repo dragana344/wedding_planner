@@ -7,10 +7,10 @@ import { withRequestLog } from "@/lib/api/handler";
 import { logSecurityEvent } from "@/lib/log";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
-const MESSAGES: Record<"invalid" | "locked", string> = {
-  invalid: "Неточно корисничко име или лозинка.",
-  locked: "Премногу обиди. Обидете се повторно за неколку минути.",
-};
+// SEC-022: one answer for a wrong password, an unknown username and a locked
+// account, so the response never confirms that a username exists.
+const LOGIN_FAILED_MESSAGE =
+  "Неточно корисничко име или лозинка. По повеќе неуспешни обиди најавата привремено се блокира — обидете се повторно за неколку минути.";
 
 export async function POST(request: NextRequest) {
   return withRequestLog(request, () => login(request));
@@ -40,7 +40,7 @@ async function login(request: NextRequest) {
   const result = await verifyEventCredentials(username, password);
   if ("errorCode" in result) {
     logSecurityEvent(result.errorCode === "locked" ? "couple_login_locked" : "couple_login_failed");
-    return NextResponse.json({ error: MESSAGES[result.errorCode] }, { status: 401 });
+    return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 });
   }
   logSecurityEvent("couple_login_succeeded", { event_id: result.eventId });
 

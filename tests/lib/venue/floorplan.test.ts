@@ -33,12 +33,12 @@ const admin = createClient(
 
 let venueId: string;
 let roomId: string;
-let staffEmail = "floorplan-staff@test.local";
-let staffPassword = "test-password-123";
+const staffEmail = "floorplan-staff@test.local";
+const staffPassword = "test-password-123";
 let staffUserId: string;
 let staffClient: ReturnType<typeof createClient>;
-let nonStaffEmail = "floorplan-nonstaff@test.local";
-let nonStaffPassword = "test-password-456";
+const nonStaffEmail = "floorplan-nonstaff@test.local";
+const nonStaffPassword = "test-password-456";
 let nonStaffUserId: string;
 let nonStaffClient: ReturnType<typeof createClient>;
 

@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware, isCrossOriginMutation } from "@/middleware";
+import { proxy as middleware, isCrossOriginMutation } from "@/proxy";
+import { afterEach } from "vitest";
 
 function req(path: string, init: { method?: string; headers?: Record<string, string> } = {}) {
   return new NextRequest(new URL(path, "http://localhost:3000"), {
@@ -77,5 +78,41 @@ describe("request ids (OBS-002)", () => {
     const res = await middleware(req("/api/couple/notes", { method: "POST", headers: { origin: "https://evil.example" } }));
     expect(res.status).toBe(403);
     expect(res.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("maintenance mode (REL-007)", () => {
+  afterEach(() => {
+    delete process.env.MAINTENANCE_MODE;
+    delete process.env.MAINTENANCE_BYPASS_TOKEN;
+  });
+
+  it("is off unless the flag is set", async () => {
+    expect((await middleware(req("/"))).status).toBe(200);
+  });
+
+  it("serves a 503 page (JSON for the API) with Retry-After, but keeps /api/health real", async () => {
+    process.env.MAINTENANCE_MODE = "1";
+    const page = await middleware(req("/invite/abc"));
+    expect(page.status).toBe(503);
+    expect(page.headers.get("retry-after")).toBe("600");
+    expect(await page.text()).toContain("Кратко одржување");
+    const api = await middleware(req("/api/couple/guests"));
+    expect(api.status).toBe(503);
+    expect((await api.json()).error).toMatch(/одржување/);
+    expect((await middleware(req("/api/health"))).status).not.toBe(503);
+  });
+
+  it("lets the team through with the bypass link, then via cookie", async () => {
+    process.env.MAINTENANCE_MODE = "1";
+    process.env.MAINTENANCE_BYPASS_TOKEN = "team-secret";
+    const wrong = await middleware(req("/?maintenance_bypass=nope"));
+    expect(wrong.status).toBe(503);
+    const enter = await middleware(req("/venue?maintenance_bypass=team-secret"));
+    expect(enter.status).toBe(307);
+    expect(enter.headers.get("location")).toBe("http://localhost:3000/venue");
+    expect(enter.cookies.get("maintenance_bypass")?.value).toBe("team-secret");
+    const withCookie = await middleware(req("/", { headers: { cookie: "maintenance_bypass=team-secret" } }));
+    expect(withCookie.status).toBe(200);
   });
 });

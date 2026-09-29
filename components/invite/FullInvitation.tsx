@@ -232,7 +232,7 @@ export function FullInvitation({
             boxShadow: "0 20px 40px -20px rgba(0,0,0,0.25)",
           }}
         >
-          <RsvpForm slug={slug} accentColor={theme.textColor} />
+          <RsvpForm slug={slug} accentColor={theme.textColor} coupleNames={invitation.couple_names} venueName={invitation.venue_name} />
         </div>
       </div>
 

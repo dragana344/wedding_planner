@@ -4,7 +4,7 @@
 //
 // Couple routes run on the service-role client (RLS bypassed), so the only
 // thing keeping one couple out of another couple's data is each lib function
-// scoping by the event id that middleware.ts puts in `x-couple-event-id`.
+// scoping by the event id that proxy.ts puts in `x-couple-event-id`.
 // This file calls every exported route handler directly as event A and
 // throws event B's ids (and B's room) at it:
 //
@@ -41,6 +41,7 @@ import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestsIdRoute from "@/app/api/couple/guests/[id]/route";
 import * as invitationRoute from "@/app/api/couple/invitation/route";
 import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
+import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
 import * as locationsRoute from "@/app/api/couple/locations/route";
 import * as locationsIdRoute from "@/app/api/couple/locations/[id]/route";
 import * as menuRoute from "@/app/api/couple/menu/route";
@@ -269,7 +270,7 @@ function bSecrets(): string[] {
 
 type CallOptions = { body?: unknown; query?: Record<string, string>; form?: FormData };
 
-/** Invokes a route handler as event A, the way it runs behind middleware.ts. */
+/** Invokes a route handler as event A, the way it runs behind proxy.ts. */
 async function call<P>(
   handler: RouteHandler<P>,
   params: P,
@@ -548,13 +549,24 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
     module: invitationPhotoRoute,
     methods: {
       POST: async () => {
-        const form = new FormData();
-        form.set("file", new File([new Uint8Array([0xff, 0xd8, 0xff])], "photo.jpg", { type: "image/jpeg" }));
-        const res = await call(invitationPhotoRoute.POST, NONE, "POST", { form });
+        // SEC-005: returns a signed upload for A's own staging folder only.
+        const res = await call(invitationPhotoRoute.POST, NONE, "POST");
         expect(res.status).toBe(200);
-        const photoPath = (res.json as { photo_path: string }).photo_path;
-        uploadedPhotoPaths.push(photoPath);
-        expect(photoPath.startsWith(A.eventId)).toBe(true);
+        const { path } = res.json as { path: string; token: string };
+        expect(path.startsWith(`uploads/${A.eventId}/`)).toBe(true);
+      },
+    },
+  },
+  "invitation/photo/confirm/route.ts": {
+    module: invitationPhotoConfirmRoute,
+    methods: {
+      POST: async () => {
+        // A cannot attach a file from B's staging folder (or any other path).
+        const bPath = `uploads/${B.eventId}/00000000-0000-4000-8000-000000000000`;
+        const res = await call(invitationPhotoConfirmRoute.POST, NONE, "POST", { body: { path: bPath } });
+        expect(res.status).toBe(400);
+        const { data } = await admin.from("event_invitations").select("photo_path").eq("event_id", B.eventId).single();
+        expect(data!.photo_path).toBe(`${RUN}-b-photo.jpg`);
       },
     },
   },

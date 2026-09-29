@@ -226,7 +226,13 @@ export const invitationBody = z.object({
 export const locationBody = z.object({
   label: name,
   address: optionalText(500),
-  map_url: optionalText(2000),
+  // SEC-025 SR-11: only web links (or empty), never javascript:/data: URLs.
+  map_url: z
+    .string()
+    .max(2000)
+    .refine((v) => v.trim() === "" || /^https?:\/\//i.test(v.trim()), "Линкот мора да почнува со http:// или https://.")
+    .nullable()
+    .optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -355,6 +361,14 @@ export const venueSignupBody = z.object(
   },
   { error: VENUE_NAME_REQUIRED_ERROR },
 );
+
+// ---------------------------------------------------------------------------
+// Venue privacy (DATA-006). `confirm` is what the staff member typed; the
+// route compares it with the couple's names / the venue name.
+
+const confirmText = z.string().max(400);
+export const privacyEraseEventBody = z.object({ event_id: uuid, confirm: confirmText });
+export const privacyDeleteAccountBody = z.object({ confirm: confirmText });
 
 // ---------------------------------------------------------------------------
 // Parsing helper
