@@ -63,14 +63,14 @@ export interface GuestSeat {
 }
 
 // One literal (not concatenated) so supabase-js can type the rows.
-const COLUMNS =
+export const GUEST_COLUMNS =
   "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status, invite_token, email, children_count, menu_choice, allergies, rsvp_comment, invitation_sent_at, invitation_channel";
 
 export async function listGuests(eventId: string): Promise<Guest[]> {
   const client = createServiceRoleClient();
   const { data, error } = await client
     .from("event_guests")
-    .select(COLUMNS)
+    .select(GUEST_COLUMNS)
     .eq("event_id", eventId)
     .order("created_at")
     .limit(MAX_LIST_ROWS);
@@ -83,7 +83,7 @@ export async function addGuest(eventId: string, input: GuestInput): Promise<Gues
   const { data, error } = await client
     .from("event_guests")
     .insert({ event_id: eventId, ...input })
-    .select(COLUMNS)
+    .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
   return data;
@@ -96,7 +96,7 @@ export async function updateGuest(eventId: string, guestId: string, input: Guest
     .update(input)
     .eq("id", guestId)
     .eq("event_id", eventId)
-    .select(COLUMNS)
+    .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
   return data;
@@ -109,7 +109,7 @@ export async function updateGuestStatus(eventId: string, guestId: string, status
     .update({ rsvp_status: status })
     .eq("id", guestId)
     .eq("event_id", eventId)
-    .select(COLUMNS)
+    .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
   return data;
@@ -122,7 +122,7 @@ export async function updateGuestSide(eventId: string, guestId: string, side: Gu
     .update({ side })
     .eq("id", guestId)
     .eq("event_id", eventId)
-    .select(COLUMNS)
+    .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
   return data;

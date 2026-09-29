@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Guest, GuestSeat } from "@/lib/couple/guests";
 import { CHANNEL_LABELS, MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { GuestSendButtons, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 
 function formatSent(iso: string): string {
   return new Intl.DateTimeFormat("mk-MK", { timeZone: "Europe/Skopje", day: "numeric", month: "numeric", year: "numeric" }).format(new Date(iso));
@@ -19,7 +20,19 @@ function seatText(seat: GuestSeat): string {
 }
 
 /** A7: everything about one guest, opened from the list. */
-export function GuestDetail({ guest, showSide, onClose }: { guest: Guest; showSide: boolean; onClose: () => void }) {
+export function GuestDetail({
+  guest,
+  showSide,
+  share,
+  actions,
+  onClose,
+}: {
+  guest: Guest;
+  showSide: boolean;
+  share: ShareContext | undefined;
+  actions: SendActions;
+  onClose: () => void;
+}) {
   const [seat, setSeat] = useState<GuestSeat | null | undefined>(undefined);
 
   useEffect(() => {
@@ -97,6 +110,8 @@ export function GuestDetail({ guest, showSide, onClose }: { guest: Guest; showSi
           <dt style={{ color: "var(--muted)" }}>Маса</dt>
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
+        <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>{guest.invitation_sent_at ? "Прати повторно" : "Прати покана"}</h3>
+        <GuestSendButtons guest={guest} share={share} actions={actions} />
       </div>
     </div>
   );

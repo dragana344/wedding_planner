@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { Guest, GuestSide, GuestStats, MenuChoice, RsvpStatus } from "@/lib/couple/guests";
+import type { Guest, GuestSide, GuestStats, InvitationChannel, MenuChoice, RsvpStatus } from "@/lib/couple/guests";
 import { MENU_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { Icon } from "@/components/venue/shell/Icon";
 import { GuestDetail } from "@/components/couple/guests/GuestDetail";
 import { RsvpBreakdown } from "@/components/couple/guests/RsvpBreakdown";
+import { BulkSendDialog, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RsvpStatus[]).map((value) => ({ value, label: STATUS_LABELS[value] }));
 const MENU_OPTIONS = (Object.keys(MENU_LABELS) as MenuChoice[]).map((value) => ({ value, label: MENU_LABELS[value] }));
@@ -48,10 +49,13 @@ export function GuestsClient({
   initialGuests,
   initialStats,
   eventType,
+  share,
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
   eventType: string;
+  /** For sending invitations (A9); missing or slug-less means no invitation yet. */
+  share?: ShareContext;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -72,6 +76,8 @@ export function GuestsClient({
   const [sentFilter, setSentFilter] = useState<SentFilter>("");
   const [openGuestId, setOpenGuestId] = useState<string | null>(null);
   const closeDetail = useCallback(() => setOpenGuestId(null), []);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const closeBulk = useCallback(() => setBulkOpen(false), []);
 
   async function reload() {
     const data = await jsonOrThrow(await fetch("/api/couple/guests"));
@@ -83,6 +89,43 @@ export function GuestsClient({
     const data = await jsonOrThrow(await fetch("/api/couple/guests"));
     setStats(data.stats);
   }
+
+  const sendActions: SendActions = {
+    async markSent(guestIds: string[], channel: InvitationChannel) {
+      setError(null);
+      try {
+        const { guests: updated } = await jsonOrThrow(
+          await fetch("/api/couple/guests/sent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ guest_ids: guestIds, channel }),
+          }),
+        );
+        const byId = new Map((updated as Guest[]).map((g) => [g.id, g]));
+        setGuests((prev) => prev.map((g) => byId.get(g.id) ?? g));
+        await refreshStats();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не успеа означувањето на поканите.");
+      }
+    },
+    async emailInvites(guestIds: string[]) {
+      setError(null);
+      setNotice(null);
+      try {
+        const result = await jsonOrThrow(
+          await fetch("/api/couple/guests/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ guest_ids: guestIds }),
+          }),
+        );
+        await reload();
+        setNotice(`Испратени email покани: ${result.sent}. Без email адреса: ${result.skipped}. Неуспешни: ${result.failed}.`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не успеа праќањето на поканите.");
+      }
+    },
+  };
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -239,6 +282,9 @@ export function GuestsClient({
           ) : null}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, minWidth: 0, maxWidth: "100%" }}>
+          <button type="button" className="btn btn-ghost" onClick={() => setOpenGuestId(guest.id)} aria-label={`Прати покана на ${guest.full_name}`}>
+            Прати
+          </button>
           <select
             aria-label={`Статус за ${guest.full_name}`}
             className="fld"
@@ -334,6 +380,9 @@ export function GuestsClient({
           <option value="sent">Испратени</option>
           <option value="unsent">Неиспратени</option>
         </select>
+        <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
+          Масовно праќање
+        </button>
         <a href="/api/couple/guests/export" className="btn btn-ghost" download>
           Извези CSV
         </a>
@@ -408,7 +457,8 @@ export function GuestsClient({
         </button>
       </form>
 
-      {openGuest ? <GuestDetail guest={openGuest} showSide={isWedding} onClose={closeDetail} /> : null}
+      {openGuest ? <GuestDetail guest={openGuest} showSide={isWedding} share={share} actions={sendActions} onClose={closeDetail} /> : null}
+      {bulkOpen ? <BulkSendDialog guests={visibleGuests} share={share} actions={sendActions} onClose={closeBulk} /> : null}
     </div>
   );
 }

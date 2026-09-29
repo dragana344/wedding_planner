@@ -41,6 +41,12 @@ const guests = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/guests", () => guests);
 
+const sending = vi.hoisted(() => ({
+  markInvitationSent: vi.fn(async () => []),
+  sendInvitationEmails: vi.fn(async () => ({ sent: 1, skipped: 0, failed: 0 })),
+}));
+vi.mock("@/lib/couple/invitation-sending", () => sending);
+
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 
@@ -57,6 +63,8 @@ import * as guestRoute from "@/app/api/couple/guests/[id]/route";
 import * as guestSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
 import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
+import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
+import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
 import * as agendaItemRoute from "@/app/api/couple/agenda/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
@@ -281,6 +289,33 @@ describe("couple guest list tools (A6, A7, A20)", () => {
     expect((await call(guestSeatRoute.GET, req("GET"), { id: "1 or 1=1" })).status).toBe(400);
     expect(await call(guestSeatRoute.GET, req("GET"), { id: ID })).toEqual({ status: 200, body: { seat: null } });
     expect(guests.getGuestSeat).toHaveBeenCalledWith(EVENT, ID);
+  });
+});
+
+describe("sending invitations (A9)", () => {
+  it("marks guests sent through a known channel only", async () => {
+    expect(await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID, ID2], channel: "viber" }))).toEqual({ status: 200, body: { guests: [] } });
+    expect(sending.markInvitationSent).toHaveBeenCalledWith(EVENT, [ID, ID2], "viber");
+    sending.markInvitationSent.mockClear();
+    for (const bad of [{ guest_ids: [ID], channel: "pigeon" }, { guest_ids: [], channel: "sms" }, { guest_ids: ["x"], channel: "sms" }]) {
+      expect((await call(guestsSentRoute.POST, req("POST", bad))).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect(sending.markInvitationSent).not.toHaveBeenCalled();
+  });
+
+  it("emails invitations with links to the configured site, else this request's origin", async () => {
+    const res = await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
+    expect(res).toEqual({ status: 200, body: { sent: 1, skipped: 0, failed: 0 } });
+    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost");
+
+    process.env.SITE_URL = "https://kadesum.mk";
+    try {
+      await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
+      expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "https://kadesum.mk");
+    } finally {
+      delete process.env.SITE_URL;
+    }
+    expect((await call(guestsEmailRoute.POST, req("POST", { guest_ids: Array(201).fill(ID) }))).status).toBe(400);
   });
 });
 

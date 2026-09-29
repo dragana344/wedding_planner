@@ -224,3 +224,96 @@ describe("GuestsClient CSV (A20)", () => {
     expect(JSON.parse(init.body)).toEqual({ csv: "Име и презиме\nУвезен Гостин\nАна Петровска\n" });
   });
 });
+
+describe("GuestsClient sending invitations (A9)", () => {
+  const share = { slug: "abcDEF123", coupleNames: "Ана и Марко", eventDate: "2027-06-12", venueName: "Сала Лотос", eventType: "wedding", emailEnabled: true };
+  const petar = makeGuest({ id: "g7", full_name: "Петар Петровски", phone: "070 123 456", invite_token: "tokPetarXXXXXXXXXXXXXXXX" });
+  const link = `${window.location.origin}/invite/abcDEF123?g=tokPetarXXXXXXXXXXXXXXXX`;
+
+  function sentResponse(guest: Guest, channel: string) {
+    return { ok: true, json: async () => ({ guests: [{ ...guest, invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: channel }] }) };
+  }
+  const statsResponse = { ok: true, json: async () => ({ guests: [], stats: makeStats({ invitationsSent: 1 }) }) };
+
+  it("opens WhatsApp with the personal message and marks the guest sent", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ seat: null }) }).mockResolvedValueOnce(sentResponse(petar, "whatsapp")).mockResolvedValueOnce(statsResponse);
+    render(<GuestsClient initialGuests={[petar]} initialStats={stats} eventType="wedding" share={share} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прати покана на Петар Петровски" }));
+    const dialog = await screen.findByRole("dialog", { name: "Петар Петровски" });
+    const whatsapp = within(dialog).getByRole("link", { name: "WhatsApp" });
+    expect(whatsapp.getAttribute("href")).toMatch(/^https:\/\/wa\.me\/38970123456\?text=/);
+    expect(decodeURIComponent(whatsapp.getAttribute("href")!.split("text=")[1])).toContain(link);
+
+    fireEvent.click(whatsapp);
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/couple/guests/sent",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ guest_ids: ["g7"], channel: "whatsapp" }) }),
+      ),
+    );
+    await waitFor(() => expect(screen.queryByText("Неиспратена покана")).not.toBeInTheDocument());
+    expect(within(dialog).getByText(/Испратена .* преку WhatsApp/)).toBeInTheDocument();
+  });
+
+  it("copies the personal link and marks it sent by link", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ seat: null }) }).mockResolvedValueOnce(sentResponse(petar, "link")).mockResolvedValueOnce(statsResponse);
+    render(<GuestsClient initialGuests={[petar]} initialStats={stats} eventType="wedding" share={share} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прати покана на Петар Петровски" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Копирај линк" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(link));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/sent", expect.objectContaining({ body: JSON.stringify({ guest_ids: ["g7"], channel: "link" }) })));
+  });
+
+  it("emails through the app when email is set up, else offers a mail link", async () => {
+    const withEmail = { ...petar, email: "petar@example.mk" };
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ seat: null }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ sent: 1, skipped: 0, failed: 0 }) })
+      .mockResolvedValue({ ok: true, json: async () => ({ guests: [{ ...withEmail, invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: "email" }], stats: makeStats({ invitationsSent: 1 }) }) });
+    const { unmount } = render(<GuestsClient initialGuests={[withEmail]} initialStats={stats} eventType="wedding" share={share} />);
+    fireEvent.click(screen.getByRole("button", { name: "Прати покана на Петар Петровски" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Email" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/email", expect.objectContaining({ body: JSON.stringify({ guest_ids: ["g7"] }) })));
+    unmount();
+
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ seat: null }) });
+    render(<GuestsClient initialGuests={[withEmail]} initialStats={stats} eventType="wedding" share={{ ...share, emailEnabled: false }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Прати покана на Петар Петровски" }));
+    const mail = await screen.findByRole("link", { name: "Email" });
+    expect(mail.getAttribute("href")).toMatch(/^mailto:petar@example\.mk\?subject=/);
+  });
+
+  it("asks for the invitation first when there is none", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ seat: null }) });
+    render(<GuestsClient initialGuests={[petar]} initialStats={stats} eventType="wedding" share={{ ...share, slug: null }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Прати покана на Петар Петровски" }));
+    expect(await screen.findByText(/Прво направете покана/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "WhatsApp" })).not.toBeInTheDocument();
+  });
+
+  it("sends to all unsent guests at once: copy every link, or email those with an address", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const jana = makeGuest({ id: "g8", full_name: "Јана Илиева", email: "jana@example.mk", invite_token: "tokJanaXXXXXXXXXXXXXXXXX" });
+    const done = makeGuest({ id: "g9", full_name: "Веќе Испратен", invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: "sms" });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ guests: [], stats, sent: 1, skipped: 0, failed: 0 }) });
+    render(<GuestsClient initialGuests={[petar, jana, done]} initialStats={stats} eventType="wedding" share={share} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Масовно праќање" }));
+    const dialog = screen.getByRole("dialog", { name: "Масовно праќање" });
+    expect(within(dialog).getByText("2 гости без испратена покана")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Копирај ги сите линкови" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`Петар Петровски: ${link}\nЈана Илиева: ${window.location.origin}/invite/abcDEF123?g=tokJanaXXXXXXXXXXXXXXXXX`),
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/sent", expect.objectContaining({ body: JSON.stringify({ guest_ids: ["g7", "g8"], channel: "link" }) })));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Прати email на сите со адреса (1)" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/email", expect.objectContaining({ body: JSON.stringify({ guest_ids: ["g8"] }) })));
+  });
+});

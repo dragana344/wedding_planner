@@ -42,6 +42,8 @@ import * as guestsIdRoute from "@/app/api/couple/guests/[id]/route";
 import * as guestsSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
 import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
+import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
+import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
 import * as invitationRoute from "@/app/api/couple/invitation/route";
 import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
 import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
@@ -559,6 +561,27 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         expect(res.json).toEqual({ imported: 1, skipped: 0 });
         const { data } = await admin.from("event_guests").select("event_id").eq("full_name", `${RUN} imported guest`);
         expect(data).toEqual([{ event_id: A.eventId }]);
+      },
+    },
+  },
+  "guests/sent/route.ts": {
+    module: guestsSentRoute,
+    methods: {
+      POST: async () => {
+        const res = await call(guestsSentRoute.POST, NONE, "POST", { body: { guest_ids: [B.guestId, A.guestId], channel: "sms" } });
+        expect(res.status).toBe(200);
+        expect((res.json as { guests: Row[] }).guests.map((g) => g.id)).toEqual([A.guestId]);
+        expect((await adminRow("event_guests", A.guestId))!.invitation_channel).toBe("sms");
+      },
+    },
+  },
+  "guests/email/route.ts": {
+    module: guestsEmailRoute,
+    methods: {
+      POST: async () => {
+        // Email is not configured in tests: refused before anything is read or sent.
+        const res = await call(guestsEmailRoute.POST, NONE, "POST", { body: { guest_ids: [B.guestId] } });
+        expect(res.json).toEqual({ error: "Праќањето email не е вклучено." });
       },
     },
   },

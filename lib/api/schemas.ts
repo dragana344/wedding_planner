@@ -208,6 +208,17 @@ export const guestUpdateBody = z.union([
   guestFields,
 ]);
 
+export const INVITATION_CHANNELS = ["whatsapp", "viber", "sms", "email", "link"] as const;
+
+/** A9: guests the couple just sent the invitation to, and how. */
+export const guestsSentBody = z.object({
+  guest_ids: z.array(uuid).min(1).max(1000),
+  channel: z.enum(INVITATION_CHANNELS),
+});
+
+/** A9: guests to email their invitation (one request stays well inside the function timeout). */
+export const guestsEmailBody = z.object({ guest_ids: z.array(uuid).min(1).max(200) });
+
 /** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
 export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
 

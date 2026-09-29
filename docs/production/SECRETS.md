@@ -22,6 +22,7 @@ Rules:
 | `SENTRY_AUTH_TOKEN` | **Yes** | Build: source-map upload (maps are deleted from the output after upload) | Sensitive | Sensitive | unset | Sentry org owner | Revoke + create org token |
 | `RESEND_API_KEY` | **Yes** | Contact-form notifications via Resend HTTP API (OBS-005). The separate Supabase-SMTP key lives only in Supabase | Sensitive | unset | unset | Resend account owner | Create new key, update Vercel (and Supabase SMTP for its own key), delete old |
 | `EMAIL_FROM` | No | Sender for app emails, e.g. `КАДЕ СУМ? <no-reply@mail.<domain>>` | set | unset | unset | — | — |
+| `SITE_URL` | No | Public origin for links the app emails to guests (personal invitations, reminders), e.g. `https://kadesum.mk`. Unset: the request's own origin | set | unset | unset | — | — |
 | `CONTACT_NOTIFY_EMAIL` | No | Team inbox for contact-form messages | set | unset | unset | — | — |
 | `SECURITY_CONTACT_EMAIL` | No | Contact in `/.well-known/security.txt` (SEC-026) | set | unset | unset | — | — |
 | `SUPPORT_EMAIL` | No | Address shown on the venue panel's Support page (ARCH-003); falls back to `CONTACT_NOTIFY_EMAIL` | set | unset | unset | — | — |
