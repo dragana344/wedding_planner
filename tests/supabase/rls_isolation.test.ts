@@ -45,6 +45,7 @@ interface VenueFixture {
   fixedElementId: string;
   roomLayoutElementId: string;
   eventLayoutElementId: string;
+  seatAssignmentId: string;
   reservationId: string;
 }
 
@@ -130,6 +131,13 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     width_cm: 180,
     length_cm: 180,
   });
+  const seatAssignment = await one<{ id: string }>("event_seat_assignments", {
+    event_id: event.id,
+    room_id: room.id,
+    layout_element_id: eventLayout.id,
+    seat_number: 1,
+    guest_name: `${RUN} Seated ${tag}`,
+  });
   const reservation = await one<{ id: string }>("reservations", {
     venue_id: venue.id,
     room_id: room.id,
@@ -155,6 +163,7 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     fixedElementId: fixed.id,
     roomLayoutElementId: roomLayout.id,
     eventLayoutElementId: eventLayout.id,
+    seatAssignmentId: seatAssignment.id,
     reservationId: reservation.id,
   };
 }
@@ -288,6 +297,16 @@ const CASES: TableCase[] = [
         width_cm: 100,
         length_cm: 100,
       },
+    ],
+  },
+  {
+    table: "event_seat_assignments",
+    key: (f) => ({ id: f.seatAssignmentId }),
+    update: () => ({ guest_name: "hijacked" }),
+    inserts: (own, other) => [
+      { event_id: other.eventId, room_id: other.roomId, layout_element_id: other.eventLayoutElementId, seat_number: 2, guest_name: "stray" },
+      // Own event, other venue's table.
+      { event_id: own.eventId, room_id: own.roomId, layout_element_id: other.eventLayoutElementId, seat_number: 2, guest_name: "stray" },
     ],
   },
   {
@@ -455,6 +474,7 @@ describe("RLS isolation (TEST-003)", () => {
       ["room_layout_elements", () => ({ id: A.roomLayoutElementId }), () => ({ room_id: B.roomId })],
       ["event_layout_elements", () => ({ id: A.eventLayoutElementId }), () => ({ event_id: B.eventId })],
       ["event_showcase_photos", () => ({ id: A.showcasePhotoId }), () => ({ event_id: B.eventId })],
+      ["event_seat_assignments", () => ({ id: A.seatAssignmentId }), () => ({ event_id: B.eventId, room_id: B.roomId, layout_element_id: B.eventLayoutElementId, seat_number: 3 })],
       ["reservations", () => ({ id: A.reservationId }), () => ({ venue_id: B.venueId, room_id: B.roomId })],
       [
         "event_rooms",

@@ -31,6 +31,7 @@ export const EXPORTED_TABLES = [
   "event_menu_item_quantities",
   "event_showcase_photos",
   "event_layout_elements",
+  "event_seat_assignments",
 ] as const;
 
 const PAGE = 1000;
@@ -52,6 +53,7 @@ export type EventExport = {
   menu_item_quantities: Row[];
   showcase_photos: (Row & { photo_url: string })[];
   seating_labels: Row[];
+  seat_assignments: Row[];
 };
 
 export type VenueExport = {
@@ -117,7 +119,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout] =
+  const [credentials, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout, seats] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
       selectIn(client, "event_guests", "*", byEvent, ids, ["created_at", "id"]),
@@ -131,6 +133,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       selectIn(client, "event_menu_item_quantities", "event_id, menu_item_id, guest_count, menu_items(name)", byEvent, ids, [byEvent, "menu_item_id"]),
       selectIn(client, "event_showcase_photos", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_layout_elements", "id, event_id, room_id, element_type, label", byEvent, ids, ["id"]),
+      selectIn(client, "event_seat_assignments", "event_id, room_id, layout_element_id, seat_number, guest_id, guest_name", byEvent, ids, ["layout_element_id", "seat_number"]),
     ]);
 
   const subtasks = await selectIn(
@@ -156,6 +159,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     quantities: groupBy(quantities, byEvent),
     showcase: groupBy(showcase, byEvent),
     labels: groupBy(layout.filter((r) => r.label), byEvent),
+    seats: groupBy(seats, byEvent),
   };
 
   return events.map((event) => {
@@ -179,6 +183,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
         photo_url: publicUrl(client, "event-showcase-photos", p.photo_path) ?? "",
       })),
       seating_labels: g.labels.get(id) ?? [],
+      seat_assignments: g.seats.get(id) ?? [],
     };
   });
 }

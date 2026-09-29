@@ -192,7 +192,9 @@ async function confirmSeating(eventId: string, roomId: string, client: SupabaseC
   const { error } = await client.rpc("confirm_event_seating", {
     p_event_id: eventId,
     p_room_id: roomId,
+    // Ids carried over (0070) so seats on these tables stay attached.
     p_elements: draftElements.map((el) => ({
+      id: el.id,
       element_type: el.element_type,
       table_type_id: el.table_type_id,
       x_cm: el.x_cm,

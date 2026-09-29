@@ -21,6 +21,7 @@ const STAFF_TABLES = [
   "room_fixed_elements",
   "room_layout_elements",
   "event_layout_elements",
+  "event_seat_assignments",
   "reservations",
   "reservation_tables",
   "audit_log",

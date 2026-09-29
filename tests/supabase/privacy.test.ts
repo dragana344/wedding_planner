@@ -107,9 +107,18 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
   );
   await must(admin.from("event_custom_menu_items").insert({ event_id: eventId, menu_item_id: dish.id }));
   await must(admin.from("event_menu_item_quantities").insert({ event_id: eventId, menu_item_id: dish.id, guest_count: 7 }));
-  await must(
+  const tableType = await must(
+    admin.from("table_types").insert({ room_id: v.roomId, name: `Round ${tag}`, shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 1 }).select("id").single(),
+  );
+  const table = await must(
     admin.from("event_layout_elements").insert({
-      event_id: eventId, room_id: v.roomId, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100, label: `Table ${tag}`,
+      event_id: eventId, room_id: v.roomId, element_type: "table", table_type_id: tableType.id, x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100,
+      label: `Table ${tag}`,
+    }).select("id").single(),
+  );
+  await must(
+    admin.from("event_seat_assignments").insert({
+      event_id: eventId, room_id: v.roomId, layout_element_id: table.id, seat_number: 1, guest_name: `Seated ${tag}`,
     }),
   );
 
@@ -195,7 +204,7 @@ describe("export (DATA-005)", () => {
     for (const text of [
       `Couple ${eventA.tag}`, `${eventA.tag}@couple.test`, `user-${eventA.tag}`, `Guest ${eventA.tag}`, `Allergy ${eventA.tag}`,
       `Content ${eventA.tag}`, `Agenda ${eventA.tag}`, `Street ${eventA.tag}`, `Vendor ${eventA.tag}`, `Subtask ${eventA.tag}`,
-      `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
+      `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, `Seated ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
       `Booker ${stamp}`, staff.email, a.name,
     ]) {
       expect(json, text).toContain(text);

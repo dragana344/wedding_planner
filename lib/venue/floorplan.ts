@@ -500,7 +500,9 @@ export async function undoEventLayout(
     const { data, error: insertError } = await client
       .from("event_layout_elements")
       .insert(
+        // Same ids as before the edit, so seat assignments reattach (0070).
         snapshot.map((el) => ({
+          id: el.id,
           event_id: eventId,
           room_id: roomId,
           element_type: el.element_type,

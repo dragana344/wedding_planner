@@ -42,6 +42,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_menu_item_quantities: { event_id: N, menu_item_id: C, guest_count: C },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },
   event_rooms: { event_id: N, room_id: N, layout_initialized_at: N },
+  event_seat_assignments: {
+    id: N, event_id: N, room_id: N, layout_element_id: N, seat_number: N, guest_id: N, guest_name: P, updated_at: N,
+  },
   event_showcase_photos: { id: N, event_id: N, photo_path: P, created_at: N },
   events: {
     id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, menu_template_id: N, created_at: N,
