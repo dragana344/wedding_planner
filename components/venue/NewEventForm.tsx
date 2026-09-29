@@ -266,6 +266,8 @@ export function NewEventForm({
                 className="fld"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={10}
+                aria-describedby="couple-password-hint"
                 required
               />
               <button
@@ -276,6 +278,9 @@ export function NewEventForm({
                 Генерирај
               </button>
             </div>
+            <p id="couple-password-hint" style={{ color: "var(--muted)", fontSize: 12.5, margin: "4px 0 0" }}>
+              Најмалку 10 знаци.
+            </p>
           </div>
         </div>
       </fieldset>
