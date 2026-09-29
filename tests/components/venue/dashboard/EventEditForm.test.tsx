@@ -103,4 +103,31 @@ describe("EventEditForm", () => {
     fireEvent.click(await screen.findByRole("button", { name: /да, избриши/i }));
     await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("e1"));
   });
+
+  it("keeps the couple's email and phone required when editing contacts (A21)", async () => {
+    mockSupportingCalls();
+    const contactSpy = vi.spyOn(events, "updateEventContactInfo").mockResolvedValue();
+    render(
+      <EventEditForm
+        event={{ ...baseEvent, contact_email: "ana@example.mk", contact_phone: "070123456" }}
+        venueId="v1"
+        rooms={[]}
+        menuTemplates={[]}
+        onClose={() => {}}
+        onChanged={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("Email на парот")).toBeRequired();
+    fireEvent.change(screen.getByLabelText("Телефон на парот"), { target: { value: "" } });
+    fireEvent.submit(screen.getByRole("button", { name: /зачувај контакт/i }).closest("form")!);
+
+    expect(await screen.findByText("Внесете телефон на парот.")).toBeInTheDocument();
+    expect(contactSpy).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Телефон на парот"), { target: { value: "070 999 888" } });
+    fireEvent.submit(screen.getByRole("button", { name: /зачувај контакт/i }).closest("form")!);
+    await waitFor(() =>
+      expect(contactSpy).toHaveBeenCalledWith("e1", { contact_email: "ana@example.mk", contact_email_2: null, contact_phone: "070 999 888" }),
+    );
+  });
 });

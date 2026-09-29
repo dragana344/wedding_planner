@@ -65,6 +65,8 @@ export async function createEventWithCouple(page: Page): Promise<CoupleAccount> 
   await page.getByLabel("Датум").fill(futureDate());
   await page.getByLabel("Корисничко име").fill(couple.username);
   await page.getByLabel("Лозинка").fill(couple.password);
+  await page.getByLabel("Email на парот").fill(`${couple.username}@example.mk`);
+  await page.getByLabel("Телефон на парот").fill("070 123 456");
   await page.getByRole("button", { name: "Креирај настан" }).click();
 
   await page.waitForURL((url) => url.pathname === "/venue/events", { timeout: 30_000 });

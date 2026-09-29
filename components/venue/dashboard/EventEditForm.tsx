@@ -31,6 +31,7 @@ import {
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
 import { confirmationMatches } from "@/lib/privacy/confirm";
+import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 
 export function EventEditForm({
   event,
@@ -131,13 +132,15 @@ export function EventEditForm({
   async function handleSaveContactInfo(e: React.FormEvent) {
     e.preventDefault();
     setContactError(null);
+    // A21: the couple's email and phone stay required.
+    const contacts = parseCoupleContacts({ contact_email: contactEmail, contact_phone: contactPhone, contact_email_2: contactEmail2 });
+    if (!contacts.ok) {
+      setContactError(contacts.error);
+      return;
+    }
     setIsSavingContact(true);
     try {
-      await updateEventContactInfo(event.id, {
-        contact_email: contactEmail.trim() || null,
-        contact_email_2: contactEmail2.trim() || null,
-        contact_phone: contactPhone.trim() || null,
-      });
+      await updateEventContactInfo(event.id, contacts.data);
       onChanged();
     } catch (err) {
       setContactError(
@@ -525,7 +528,7 @@ export function EventEditForm({
       </fieldset>
 
       <fieldset className="ev-fieldset">
-        <legend className="lab-s">Контакт</legend>
+        <legend className="lab-s">Контакт на парот</legend>
         <form onSubmit={handleSaveContactInfo}>
           <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
           <div className="ev-form-grid">
@@ -533,7 +536,9 @@ export function EventEditForm({
               <input
                 className="fld"
                 type="email"
-                placeholder="Е-пошта за контакт"
+                aria-label="Email на парот"
+                placeholder="Email на парот"
+                required
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
               />
@@ -542,7 +547,8 @@ export function EventEditForm({
               <input
                 className="fld"
                 type="email"
-                placeholder="Втора е-пошта"
+                aria-label="Втора е-пошта (по желба)"
+                placeholder="Втора е-пошта (по желба)"
                 value={contactEmail2}
                 onChange={(e) => setContactEmail2(e.target.value)}
               />
@@ -550,7 +556,10 @@ export function EventEditForm({
             <div className="ev-field">
               <input
                 className="fld"
-                placeholder="Телефон за контакт"
+                type="tel"
+                aria-label="Телефон на парот"
+                placeholder="Телефон на парот"
+                required
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
               />

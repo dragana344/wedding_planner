@@ -146,11 +146,32 @@ describe("events data layer: createEvent", () => {
       event_date: "2026-10-01",
       room_ids: [room!.id],
       menu_template_id: template!.id,
+      contacts: { contact_email: "ivana@example.mk", contact_phone: "070 123 456" },
     });
 
     const { data: linkedRooms } = await admin.from("event_rooms").select("room_id").eq("event_id", event.id);
     expect(linkedRooms).toHaveLength(1);
     expect(linkedRooms![0].room_id).toBe(room!.id);
+    // A21: the couple's contacts are saved with the event itself.
+    const { data: saved } = await admin.from("events").select("contact_email, contact_email_2, contact_phone").eq("id", event.id).single();
+    expect(saved).toEqual({ contact_email: "ivana@example.mk", contact_email_2: null, contact_phone: "070 123 456" });
+
+    await expect(
+      createEvent({
+        venue_id: venue!.id,
+        couple_names: "No Contacts",
+        event_date: "2026-10-02",
+        room_ids: [],
+        menu_template_id: null,
+        contacts: { contact_email: "", contact_phone: "070 123 456" },
+      }),
+    ).rejects.toThrow("Внесете email на парот.");
+    const { data: none } = await admin.from("events").select("id").eq("couple_names", "No Contacts");
+    expect(none).toEqual([]);
+
+    await expect(updateEventContactInfo(event.id, { contact_email: "ivana@example.mk", contact_email_2: null, contact_phone: "" })).rejects.toThrow(
+      "Внесете телефон на парот.",
+    );
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });

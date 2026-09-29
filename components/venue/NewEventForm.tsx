@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createEvent, updateEventContactInfo, updateEventFinance, deleteEvent } from "@/lib/venue/events";
+import { createEvent, updateEventFinance, deleteEvent } from "@/lib/venue/events";
+import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { createEventCredentials, generateRandomPassword } from "@/lib/venue/credentials";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import { Icon } from "@/components/venue/shell/Icon";
@@ -48,6 +49,11 @@ export function NewEventForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const contacts = parseCoupleContacts({ contact_email: contactEmail, contact_phone: contactPhone, contact_email_2: contactEmail2 });
+    if (!contacts.ok) {
+      setError(contacts.error);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const event = await createEvent({
@@ -61,15 +67,11 @@ export function NewEventForm({
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
         menu_template_id: menuTemplateId || null,
+        contacts: contacts.data,
       });
 
       try {
         await createEventCredentials(event.id, username, password);
-        await updateEventContactInfo(event.id, {
-          contact_email: contactEmail.trim() || null,
-          contact_email_2: contactEmail2.trim() || null,
-          contact_phone: contactPhone.trim() || null,
-        });
         await updateEventFinance(event.id, {
           total_price: totalPrice === "" ? null : Number(totalPrice),
           deposit_paid: depositPaid === "" ? null : Number(depositPaid),
@@ -320,13 +322,15 @@ export function NewEventForm({
       </fieldset>
 
       <fieldset className="ev-fieldset">
-        <legend className="lab-s">Контакт (опционално)</legend>
+        <legend className="lab-s">Контакт на парот</legend>
         <div className="ev-form-grid">
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Е-пошта за контакт"
+              aria-label="Email на парот"
+              placeholder="Email на парот"
               type="email"
+              required
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
             />
@@ -334,7 +338,8 @@ export function NewEventForm({
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Втора е-пошта"
+              aria-label="Втора е-пошта (по желба)"
+              placeholder="Втора е-пошта (по желба)"
               type="email"
               value={contactEmail2}
               onChange={(e) => setContactEmail2(e.target.value)}
@@ -343,7 +348,10 @@ export function NewEventForm({
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Телефон за контакт"
+              aria-label="Телефон на парот"
+              placeholder="Телефон на парот"
+              type="tel"
+              required
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
             />

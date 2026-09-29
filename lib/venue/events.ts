@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
+import { parseCoupleContacts, type CoupleContactsInput } from "@/lib/venue/event-contacts";
 
 export interface EventSummary {
   id: string;
@@ -178,9 +179,13 @@ export interface CreateEventInput {
   guest_count_estimate?: number | null;
   room_ids: string[];
   menu_template_id: string | null;
+  /** A21: required, saved with the event. */
+  contacts: CoupleContactsInput;
 }
 
 export async function createEvent(input: CreateEventInput): Promise<{ id: string }> {
+  const contacts = parseCoupleContacts(input.contacts);
+  if (!contacts.ok) throw new Error(contacts.error);
   const supabase = resolveSupabaseClient();
 
   if (input.menu_template_id) {
@@ -220,6 +225,7 @@ export async function createEvent(input: CreateEventInput): Promise<{ id: string
       status: input.status ?? "preparation",
       guest_count_estimate: input.guest_count_estimate ?? null,
       menu_template_id: input.menu_template_id,
+      ...contacts.data,
     })
     .select("id")
     .single();
@@ -317,8 +323,11 @@ export interface EventContactInfo {
   contact_phone: string | null;
 }
 
+/** A21: the couple's email and phone stay required when the venue edits them. */
 export async function updateEventContactInfo(eventId: string, input: EventContactInfo): Promise<void> {
-  const { error } = await resolveSupabaseClient().from("events").update(input).eq("id", eventId);
+  const contacts = parseCoupleContacts(input);
+  if (!contacts.ok) throw new Error(contacts.error);
+  const { error } = await resolveSupabaseClient().from("events").update(contacts.data).eq("id", eventId);
   if (error) throw error;
 }
 

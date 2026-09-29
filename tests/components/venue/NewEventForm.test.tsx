@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewEventForm } from "@/components/venue/NewEventForm";
 import * as events from "@/lib/venue/events";
@@ -33,7 +33,8 @@ describe("NewEventForm", () => {
     await userEvent.selectOptions(screen.getByLabelText(/^мени$/i), "m1");
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "ivana-petar");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
-    await userEvent.type(screen.getByPlaceholderText(/е-пошта за контакт/i), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     expect(createSpy).toHaveBeenCalledWith({
@@ -47,13 +48,11 @@ describe("NewEventForm", () => {
       guest_count_estimate: 80,
       room_ids: ["r1"],
       menu_template_id: "m1",
+      contacts: { contact_email: "couple@example.com", contact_email_2: null, contact_phone: "070 123 456" },
     });
     expect(credentialsSpy).toHaveBeenCalledWith("e1", "ivana-petar", "a-strong-password");
-    expect(contactSpy).toHaveBeenCalledWith("e1", {
-      contact_email: "couple@example.com",
-      contact_email_2: null,
-      contact_phone: null,
-    });
+    // A21: saved with the event itself, not as a second step.
+    expect(contactSpy).not.toHaveBeenCalled();
     expect(financeSpy).toHaveBeenCalledWith("e1", {
       total_price: null,
       deposit_paid: null,
@@ -78,10 +77,29 @@ describe("NewEventForm", () => {
     await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
     await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "taken-username");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     expect(deleteSpy).toHaveBeenCalledWith("e1");
     expect(await screen.findByText(/username taken/i)).toBeInTheDocument();
+  });
+
+  it("does not create an event without the couple's email and phone (A21)", async () => {
+    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    render(<NewEventForm venueId="v1" rooms={[]} menuTemplates={[]} onCreated={vi.fn()} />);
+    expect(screen.getByLabelText("Email на парот")).toBeRequired();
+    expect(screen.getByLabelText("Телефон на парот")).toBeRequired();
+
+    await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
+    await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
+    await userEvent.type(screen.getByLabelText(/корисничко име/i), "ivana-petar");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    fireEvent.submit(screen.getByRole("button", { name: /креирај настан/i }).closest("form")!);
+
+    expect(await screen.findByText("Внесете телефон на парот.")).toBeInTheDocument();
+    expect(createSpy).not.toHaveBeenCalled();
   });
 });
