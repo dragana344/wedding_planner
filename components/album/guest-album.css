@@ -1,0 +1,180 @@
+/* Guests' album page (Session 4): cream and gold, phone first. */
+.ga-page {
+  --ga-cream: #f5efe4;
+  --ga-card: #fffdf8;
+  --ga-gold: #b8913a;
+  --ga-gold-dark: #8a6a22;
+  --ga-ink: #2b2620;
+  --ga-muted: #5e554a;
+  --ga-line: #e4d8c3;
+  min-height: 100vh;
+  background: var(--ga-cream);
+  color: var(--ga-ink);
+  padding: 28px 16px 40px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.ga-header {
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto 22px;
+}
+.ga-kicker {
+  margin: 0;
+  color: var(--ga-gold-dark);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.ga-title {
+  margin: 6px 0 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(30px, 8vw, 44px);
+  line-height: 1.1;
+}
+.ga-date {
+  margin: 0;
+  color: var(--ga-muted);
+  font-size: 15px;
+}
+.ga-stack {
+  display: grid;
+  gap: 18px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.ga-card {
+  background: var(--ga-card);
+  border: 1px solid var(--ga-line);
+  border-radius: 16px;
+  padding: 20px 18px;
+}
+.ga-h2 {
+  margin: 0 0 6px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ga-gold-dark);
+}
+.ga-note {
+  margin: 0 0 14px;
+  color: var(--ga-muted);
+  font-size: 14.5px;
+}
+.ga-label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ga-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--ga-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ga-ink);
+  font: inherit;
+  font-size: 16px; /* no iOS zoom on focus */
+}
+.ga-input:focus-visible,
+.ga-button:focus-visible,
+.ga-check input:focus-visible {
+  outline: 3px solid var(--ga-gold);
+  outline-offset: 2px;
+}
+.ga-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.ga-row {
+  display: grid;
+  gap: 0 12px;
+}
+@media (min-width: 480px) {
+  .ga-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ga-count {
+  margin: 4px 0 0;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--ga-muted);
+}
+.ga-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.ga-check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ga-gold);
+}
+.ga-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ga-gold-dark);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ga-button.is-disabled,
+.ga-button:disabled {
+  background: #b9ad99;
+  cursor: not-allowed;
+}
+.ga-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ga-progress {
+  margin: 14px 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--ga-gold-dark);
+}
+.ga-error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fbe9e7;
+  color: #8c1d18;
+  font-size: 14.5px;
+}
+.ga-success {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #e8f3e6;
+  color: #1f5d1a;
+  font-size: 14.5px;
+}
+.ga-footer {
+  text-align: center;
+  font-size: 12.5px;
+  margin: 28px 0 0;
+}
+.ga-footer a {
+  color: var(--ga-muted);
+}

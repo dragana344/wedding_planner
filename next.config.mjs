@@ -23,6 +23,7 @@ export const contentSecurityPolicy = [
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabaseOrigin}`.trim(),
+  `media-src 'self' blob: ${supabaseOrigin}`.trim(),
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin} ${supabaseWs} ${sentryOrigin}`.replace(/\s+/g, " ").trim(),
   "frame-ancestors 'none'",
