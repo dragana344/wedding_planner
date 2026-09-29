@@ -35,10 +35,21 @@ describe("lib/couple/guests", () => {
     await updateGuestStatus(event!.id, b.id, "declined");
 
     const stats = await getGuestStats(event!.id);
-    expect(stats).toEqual({ total: 2, confirmed: 1, declined: 1, pending: 0, invited: 0, totalAttending: 3 });
+    expect(stats).toEqual({ total: 2, confirmed: 1, declined: 1, pending: 0, invited: 0, later: 0, totalAttending: 3 });
 
     await deleteGuest(event!.id, b.id);
     expect(await listGuests(event!.id)).toHaveLength(1);
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
+  it("counts guests who will answer later (A2)", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Guests Later Venue" }).select().single();
+    const { data: event } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "L", event_date: "2027-04-03" }).select().single();
+    const guest = await addGuest(event!.id, { full_name: "Подоцна", phone: null, party_size: 2, notes: null, side: null });
+
+    expect((await updateGuestStatus(event!.id, guest.id, "later")).rsvp_status).toBe("later");
+    expect(await getGuestStats(event!.id)).toMatchObject({ total: 1, later: 1, totalAttending: 0 });
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });

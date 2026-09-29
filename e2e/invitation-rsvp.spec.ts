@@ -19,20 +19,21 @@ test("public invitation loads and records an RSVP", async ({ page, anonPage }) =
   await expect(anonPage.getByText(couple.coupleNames).first()).toBeVisible();
 
   const guestName = `RSVP Гостин ${uniqueId()}`;
-  await anonPage.getByLabel("Your full name").fill(guestName);
-  await anonPage.getByRole("button", { name: "Yes, I'll be there" }).click();
-  await anonPage.getByLabel("Number of guests (including you)").fill("2");
-  await anonPage.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(anonPage.getByText("we've noted you'll be attending")).toBeVisible();
+  await anonPage.getByLabel("Име и презиме").fill(guestName);
+  await anonPage.getByRole("button", { name: "Ќе присуствувам" }).click();
+  await anonPage.getByLabel("Број на лица (со вас)").fill("2");
+  await anonPage.getByLabel("Посно").check();
+  await anonPage.getByRole("button", { name: "Испрати одговор" }).click();
+  await expect(anonPage.getByText("Го забележавме вашето доаѓање", { exact: false })).toBeVisible();
 
   // Recorded server-side...
   const { data: guest, error } = await adminClient()
     .from("event_guests")
-    .select("full_name, rsvp_status, party_size")
+    .select("full_name, rsvp_status, party_size, menu_choice")
     .eq("full_name", guestName)
     .single();
   expect(error).toBeNull();
-  expect(guest).toMatchObject({ rsvp_status: "confirmed", party_size: 2 });
+  expect(guest).toMatchObject({ rsvp_status: "confirmed", party_size: 2, menu_choice: "posno" });
 
   // ...and visible to the couple as a confirmed guest.
   await page.goto("/couple/guests");

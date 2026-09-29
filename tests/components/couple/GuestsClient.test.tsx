@@ -5,7 +5,7 @@ import { GuestsClient } from "@/components/couple/GuestsClient";
 const guests = [
   { id: "g1", event_id: "e1", full_name: "Ана Петровска", phone: "070111222", party_size: 2, rsvp_status: "pending" as const, notes: null, side: null },
 ];
-const stats = { total: 1, confirmed: 0, declined: 0, pending: 1, invited: 0, totalAttending: 0 };
+const stats = { total: 1, confirmed: 0, declined: 0, pending: 1, invited: 0, later: 0, totalAttending: 0 };
 
 describe("GuestsClient", () => {
   it("renders stats and the guest list, and adds a guest (non-wedding: flat list, no side field)", async () => {
@@ -16,7 +16,7 @@ describe("GuestsClient", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ guests: [...guests, { id: "g2", event_id: "e1", full_name: "Марко С.", phone: null, party_size: 1, rsvp_status: "pending", notes: null, side: null }], stats: { total: 2, confirmed: 0, declined: 0, pending: 2, invited: 0, totalAttending: 0 } }),
+        json: async () => ({ guests: [...guests, { id: "g2", event_id: "e1", full_name: "Марко С.", phone: null, party_size: 1, rsvp_status: "pending", notes: null, side: null }], stats: { total: 2, confirmed: 0, declined: 0, pending: 2, invited: 0, later: 0, totalAttending: 0 } }),
       });
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
@@ -43,7 +43,7 @@ describe("GuestsClient", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ guests: [{ ...guests[0], rsvp_status: "confirmed" }], stats: { total: 1, confirmed: 1, declined: 0, pending: 0, invited: 0, totalAttending: 1 } }),
+        json: async () => ({ guests: [{ ...guests[0], rsvp_status: "confirmed" }], stats: { total: 1, confirmed: 1, declined: 0, pending: 0, invited: 0, later: 0, totalAttending: 1 } }),
       });
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
@@ -104,10 +104,24 @@ describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
             rsvp_previous_status: "confirmed",
           },
         ]}
-        initialStats={{ total: 1, confirmed: 0, declined: 1, pending: 0, invited: 0, totalAttending: 0 }}
+        initialStats={{ total: 1, confirmed: 0, declined: 1, pending: 0, invited: 0, later: 0, totalAttending: 0 }}
         eventType="birthday"
       />,
     );
     expect(screen.getByText(/Одговор преку поканата: .*\(претходно: Потврден\)/)).toBeInTheDocument();
+  });
+
+  it("offers and counts the 'answer later' status (A2)", () => {
+    const laterGuest = { ...guests[0], rsvp_status: "later" as const };
+    render(
+      <GuestsClient
+        initialGuests={[laterGuest]}
+        initialStats={{ total: 1, confirmed: 0, declined: 0, pending: 0, invited: 0, later: 1, totalAttending: 0 }}
+        eventType="birthday"
+      />,
+    );
+    expect(screen.getByRole("option", { name: "Ќе одговори подоцна" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveValue("later");
+    expect(screen.getByText("Подоцна")).toBeInTheDocument();
   });
 });

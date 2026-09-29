@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
-export type RsvpStatus = "invited" | "confirmed" | "declined" | "pending";
+export type RsvpStatus = "invited" | "confirmed" | "declined" | "pending" | "later";
 export type GuestSide = "bride" | "groom";
 
 export interface Guest {
@@ -33,6 +33,8 @@ export interface GuestStats {
   declined: number;
   pending: number;
   invited: number;
+  /** "I'll answer later" (A2). */
+  later: number;
   totalAttending: number;
 }
 
@@ -114,6 +116,7 @@ export async function getGuestStats(eventId: string): Promise<GuestStats> {
     declined: guests.filter((g) => g.rsvp_status === "declined").length,
     pending: guests.filter((g) => g.rsvp_status === "pending").length,
     invited: guests.filter((g) => g.rsvp_status === "invited").length,
+    later: guests.filter((g) => g.rsvp_status === "later").length,
     totalAttending: guests.filter((g) => g.rsvp_status === "confirmed").reduce((sum, g) => sum + g.party_size, 0),
   };
 }

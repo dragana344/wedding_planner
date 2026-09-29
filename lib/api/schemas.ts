@@ -185,7 +185,7 @@ export const guestCountBody = z.object(
 // ---------------------------------------------------------------------------
 // Couple: guests
 
-export const RSVP_STATUSES = ["invited", "confirmed", "declined", "pending"] as const;
+export const RSVP_STATUSES = ["invited", "confirmed", "declined", "pending", "later"] as const;
 export const GUEST_SIDES = ["bride", "groom"] as const;
 
 const partySize = z.number().int().min(1).max(PARTY_SIZE_MAX);
@@ -313,24 +313,41 @@ export const loginBody = z.object(
 );
 
 // ---------------------------------------------------------------------------
-// Public: RSVP (English messages, as the route always used)
+// Public: RSVP (Macedonian messages: guests read them, A18)
 
-export const RSVP_REQUIRED_ERROR = "full_name and attending are required.";
-export const RSVP_INVALID_ERROR = "Invalid RSVP details.";
-export const RSVP_NOT_FOUND_ERROR = "Invitation not found.";
-export const rsvpBody = z.object(
-  {
-    full_name: z.string({ error: RSVP_REQUIRED_ERROR }).max(NAME_MAX, { error: "full_name is too long." }),
-    attending: z.boolean({ error: RSVP_REQUIRED_ERROR }),
-    party_size: z
-      .number({ error: `party_size must be a whole number between 1 and ${PARTY_SIZE_MAX}.` })
-      .int({ error: `party_size must be a whole number between 1 and ${PARTY_SIZE_MAX}.` })
-      .min(1, { error: `party_size must be a whole number between 1 and ${PARTY_SIZE_MAX}.` })
-      .max(PARTY_SIZE_MAX, { error: `party_size must be a whole number between 1 and ${PARTY_SIZE_MAX}.` })
-      .optional(),
-  },
-  { error: RSVP_REQUIRED_ERROR },
-);
+export const RSVP_REQUIRED_ERROR = "Внесете име и одговор.";
+export const RSVP_INVALID_ERROR = "Неважечки податоци во одговорот.";
+export const RSVP_NOT_FOUND_ERROR = "Поканата не е пронајдена.";
+export const RSVP_FAILED_ERROR = "Одговорот не е испратен. Обидете се повторно.";
+export const RSVP_ANSWERS = ["confirmed", "declined", "later"] as const;
+export const MENU_CHOICES = ["standard", "posno", "vegetarian"] as const;
+const PARTY_SIZE_ERROR = `Бројот на лица мора да е цел број од 1 до ${PARTY_SIZE_MAX}.`;
+const CHILDREN_MAX = 20;
+
+export const rsvpBody = z
+  .object(
+    {
+      // Optional only with a personal link's token, which names the guest (A1).
+      full_name: z.string({ error: RSVP_REQUIRED_ERROR }).max(NAME_MAX, { error: "Името е предолго." }).optional(),
+      guest_token: z.string().regex(/^[A-Za-z0-9_-]{22,64}$/, { error: RSVP_INVALID_ERROR }).optional(),
+      status: z.enum(RSVP_ANSWERS, { error: RSVP_INVALID_ERROR }).optional(),
+      // The yes/no body a page opened before `status` existed still sends.
+      attending: z.boolean({ error: RSVP_REQUIRED_ERROR }).optional(),
+      party_size: z
+        .number({ error: PARTY_SIZE_ERROR })
+        .int({ error: PARTY_SIZE_ERROR })
+        .min(1, { error: PARTY_SIZE_ERROR })
+        .max(PARTY_SIZE_MAX, { error: PARTY_SIZE_ERROR })
+        .optional(),
+      children_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
+      menu_choice: z.enum(MENU_CHOICES, { error: RSVP_INVALID_ERROR }).nullable().optional(),
+      allergies: z.string().max(300, { error: "Алергиите се предолги (најмногу 300 знаци)." }).nullable().optional(),
+      comment: z.string().max(500, { error: "Коментарот е предолг (најмногу 500 знаци)." }).nullable().optional(),
+    },
+    { error: RSVP_REQUIRED_ERROR },
+  )
+  .refine((body) => body.full_name !== undefined || body.guest_token !== undefined, { error: RSVP_REQUIRED_ERROR })
+  .refine((body) => body.status !== undefined || body.attending !== undefined, { error: RSVP_REQUIRED_ERROR });
 
 // ---------------------------------------------------------------------------
 // Public: venue contact form and signup

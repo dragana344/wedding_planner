@@ -10,6 +10,7 @@ const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
   { value: "pending", label: "Во исчекување" },
   { value: "confirmed", label: "Потврден" },
   { value: "declined", label: "Одбиен" },
+  { value: "later", label: "Ќе одговори подоцна" },
 ];
 
 /** SEC-021: when the public invitation link last changed a guest's answer, in venue time. */
@@ -194,6 +195,7 @@ export function GuestsClient({
           { label: "Потврдени", value: stats.confirmed, icon: "tick" },
           { label: "Одбиени", value: stats.declined, icon: "x" },
           { label: "Во исчекување", value: stats.pending, icon: "clock" },
+          { label: "Подоцна", value: stats.later, icon: "clock" },
           { label: "Присутни", value: stats.totalAttending, icon: "occ" },
         ].map(({ label, value, icon }) => (
           <div key={label} className="tile">

@@ -102,8 +102,8 @@ describe("public RSVP changes (SEC-021)", () => {
       .select("id")
       .single();
 
-    await submitRsvpBySlug(slug, { fullName: "марко илиевски", attending: false, partySize: 1 }, { ip: "203.0.113.9", requestId: "req-1" });
-    await submitRsvpBySlug(slug, { fullName: "Марко Илиевски", attending: true, partySize: 2 }, { ip: "198.51.100.4", requestId: "req-2" });
+    await submitRsvpBySlug(slug, { fullName: "марко илиевски", status: "declined", partySize: 1 }, { ip: "203.0.113.9", requestId: "req-1" });
+    await submitRsvpBySlug(slug, { fullName: "Марко Илиевски", status: "confirmed", partySize: 2 }, { ip: "198.51.100.4", requestId: "req-2" });
 
     const { data: after } = await admin.from("event_guests").select("rsvp_status, rsvp_previous_status, rsvp_changed_via_link_at").eq("id", guest!.id).single();
     expect(after).toMatchObject({ rsvp_status: "confirmed", rsvp_previous_status: "declined" });

@@ -11,6 +11,7 @@ import {
   Caveat,
 } from "next/font/google";
 import { RsvpForm } from "./RsvpForm";
+import type { Invitee } from "@/lib/couple/rsvp";
 import { CountdownTimer, formatMkDate } from "./countdown";
 import { FloralCorner, FloralHeart, SwanHeart, GoldFrameCorner, MinimalRule, WatercolorWash, RusticSprig } from "./motifs";
 import type { PublicInvitation } from "@/lib/couple/invitations";
@@ -137,10 +138,15 @@ export function FullInvitation({
   slug,
   invitation,
   photoUrl,
+  invitee = null,
+  guestToken,
 }: {
   slug: string;
   invitation: PublicInvitation;
   photoUrl: string | null;
+  /** The guest behind a personal link (A1); null on the shared link. */
+  invitee?: Invitee | null;
+  guestToken?: string;
 }) {
   const theme = THEMES[invitation.template_id] ?? THEMES["romantic-floral"];
   const target = new Date(`${invitation.event_date}T${invitation.start_time ?? "00:00:00"}`);
@@ -185,6 +191,13 @@ export function FullInvitation({
               border: `2px solid ${theme.textColor}`,
             }}
           />
+        ) : null}
+
+        {invitee ? (
+          <div style={{ margin: "0 0 18px" }}>
+            <h1 style={{ color: theme.textColor, fontSize: 20, fontWeight: 500, margin: 0 }}>{invitee.fullName}</h1>
+            <p style={{ color: theme.mutedColor, fontSize: 15, margin: "4px 0 0" }}>со радост Ве покануваме</p>
+          </div>
         ) : null}
 
         <p
@@ -232,7 +245,14 @@ export function FullInvitation({
             boxShadow: "0 20px 40px -20px rgba(0,0,0,0.25)",
           }}
         >
-          <RsvpForm slug={slug} accentColor={theme.textColor} coupleNames={invitation.couple_names} venueName={invitation.venue_name} />
+          <RsvpForm
+            slug={slug}
+            accentColor={theme.textColor}
+            coupleNames={invitation.couple_names}
+            venueName={invitation.venue_name}
+            invitee={invitee}
+            guestToken={guestToken}
+          />
         </div>
       </div>
 

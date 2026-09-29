@@ -49,7 +49,7 @@ describe("rate limits on public and credential routes (SEC-002)", () => {
     try {
       const loginRes = await login(post("http://localhost/api/couple/login", "down", { username: "x", password: "y" }));
       expect(loginRes.status).toBe(503);
-      const rsvpRes = await rsvp(post("http://localhost/api/invite/abcdefghijkl/rsvp", "down", { full_name: "A", attending: true }), {
+      const rsvpRes = await rsvp(post("http://localhost/api/invite/abcdefghijkl/rsvp", "down", { full_name: "A", status: "confirmed" }), {
         params: { slug: "abcdefghijkl" },
       });
       expect(rsvpRes.status).not.toBe(503);
@@ -65,11 +65,11 @@ describe("no raw database errors in responses (SEC-003)", () => {
     const original = process.env.NEXT_PUBLIC_SUPABASE_URL;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:59999";
     try {
-      const res = await rsvp(post("http://localhost/api/invite/abcdefghijkl/rsvp", `db-${randomUUID()}`, { full_name: "A", attending: true }), {
+      const res = await rsvp(post("http://localhost/api/invite/abcdefghijkl/rsvp", `db-${randomUUID()}`, { full_name: "A", status: "confirmed" }), {
         params: { slug: "abcdefghijkl" },
       });
       expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: "Failed to submit RSVP." });
+      expect(await res.json()).toEqual({ error: "Одговорот не е испратен. Обидете се повторно." });
     } finally {
       process.env.NEXT_PUBLIC_SUPABASE_URL = original;
     }

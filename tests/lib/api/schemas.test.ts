@@ -193,11 +193,12 @@ describe("other couple schemas", () => {
 
 describe("public schemas", () => {
   it("rsvp: accepts the form body and enforces party_size 1..50", () => {
-    expect(rsvpBody.safeParse({ full_name: "Ана", attending: true, party_size: 3 }).success).toBe(true);
+    expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 3 }).success).toBe(true);
+    expect(rsvpBody.safeParse({ full_name: "Ана", status: "later" }).success).toBe(true);
     expect(rsvpBody.safeParse({ full_name: "Ана", attending: false, party_size: 1 }).success).toBe(true);
-    expect(rsvpBody.safeParse({ full_name: "Ана", attending: true, party_size: 0 }).success).toBe(false);
-    expect(rsvpBody.safeParse({ full_name: "Ана", attending: true, party_size: 51 }).success).toBe(false);
-    expect(msg(parseInput(rsvpBody, { full_name: "Ана" }, "D"))).toBe("full_name and attending are required.");
+    expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 0 }).success).toBe(false);
+    expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 51 }).success).toBe(false);
+    expect(msg(parseInput(rsvpBody, { full_name: "Ана" }, "D"))).toBe("Внесете име и одговор.");
   });
 
   it("contact: keeps the required message and caps lengths", () => {

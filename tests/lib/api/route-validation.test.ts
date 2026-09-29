@@ -258,12 +258,12 @@ describe("other couple routes reject before the DB", () => {
 
 describe("public routes", () => {
   it("rsvp: rejects party_size out of range and a malformed slug", async () => {
-    const body = { full_name: "Ана", attending: true, party_size: 500 };
+    const body = { full_name: "Ана", status: "confirmed", party_size: 500 };
     const res = await call(rsvpRoute.POST, req("POST", body, { couple: false }), { slug: "abcDEF123_-x" });
     expect(res.status).toBe(400);
     expect(await call(rsvpRoute.POST, req("POST", { ...body, party_size: 2 }, { couple: false }), { slug: "a),b" })).toEqual({
       status: 400,
-      body: { error: "Invitation not found." },
+      body: { error: "Поканата не е пронајдена." },
     });
     expect(rsvp.submitRsvpBySlug).not.toHaveBeenCalled();
   });
@@ -271,18 +271,75 @@ describe("public routes", () => {
   it("rsvp: keeps the required-fields message and accepts a valid body", async () => {
     expect(
       await call(rsvpRoute.POST, req("POST", { full_name: "Ана" }, { couple: false }), { slug: "abcDEF123_-x" }),
-    ).toEqual({ status: 400, body: { error: "full_name and attending are required." } });
+    ).toEqual({ status: 400, body: { error: "Внесете име и одговор." } });
     const ok = await call(
       rsvpRoute.POST,
-      req("POST", { full_name: "Ана", attending: true, party_size: 3 }, { couple: false }),
+      req(
+        "POST",
+        {
+          full_name: "Ана",
+          status: "confirmed",
+          party_size: 3,
+          children_count: 1,
+          menu_choice: "posno",
+          allergies: "ореви",
+          comment: "Доаѓаме!",
+        },
+        { couple: false },
+      ),
       { slug: "abcDEF123_-x" },
     );
     expect(ok).toEqual({ status: 200, body: { ok: true } });
     expect(rsvp.submitRsvpBySlug).toHaveBeenCalledWith(
       "abcDEF123_-x",
-      { fullName: "Ана", attending: true, partySize: 3 },
+      { fullName: "Ана", status: "confirmed", partySize: 3, childrenCount: 1, menuChoice: "posno", allergies: "ореви", comment: "Доаѓаме!" },
       expect.objectContaining({ ip: expect.any(String) }),
     );
+  });
+
+  it("rsvp: still accepts the old yes/no body from a page opened before the update", async () => {
+    const ok = await call(rsvpRoute.POST, req("POST", { full_name: "Ана", attending: false }, { couple: false }), {
+      slug: "abcDEF123_-x",
+    });
+    expect(ok).toEqual({ status: 200, body: { ok: true } });
+    expect(rsvp.submitRsvpBySlug).toHaveBeenLastCalledWith(
+      "abcDEF123_-x",
+      { fullName: "Ана", status: "declined", partySize: 1 },
+      expect.objectContaining({ ip: expect.any(String) }),
+    );
+  });
+
+  it("rsvp: a personal link's token stands in for the name", async () => {
+    const token = "Tok_en-24charsXXXXXXXXXX";
+    const ok = await call(rsvpRoute.POST, req("POST", { guest_token: token, status: "later" }, { couple: false }), {
+      slug: "abcDEF123_-x",
+    });
+    expect(ok).toEqual({ status: 200, body: { ok: true } });
+    expect(rsvp.submitRsvpBySlug).toHaveBeenLastCalledWith(
+      "abcDEF123_-x",
+      { guestToken: token, status: "later", partySize: 1 },
+      expect.objectContaining({ ip: expect.any(String) }),
+    );
+  });
+
+  it("rsvp: needs a name or a well-formed token, and bounded answers", async () => {
+    rsvp.submitRsvpBySlug.mockClear();
+    expect(await call(rsvpRoute.POST, req("POST", { status: "confirmed" }, { couple: false }), { slug: "abcDEF123_-x" })).toEqual({
+      status: 400,
+      body: { error: "Внесете име и одговор." },
+    });
+    const base = { full_name: "Ана", status: "confirmed" };
+    for (const bad of [
+      { guest_token: "x' or 1=1", status: "confirmed" },
+      { ...base, status: "maybe" },
+      { ...base, menu_choice: "meat" },
+      { ...base, children_count: -1 },
+      { ...base, comment: "x".repeat(501) },
+      { ...base, allergies: "x".repeat(301) },
+    ]) {
+      expect((await call(rsvpRoute.POST, req("POST", bad, { couple: false }), { slug: "abcDEF123_-x" })).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect(rsvp.submitRsvpBySlug).not.toHaveBeenCalled();
   });
 
   it("contact: rejects an over-long message", async () => {
