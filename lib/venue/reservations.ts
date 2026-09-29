@@ -332,6 +332,8 @@ export async function getTableAvailability(
   return { reserved: Array.from(reserved), limited: Array.from(limited) };
 }
 
+const TABLE_CONFLICT_MESSAGE = "One or more selected tables are already reserved for that time.";
+
 export async function createReservation(
   input: ReservationInput,
   client: SupabaseClient = resolveSupabaseClient()
@@ -346,7 +348,7 @@ export async function createReservation(
     client
   );
   if (conflicts.length > 0) {
-    throw new Error("One or more selected tables are already reserved for that time.");
+    throw new Error(TABLE_CONFLICT_MESSAGE);
   }
 
   const { data: reservation, error } = await client
@@ -378,6 +380,10 @@ export async function createReservation(
       // delete it so a failed createReservation call never leaves an
       // orphaned row behind.
       await client.from("reservations").delete().eq("id", reservation.id);
+      // The database's no-overlap constraint (migration 0035) caught a
+      // booking that raced ours past the check above: 23P01, or 40P01 when
+      // both inserts were in flight at once and each waited on the other.
+      if (tablesError.code === "23P01" || tablesError.code === "40P01") throw new Error(TABLE_CONFLICT_MESSAGE);
       throw tablesError;
     }
   }
