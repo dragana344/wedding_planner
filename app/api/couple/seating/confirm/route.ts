@@ -1,43 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { parseInput, roomIdBody, roomIdQuery, ROOM_ID_REQUIRED_ERROR } from "@/lib/api/schemas";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  const roomId = request.nextUrl.searchParams.get("room_id");
-  if (!roomId) return NextResponse.json({ error: "room_id е задолжителен." }, { status: 400 });
+export const GET = withCoupleEvent(
+  async ({ eventId, request }) => {
+    const room = parseInput(roomIdQuery, request.nextUrl.searchParams.get("room_id"), ROOM_ID_REQUIRED_ERROR);
+    if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
+    const roomId = room.data;
 
-  try {
     const actions = coupleSeatingActionsFor(eventId);
     const confirmedAt = await actions.getConfirmedAt!(eventId, roomId);
     return NextResponse.json({ confirmedAt });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на потврдата." }, { status: 400 });
-  }
-}
+  },
+  { fallbackError: "Не успеа вчитувањето на потврдата." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const { room_id: roomId } = await request.json();
-    await coupleSeatingActionsFor(eventId).confirm!(eventId, roomId);
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
+    await coupleSeatingActionsFor(eventId).confirm!(eventId, body.room_id);
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа потврдувањето на распоредот." }, { status: 400 });
-  }
-}
+  },
+  { body: roomIdBody, fallbackError: "Не успеа потврдувањето на распоредот." },
+);
 
-export async function DELETE(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  const roomId = request.nextUrl.searchParams.get("room_id");
-  if (!roomId) return NextResponse.json({ error: "room_id е задолжителен." }, { status: 400 });
+export const DELETE = withCoupleEvent(
+  async ({ eventId, request }) => {
+    const room = parseInput(roomIdQuery, request.nextUrl.searchParams.get("room_id"), ROOM_ID_REQUIRED_ERROR);
+    if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
+    const roomId = room.data;
 
-  try {
     await coupleSeatingActionsFor(eventId).unconfirm!(eventId, roomId);
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа поништувањето на потврдата на распоредот." }, { status: 400 });
-  }
-}
+  },
+  { fallbackError: "Не успеа поништувањето на потврдата на распоредот." },
+);

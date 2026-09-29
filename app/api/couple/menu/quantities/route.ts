@@ -1,24 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { menuQuantitiesBody } from "@/lib/api/schemas";
 import { getMenuItemQuantities, setMenuItemQuantities } from "@/lib/couple/menu";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await getMenuItemQuantities(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на количините." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await getMenuItemQuantities(eventId)),
+  { fallbackError: "Не успеа вчитувањето на количините." },
+);
 
-export async function PATCH(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
-    await setMenuItemQuantities(eventId, body.quantities);
+export const PATCH = withCoupleEvent(
+  async ({ eventId, body }) => {
+    await setMenuItemQuantities(
+      eventId,
+      body.quantities.map((q) => ({ menu_item_id: q.menu_item_id, guest_count: q.guest_count ?? null })),
+    );
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа зачувувањето на количините." }, { status: 400 });
-  }
-}
+  },
+  { body: menuQuantitiesBody, fallbackError: "Не успеа зачувувањето на количините." },
+);

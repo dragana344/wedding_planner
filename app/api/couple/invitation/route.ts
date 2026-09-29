@@ -1,25 +1,18 @@
 // app/api/couple/invitation/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { invitationBody } from "@/lib/api/schemas";
 import { getInvitation, upsertInvitation } from "@/lib/couple/invitations";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await getInvitation(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на поканата." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await getInvitation(eventId)),
+  { fallbackError: "Не успеа вчитувањето на поканата." },
+);
 
-export async function PUT(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const PUT = withCoupleEvent(
+  async ({ eventId, body }) => {
     const saved = await upsertInvitation(eventId, { template_id: body.template_id, message: body.message || null });
     return NextResponse.json(saved);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа зачувувањето на поканата." }, { status: 400 });
-  }
-}
+  },
+  { body: invitationBody, fallbackError: "Не успеа зачувувањето на поканата." },
+);

@@ -1,29 +1,24 @@
 // app/api/couple/checklist/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { checklistUpdateBody, idParams } from "@/lib/api/schemas";
 import { updateChecklistItem, toggleChecklistItem, deleteChecklistItem } from "@/lib/couple/checklist";
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const PATCH = withCoupleEvent(
+  async ({ eventId, params, body }) => {
     if (body.type === "toggle") {
       return NextResponse.json(await toggleChecklistItem(eventId, params.id, body.is_done));
     }
     const updated = await updateChecklistItem(eventId, params.id, { title: body.title, due_date: body.due_date || null });
     return NextResponse.json(updated);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа ажурирањето на задачата." }, { status: 400 });
-  }
-}
+  },
+  { params: idParams, body: checklistUpdateBody, fallbackError: "Не успеа ажурирањето на задачата." },
+);
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
+export const DELETE = withCoupleEvent(
+  async ({ eventId, params }) => {
     await deleteChecklistItem(eventId, params.id);
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа бришењето на задачата." }, { status: 400 });
-  }
-}
+  },
+  { params: idParams, fallbackError: "Не успеа бришењето на задачата." },
+);

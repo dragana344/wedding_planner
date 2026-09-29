@@ -1,6 +1,10 @@
 // lib/couple/menu.ts
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { assertUuids } from "@/lib/api/schemas";
 import type { MenuTemplate, MenuItem } from "@/lib/venue/menus";
+
+const INVALID_MENU_ID_ERROR = "Invalid menu item id.";
 
 export type MenuSelection =
   | { mode: "template"; menuTemplateId: string }
@@ -66,6 +70,12 @@ export async function setEventMenuSelection(
   eventId: string,
   selection: { mode: "template"; menuTemplateId: string } | { mode: "custom"; menuItemIds: string[] }
 ): Promise<void> {
+  // Defence in depth behind the route schema: these ids end up in PostgREST
+  // filters (see pruneStaleMenuItemQuantities), so reject anything that is
+  // not a UUID before any query is built.
+  if (selection.mode === "template") assertUuids([selection.menuTemplateId], INVALID_MENU_ID_ERROR);
+  else assertUuids(selection.menuItemIds, INVALID_MENU_ID_ERROR);
+
   const client = createServiceRoleClient();
 
   const { data: event } = await client.from("events").select("venue_id").eq("id", eventId).single();
@@ -127,6 +137,9 @@ async function pruneStaleMenuItemQuantities(
   eventId: string,
   selectedMenuItemIds: string[]
 ): Promise<void> {
+  // The ids are interpolated into a raw PostgREST `in` list below; a value
+  // such as "x),menu_item_id.not.is.null" would otherwise rewrite the filter.
+  assertUuids(selectedMenuItemIds, INVALID_MENU_ID_ERROR);
   if (selectedMenuItemIds.length === 0) {
     const { error } = await client.from("event_menu_item_quantities").delete().eq("event_id", eventId);
     if (error) throw error;
@@ -156,6 +169,10 @@ export async function getMenuItemQuantities(eventId: string): Promise<MenuItemQu
 }
 
 export async function setMenuItemQuantities(eventId: string, quantities: MenuItemQuantity[]): Promise<void> {
+  assertUuids(
+    quantities.map((q) => q.menu_item_id),
+    INVALID_MENU_ID_ERROR,
+  );
   const client = createServiceRoleClient();
 
   if (quantities.length > 0) {

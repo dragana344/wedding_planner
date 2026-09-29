@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { guestUpdateBody, idParams } from "@/lib/api/schemas";
 import { updateGuest, updateGuestStatus, updateGuestSide, deleteGuest } from "@/lib/couple/guests";
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const PATCH = withCoupleEvent(
+  async ({ eventId, params, body }) => {
     if (body.type === "status") {
       return NextResponse.json(await updateGuestStatus(eventId, params.id, body.rsvp_status));
     }
@@ -20,18 +19,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       side: body.side || null,
     });
     return NextResponse.json(updated);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа ажурирањето на гостинот." }, { status: 400 });
-  }
-}
+  },
+  { params: idParams, body: guestUpdateBody, fallbackError: "Не успеа ажурирањето на гостинот." },
+);
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
+export const DELETE = withCoupleEvent(
+  async ({ eventId, params }) => {
     await deleteGuest(eventId, params.id);
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа бришењето на гостинот." }, { status: 400 });
-  }
-}
+  },
+  { params: idParams, fallbackError: "Не успеа бришењето на гостинот." },
+);

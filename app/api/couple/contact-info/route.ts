@@ -1,26 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { contactInfoBody } from "@/lib/api/schemas";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
-export async function PATCH(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-
-  let body: { contact_email?: string | null; contact_email_2?: string | null; contact_phone?: string | null };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Неважечко JSON тело" }, { status: 400 });
-  }
-
-  const client = createServiceRoleClient();
-  const { error } = await client
-    .from("events")
-    .update({
-      contact_email: body.contact_email ?? null,
-      contact_email_2: body.contact_email_2 ?? null,
-      contact_phone: body.contact_phone ?? null,
-    })
-    .eq("id", eventId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
-}
+// No fallbackError: this route never caught handler errors, so they still
+// propagate to Next.js unchanged.
+export const PATCH = withCoupleEvent(
+  async ({ eventId, body }) => {
+    const client = createServiceRoleClient();
+    const { error } = await client
+      .from("events")
+      .update({
+        contact_email: body.contact_email ?? null,
+        contact_email_2: body.contact_email_2 ?? null,
+        contact_phone: body.contact_phone ?? null,
+      })
+      .eq("id", eventId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  },
+  { invalidJsonError: "Неважечко JSON тело", body: contactInfoBody },
+);

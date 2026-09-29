@@ -1,24 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { agendaCreateBody } from "@/lib/api/schemas";
 import { listAgendaItems, addAgendaItem } from "@/lib/couple/agenda";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await listAgendaItems(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на агендата." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await listAgendaItems(eventId)),
+  { fallbackError: "Не успеа вчитувањето на агендата." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
     const created = await addAgendaItem(eventId, { time: body.time || null, title: body.title, notes: body.notes || null });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на ставката." }, { status: 400 });
-  }
-}
+  },
+  { body: agendaCreateBody, fallbackError: "Не успеа додавањето на ставката." },
+);
