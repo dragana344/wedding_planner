@@ -219,6 +219,21 @@ export const guestsSentBody = z.object({
 /** A9: guests to email their invitation (one request stays well inside the function timeout). */
 export const guestsEmailBody = z.object({ guest_ids: z.array(uuid).min(1).max(200) });
 
+/** A12: a co-organizer login. Usernames: letters, digits, dot, dash, underscore. */
+const coPassword = z
+  .string()
+  .min(10, { error: "Лозинката мора да има најмалку 10 знаци." })
+  .max(200, { error: "Лозинката е предолга." });
+export const coOrganizerCreateBody = z.object({
+  side: z.enum(GUEST_SIDES),
+  username: z
+    .string()
+    .trim()
+    .regex(/^[\p{L}\p{N}._-]{3,60}$/u, { error: "Корисничкото име: 3–60 букви, бројки, точка, цртичка." }),
+  password: coPassword,
+});
+export const coOrganizerPasswordBody = z.object({ password: coPassword });
+
 /** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
 export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
 

@@ -77,6 +77,18 @@ describe("markInvitationSent (A8, A9)", () => {
   });
 });
 
+describe("co-organizers send for their own side only (A12)", () => {
+  it("marks and emails only guests on the co-organizer's side", async () => {
+    const sent = mockResend();
+    const bride = await addGuest(eventId, { full_name: "Невестина", side: "bride", email: "b@example.mk" });
+    const groom = await addGuest(eventId, { full_name: "Младоженецова", side: "groom", email: "g@example.mk" });
+
+    expect((await markInvitationSent(eventId, [bride.id, groom.id], "sms", "groom")).map((g) => g.id)).toEqual([groom.id]);
+    expect(await sendInvitationEmails(eventId, [bride.id, groom.id], "https://kadesum.mk", "bride")).toEqual({ sent: 1, skipped: 0, failed: 0 });
+    expect(sent.map((m) => m.to[0])).toEqual(["b@example.mk"]);
+  });
+});
+
 describe("sendInvitationEmails (A9)", () => {
   it("emails each guest their personal link and marks them sent; guests without email are skipped", async () => {
     const sent = mockResend();

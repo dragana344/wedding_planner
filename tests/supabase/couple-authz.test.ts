@@ -44,6 +44,8 @@ import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
 import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
+import * as coOrganizersRoute from "@/app/api/couple/co-organizers/route";
+import * as coOrganizerIdRoute from "@/app/api/couple/co-organizers/[id]/route";
 import * as invitationRoute from "@/app/api/couple/invitation/route";
 import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
 import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
@@ -332,6 +334,22 @@ async function aEvent(): Promise<Row> {
 
 type MethodTests = Record<string, () => Promise<void>>;
 
+/** Event B's co-organizer (A12), created on first use. */
+let bCoOrganizerId: string | null = null;
+async function bCoOrganizer(): Promise<string> {
+  if (!bCoOrganizerId) {
+    const { data, error } = await admin.rpc("create_co_organizer", {
+      p_event_id: B.eventId,
+      p_side: "bride",
+      p_username: `${RUN}-b-co`,
+      p_password: "b-co-password-1",
+    });
+    if (error) throw error;
+    bCoOrganizerId = data as string;
+  }
+  return bCoOrganizerId;
+}
+
 const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodTests }> = {
   "agenda/route.ts": {
     module: agendaRoute,
@@ -561,6 +579,41 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         expect(res.json).toEqual({ imported: 1, skipped: 0 });
         const { data } = await admin.from("event_guests").select("event_id").eq("full_name", `${RUN} imported guest`);
         expect(data).toEqual([{ event_id: A.eventId }]);
+      },
+    },
+  },
+  "co-organizers/route.ts": {
+    module: coOrganizersRoute,
+    methods: {
+      GET: async () => {
+        await bCoOrganizer();
+        const res = await call(coOrganizersRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(res.text).not.toContain(`${RUN}-b-co`);
+      },
+      POST: async () => {
+        const res = await call(coOrganizersRoute.POST, NONE, "POST", {
+          body: { side: "groom", username: `${RUN}-a-co`, password: "a-co-password-1", event_id: B.eventId },
+        });
+        expect(res.status).toBe(200);
+        const { data } = await admin.from("event_co_organizers").select("event_id").eq("username", `${RUN}-a-co`).single();
+        expect(data!.event_id).toBe(A.eventId);
+      },
+    },
+  },
+  "co-organizers/[id]/route.ts": {
+    module: coOrganizerIdRoute,
+    methods: {
+      PATCH: async () => {
+        const id = await bCoOrganizer();
+        const before = await adminRow("event_co_organizers", id);
+        expect((await call(coOrganizerIdRoute.PATCH, { id }, "PATCH", { body: { password: "hijacked-password" } })).status).toBe(400);
+        expect((await adminRow("event_co_organizers", id))!.password_hash).toBe(before!.password_hash);
+      },
+      DELETE: async () => {
+        const id = await bCoOrganizer();
+        await call(coOrganizerIdRoute.DELETE, { id }, "DELETE");
+        expect(await adminRow("event_co_organizers", id)).not.toBeNull();
       },
     },
   },

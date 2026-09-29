@@ -19,6 +19,7 @@ export const EXPORTED_TABLES = [
   "reservations",
   "events",
   "event_credentials",
+  "event_co_organizers",
   "event_guests",
   "event_notes",
   "event_agenda_items",
@@ -41,6 +42,8 @@ type Row = Record<string, unknown>;
 export type EventExport = {
   event: Row;
   couple_login: { username: string; created_at: string } | null;
+  /** Second logins per side of the family (A12); never their password hash. */
+  co_organizers: Row[];
   guests: Row[];
   notes: Row[];
   agenda: Row[];
@@ -124,9 +127,10 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout] =
+  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
+      selectIn(client, "event_co_organizers", "event_id, side, username, created_at", byEvent, ids, [byEvent, "side"]),
       selectIn(client, "event_guests", "*", byEvent, ids, ["created_at", "id"]).then((rows) => rows.map(withoutInviteToken)),
       selectIn(client, "event_notes", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_agenda_items", "*", byEvent, ids, ["sort_order", "id"]),
@@ -152,6 +156,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
 
   const g = {
     credentials: groupBy(credentials, byEvent),
+    coOrganizers: groupBy(coOrganizers, byEvent),
     guests: groupBy(guests, byEvent),
     notes: groupBy(notes, byEvent),
     agenda: groupBy(agenda, byEvent),
@@ -172,6 +177,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     return {
       event,
       couple_login: cred ? { username: String(cred.username), created_at: String(cred.created_at) } : null,
+      co_organizers: g.coOrganizers.get(id) ?? [],
       guests: g.guests.get(id) ?? [],
       notes: g.notes.get(id) ?? [],
       agenda: g.agenda.get(id) ?? [],

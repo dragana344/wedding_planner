@@ -317,3 +317,28 @@ describe("GuestsClient sending invitations (A9)", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/email", expect.objectContaining({ body: JSON.stringify({ guest_ids: ["g8"] }) })));
   });
 });
+
+describe("GuestsClient for a co-organizer (A12)", () => {
+  const share = { slug: "abcDEF123", coupleNames: "Ана и Марко", eventDate: "2027-06-12", venueName: "Сала Лотос", eventType: "wedding", emailEnabled: false };
+  const mine = makeGuest({ id: "m1", full_name: "Младоженецов Гостин", side: "groom" });
+  const theirs = makeGuest({ id: "t1", full_name: "Невестин Гостин", side: "bride" });
+
+  it("sees every guest but sends only to their own side", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ seat: null }) });
+    render(<GuestsClient initialGuests={[mine, theirs]} initialStats={stats} eventType="wedding" share={share} organizerSide="groom" />);
+
+    expect(screen.getByText(/Најавени сте како ко-организатор за страната на младоженецот/)).toBeInTheDocument();
+    expect(screen.getByText("Невестин Гостин")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Прати покана на Младоженецов Гостин" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Прати покана на Невестин Гостин" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Невестин Гостин" }));
+    const dialog = await screen.findByRole("dialog", { name: "Невестин Гостин" });
+    expect(within(dialog).queryByRole("link", { name: "WhatsApp" })).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Поканата ја праќа страната на невестата.")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Затвори" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Масовно праќање" }));
+    expect(within(screen.getByRole("dialog", { name: "Масовно праќање" })).getByText("1 гости без испратена покана")).toBeInTheDocument();
+  });
+});

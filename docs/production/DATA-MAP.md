@@ -97,6 +97,22 @@ Created in `0013_couple_dashboard.sql`.
 - **Access:** RLS is enabled with **no policies**, and the table is granted to `service_role` only. Staff read `username` only through `get_event_username()` and set passwords via `create_event_credentials` / `regenerate_event_password`. All of these are SECURITY DEFINER, check `is_venue_staff_for`, and are granted to `authenticated`. Login uses `verify_event_credentials` (service role only) from `app/api/couple/login/route.ts`.
 - **Retention:** none defined, see DATA-007. Cascades with the event.
 
+### 2.4a `event_co_organizers`
+Created in `0061_co_organizers.sql` (A12): one extra login per side of the family (bride's / groom's).
+
+| Field | Personal? | Notes |
+|---|---|---|
+| `username` | Yes (chosen by the couple, often a name) | unique across this table and `event_credentials` |
+| `side` | Yes (family relationship) | bride / groom; one login per side |
+| `password_hash` | Credential (bcrypt via pgcrypto) | never exported |
+| `failed_attempts`, `locked_until` | Security metadata | Lockout after 5 failures for 15 min (`verify_couple_login`) |
+| `created_at` | Low | |
+
+- **Subject:** a relative or friend helping the couple.
+- **Purpose:** letting each side send its own invitations.
+- **Access:** service role only, no policies. The couple's own login manages them (`/api/couple/co-organizers`, refused for a co-organizer's session). Login via `verify_couple_login`; `proxy.ts` passes the side as `x-couple-organizer-side`.
+- **Retention:** cascades with the event; deleted when the event's personal data is erased (trigger `events_erase_co_organizers`). Exported without the hash.
+
 ### 2.5 `couple_sessions`
 Created in `0013_couple_dashboard.sql`.
 
@@ -104,6 +120,7 @@ Created in `0013_couple_dashboard.sql`.
 |---|---|---|
 | `token` | Session secret (online identifier) | 32 random bytes, hex (`lib/couple/session-token.ts`). Only its **SHA-256 hash** is stored (migration 0032, SEC-008); the raw value exists only in the cookie |
 | `event_id`, `created_at`, `expires_at` | Links the session to a couple | 30-day sliding expiry (`lib/couple/session-verify.ts`) |
+| `organizer_id` | Links the session to a co-organizer (null for the couple's own login) | 0061; cascades when the co-organizer is removed |
 
 - **Subject:** couple.
 - **Purpose:** keeping the couple logged in.

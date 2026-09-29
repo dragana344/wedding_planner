@@ -50,12 +50,15 @@ export function GuestsClient({
   initialStats,
   eventType,
   share,
+  organizerSide = null,
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
   eventType: string;
   /** For sending invitations (A9); missing or slug-less means no invitation yet. */
   share?: ShareContext;
+  /** Set when a co-organizer is signed in (A12): they send only to this side. */
+  organizerSide?: GuestSide | null;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -239,6 +242,7 @@ export function GuestsClient({
   }, [guests, query, statusFilter, menuFilter, sentFilter]);
 
   const openGuest = guests.find((g) => g.id === openGuestId) ?? null;
+  const canSend = (g: Guest) => !organizerSide || g.side === organizerSide;
 
   function renderGuestRow(guest: Guest) {
     const unsent = guest.invitation_sent_at === null;
@@ -282,9 +286,11 @@ export function GuestsClient({
           ) : null}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, minWidth: 0, maxWidth: "100%" }}>
-          <button type="button" className="btn btn-ghost" onClick={() => setOpenGuestId(guest.id)} aria-label={`Прати покана на ${guest.full_name}`}>
-            Прати
-          </button>
+          {canSend(guest) ? (
+            <button type="button" className="btn btn-ghost" onClick={() => setOpenGuestId(guest.id)} aria-label={`Прати покана на ${guest.full_name}`}>
+              Прати
+            </button>
+          ) : null}
           <select
             aria-label={`Статус за ${guest.full_name}`}
             className="fld"
@@ -324,6 +330,12 @@ export function GuestsClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {organizerSide ? (
+        <p className="ev" style={{ margin: 0, fontSize: 14 }}>
+          Најавени сте како ко-организатор за страната на {organizerSide === "bride" ? "невестата" : "младоженецот"}: ги гледате сите гости, а праќате
+          покани на гостите од вашата страна.
+        </p>
+      ) : null}
       <div className="tiles">
         {[
           { label: "Вкупно", value: stats.total, icon: "users" },
@@ -457,8 +469,17 @@ export function GuestsClient({
         </button>
       </form>
 
-      {openGuest ? <GuestDetail guest={openGuest} showSide={isWedding} share={share} actions={sendActions} onClose={closeDetail} /> : null}
-      {bulkOpen ? <BulkSendDialog guests={visibleGuests} share={share} actions={sendActions} onClose={closeBulk} /> : null}
+      {openGuest ? (
+        <GuestDetail
+          guest={openGuest}
+          showSide={isWedding}
+          share={share}
+          actions={sendActions}
+          sendBlockedBy={canSend(openGuest) ? null : openGuest.side}
+          onClose={closeDetail}
+        />
+      ) : null}
+      {bulkOpen ? <BulkSendDialog guests={visibleGuests.filter(canSend)} share={share} actions={sendActions} onClose={closeBulk} /> : null}
     </div>
   );
 }

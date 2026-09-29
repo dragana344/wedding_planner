@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Guest, GuestSeat } from "@/lib/couple/guests";
+import type { Guest, GuestSeat, GuestSide } from "@/lib/couple/guests";
 import { CHANNEL_LABELS, MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { GuestSendButtons, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 
@@ -25,12 +25,15 @@ export function GuestDetail({
   showSide,
   share,
   actions,
+  sendBlockedBy = null,
   onClose,
 }: {
   guest: Guest;
   showSide: boolean;
   share: ShareContext | undefined;
   actions: SendActions;
+  /** A co-organizer viewing the other side's guest (A12): that side sends. */
+  sendBlockedBy?: GuestSide | null;
   onClose: () => void;
 }) {
   const [seat, setSeat] = useState<GuestSeat | null | undefined>(undefined);
@@ -111,7 +114,13 @@ export function GuestDetail({
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
         <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>{guest.invitation_sent_at ? "Прати повторно" : "Прати покана"}</h3>
-        <GuestSendButtons guest={guest} share={share} actions={actions} />
+        {sendBlockedBy ? (
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>
+            {`Поканата ја праќа страната на ${sendBlockedBy === "bride" ? "невестата" : "младоженецот"}.`}
+          </p>
+        ) : (
+          <GuestSendButtons guest={guest} share={share} actions={actions} />
+        )}
       </div>
     </div>
   );

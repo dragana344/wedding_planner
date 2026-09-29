@@ -22,11 +22,14 @@ const N = "none" as const;
 export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> = {
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N },
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C },
-  couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N },
+  couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
   event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, sort_order: N, created_at: N },
   event_budget_items: { id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N },
   event_checklist_items: { id: N, event_id: N, title: P, due_date: C, is_done: N, created_at: N },
   event_checklist_subtasks: { id: N, checklist_item_id: N, title: P, is_done: N, created_at: N },
+  event_co_organizers: {
+    id: N, event_id: N, side: P, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N,
+  },
   event_credentials: { event_id: N, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N },
   event_custom_menu_items: { event_id: N, menu_item_id: C },
   event_guests: {

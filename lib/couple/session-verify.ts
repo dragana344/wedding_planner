@@ -13,7 +13,12 @@ export const SESSION_MAX_AGE_MS = 90 * DAY_MS;
 // most once a day instead (SEC-008).
 const RENEW_WHEN_REMAINING_BELOW_MS = SESSION_DURATION_MS - DAY_MS;
 
-export async function validateAndRenewCoupleSession(token: string): Promise<{ eventId: string } | null> {
+/** Set by proxy.ts for a co-organizer's session (A12): "bride" or "groom". Never trusted from the browser. */
+export const COUPLE_ORGANIZER_SIDE_HEADER = "x-couple-organizer-side";
+
+export type CoupleSession = { eventId: string; organizerSide: "bride" | "groom" | null };
+
+export async function validateAndRenewCoupleSession(token: string): Promise<CoupleSession | null> {
   const client = createServiceRoleClient();
   const tokenHash = await hashSessionToken(token);
 
@@ -25,7 +30,7 @@ export async function validateAndRenewCoupleSession(token: string): Promise<{ ev
   // the whole couple area.
   const { data } = await client
     .from("couple_sessions")
-    .select("event_id, expires_at, created_at")
+    .select("event_id, expires_at, created_at, event_co_organizers(side)")
     .eq("token", tokenHash)
     .abortSignal(AbortSignal.timeout(SESSION_LOOKUP_TIMEOUT_MS))
     .maybeSingle();
@@ -42,7 +47,8 @@ export async function validateAndRenewCoupleSession(token: string): Promise<{ ev
     await client.from("couple_sessions").update({ expires_at: newExpiresAt }).eq("token", tokenHash);
   }
 
-  return { eventId: data.event_id };
+  const organizer = data.event_co_organizers as unknown as { side: "bride" | "groom" } | null;
+  return { eventId: data.event_id, organizerSide: organizer?.side ?? null };
 }
 
 export async function deleteCoupleSession(token: string): Promise<void> {

@@ -47,6 +47,14 @@ const sending = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/invitation-sending", () => sending);
 
+const coOrganizers = vi.hoisted(() => ({
+  listCoOrganizers: vi.fn(async () => []),
+  createCoOrganizer: vi.fn(async (_e: string, input: { side: string; username: string }) => ({ id: "c1", ...input, created_at: "t" })),
+  resetCoOrganizerPassword: vi.fn(async () => undefined),
+  deleteCoOrganizer: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/couple/co-organizers", () => coOrganizers);
+
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 
@@ -65,6 +73,8 @@ import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
 import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
+import * as coOrganizersRoute from "@/app/api/couple/co-organizers/route";
+import * as coOrganizerRoute from "@/app/api/couple/co-organizers/[id]/route";
 import * as agendaItemRoute from "@/app/api/couple/agenda/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
@@ -76,9 +86,10 @@ const ID = "3f2b8c1e-9a4d-4c2e-8f1a-2b3c4d5e6f70";
 const ID2 = "00000000-0000-0000-0000-000000000002";
 const INJECTION = "x),menu_item_id.not.is.null";
 
-function req(method: string, body?: unknown, opts: { path?: string; couple?: boolean } = {}) {
+function req(method: string, body?: unknown, opts: { path?: string; couple?: boolean; side?: string } = {}) {
   const headers = new Headers({ "content-type": "application/json" });
   if (opts.couple !== false) headers.set("x-couple-event-id", EVENT);
+  if (opts.side) headers.set("x-couple-organizer-side", opts.side);
   return new NextRequest(`http://localhost${opts.path ?? "/api/test"}`, {
     method,
     headers,
@@ -295,7 +306,7 @@ describe("couple guest list tools (A6, A7, A20)", () => {
 describe("sending invitations (A9)", () => {
   it("marks guests sent through a known channel only", async () => {
     expect(await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID, ID2], channel: "viber" }))).toEqual({ status: 200, body: { guests: [] } });
-    expect(sending.markInvitationSent).toHaveBeenCalledWith(EVENT, [ID, ID2], "viber");
+    expect(sending.markInvitationSent).toHaveBeenCalledWith(EVENT, [ID, ID2], "viber", null);
     sending.markInvitationSent.mockClear();
     for (const bad of [{ guest_ids: [ID], channel: "pigeon" }, { guest_ids: [], channel: "sms" }, { guest_ids: ["x"], channel: "sms" }]) {
       expect((await call(guestsSentRoute.POST, req("POST", bad))).status, JSON.stringify(bad)).toBe(400);
@@ -306,16 +317,56 @@ describe("sending invitations (A9)", () => {
   it("emails invitations with links to the configured site, else this request's origin", async () => {
     const res = await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
     expect(res).toEqual({ status: 200, body: { sent: 1, skipped: 0, failed: 0 } });
-    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost");
+    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", null);
 
     process.env.SITE_URL = "https://kadesum.mk";
     try {
       await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
-      expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "https://kadesum.mk");
+      expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "https://kadesum.mk", null);
     } finally {
       delete process.env.SITE_URL;
     }
     expect((await call(guestsEmailRoute.POST, req("POST", { guest_ids: Array(201).fill(ID) }))).status).toBe(400);
+  });
+});
+
+describe("co-organizers (A12)", () => {
+  it("lets the couple add one, validating side, username and password", async () => {
+    const body = { side: "bride", username: "nevesta-ana", password: "long-enough-pw" };
+    expect((await call(coOrganizersRoute.POST, req("POST", body))).status).toBe(200);
+    expect(coOrganizers.createCoOrganizer).toHaveBeenCalledWith(EVENT, body);
+    coOrganizers.createCoOrganizer.mockClear();
+    for (const bad of [{ ...body, side: "aunt" }, { ...body, password: "short" }, { ...body, username: "" }, { ...body, username: "има празно" }]) {
+      expect((await call(coOrganizersRoute.POST, req("POST", bad))).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect(coOrganizers.createCoOrganizer).not.toHaveBeenCalled();
+  });
+
+  it("refuses every co-organizer management call from a co-organizer's own session", async () => {
+    const refusal = { status: 403, body: { error: "Само главната најава на младенците може да управува со ко-организатори." } };
+    expect(await call(coOrganizersRoute.GET, req("GET", undefined, { side: "groom" }))).toEqual(refusal);
+    expect(await call(coOrganizersRoute.POST, req("POST", { side: "bride", username: "x-user", password: "long-enough-pw" }, { side: "groom" }))).toEqual(refusal);
+    expect(await call(coOrganizerRoute.PATCH, req("PATCH", { password: "long-enough-pw" }, { side: "groom" }), { id: ID })).toEqual(refusal);
+    expect(await call(coOrganizerRoute.DELETE, req("DELETE", undefined, { side: "groom" }), { id: ID })).toEqual(refusal);
+    expect(coOrganizers.createCoOrganizer).not.toHaveBeenCalled();
+    expect(coOrganizers.deleteCoOrganizer).not.toHaveBeenCalled();
+  });
+
+  it("re-keys and removes by id", async () => {
+    expect((await call(coOrganizerRoute.PATCH, req("PATCH", { password: "new-long-password" }), { id: ID })).status).toBe(200);
+    expect(coOrganizers.resetCoOrganizerPassword).toHaveBeenCalledWith(EVENT, ID, "new-long-password");
+    expect((await call(coOrganizerRoute.DELETE, req("DELETE"), { id: ID })).status).toBe(200);
+    expect(coOrganizers.deleteCoOrganizer).toHaveBeenCalledWith(EVENT, ID);
+    expect((await call(coOrganizerRoute.DELETE, req("DELETE"), { id: "x" })).status).toBe(400);
+  });
+
+  it("limits a co-organizer's sending to their own side", async () => {
+    await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID], channel: "sms" }, { side: "groom" }));
+    expect(sending.markInvitationSent).toHaveBeenLastCalledWith(EVENT, [ID], "sms", "groom");
+    await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }, { side: "bride" }));
+    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", "bride");
+    await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID], channel: "sms" }));
+    expect(sending.markInvitationSent).toHaveBeenLastCalledWith(EVENT, [ID], "sms", null);
   });
 });
 

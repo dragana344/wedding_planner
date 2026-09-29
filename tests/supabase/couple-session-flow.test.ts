@@ -65,3 +65,43 @@ describe("couple login → middleware → logout", () => {
     expect(after.status).toBe(401);
   });
 });
+
+describe("co-organizer login (A12)", () => {
+  const coUsername = "session-flow-groom";
+  const coPassword = "Groom-side-pass-1";
+
+  async function loginAs(user: string, pass: string) {
+    const res = await login(
+      new NextRequest("http://localhost:3000/api/couple/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: user, password: pass }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    return res.cookies.get("couple_session")!.value;
+  }
+
+  it("signs the co-organizer into the same event and tells the app their side", async () => {
+    const { data: id, error } = await admin.rpc("create_co_organizer", { p_event_id: eventId, p_side: "groom", p_username: coUsername, p_password: coPassword });
+    expect(error).toBeNull();
+
+    const cookie = await loginAs(coUsername, coPassword);
+    const gated = await middleware(couplePageRequest(cookie));
+    expect(gated.headers.get("x-middleware-request-x-couple-event-id")).toBe(eventId);
+    expect(gated.headers.get("x-middleware-request-x-couple-organizer-side")).toBe("groom");
+
+    const { data: session } = await admin.from("couple_sessions").select("organizer_id").eq("organizer_id", id);
+    expect(session).toHaveLength(1);
+  });
+
+  it("gives the couple's own login no side, and ignores a side header sent by the browser", async () => {
+    const cookie = await loginAs(username, password);
+    const request = new NextRequest("http://localhost:3000/api/couple/guests", {
+      headers: { host: "localhost:3000", cookie: `couple_session=${cookie}`, "x-couple-organizer-side": "bride" },
+    });
+    const gated = await middleware(request);
+    expect(gated.headers.get("x-middleware-request-x-couple-event-id")).toBe(eventId);
+    expect(gated.headers.get("x-middleware-request-x-couple-organizer-side")).toBeNull();
+  });
+});

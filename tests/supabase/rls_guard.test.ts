@@ -29,6 +29,7 @@ const STAFF_TABLES = [
 /** Tables only server code touches, with the service-role client. No API-role grants, no policies. */
 const SERVICE_ROLE_ONLY_TABLES = [
   "event_credentials",
+  "event_co_organizers",
   "couple_sessions",
   "event_guests",
   "event_invitations",

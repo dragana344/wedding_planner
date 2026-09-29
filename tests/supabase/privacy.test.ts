@@ -190,13 +190,17 @@ describe("export (DATA-005)", () => {
       }),
     );
 
+    await must(
+      admin.rpc("create_co_organizer", { p_event_id: eventA.eventId, p_side: "bride", p_username: `co-${eventA.tag}`, p_password: "long-enough-password" }),
+    );
+
     const data = await exportVenueData(a.venueId, { actorId: staff.userId });
     const json = JSON.stringify(data);
     for (const text of [
       `Couple ${eventA.tag}`, `${eventA.tag}@couple.test`, `user-${eventA.tag}`, `Guest ${eventA.tag}`, `Allergy ${eventA.tag}`,
       `Content ${eventA.tag}`, `Agenda ${eventA.tag}`, `Street ${eventA.tag}`, `Vendor ${eventA.tag}`, `Subtask ${eventA.tag}`,
       `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
-      `Booker ${stamp}`, staff.email, a.name,
+      `Booker ${stamp}`, staff.email, a.name, `co-${eventA.tag}`,
     ]) {
       expect(json, text).toContain(text);
     }

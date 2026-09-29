@@ -2,19 +2,28 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
-import { GUEST_COLUMNS, type Guest, type InvitationChannel } from "@/lib/couple/guests";
+import { GUEST_COLUMNS, type Guest, type GuestSide, type InvitationChannel } from "@/lib/couple/guests";
 import { inviteMessage, personalInviteUrl } from "@/lib/couple/invite-share";
 
-/** A8/A9: record that the couple sent these guests the invitation (this event's guests only). */
-export async function markInvitationSent(eventId: string, guestIds: string[], channel: InvitationChannel): Promise<Guest[]> {
+/**
+ * A8/A9: record that the couple sent these guests the invitation (this
+ * event's guests only; with `side`, a co-organizer's own side only, A12).
+ */
+export async function markInvitationSent(
+  eventId: string,
+  guestIds: string[],
+  channel: InvitationChannel,
+  side: GuestSide | null = null,
+): Promise<Guest[]> {
   if (guestIds.length === 0) return [];
   const client = createServiceRoleClient();
-  const { data, error } = await client
+  let query = client
     .from("event_guests")
     .update({ invitation_sent_at: new Date().toISOString(), invitation_channel: channel })
     .eq("event_id", eventId)
-    .in("id", guestIds)
-    .select(GUEST_COLUMNS);
+    .in("id", guestIds);
+  if (side) query = query.eq("side", side);
+  const { data, error } = await query.select(GUEST_COLUMNS);
   if (error) throw error;
   return data;
 }
@@ -29,6 +38,7 @@ export async function sendInvitationEmails(
   eventId: string,
   guestIds: string[],
   origin: string,
+  side: GuestSide | null = null,
 ): Promise<{ sent: number; skipped: number; failed: number }> {
   if (!emailConfigured()) throw new Error("Праќањето email не е вклучено.");
   const client = createServiceRoleClient();
@@ -49,11 +59,9 @@ export async function sendInvitationEmails(
   if (eventError) throw eventError;
   const venueName = (event.venues as unknown as { name: string } | null)?.name ?? "";
 
-  const { data: guests, error } = await client
-    .from("event_guests")
-    .select("id, full_name, email, invite_token")
-    .eq("event_id", eventId)
-    .in("id", guestIds);
+  let guestQuery = client.from("event_guests").select("id, full_name, email, invite_token").eq("event_id", eventId).in("id", guestIds);
+  if (side) guestQuery = guestQuery.eq("side", side);
+  const { data: guests, error } = await guestQuery;
   if (error) throw error;
 
   let sent = 0;

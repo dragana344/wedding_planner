@@ -1,7 +1,7 @@
 // proxy.ts (Next.js 16's name for middleware)
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
+import { COUPLE_ORGANIZER_SIDE_HEADER, validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 import { REQUEST_ID_HEADER } from "@/lib/log";
 import { safeEqual } from "@/lib/security/safe-equal";
@@ -35,6 +35,7 @@ async function gateCouple(request: NextRequest, requestId: string): Promise<Next
 
   const headers = new Headers(request.headers);
   headers.delete("x-couple-event-id");
+  headers.delete(COUPLE_ORGANIZER_SIDE_HEADER);
   headers.set(REQUEST_ID_HEADER, requestId);
 
   if (UNGATED_COUPLE_PATHS.has(pathname)) {
@@ -54,6 +55,8 @@ async function gateCouple(request: NextRequest, requestId: string): Promise<Next
   }
 
   headers.set("x-couple-event-id", session.eventId);
+  // Session 2 (A12): a co-organizer's side of the family; absent for the couple's own login.
+  if (session.organizerSide) headers.set(COUPLE_ORGANIZER_SIDE_HEADER, session.organizerSide);
   return NextResponse.next({ request: { headers } });
 }
 

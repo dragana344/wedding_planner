@@ -1,7 +1,7 @@
 // app/api/couple/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { INVALID_INPUT_ERROR, INVALID_JSON_ERROR, loginBody, parseInput } from "@/lib/api/schemas";
-import { verifyEventCredentials } from "@/lib/couple/auth";
+import { verifyCoupleLogin } from "@/lib/couple/auth";
 import { createCoupleSession } from "@/lib/couple/session-token";
 import { withRequestLog } from "@/lib/api/handler";
 import { logSecurityEvent } from "@/lib/log";
@@ -37,14 +37,14 @@ async function login(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { username, password } = parsed.data;
 
-  const result = await verifyEventCredentials(username, password);
+  const result = await verifyCoupleLogin(username, password);
   if ("errorCode" in result) {
     logSecurityEvent(result.errorCode === "locked" ? "couple_login_locked" : "couple_login_failed");
     return NextResponse.json({ error: LOGIN_FAILED_MESSAGE }, { status: 401 });
   }
-  logSecurityEvent("couple_login_succeeded", { event_id: result.eventId });
+  logSecurityEvent("couple_login_succeeded", { event_id: result.eventId, ...(result.side ? { organizer_side: result.side } : {}) });
 
-  const { token, expiresAt } = await createCoupleSession(result.eventId);
+  const { token, expiresAt } = await createCoupleSession(result.eventId, result.organizerId);
   const response = NextResponse.json({ ok: true });
   response.cookies.set("couple_session", token, {
     httpOnly: true,
