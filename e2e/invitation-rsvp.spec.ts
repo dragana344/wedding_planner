@@ -37,6 +37,6 @@ test("public invitation loads and records an RSVP", async ({ page, anonPage }) =
 
   // ...and visible to the couple as a confirmed guest.
   await page.goto("/couple/guests");
-  await expect(page.getByText(guestName, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Детали за ${guestName}` })).toBeVisible();
   await expect(page.getByRole("combobox", { name: `Статус за ${guestName}` })).toHaveValue("confirmed");
 });

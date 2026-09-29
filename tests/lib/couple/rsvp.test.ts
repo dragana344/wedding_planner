@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { upsertInvitation } from "@/lib/couple/invitations";
 import { getInviteeByToken, submitRsvpBySlug } from "@/lib/couple/rsvp";
@@ -267,6 +267,74 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "later", partySize: 1, comment: "   " });
     const { data } = await admin.from("event_guests").select("rsvp_comment").eq("id", guest.id).single();
     expect(data!.rsvp_comment).toBeNull();
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+});
+
+describe("lib/couple/rsvp: the couple hears about changed answers (A11)", () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.RESEND_API_KEY;
+    delete process.env.EMAIL_FROM;
+  });
+
+  function mockResend(status = 200) {
+    const sent: { to: string[]; subject: string; text: string }[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).startsWith("https://api.resend.com/")) {
+        sent.push(JSON.parse(String(init!.body)));
+        return new Response("{}", { status });
+      }
+      return realFetch(input, init);
+    });
+    process.env.RESEND_API_KEY = "re_test";
+    process.env.EMAIL_FROM = "Каде Сум <noreply@example.mk>";
+    return sent;
+  }
+
+  async function eventWithCoupleEmail(email: string | null) {
+    const made = await makeEventWithInvitation(`Notify ${Math.random()}`);
+    await admin.from("events").update({ contact_email: email }).eq("id", made.eventId);
+    return made;
+  }
+
+  it("emails the couple when a guest changes an earlier answer", async () => {
+    const sent = mockResend();
+    const { venueId, eventId, slug } = await eventWithCoupleEmail("couple@example.mk");
+    const guest = await addGuest(eventId, { rsvp_status: "confirmed" });
+
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "declined", partySize: 1, comment: "Се разболев" });
+
+    const mine = sent.filter((m) => m.to[0] === "couple@example.mk");
+    expect(mine).toHaveLength(1);
+    expect(mine[0].subject).toBe("Промена на одговор: Петар Петровски");
+    expect(mine[0].text).toContain("Потврден → Одбиен");
+    expect(mine[0].text).toContain("Се разболев");
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+
+  it("stays quiet for a first answer, an unchanged answer, or no couple email", async () => {
+    const sent = mockResend();
+    const { venueId, eventId, slug } = await eventWithCoupleEmail("quiet@example.mk");
+    const guest = await addGuest(eventId);
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2 });
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 3 });
+    expect(sent.filter((m) => m.to[0] === "quiet@example.mk")).toEqual([]);
+
+    const noEmail = await eventWithCoupleEmail(null);
+    const other = await addGuest(noEmail.eventId, { rsvp_status: "confirmed" });
+    await submitRsvpBySlug(noEmail.slug, { guestToken: other.invite_token, status: "later", partySize: 1 });
+    await admin.from("venues").delete().in("id", [venueId, noEmail.venueId]);
+  });
+
+  it("still saves the answer when the email fails", async () => {
+    mockResend(500);
+    const { venueId, eventId, slug } = await eventWithCoupleEmail("fail@example.mk");
+    const guest = await addGuest(eventId, { rsvp_status: "confirmed" });
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "later", partySize: 1 });
+    const { data } = await admin.from("event_guests").select("rsvp_status").eq("id", guest.id).single();
+    expect(data!.rsvp_status).toBe("later");
     await admin.from("venues").delete().eq("id", venueId);
   });
 });

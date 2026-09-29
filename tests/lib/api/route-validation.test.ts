@@ -55,6 +55,12 @@ const coOrganizers = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/co-organizers", () => coOrganizers);
 
+const reminderLib = vi.hoisted(() => ({
+  getReminder: vi.fn(async () => ({ sendAt: "2027-07-05T08:00:00.000Z", status: "scheduled", isDefault: true, sentAt: null, sentCount: 0 })),
+  setReminder: vi.fn(async () => ({ sendAt: "2027-07-06T08:00:00.000Z", status: "scheduled", isDefault: false, sentAt: null, sentCount: 0 })),
+}));
+vi.mock("@/lib/couple/reminders", () => reminderLib);
+
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 
@@ -75,6 +81,7 @@ import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
 import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
 import * as coOrganizersRoute from "@/app/api/couple/co-organizers/route";
 import * as coOrganizerRoute from "@/app/api/couple/co-organizers/[id]/route";
+import * as reminderRoute from "@/app/api/couple/reminder/route";
 import * as agendaItemRoute from "@/app/api/couple/agenda/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
@@ -367,6 +374,20 @@ describe("co-organizers (A12)", () => {
     expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", "bride");
     await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID], channel: "sms" }));
     expect(sending.markInvitationSent).toHaveBeenLastCalledWith(EVENT, [ID], "sms", null);
+  });
+});
+
+describe("reminder (A10)", () => {
+  it("reads and moves the reminder, validating the time", async () => {
+    expect((await call(reminderRoute.GET, req("GET"))).body).toMatchObject({ isDefault: true });
+    const ok = await call(reminderRoute.PATCH, req("PATCH", { send_at: "2027-07-06T08:00:00.000Z", enabled: true }));
+    expect(ok.status).toBe(200);
+    expect(reminderLib.setReminder).toHaveBeenCalledWith(EVENT, { sendAt: "2027-07-06T08:00:00.000Z", enabled: true });
+    reminderLib.setReminder.mockClear();
+    for (const bad of [{ send_at: "tomorrow", enabled: true }, { send_at: "2027-07-06T08:00:00.000Z" }]) {
+      expect((await call(reminderRoute.PATCH, req("PATCH", bad))).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect(reminderLib.setReminder).not.toHaveBeenCalled();
   });
 });
 

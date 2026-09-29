@@ -12,6 +12,7 @@ import { COLUMN_CLASSIFICATION } from "./privacy-classification";
 const NOT_EXPORTED: Record<string, string> = {
   contact_submissions: "platform sales enquiries, not venue data; handled by the retention purge (DATA-007)",
   couple_sessions: "session secrets only",
+  event_reminders: "when the reminder email goes out, no one's data; each guest's reminder_sent_at is exported with the guest",
   audit_log: "append-only security trail; holds user ids, never names or contact data",
 };
 

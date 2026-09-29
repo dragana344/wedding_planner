@@ -30,12 +30,13 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_co_organizers: {
     id: N, event_id: N, side: P, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N,
   },
+  event_reminders: { event_id: N, send_at: C, status: N, sent_at: C, sent_count: N, updated_at: N },
   event_credentials: { event_id: N, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N },
   event_custom_menu_items: { event_id: N, menu_item_id: C },
   event_guests: {
     id: N, event_id: N, full_name: P, phone: P, party_size: C, rsvp_status: C, notes: P, created_at: N, side: P,
     rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, menu_choice: P, allergies: P,
-    children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C,
+    children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C, reminder_sent_at: C,
   },
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {

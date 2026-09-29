@@ -5,6 +5,10 @@ import { pseudonymize } from "@/lib/security/pseudonym";
 import { matchGuestByName } from "@/lib/couple/rsvp-match";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 import { RSVP_NOT_FOUND_ERROR, RSVP_REQUIRED_ERROR } from "@/lib/api/schemas";
+import { emailConfigured, sendEmail } from "@/lib/email";
+import { log } from "@/lib/log";
+import { STATUS_LABELS } from "@/lib/couple/guest-labels";
+import type { RsvpStatus } from "@/lib/couple/guests";
 
 export type RsvpAnswer = "confirmed" | "declined" | "later";
 export type MenuChoice = "standard" | "posno" | "vegetarian";
@@ -100,7 +104,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
 
   const { data: invitation, error: invitationError } = await client
     .from("event_invitations")
-    .select("event_id, events(venue_id)")
+    .select("event_id, events(venue_id, contact_email)")
     .eq("public_slug", slug)
     .maybeSingle();
   if (invitationError) throw invitationError;
@@ -123,12 +127,12 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
     answer.allergies = cleanText(input.allergies);
   }
 
-  let match: { id: string; rsvp_status: string } | null;
+  let match: { id: string; full_name: string; rsvp_status: string } | null;
   if (input.guestToken) {
     if (!INVITE_TOKEN_RE.test(input.guestToken)) throw new Error(RSVP_NOT_FOUND_ERROR);
     const { data: guest, error } = await client
       .from("event_guests")
-      .select("id, rsvp_status")
+      .select("id, full_name, rsvp_status")
       .eq("event_id", invitation.event_id)
       .eq("invite_token", input.guestToken)
       .maybeSingle();
@@ -145,7 +149,8 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
     match = matchGuestByName(checkListBound(guests, "event_guests (rsvp)"), fullName);
   }
 
-  const venueId = (invitation.events as unknown as { venue_id: string } | null)?.venue_id ?? null;
+  const eventInfo = invitation.events as unknown as { venue_id: string; contact_email: string | null } | null;
+  const venueId = eventInfo?.venue_id ?? null;
   const now = new Date().toISOString();
   const audit = (guestId: string, previousStatus: string | null) =>
     recordAudit({
@@ -173,6 +178,9 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
       .eq("id", guest.id);
     if (error) throw error;
     await audit(guest.id, guest.rsvp_status);
+    if (ANSWERS.has(guest.rsvp_status) && guest.rsvp_status !== status && eventInfo?.contact_email) {
+      await notifyCoupleOfChange(eventInfo.contact_email, guest.full_name, guest.rsvp_status, status, cleanText(input.comment));
+    }
     return;
   }
 
@@ -190,4 +198,25 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
     .single();
   if (insertError) throw insertError;
   await audit(created.id, null);
+}
+
+/** Statuses a guest has actually answered with; a change from one of these is news to the couple. */
+const ANSWERS = new Set(["confirmed", "declined", "later"]);
+
+/**
+ * A11: tells the couple a guest changed an earlier answer. Best effort: the
+ * guest's answer is already saved, so a failed email is only logged.
+ */
+async function notifyCoupleOfChange(to: string, guestName: string, from: string, next: string, comment: string | null): Promise<void> {
+  if (!emailConfigured()) return;
+  const label = (s: string) => STATUS_LABELS[s as RsvpStatus] ?? s;
+  const text =
+    `${guestName} го смени одговорот на поканата: ${label(from)} → ${label(next)}.` +
+    (comment ? `\nПорака: ${comment}` : "") +
+    "\nДеталите се во листата на гости.";
+  try {
+    await sendEmail({ to, subject: `Промена на одговор: ${guestName}`, text });
+  } catch (err) {
+    log("error", "rsvp_change_email_failed", { error: err instanceof Error ? err.message : String(err) });
+  }
 }

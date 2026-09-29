@@ -31,6 +31,16 @@ export function inviteMessage(input: InviteMessageInput): string {
   );
 }
 
+/** A10: the reminder sent 15 days before (email, or WhatsApp/Viber for guests without email). */
+export function reminderMessage(input: InviteMessageInput): string {
+  const occasion = !input.eventType || input.eventType === "wedding" ? "свадбата" : "прославата";
+  return (
+    `Почитуван/а ${input.guestName},\n` +
+    `Ве потсетуваме на ${occasion} на ${input.coupleNames} на ${formatDate(input.eventDate)} во ${input.venueName}. Ве очекуваме!\n` +
+    `Вашата покана, агенда и потврда за доаѓање: ${input.link}`
+  );
+}
+
 /**
  * International digits for wa.me / sms: ("070 123 456" -> "38970123456").
  * A leading 0 is a Macedonian national number; "+" or "00" is already international.

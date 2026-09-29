@@ -234,6 +234,12 @@ export const coOrganizerCreateBody = z.object({
 });
 export const coOrganizerPasswordBody = z.object({ password: coPassword });
 
+/** A10: when the guests' reminder goes out (ISO time), or switched off. */
+export const reminderBody = z.object({
+  send_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), { error: "Неважечко време за потсетникот." }),
+  enabled: z.boolean(),
+});
+
 /** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
 export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
 

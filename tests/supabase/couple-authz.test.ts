@@ -46,6 +46,7 @@ import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
 import * as guestsEmailRoute from "@/app/api/couple/guests/email/route";
 import * as coOrganizersRoute from "@/app/api/couple/co-organizers/route";
 import * as coOrganizerIdRoute from "@/app/api/couple/co-organizers/[id]/route";
+import * as reminderRoute from "@/app/api/couple/reminder/route";
 import * as invitationRoute from "@/app/api/couple/invitation/route";
 import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
 import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
@@ -614,6 +615,23 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         const id = await bCoOrganizer();
         await call(coOrganizerIdRoute.DELETE, { id }, "DELETE");
         expect(await adminRow("event_co_organizers", id)).not.toBeNull();
+      },
+    },
+  },
+  "reminder/route.ts": {
+    module: reminderRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(reminderRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+      },
+      PATCH: async () => {
+        const res = await call(reminderRoute.PATCH, NONE, "PATCH", {
+          body: { send_at: new Date(Date.now() + 86_400_000).toISOString(), enabled: false, event_id: B.eventId },
+        });
+        expect(res.status).toBe(200);
+        expect((await admin.from("event_reminders").select("status").eq("event_id", A.eventId).single()).data!.status).toBe("cancelled");
+        expect((await admin.from("event_reminders").select("event_id").eq("event_id", B.eventId)).data).toEqual([]);
       },
     },
   },

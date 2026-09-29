@@ -3,7 +3,13 @@
 Provider: **Resend**, on a verified sending subdomain, e.g. `mail.<domain>`. Two senders use it:
 
 1. **Supabase Auth** (confirmation, password reset, email change) via Resend's SMTP.
-2. **The app** (contact-form notifications to the team, OBS-005) via Resend's HTTP API (`lib/email.ts`).
+2. **The app** via Resend's HTTP API (`lib/email.ts`):
+   - contact-form notifications to the team (OBS-005);
+   - guest invitations sent by the couple, each with the guest's personal link (A9, `lib/couple/invitation-sending.ts`);
+   - the guests' reminder, by default 15 days before at 10:00 Skopje, sent by the hourly cron `/api/cron/reminders` (A10, `lib/couple/reminders.ts`);
+   - a note to the couple when a guest changes an earlier answer (A11, `lib/couple/rsvp.ts`).
+
+   Guest emails use Reply-To = the couple's contact email, and links point at `SITE_URL` (see SECRETS.md).
 
 ## One-time setup
 
@@ -27,3 +33,6 @@ Provider: **Resend**, on a verified sending subdomain, e.g. `mail.<domain>`. Two
 
 - Auth emails: Supabase returns an error to the form; the user can retry.
 - Contact form: the message is stored first; a failed notification is logged (`contact_notification_failed`) and the visitor still sees success.
+- Invitations: a failed email is counted as failed in the couple's result and the guest stays "not sent" (`invitation_email_failed`).
+- Reminders: each guest is stamped when their email goes out, so a failed or interrupted run never emails anyone twice; guests whose email failed are logged (`reminder_email_failed`). With email not configured the cron does nothing and the reminder goes out once it is; the couple's guest page lists the guests to remind by WhatsApp/Viber meanwhile.
+- Changed answers: the guest's answer is saved first; a failed note to the couple is logged (`rsvp_change_email_failed`).

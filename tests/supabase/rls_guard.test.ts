@@ -30,6 +30,7 @@ const STAFF_TABLES = [
 const SERVICE_ROLE_ONLY_TABLES = [
   "event_credentials",
   "event_co_organizers",
+  "event_reminders",
   "couple_sessions",
   "event_guests",
   "event_invitations",
