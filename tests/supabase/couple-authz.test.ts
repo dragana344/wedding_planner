@@ -39,6 +39,9 @@ import * as contactInfoRoute from "@/app/api/couple/contact-info/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
 import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestsIdRoute from "@/app/api/couple/guests/[id]/route";
+import * as guestsSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
+import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
+import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as invitationRoute from "@/app/api/couple/invitation/route";
 import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
 import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
@@ -524,6 +527,38 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       DELETE: async () => {
         await call(guestsIdRoute.DELETE, { id: B.guestId }, "DELETE");
         expect(await adminRow("event_guests", B.guestId)).not.toBeNull();
+      },
+    },
+  },
+  "guests/[id]/seat/route.ts": {
+    module: guestsSeatRoute,
+    methods: {
+      GET: async () => {
+        expect((await call(guestsSeatRoute.GET, { id: B.guestId }, "GET")).json).toEqual({ seat: null });
+        expect((await call(guestsSeatRoute.GET, { id: A.guestId }, "GET")).status).toBe(200);
+      },
+    },
+  },
+  "guests/export/route.ts": {
+    module: guestsExportRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(guestsExportRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        const { data: own } = await admin.from("event_guests").select("full_name").eq("id", A.guestId).single();
+        expect(res.text).toContain(own!.full_name);
+      },
+    },
+  },
+  "guests/import/route.ts": {
+    module: guestsImportRoute,
+    methods: {
+      POST: async () => {
+        const csv = `Име и презиме\n${RUN} imported guest\n`;
+        const res = await call(guestsImportRoute.POST, NONE, "POST", { body: { csv, event_id: B.eventId } });
+        expect(res.json).toEqual({ imported: 1, skipped: 0 });
+        const { data } = await admin.from("event_guests").select("event_id").eq("full_name", `${RUN} imported guest`);
+        expect(data).toEqual([{ event_id: A.eventId }]);
       },
     },
   },

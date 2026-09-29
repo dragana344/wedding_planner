@@ -14,6 +14,7 @@ export const PATCH = withCoupleEvent(
     const updated = await updateGuest(eventId, params.id, {
       full_name: body.full_name,
       phone: body.phone || null,
+      email: body.email || null,
       party_size: body.party_size ?? 1,
       notes: body.notes || null,
       side: body.side || null,

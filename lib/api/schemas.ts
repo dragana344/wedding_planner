@@ -194,6 +194,8 @@ const guestFields = z.object({
   ...noType,
   full_name: name,
   phone: optionalText(50),
+  // Typed by the couple for guests without the app, e.g. grandparents (A6).
+  email: optionalText(254),
   party_size: partySize.nullable().optional(),
   notes: optionalText(TEXT_MAX),
   // "" is tolerated (the route maps it to null) as it was before.
@@ -205,6 +207,9 @@ export const guestUpdateBody = z.union([
   z.object({ type: z.literal("side"), side: z.enum(GUEST_SIDES).nullable() }),
   guestFields,
 ]);
+
+/** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
+export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
 
 // ---------------------------------------------------------------------------
 // Couple: invitation

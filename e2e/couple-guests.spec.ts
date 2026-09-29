@@ -7,9 +7,8 @@ test("couple logs in and adds a guest", async ({ page }) => {
 
   await page.goto("/couple/guests");
   const guestName = `Гостин ${uniqueId()}`;
-  // The add-guest inputs have no <label>, only placeholders (see report).
-  await page.getByPlaceholder("Име и презиме").fill(guestName);
-  await page.getByPlaceholder("Телефон (опционално)").fill("070123456");
+  await page.getByLabel("Име и презиме").fill(guestName);
+  await page.getByLabel("Телефон (по желба)").fill("070123456");
   await page.getByRole("button", { name: "Додади гостин" }).click();
 
   await expect(page.getByText(guestName, { exact: true })).toBeVisible();

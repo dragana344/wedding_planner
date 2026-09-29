@@ -16,6 +16,7 @@ export const POST = withCoupleEvent(
     const created = await addGuest(eventId, {
       full_name: body.full_name,
       phone: body.phone || null,
+      email: body.email || null,
       party_size: body.party_size ?? 1,
       notes: body.notes || null,
       side: body.side || null,

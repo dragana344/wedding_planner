@@ -36,6 +36,8 @@ const guests = vi.hoisted(() => ({
   updateGuestStatus: vi.fn(async () => ({})),
   updateGuestSide: vi.fn(async () => ({})),
   deleteGuest: vi.fn(async () => undefined),
+  importGuests: vi.fn(async (_e: string, rows: unknown[]) => ({ imported: rows.length, skipped: 0 })),
+  getGuestSeat: vi.fn(async () => null),
 }));
 vi.mock("@/lib/couple/guests", () => guests);
 
@@ -52,6 +54,9 @@ import * as elementRoute from "@/app/api/couple/seating/elements/[id]/route";
 import * as confirmRoute from "@/app/api/couple/seating/confirm/route";
 import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestRoute from "@/app/api/couple/guests/[id]/route";
+import * as guestSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
+import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
+import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as agendaItemRoute from "@/app/api/couple/agenda/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
@@ -210,6 +215,7 @@ describe("guest routes", () => {
     expect(guests.addGuest).toHaveBeenCalledWith(EVENT, {
       full_name: "Ана",
       phone: null,
+      email: null,
       party_size: 2,
       notes: null,
       side: "bride",
@@ -223,6 +229,58 @@ describe("guest routes", () => {
     expect((await call(guestRoute.DELETE, req("DELETE"), { id: "1 or 1=1" })).status).toBe(400);
     expect(guests.updateGuestStatus).not.toHaveBeenCalled();
     expect(guests.deleteGuest).not.toHaveBeenCalled();
+  });
+});
+
+describe("couple guest list tools (A6, A7, A20)", () => {
+  it("adds a guest with an email typed in by the couple", async () => {
+    const body = { full_name: "Баба Вера", phone: null, email: "vera@example.mk", party_size: 1, side: "bride" };
+    expect((await call(guestsRoute.POST, req("POST", body))).status).toBe(200);
+    expect(guests.addGuest).toHaveBeenLastCalledWith(EVENT, expect.objectContaining({ email: "vera@example.mk" }));
+    expect((await call(guestsRoute.POST, req("POST", { ...body, email: "x".repeat(255) }))).status).toBe(400);
+  });
+
+  it("exports the list as a CSV download", async () => {
+    guests.listGuests.mockResolvedValueOnce([]);
+    const res = await guestsExportRoute.GET(req("GET"), { params: Promise.resolve({}) as never });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    expect(res.headers.get("content-disposition")).toContain('attachment; filename="gosti.csv"');
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.text()).toContain("Име и презиме,Телефон");
+  });
+
+  it("imports a clean CSV and reports how many were added", async () => {
+    const csv = "Име и презиме,Лица\nАна,2\nМарко,1\n";
+    const res = await call(guestsImportRoute.POST, req("POST", { csv }));
+    expect(res).toEqual({ status: 200, body: { imported: 2, skipped: 0 } });
+    expect(guests.importGuests).toHaveBeenCalledWith(EVENT, [
+      { full_name: "Ана", phone: null, email: null, side: null, party_size: 2 },
+      { full_name: "Марко", phone: null, email: null, side: null, party_size: 1 },
+    ]);
+  });
+
+  it("imports nothing when any line is bad, naming the lines", async () => {
+    guests.importGuests.mockClear();
+    const res = await call(guestsImportRoute.POST, req("POST", { csv: "Име и презиме,Лица\nАна,2\n,1\nМарко,0\n" }));
+    expect(res).toEqual({
+      status: 400,
+      body: { error: "Ред 3: Недостасува име. Ред 4: Бројот на лица мора да е од 1 до 50." },
+    });
+    expect((await call(guestsImportRoute.POST, req("POST", { csv: "Телефон\n070\n" }))).body).toEqual({
+      error: "Ред 1: Недостасува колона „Име и презиме“.",
+    });
+    expect((await call(guestsImportRoute.POST, req("POST", { csv: "x".repeat(1_000_001) }))).status).toBe(400);
+    expect((await call(guestsImportRoute.POST, req("POST", { csv: "Име и презиме\n" }))).body).toEqual({
+      error: "Датотеката нема гости.",
+    });
+    expect(guests.importGuests).not.toHaveBeenCalled();
+  });
+
+  it("reads a guest's seat by id only", async () => {
+    expect((await call(guestSeatRoute.GET, req("GET"), { id: "1 or 1=1" })).status).toBe(400);
+    expect(await call(guestSeatRoute.GET, req("GET"), { id: ID })).toEqual({ status: 200, body: { seat: null } });
+    expect(guests.getGuestSeat).toHaveBeenCalledWith(EVENT, ID);
   });
 });
 
