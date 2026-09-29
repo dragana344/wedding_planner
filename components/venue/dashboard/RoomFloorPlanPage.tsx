@@ -96,7 +96,7 @@ export function RoomFloorPlanPage({
       setIsUnlocked(true);
       setPasswordInput("");
     } else {
-      setPasswordError("Погрешна лозинка.");
+      setPasswordError("Погрешна лозинка. Ако сè уште немате лозинка, поставете ја во Поставки.");
     }
   }
 

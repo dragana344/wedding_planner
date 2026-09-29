@@ -106,20 +106,19 @@ describe("floorplan data layer: fixed elements + lock password", () => {
     expect(afterDelete.some((e) => e.id === created.id)).toBe(false);
   });
 
-  it("verifies the default lock password and rejects a wrong one", async () => {
-    const correct = await verifyLayoutLockPassword(venueId, "0000", staffClient);
-    expect(correct).toBe(true);
-
-    const wrong = await verifyLayoutLockPassword(venueId, "9999", staffClient);
-    expect(wrong).toBe(false);
+  it("has no lock password until staff set one, so no guess opens it (SEC-010)", async () => {
+    expect(await verifyLayoutLockPassword(venueId, "0000", staffClient)).toBe(false);
+    expect(await verifyLayoutLockPassword(venueId, "", staffClient)).toBe(false);
   });
 
-  it("changes the lock password", async () => {
+  it("sets and changes the lock password", async () => {
     await setLayoutLockPassword(venueId, "1234", staffClient);
-    const oldPasswordWorks = await verifyLayoutLockPassword(venueId, "0000", staffClient);
-    expect(oldPasswordWorks).toBe(false);
-    const newPasswordWorks = await verifyLayoutLockPassword(venueId, "1234", staffClient);
-    expect(newPasswordWorks).toBe(true);
+    expect(await verifyLayoutLockPassword(venueId, "1234", staffClient)).toBe(true);
+    expect(await verifyLayoutLockPassword(venueId, "9999", staffClient)).toBe(false);
+
+    await setLayoutLockPassword(venueId, "5678", staffClient);
+    expect(await verifyLayoutLockPassword(venueId, "1234", staffClient)).toBe(false);
+    expect(await verifyLayoutLockPassword(venueId, "5678", staffClient)).toBe(true);
   });
 
   it("updates room dimensions", async () => {

@@ -7,9 +7,10 @@ const admin = createClient(
 );
 
 describe("0012 schema: floor plan layers", () => {
-  it("seeds a default layout password and lets fixed/layout elements be created", async () => {
+  it("starts new venues without a shared layout password and lets fixed/layout elements be created", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Floor Plan Test Venue" }).select().single();
-    expect(venue!.layout_lock_password_hash).toBeTruthy();
+    // SEC-010 (0036): no shared '0000' default; staff set their own code.
+    expect(venue!.layout_lock_password_hash).toBeNull();
 
     const { data: verifyOk } = await admin.rpc("verify_venue_layout_password", {
       p_venue_id: venue!.id,
@@ -17,7 +18,7 @@ describe("0012 schema: floor plan layers", () => {
     });
     // service_role bypasses is_venue_staff_for's auth.uid() check (no session), so this
     // call returns false here — it's exercised properly as an authenticated user in
-    // tests/lib/venue/floorplan.test.ts. This test only confirms the hash was seeded.
+    // tests/lib/venue/floorplan.test.ts. This test only confirms the function answers.
     expect(typeof verifyOk).toBe("boolean");
 
     const { data: room } = await admin
