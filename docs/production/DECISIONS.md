@@ -33,6 +33,14 @@ Decisions taken while working through `production-tasks/`, so nobody has to redi
 | Bot protection | Not now; revisit if rate limits prove insufficient after launch | Spec makes it conditional; avoids a third-party widget and CSP change | SEC-013 |
 | Product analytics | Not now | Needs consent design and a tool choice; no need before launch | OBS-007 |
 | Maintenance mode | Env flag + team bypass cookie | Rarely needed; expand/contract avoids downtime | REL-007 |
+| Guest album storage | Private bucket `event-media`, service role only; guests upload through signed URLs from `/api/e/<token>`, couples read through signed links (1 h) | Guests have no account; the album token is the credential; a private bucket keeps photos out of public URLs | Session 4 (C1, C3) |
+| Album photo processing | Browser re-encodes every photo to JPEG ≤ 2560 px before upload; the server sniffs bytes, checks the real size (≤ 15 MB) and the quota at confirm | Smaller uploads on mobile data; re-encoding also strips EXIF GPS | Session 4 (C1) |
+| HEIC | No server conversion: iPhone Safari converts on upload; a browser that can't decode the file tells the guest to use JPEG or a screenshot | No image pipeline on Vercel yet | Session 4 (C1) |
+| Video greetings | ≤ 30 s (checked in the browser) and ≤ 100 MB (checked on the server); MP4, MOV or WebM by magic bytes; **no transcoding** — 720p compression later | A transcoding pipeline is a separate service; the size cap bounds storage | Session 4 (C7) |
+| Album quota | 5 GB per event until the package's `storage_gb` entitlement exists; checked when an upload starts and again with the real size at confirm | Declared sizes can lie; the second check is authoritative | Session 4 (C5, C6) |
+| Album retention | Mechanism built, **off** until `MEDIA_RETENTION_DAYS` is set (owner decision, see RETENTION.md) | Deleting guests' photos is irreversible; the period must match the privacy notice | Session 4 (C6) |
+| Logo watermark on photos (C8) | Later | Needs server-side image processing | Session 4 |
+| "Send to photo studio" (C9) | Later | Partner integration, not in scope | Session 4 |
 
 ## Open — owner decisions
 

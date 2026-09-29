@@ -106,6 +106,8 @@ describe("storage cleanup (DATA-011)", () => {
       new NextRequest("http://localhost/api/cron/storage-cleanup", { headers: { authorization: "Bearer test-cron-secret" } }),
     );
     expect(allowed.status).toBe(200);
+    // Session 4: stale album uploads are swept too; media retention stays off until configured.
+    expect(await allowed.json()).toMatchObject({ stale_media: expect.any(Number), media_retention: { skipped: true } });
     delete process.env.CRON_SECRET;
   });
 
