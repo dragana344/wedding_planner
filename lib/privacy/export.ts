@@ -71,6 +71,13 @@ const EVENT_COLUMNS =
   "contact_email, contact_email_2, contact_phone, total_price, deposit_paid, menu_template_id, created_at, personal_data_erased_at";
 const VENUE_COLUMNS = "id, name, created_at";
 
+/** A guest row minus its personal invite token (the link opens that guest's RSVP). */
+function withoutInviteToken(guest: Row): Row {
+  const copy = { ...guest };
+  delete copy.invite_token;
+  return copy;
+}
+
 /** Every row of `table` whose `column` is in `ids`, paged past PostgREST's row cap. */
 async function selectIn(
   client: SupabaseClient,
@@ -120,7 +127,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   const [credentials, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
-      selectIn(client, "event_guests", "*", byEvent, ids, ["created_at", "id"]),
+      selectIn(client, "event_guests", "*", byEvent, ids, ["created_at", "id"]).then((rows) => rows.map(withoutInviteToken)),
       selectIn(client, "event_notes", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_agenda_items", "*", byEvent, ids, ["sort_order", "id"]),
       selectIn(client, "event_locations", "*", byEvent, ids, ["sort_order", "id"]),

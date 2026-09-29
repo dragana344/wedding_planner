@@ -207,6 +207,11 @@ describe("export (DATA-005)", () => {
     expect(json).not.toContain("layout_lock_password_hash");
     expect(json).not.toContain(`tok-${eventA.tag}`);
     expect(json).not.toMatch(/\$2[aby]\$/); // no bcrypt hash anywhere
+    // A personal invite link opens that guest's RSVP, so it is a secret too.
+    const { data: guests } = await admin.from("event_guests").select("invite_token").eq("event_id", eventA.eventId);
+    expect(guests!.length).toBeGreaterThan(0);
+    for (const g of guests!) expect(json).not.toContain(g.invite_token);
+    expect(json).not.toContain("invite_token");
 
     const [row] = await auditRows({ venue_id: a.venueId, action: "privacy_export" });
     expect(row).toMatchObject({ actor_type: "staff", actor_id: staff.userId });

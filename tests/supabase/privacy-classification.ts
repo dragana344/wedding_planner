@@ -31,7 +31,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_custom_menu_items: { event_id: N, menu_item_id: C },
   event_guests: {
     id: N, event_id: N, full_name: P, phone: P, party_size: C, rsvp_status: C, notes: P, created_at: N, side: P,
-    rsvp_changed_via_link_at: C, rsvp_previous_status: C,
+    rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, menu_choice: P, allergies: P,
+    children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C,
   },
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {

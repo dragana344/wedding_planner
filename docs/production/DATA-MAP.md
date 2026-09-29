@@ -112,15 +112,22 @@ Created in `0013_couple_dashboard.sql`.
 - **Retention:** rows are deleted on logout only. **Expired rows are never purged.** Needs a cleanup job, see DATA-007.
 
 ### 2.6 `event_guests`
-Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`.
+Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`; RSVP and invite fields in `0060_guest_invites_and_rsvp_fields.sql`.
 
 | Field | Personal? | Notes |
 |---|---|---|
 | `full_name` | **Yes** | |
 | `phone` | **Yes** | optional |
+| `email` | **Yes** | optional, for invitations and reminders (0060) |
 | `party_size` | Yes, in context | |
-| `rsvp_status` | Yes (attendance) | invited / confirmed / declined / pending |
+| `children_count` | Yes, in context | 0060 |
+| `rsvp_status` | Yes (attendance) | invited / confirmed / declined / pending / later |
 | `side` | Yes (family relationship: bride's or groom's side) | 0025 |
+| `menu_choice` | **Yes. May reveal religion** (`posno` = Orthodox fasting menu) | standard / posno / vegetarian (0060) |
+| `allergies` | **Yes. Special-category (health) data** | ≤ 300 chars, set by the guest in the RSVP (0060) |
+| `rsvp_comment` | Free text, like `notes` | ≤ 500 chars, set by the guest (0060) |
+| `invite_token` | **Secret** | opens this guest's personal invitation/RSVP; never exported (0060) |
+| `invitation_sent_at`, `invitation_channel` | Low | when/how the couple sent the invitation (0060) |
 | `notes` | Free text. **May hold special-category data** (dietary needs revealing religion or health, allergies, disability/access needs) | |
 | `created_at` | Low | |
 
@@ -129,7 +136,7 @@ Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`.
 - **Lawful basis:** couple's legitimate interest / household activity, or the venue's contract. Controller vs processor role is open (*to confirm in COMP-001*, see Open questions).
 - **Access:**
   - Couples via the service role in `lib/couple/guests.ts`, scoped by `event_id`.
-  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row whose name matches. Guests can **not** read the list.
+  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row whose name matches. With a personal link (`?g=<invite_token>`) it updates exactly that guest; the page shows that guest their own name and current answer only. Guests can **not** read the list.
   - Venue staff have **no** access: RLS is on with no policies, and the table is granted to `service_role` only.
 - **Retention:** none defined, see DATA-007. Cascades with the event.
 
@@ -304,7 +311,7 @@ Anonymous visitor (marketing page)
   └─ POST /api/venue/contact → Vercel → service role → contact_submissions (insert)
 
 Operations
-  ├─ Vercel function / request logs: IP, URL (including /invite/<slug>), user agent
+  ├─ Vercel function / request logs: IP, URL (including /invite/<slug> and a personal link's ?g=<invite_token>), user agent
   ├─ Sentry (planned, OBS-001): errors from server and browser, PII scrubbed
   ├─ Postgres rate_limits (SEC-002, same Supabase project): hashed-IP counters, purged after 1 day
   └─ Supabase → Cloudflare R2 (planned, DATA-001): encrypted off-site DB dumps

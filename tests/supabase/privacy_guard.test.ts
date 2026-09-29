@@ -51,9 +51,9 @@ function unclassifiedColumns(live: Map<string, string[]>): string[] {
 describe("personal-data guard (DATA-005)", () => {
   it("reports a new, unclassified column (self-check)", async () => {
     const live = await liveColumns();
-    live.set("event_guests", [...(live.get("event_guests") ?? []), "email"]);
+    live.set("event_guests", [...(live.get("event_guests") ?? []), "unclassified_probe"]);
     live.set("brand_new_table", ["id"]);
-    expect(unclassifiedColumns(live)).toEqual(["event_guests.email", "brand_new_table.id"]);
+    expect(unclassifiedColumns(live)).toEqual(["event_guests.unclassified_probe", "brand_new_table.id"]);
   });
 
   it("classifies every column of every public table", async () => {
