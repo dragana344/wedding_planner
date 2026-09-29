@@ -6,15 +6,18 @@ import { listChecklistItems, computeChecklistStats } from "@/lib/couple/checklis
 import { GuestCountEditor } from "@/components/couple/GuestCountEditor";
 import { ContactInfoEditor } from "@/components/couple/ContactInfoEditor";
 import { Icon } from "@/components/venue/shell/Icon";
+import { StorageMeter } from "@/components/couple/StorageMeter";
+import { getStorageUsage } from "@/lib/media/album";
 
 export const dynamic = "force-dynamic";
 
 export default async function CoupleDashboardPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [summary, agendaItems, checklistItems] = await Promise.all([
+  const [summary, agendaItems, checklistItems, storage] = await Promise.all([
     getEventSummary(eventId),
     listAgendaItems(eventId),
     listChecklistItems(eventId),
+    getStorageUsage(eventId),
   ]);
   const checklistStats = computeChecklistStats(checklistItems);
   const upcomingAgenda = agendaItems.slice(0, 5);
@@ -35,6 +38,13 @@ export default async function CoupleDashboardPage() {
           <GuestCountEditor initialValue={summary.guest_count_estimate} />
         </div>
       </section>
+
+      {/* C5: the album's space, once guests have started sharing. */}
+      {storage.photoBytes + storage.videoBytes > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <StorageMeter usage={storage} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" style={{ marginBottom: 16 }}>
         <section className="panel">
