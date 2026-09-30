@@ -5,6 +5,7 @@ import { listEventLayoutElements, listFixedElements, type EventLayoutElement } f
 import { listTableTypes } from "@/lib/venue/rooms";
 import { venueLogoUrl } from "@/lib/venue/venue-profile";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
+import { eventHasFeature } from "@/lib/entitlements/server";
 import { buildPrintRoom, type PrintRoom } from "./print";
 import { readRoom } from "./read";
 import { qrSvg, tableQrTarget } from "./qr";
@@ -21,6 +22,8 @@ export interface PrintData {
   rooms: PrintRoom[];
   cards: QrCard[];
   qrTarget: string;
+  /** The event's plan has no "Печатење QR кодови" (print_qr): no cards. The plan itself stays printable. */
+  qrLocked: boolean;
 }
 
 const DATE = new Intl.DateTimeFormat("mk-MK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -54,7 +57,8 @@ async function build(client: SupabaseClient, eventId: string, origin: string, lo
     .sort((a, b) => a.name.localeCompare(b.name, "mk"));
 
   const qrTarget = tableQrTarget(origin, invitation?.public_slug ?? null);
-  const qr = await qrSvg(qrTarget);
+  const qrLocked = !(await eventHasFeature(eventId, "print_qr"));
+  const qr = qrLocked ? "" : await qrSvg(qrTarget);
   const printRooms: PrintRoom[] = [];
   const cards: QrCard[] = [];
   for (const room of rooms) {
@@ -66,7 +70,7 @@ async function build(client: SupabaseClient, eventId: string, origin: string, lo
     printRooms.push(buildPrintRoom(room, layout, fixed, tables, tableTypes));
     const present = new Set(layout.map((el) => el.id));
     for (const t of [...tables].sort((a, b) => a.number - b.number)) {
-      if (present.has(t.elementId)) cards.push({ id: t.elementId, title: tableTitle(t), room: room.name, svg: qr });
+      if (!qrLocked && present.has(t.elementId)) cards.push({ id: t.elementId, title: tableTitle(t), room: room.name, svg: qr });
     }
   }
 
@@ -77,6 +81,7 @@ async function build(client: SupabaseClient, eventId: string, origin: string, lo
     rooms: printRooms,
     cards,
     qrTarget,
+    qrLocked,
   };
 }
 

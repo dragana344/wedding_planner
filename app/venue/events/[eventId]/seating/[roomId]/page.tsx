@@ -6,6 +6,7 @@ import { getRoomById, listTableTypes } from "@/lib/venue/rooms";
 import { listFixedElements, listEventLayoutElements } from "@/lib/venue/floorplan";
 import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
+import { eventHasFeature } from "@/lib/entitlements/server";
 
 export default async function EventSeatingRoute({
   params,
@@ -36,6 +37,7 @@ export default async function EventSeatingRoute({
     listTableTypes(room.id, supabase),
     getRoomSeatingForStaff(supabase, event.id, room.id),
   ]);
+  const canPrintQr = await eventHasFeature(event.id, "print_qr");
 
   return (
     <EventSeatingPage
@@ -47,7 +49,7 @@ export default async function EventSeatingRoute({
       initialTableTypes={tableTypes}
       initialSeating={seating}
       seatingReadOnly
-      printLinks={{ plan: `/venue/events/${event.id}/print/plan`, qr: `/venue/events/${event.id}/print/qr` }}
+      printLinks={{ plan: `/venue/events/${event.id}/print/plan`, qr: canPrintQr ? `/venue/events/${event.id}/print/qr` : undefined }}
     />
   );
 }

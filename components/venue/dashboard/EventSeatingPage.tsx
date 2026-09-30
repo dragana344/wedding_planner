@@ -95,7 +95,7 @@ export function EventSeatingPage({
   /** Venue staff see the lists but cannot edit them (they cannot read the guest list). */
   seatingReadOnly?: boolean;
   /** B7: the printable A4 plan and per-table QR cards. */
-  printLinks?: { plan: string; qr: string };
+  printLinks?: { plan: string; qr?: string };
 }) {
   const [fixedElements] = useState(initialFixedElements);
   const [layoutElements, setLayoutElements] = useState(initialLayoutElements);
@@ -623,9 +623,11 @@ export function EventSeatingPage({
           <Link href={printLinks.plan} className={PALETTE_BUTTON_CLASS} target="_blank">
             Печати план
           </Link>
-          <Link href={printLinks.qr} className={PALETTE_BUTTON_CLASS} target="_blank">
-            QR по маса
-          </Link>
+          {printLinks.qr ? (
+            <Link href={printLinks.qr} className={PALETTE_BUTTON_CLASS} target="_blank">
+              QR по маса
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

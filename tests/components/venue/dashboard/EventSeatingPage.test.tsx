@@ -256,4 +256,10 @@ describe("EventSeatingPage seat lists", () => {
     );
     expect(a.revertToStandard).not.toHaveBeenCalled();
   });
+
+  it("hides the QR link when the plan has no QR printing", () => {
+    renderPage(actions(), { printLinks: { plan: "/venue/events/e1/print/plan" } });
+    expect(screen.getByRole("link", { name: "Печати план" })).toBeInTheDocument();
+    expect(screen.queryByText("QR по маса")).not.toBeInTheDocument();
+  });
 });

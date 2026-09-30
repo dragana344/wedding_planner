@@ -73,4 +73,18 @@ describe("print data", () => {
     expect(data.rooms[0].items.map((i) => i.id)).toEqual([draftId]);
     expect(data.cards).toHaveLength(1);
   });
+
+  it("gives no QR cards when the event's plan has no \"Печатење QR кодови\" (print_qr), and says so", async () => {
+    await must(admin.from("events").update({ seating_draft: {} }).eq("id", eventId)); // the confirmed layout, as the venue prints it
+    await must(admin.from("event_feature_overrides").upsert({ event_id: eventId, feature_key: "print_qr", enabled: false }));
+    const locked = await venuePrintData(admin, eventId, "https://kadesum.mk");
+    expect(locked.qrLocked).toBe(true);
+    expect(locked.cards).toEqual([]);
+    expect(locked.rooms[0].items.length).toBeGreaterThan(0); // the plan itself stays printable
+
+    await must(admin.from("event_feature_overrides").upsert({ event_id: eventId, feature_key: "print_qr", enabled: true }));
+    const open = await venuePrintData(admin, eventId, "https://kadesum.mk");
+    expect(open.qrLocked).toBe(false);
+    expect(open.cards.length).toBeGreaterThan(0);
+  });
 });

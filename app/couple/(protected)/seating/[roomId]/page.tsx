@@ -6,6 +6,7 @@ import { coupleSeatingClientActions } from "@/lib/couple/seating-client-actions"
 import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
 import { listTableTypes } from "@/lib/venue/rooms";
 import { getRoomSeating } from "@/lib/seating/seats";
+import { eventHasFeature } from "@/lib/entitlements/server";
 
 export default async function CoupleSeatingPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await params;
@@ -34,6 +35,7 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
   await serverActions.captureSnapshot(eventId, room.id);
   const tableTypes = await listTableTypes(room.id, client);
   const seating = await getRoomSeating(eventId, room.id);
+  const canPrintQr = await eventHasFeature(eventId, "print_qr");
 
   return (
     <EventSeatingPage
@@ -44,7 +46,7 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
       initialLayoutElements={initialLayoutElements}
       initialTableTypes={tableTypes}
       initialSeating={seating}
-      printLinks={{ plan: "/couple/seating/print", qr: "/couple/seating/print?view=qr" }}
+      printLinks={{ plan: "/couple/seating/print", qr: canPrintQr ? "/couple/seating/print?view=qr" : undefined }}
       actions={coupleSeatingClientActions}
       skipInitialization
       backHref="/couple"
