@@ -12,7 +12,8 @@ import {
 } from "next/font/google";
 import { RsvpForm } from "./RsvpForm";
 import type { Invitee } from "@/lib/couple/rsvp";
-import { CountdownTimer, formatMkDate, formatMkWeekday } from "./countdown";
+import { CountdownTimer, DayBanner, formatMkDate, formatMkWeekday } from "./countdown";
+import { SeatFinder, seatText, type SeatView } from "./SeatFinder";
 import { COURSE_LABELS, COURSE_ORDER, mapsHref } from "@/lib/couple/invitation-program";
 import { FloralCorner, FloralHeart, SwanHeart, GoldFrameCorner, MinimalRule, WatercolorWash, RusticSprig } from "./motifs";
 import type { PublicInvitation } from "@/lib/couple/invitations";
@@ -151,11 +152,11 @@ function numericDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-function Section({ title, theme, children }: { title: string; theme: InvitationTheme; children: React.ReactNode }) {
-  const id = `invite-section-${title}`;
+function Section({ id, title, theme, children }: { id: string; title: string; theme: InvitationTheme; children: React.ReactNode }) {
+  const headingId = `${id}-title`;
   return (
-    <section aria-labelledby={id} style={{ margin: "36px 0 0", textAlign: "center" }}>
-      <h2 id={id} className={theme.displayFontClass} style={{ color: theme.textColor, fontSize: 30, fontWeight: 400, margin: "0 0 14px" }}>
+    <section id={id} aria-labelledby={headingId} style={{ margin: "36px 0 0", textAlign: "center", scrollMarginTop: 64 }}>
+      <h2 id={headingId} className={theme.displayFontClass} style={{ color: theme.textColor, fontSize: 30, fontWeight: 400, margin: "0 0 14px" }}>
         {title}
       </h2>
       {children}
@@ -169,6 +170,7 @@ export function FullInvitation({
   photoUrl,
   invitee = null,
   guestToken,
+  mySeat,
 }: {
   slug: string;
   invitation: PublicInvitation;
@@ -176,12 +178,22 @@ export function FullInvitation({
   /** The guest behind a personal link (A1); null on the shared link. */
   invitee?: Invitee | null;
   guestToken?: string;
+  /** A15: the personal-link guest's table (seat null: seating not ready). */
+  mySeat?: { found: boolean; seat: SeatView | null };
 }) {
   const theme = THEMES[invitation.template_id] ?? THEMES["romantic-floral"];
   const target = new Date(`${invitation.event_date}T${invitation.start_time ?? "00:00:00"}`);
   const TopMotif = theme.topMotif;
   const BottomMotif = theme.bottomMotif;
   const startTime = invitation.start_time?.slice(0, 5) ?? null;
+  const personal = Boolean(invitee && guestToken);
+  const sections = [
+    { id: "pokana", label: "Покана" },
+    ...(personal && mySeat ? [{ id: "moja-masa", label: "Мојата маса" }] : []),
+    ...(invitation.agenda.length > 0 ? [{ id: "programa", label: "Програма" }] : []),
+    ...(invitation.locations.length > 0 ? [{ id: "lokacii", label: "Локации" }] : []),
+    { id: "potvrda", label: "Потврда" },
+  ];
   const courses = COURSE_ORDER.map((course) => ({ course, dishes: invitation.menu.filter((d) => d.course === course) })).filter(
     (c) => c.dishes.length > 0,
   );
@@ -203,7 +215,34 @@ export function FullInvitation({
     >
       {theme.watercolorWash ? <WatercolorWash color={theme.textColor} /> : null}
 
-      <div style={{ width: "100%", maxWidth: 480, textAlign: "center", position: "relative", zIndex: 1 }}>
+      <div id="pokana" style={{ width: "100%", maxWidth: 480, textAlign: "center", position: "relative", zIndex: 1 }}>
+        {personal ? (
+          // A15: the guest's own page, one scroll with a way to jump to each part.
+          <nav
+            aria-label="Делови од поканата"
+            style={{
+              position: "sticky",
+              top: 8,
+              zIndex: 2,
+              display: "flex",
+              gap: 2,
+              overflowX: "auto",
+              whiteSpace: "nowrap",
+              scrollbarWidth: "none",
+              padding: 4,
+              margin: "0 0 16px",
+              borderRadius: 999,
+              background: theme.cardBg,
+              border: `1px solid ${theme.lineColor}`,
+            }}
+          >
+            {sections.map((s) => (
+              <a key={s.id} href={`#${s.id}`} style={{ flex: "0 0 auto", padding: "6px 9px", fontSize: 14, color: theme.rsvpAccent, textDecoration: "none", borderRadius: 999 }}>
+                {s.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
         {TopMotif ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <TopMotif color={theme.lineColor} />
@@ -270,10 +309,25 @@ export function FullInvitation({
           </div>
         ) : null}
 
+        <DayBanner eventDate={invitation.event_date} color={theme.textColor} fontFamily={theme.numeralFont} />
         <CountdownTimer target={target} color={theme.textColor} fontFamily={theme.numeralFont} />
 
+        {personal && mySeat ? (
+          <Section id="moja-masa" title="Мојата маса" theme={theme}>
+            <p style={{ fontSize: 20, margin: 0 }}>
+              {mySeat.seat ? seatText(mySeat.seat) : "Распоредот на маси уште не е готов. Проверете повторно неколку дена пред настанот."}
+            </p>
+          </Section>
+        ) : null}
+
+        {!personal ? (
+          <Section id="kade-sedam" title="Каде седам?" theme={theme}>
+            <SeatFinder slug={slug} color={theme.textColor} lineColor={theme.lineColor} />
+          </Section>
+        ) : null}
+
         {invitation.agenda.length > 0 ? (
-          <Section title="Програма" theme={theme}>
+          <Section id="programa" title="Програма" theme={theme}>
             <ol aria-label="Програма" style={{ listStyle: "none", margin: "0 auto", padding: 0, maxWidth: 340, textAlign: "left" }}>
               {invitation.agenda.map((item, i) => (
                 <li
@@ -291,7 +345,7 @@ export function FullInvitation({
         ) : null}
 
         {invitation.locations.length > 0 ? (
-          <section aria-label="Локации" style={{ margin: "36px 0 0" }}>
+          <section id="lokacii" aria-label="Локации" style={{ margin: "36px 0 0", scrollMarginTop: 64 }}>
             <h2 className={theme.displayFontClass} style={{ color: theme.textColor, fontSize: 30, fontWeight: 400, margin: "0 0 14px" }}>
               Локации
             </h2>
@@ -342,7 +396,9 @@ export function FullInvitation({
         ) : null}
 
         <div
+          id="potvrda"
           style={{
+            scrollMarginTop: 64,
             background: theme.cardBg,
             borderRadius: 18,
             padding: "22px 20px 24px",

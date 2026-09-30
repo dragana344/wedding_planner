@@ -1,5 +1,6 @@
 // What the public invitation shows beyond names and date (A14): agenda,
 // locations and menu. Pure, shared by the page and the tests.
+import { todayIn } from "@/lib/date";
 
 export interface ProgramItem {
   time: string | null;
@@ -47,4 +48,16 @@ export function mapsHref(location: { address: string | null; map_url: string | n
 /** Dishes in serving order, then by name. */
 export function sortDishes(dishes: ProgramDish[]): ProgramDish[] {
   return [...dishes].sort((a, b) => COURSE_ORDER.indexOf(a.course) - COURSE_ORDER.indexOf(b.course) || a.name.localeCompare(b.name, "mk"));
+}
+
+export type DayCountdown = { kind: "days"; days: number } | { kind: "tomorrow" } | { kind: "today" } | { kind: "past" };
+
+/** A19: days to the event by the Skopje calendar: "30", "10", then "tomorrow", "today". */
+export function dayCountdown(eventDate: string, now: Date = new Date()): DayCountdown {
+  const today = todayIn(undefined, now);
+  const days = Math.round((Date.parse(`${eventDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  if (days < 0) return { kind: "past" };
+  if (days === 0) return { kind: "today" };
+  if (days === 1) return { kind: "tomorrow" };
+  return { kind: "days", days };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { dayCountdown, type DayCountdown } from "@/lib/couple/invitation-program";
 
 // Rendered only after mount — the server and client would otherwise disagree
 // on the current second (SSR time vs. hydration time) and trip a hydration
@@ -70,4 +71,17 @@ export function formatMkDate(iso: string): string {
 export function formatMkWeekday(iso: string): string {
   const days = ["недела", "понеделник", "вторник", "среда", "четврток", "петок", "сабота"];
   return days[new Date(`${iso}T00:00:00`).getDay()];
+}
+
+/**
+ * A19: the countdown's last steps, "УТРЕ е денот!" and "ДЕНЕС е денот!", by
+ * the Skopje calendar (after mount: no SSR clock). Before that the timer
+ * below already counts the days.
+ */
+export function DayBanner({ eventDate, color, fontFamily }: { eventDate: string; color: string; fontFamily?: string }) {
+  const [state, setState] = useState<DayCountdown | null>(null);
+  useEffect(() => setState(dayCountdown(eventDate)), [eventDate]);
+  if (!state || (state.kind !== "today" && state.kind !== "tomorrow")) return null;
+  const text = state.kind === "today" ? "ДЕНЕС е денот!" : "УТРЕ е денот!";
+  return <p style={{ fontFamily, fontStyle: "italic", fontSize: 24, color, margin: "28px 0 0" }}>{text}</p>;
 }

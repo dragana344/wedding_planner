@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInvitationBySlug, getInvitationPhotoUrl } from "@/lib/couple/invitations";
 import { getInviteeByToken } from "@/lib/couple/rsvp";
+import { getSeatByToken } from "@/lib/couple/guest-page";
 import { FullInvitation } from "@/components/invite/FullInvitation";
 
 // Private area: keep out of search engines (COMP-004).
@@ -26,6 +27,8 @@ export default async function PublicInvitationPage({
   // another event, just shows the shared invitation.
   const guestToken = typeof g === "string" ? g : undefined;
   const invitee = guestToken ? await getInviteeByToken(slug, guestToken) : null;
+  // A15: the guest's own table on their personal page.
+  const mySeat = invitee && guestToken ? await getSeatByToken(slug, guestToken) : undefined;
 
   const photoUrl = getInvitationPhotoUrl(invitation.photo_path);
 
@@ -37,6 +40,7 @@ export default async function PublicInvitationPage({
         photoUrl={photoUrl}
         invitee={invitee}
         guestToken={invitee ? guestToken : undefined}
+        mySeat={mySeat}
       />
       {/* COMP-001: guests are data subjects too. */}
       <p style={{ textAlign: "center", fontSize: 12, padding: "16px 0 24px", margin: 0 }}>

@@ -61,6 +61,13 @@ const reminderLib = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/reminders", () => reminderLib);
 
+const guestPage = vi.hoisted(() => ({
+  findSeatByName: vi.fn(async (_slug: string, name: string) =>
+    name === "Петар" ? { found: true, seat: { table_label: "5", seat_number: 3, room_name: "Сала" } } : { found: true, seat: null },
+  ),
+}));
+vi.mock("@/lib/couple/guest-page", () => guestPage);
+
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 
@@ -86,6 +93,7 @@ import * as agendaItemRoute from "@/app/api/couple/agenda/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as guestCountRoute from "@/app/api/couple/guest-count/route";
 import * as rsvpRoute from "@/app/api/invite/[slug]/rsvp/route";
+import * as seatRoute from "@/app/api/invite/[slug]/seat/route";
 import * as contactRoute from "@/app/api/venue/contact/route";
 
 const EVENT = "11111111-1111-4111-8111-111111111111";
@@ -505,6 +513,20 @@ describe("public routes", () => {
       expect((await call(rsvpRoute.POST, req("POST", bad, { couple: false }), { slug: "abcDEF123_-x" })).status, JSON.stringify(bad)).toBe(400);
     }
     expect(rsvp.submitRsvpBySlug).not.toHaveBeenCalled();
+  });
+
+  it("seat: answers only with a table, never whether the name is on the list (A16)", async () => {
+    const res = await call(seatRoute.POST, req("POST", { name: "Петар" }, { couple: false }), { slug: "abcDEF123_-x" });
+    expect(res).toEqual({ status: 200, body: { seat: { table_label: "5", seat_number: 3, room_name: "Сала" } } });
+    // A listed but unseated guest looks exactly like an unknown name.
+    expect(await call(seatRoute.POST, req("POST", { name: "Ана" }, { couple: false }), { slug: "abcDEF123_-x" })).toEqual({
+      status: 200,
+      body: { seat: null },
+    });
+    for (const bad of [{}, { name: "" }, { name: "x".repeat(301) }]) {
+      expect((await call(seatRoute.POST, req("POST", bad, { couple: false }), { slug: "abcDEF123_-x" })).status, JSON.stringify(bad)).toBe(400);
+    }
+    expect((await call(seatRoute.POST, req("POST", { name: "Петар" }, { couple: false }), { slug: "a),b" })).status).toBe(400);
   });
 
   it("contact: rejects an over-long message", async () => {

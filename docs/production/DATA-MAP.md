@@ -153,7 +153,8 @@ Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`; RS
 - **Lawful basis:** couple's legitimate interest / household activity, or the venue's contract. Controller vs processor role is open (*to confirm in COMP-001*, see Open questions).
 - **Access:**
   - Couples via the service role in `lib/couple/guests.ts`, scoped by `event_id`.
-  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row whose name matches. With a personal link (`?g=<invite_token>`) it updates exactly that guest; the page shows that guest their own name and current answer only. Guests can **not** read the list.
+  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row whose name matches. With a personal link (`?g=<invite_token>`) it updates exactly that guest; the page shows that guest their own name, current answer and table only. Guests can **not** read the list.
+  - Anyone with the shared link, through `POST /api/invite/[slug]/seat` ("Каде седам?", rate-limited): a typed name that matches exactly one guest returns only that guest's table/seat/room. An unknown name and a listed guest without a table get the same empty answer, so the list cannot be probed.
   - Venue staff have **no** access: RLS is on with no policies, and the table is granted to `service_role` only.
 - **Retention:** none defined, see DATA-007. Cascades with the event.
 

@@ -386,6 +386,12 @@ export const rsvpBody = z
   .refine((body) => body.full_name !== undefined || body.guest_token !== undefined, { error: RSVP_REQUIRED_ERROR })
   .refine((body) => body.status !== undefined || body.attending !== undefined, { error: RSVP_REQUIRED_ERROR });
 
+/** A16: "Каде седам?" by name on the shared invitation. */
+export const seatLookupBody = z.object(
+  { name: z.string({ error: "Внесете име и презиме." }).trim().min(1, { error: "Внесете име и презиме." }).max(NAME_MAX, { error: "Името е предолго." }) },
+  { error: "Внесете име и презиме." },
+);
+
 // ---------------------------------------------------------------------------
 // Public: venue contact form and signup
 
@@ -405,13 +411,13 @@ export const contactMessageBody = z.object(
   { error: CONTACT_REQUIRED_ERROR },
 );
 
-export const VENUE_NAME_REQUIRED_ERROR = "Venue name is required.";
+export const VENUE_NAME_REQUIRED_ERROR = "Внесете име на локалот.";
 export const venueSignupBody = z.object(
   {
     venue_name: z
       .string({ error: VENUE_NAME_REQUIRED_ERROR })
       .refine((v) => v.trim().length > 0, { error: VENUE_NAME_REQUIRED_ERROR })
-      .refine((v) => v.trim().length <= NAME_MAX, { error: "Venue name is too long." }),
+      .refine((v) => v.trim().length <= NAME_MAX, { error: "Името на локалот е предолго." }),
   },
   { error: VENUE_NAME_REQUIRED_ERROR },
 );

@@ -25,6 +25,8 @@ export const RATE_LIMITS = {
   contactForm: { bucket: "contact-form", limit: 5, windowSeconds: 3600, failClosed: true },
   rsvp: { bucket: "rsvp", limit: 20, windowSeconds: 3600, failClosed: false },
   invitationPhoto: { bucket: "invitation-photo", limit: 20, windowSeconds: 3600, failClosed: false },
+  // A16 "Каде седам?": name guesses per IP per invitation.
+  seatLookup: { bucket: "seat-lookup", limit: 30, windowSeconds: 3600, failClosed: false },
 } satisfies Record<string, RateLimitRule>;
 
 /** Counts one hit for `key` in the current window and returns the window's total. */
