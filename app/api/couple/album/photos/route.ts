@@ -12,5 +12,5 @@ export const GET = withCoupleEvent(
     const photos = await listPhotos(eventId, { includeHidden: true, limit: PAGE + 1, before: valid });
     return NextResponse.json({ photos: photos.slice(0, PAGE), hasMore: photos.length > PAGE });
   },
-  { fallbackError: "Не успеа вчитувањето на фотографиите." },
+  { feature: "photo_album", fallbackError: "Не успеа вчитувањето на фотографиите." },
 );

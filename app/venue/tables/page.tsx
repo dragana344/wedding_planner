@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function TablesPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
-  const rooms = await listRoomsWithSeatTotals(venueId!, supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
+  const rooms = await listRoomsWithSeatTotals(venueId, supabase);
 
-  return <TablesClient venueId={venueId!} initialRooms={rooms} />;
+  return <TablesClient venueId={venueId} initialRooms={rooms} />;
 }

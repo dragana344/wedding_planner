@@ -11,7 +11,7 @@ export const GET = withCoupleEvent(
     if (organizerSide(request)) return NextResponse.json({ error: MAIN_LOGIN_ONLY_ERROR }, { status: 403 });
     return NextResponse.json(await listCoOrganizers(eventId));
   },
-  { fallbackError: "Не успеа вчитувањето на ко-организаторите." },
+  { feature: "co_organizers", fallbackError: "Не успеа вчитувањето на ко-организаторите." },
 );
 
 export const POST = withCoupleEvent(
@@ -19,5 +19,5 @@ export const POST = withCoupleEvent(
     if (organizerSide(request)) return NextResponse.json({ error: MAIN_LOGIN_ONLY_ERROR }, { status: 403 });
     return NextResponse.json(await createCoOrganizer(eventId, body));
   },
-  { body: coOrganizerCreateBody, fallbackError: "Не успеа додавањето на ко-организаторот." },
+  { feature: "co_organizers", body: coOrganizerCreateBody, fallbackError: "Не успеа додавањето на ко-организаторот." },
 );

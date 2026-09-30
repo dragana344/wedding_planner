@@ -4,7 +4,8 @@ import { createVideoUpload } from "@/lib/media/greetings";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
 // C7: a signed upload for a video greeting (≤ 100 MB, ≤ 30 s checked in the
-// browser); the greeting itself is posted to ../ with the returned path.
+// browser); the greeting itself is posted to ../ with the returned path. The
+// package needs both guest_greetings and video_greetings.
 export const POST = withGuestAlbum(
   async ({ request, params, body, album }) => {
     for (const [rule, subject] of [
@@ -16,5 +17,5 @@ export const POST = withGuestAlbum(
     }
     return NextResponse.json(await createVideoUpload(album.eventId, body.bytes));
   },
-  { body: videoUploadBody, fallbackError: ALBUM_UPLOAD_ERROR },
+  { feature: ["guest_greetings", "video_greetings"], body: videoUploadBody, fallbackError: ALBUM_UPLOAD_ERROR },
 );

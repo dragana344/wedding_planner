@@ -14,5 +14,5 @@ export const POST = withCoupleEvent(
     // A co-organizer emails only their own side's guests (A12).
     return NextResponse.json(await sendInvitationEmails(eventId, body.guest_ids, origin, organizerSide(request)));
   },
-  { body: guestsEmailBody, fallbackError: "Не успеа праќањето на поканите." },
+  { feature: "personal_invite_links", body: guestsEmailBody, fallbackError: "Не успеа праќањето на поканите." },
 );

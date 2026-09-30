@@ -25,23 +25,26 @@ The final reviewer tried the merge in a scratch copy. It produced 8 textual conf
 
 ## Follow-ups for the other sessions (after the merge)
 
+**Status 30.09.2026: done on branch `followups-entitlements`** (migrations 0083–0084, tests `tests/supabase/entitlement_followups.test.ts`, `tests/lib/api/guest-album-gate.test.ts`, `tests/lib/api/feature-gate.test.ts`). Open items are marked.
+
 The feature gate is `withCoupleEvent(handler, { feature: "<key>" })`. Limits come from `getEventFeatures(eventId)` in `lib/entitlements/server.ts`.
 
-- **S3 seating:** the routes `seating/group`, `seating/redo`, `seating/seats` and `guests/[id]/seat` need `feature: "seating"`. `event_seat_assignments` has no trigger yet; the gate is enough for now. The table QR needs `feature: "print_qr"`.
+- **S3 seating:** ✅ `seating/group`, `seating/redo`, `seating/seats`, `seating/history` and `guests/[id]/seat` carry `feature: "seating"`. `event_seat_assignments` still has no trigger; the gate is enough for now. **Open:** the table QR print page and `print_qr` (not an API route; not part of this batch).
 - **S2 guests:**
-  - The co-organizer routes and `create_co_organizer` need `co_organizers` (a gate plus a limit count).
-  - `/api/couple/reminder` and the reminders cron need `reminders`.
-  - The personal links (`guests/email`, `guests/sent`, tokens) need `personal_invite_links`.
-  - `guests/import` must return the P0001 message „Достигнат е лимитот…“ through `errorResponse`.
-  - An admin unlock is needed for co-organizer logins; today `admin_unlock_couple_login` only resets `event_credentials`.
+  - ✅ The co-organizer routes carry `co_organizers`; the limit is a BEFORE INSERT trigger (0083) with „Достигнат е лимитот од {n} дополнителни организатори.“, shown to the couple through `errorResponse`.
+  - ✅ `/api/couple/reminder` carries `reminders`; the reminders cron skips events without it (not claimed, not marked sent).
+  - ✅ `guests/email` and `guests/sent` carry `personal_invite_links` (tokens are a column default, 0060 — there is no issuing endpoint).
+  - ✅ `guests/import` passes the P0001 „Достигнат е лимитот…“ through `errorResponse` (the raw PostgREST error is thrown).
+  - ✅ `admin_unlock_couple_login` also clears the event's co-organizer lockouts (0084).
 - **S4 media:**
-  - Upload of photos and greetings must enforce `storage_gb` and use `photo_retention_days` from `feature_limit` for the purge.
-  - Gates needed: `photo_album`, `guest_greetings`, `video_greetings`.
-  - Add `feature` to the couple nav items.
-- **Venue reports (main):** `/venue/reports` must check `getVenueFeatures(venueId).reports` on the server before it shows any data, because a locked section still renders its page (D7).
-- **Feature-gate test:** turn `tests/lib/api/feature-gate.test.ts` around so every POST/PUT/PATCH couple route either has `feature:` or is on an explicit "ungated" list.
-- **`lib/origin.ts` (main):** use `resolveOrigin` for `redirectTo` in the admin staff password reset (`lib/admin/venue-actions-core.ts`) and in `scripts/make-admin.mjs`.
-- **Venue pages:** after `getCurrentVenueId()`, add `if (!venueId) redirect("/venue")` for the case of a blocked venue on a soft navigation. There is no data leak today, only a possible error.
+  - ✅ The album quota is the event's `storage_gb` (null = unlimited; a failed read fails uploads closed); the meter shows „Неограничено“ for null.
+  - ✅ Retention uses each event's `photo_retention_days`: purged only when enabled with a positive limit (disabled, null or 0 = forever). The sweep stays off until `MEDIA_RETENTION_ENABLED=true` (replaces `MEDIA_RETENTION_DAYS`, owner decision).
+  - ✅ Gates: couple `album/**` → `photo_album`, `greetings/**` → `guest_greetings`; public `/api/e/<token>/…` → `photo_album` / `guest_greetings` / `guest_greetings` + `video_greetings` for video (403 locked). The guest page hides what the package lacks.
+  - ✅ The couple nav items already carried `feature` after the merge.
+- **Venue reports (main):** ✅ `/venue/reports` checks `getVenueFeatures(venueId).reports.enabled` on the server and renders no data when locked (the panel shell shows the LockedBanner).
+- **Feature-gate test:** ✅ inverted: every POST/PUT/PATCH under `app/api/couple` must declare `feature:` or be on the test's UNGATED list (with a reason).
+- **`lib/origin.ts` (main):** ✅ `staffPasswordReset` passes `redirectTo` from `resolveOrigin` (`lib/admin/reset-redirect.ts`, `admin.` host mapped to the main host); `scripts/make-admin.mjs` uses `NEXT_PUBLIC_SITE_URL` when set.
+- **Venue pages:** ✅ every server page under `app/venue` that used `venueId!` now does `if (!venueId) return null;` so the layout decides (none → /login, blocked → BlockedScreen); E2E `e2e/blocked-venue.spec.ts`.
 
 ## Deferred minor items (not urgent)
 

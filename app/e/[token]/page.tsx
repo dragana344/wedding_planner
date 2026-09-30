@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAlbumByToken } from "@/lib/media/album";
 import { GuestAlbum } from "@/components/album/GuestAlbum";
+import { getEventFeatures } from "@/lib/entitlements/server";
 import "@/components/album/guest-album.css";
 
 // The guests' QR page (C1, C2): no login, the token in the link is the key.
@@ -21,6 +22,10 @@ export default async function GuestAlbumPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const album = /^[A-Za-z0-9_-]{22,64}$/.test(token) ? await getAlbumByToken(token) : null;
   if (!album) notFound();
+  // The package decides which parts guests see; the API refuses the rest too.
+  // If the package can't be read, guests get the friendly locked card rather
+  // than an error page (the API fails closed the same way).
+  const features = await getEventFeatures(album.eventId).catch(() => null);
 
   return (
     <main className="ga-page">
@@ -32,7 +37,14 @@ export default async function GuestAlbumPage({ params }: { params: Promise<{ tok
           {album.venueName ? ` · ${album.venueName}` : ""}
         </p>
       </header>
-      <GuestAlbum token={token} />
+      <GuestAlbum
+        token={token}
+        features={{
+          photos: features?.photo_album.enabled ?? false,
+          greetings: features?.guest_greetings.enabled ?? false,
+          video: features?.video_greetings.enabled ?? false,
+        }}
+      />
       <p className="ga-footer">
         <Link href="/privacy">Политика за приватност</Link>
       </p>

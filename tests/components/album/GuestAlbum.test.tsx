@@ -146,3 +146,21 @@ describe("greeting", () => {
     expect(body.video_path).toMatch(/^pending\/e\//);
   });
 });
+
+describe("package features (admin spec §4.4)", () => {
+  it("shows a friendly locked state instead of the upload form when the album is off", () => {
+    render(<GuestAlbum token={TOKEN} features={{ photos: false, greetings: true, video: true }} />);
+    expect(screen.getByText(/Споделувањето фотографии не е вклучено за овој настан/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Изберете фотографии")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Остави честитка" })).toBeInTheDocument();
+  });
+
+  it("hides the greeting section when greetings are off, and the video field when videos are off", () => {
+    const { unmount } = render(<GuestAlbum token={TOKEN} features={{ photos: true, greetings: false, video: true }} />);
+    expect(screen.queryByRole("heading", { name: "Остави честитка" })).not.toBeInTheDocument();
+    unmount();
+    render(<GuestAlbum token={TOKEN} features={{ photos: true, greetings: true, video: false }} />);
+    expect(screen.getByRole("heading", { name: "Остави честитка" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Видео честитка (до 30 секунди)")).not.toBeInTheDocument();
+  });
+});

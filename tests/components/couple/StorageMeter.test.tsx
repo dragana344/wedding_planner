@@ -21,4 +21,14 @@ describe("StorageMeter", () => {
     render(<StorageMeter usage={{ limitBytes: 5 * GB, photoBytes: 5 * GB, videoBytes: 0 }} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Просторот е полн");
   });
+
+  it("shows an unlimited plan as „Неограничено“, with no free segment or upgrade link", () => {
+    render(<StorageMeter usage={{ limitBytes: null, photoBytes: 3 * GB, videoBytes: 1 * GB }} />);
+    expect(screen.getByText("Ваш простор: Неограничено")).toBeInTheDocument();
+    expect(screen.getByText("Искористено: 4 GB / Неограничено")).toBeInTheDocument();
+    expect(screen.getByLabelText("Фотографии 75 %")).toBeInTheDocument();
+    expect(screen.queryByText(/Останато/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

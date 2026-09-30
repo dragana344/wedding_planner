@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
 import { personalInviteUrl, reminderMessage } from "@/lib/couple/invite-share";
+import { eventHasFeature } from "@/lib/entitlements/server";
 
 // A10: one reminder email per event to guests who said yes or "later".
 // Default: 15 days before at 10:00 Skopje (0062 default_reminder_at); the
@@ -75,7 +76,9 @@ export async function setReminder(eventId: string, input: { sendAt: string; enab
  * Sends every reminder due at `now`. Each event is claimed first (only one
  * cron run sends it); each guest is stamped as they are emailed, so a run
  * that dies half way never emails anyone twice. Without email configured it
- * does nothing, so reminders go out once it is.
+ * does nothing, so reminders go out once it is. An event whose package lacks
+ * `reminders` is skipped without being claimed or marked sent, so it goes
+ * out on a later run if the feature is switched on in time.
  */
 export async function runDueReminders(now: Date, origin: string): Promise<{ eventId: string; sent: number; failed: number }[]> {
   if (!emailConfigured()) return [];
@@ -85,6 +88,7 @@ export async function runDueReminders(now: Date, origin: string): Promise<{ even
 
   const results: { eventId: string; sent: number; failed: number }[] = [];
   for (const { event_id: eventId } of due as { event_id: string }[]) {
+    if (!(await eventHasFeature(eventId, "reminders"))) continue;
     const { data: claimed, error: claimError } = await client.rpc("claim_event_reminder", { p_event_id: eventId, p_now: now.toISOString() });
     if (claimError) throw claimError;
     if (!claimed) continue;

@@ -11,7 +11,7 @@ export const PATCH = withCoupleEvent(
     await setGreetingHidden(eventId, params.id, body.hidden);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, body: z.object({ hidden: z.boolean() }), fallbackError: "Не успеа промената на честитката." },
+  { feature: "guest_greetings", params: idParams, body: z.object({ hidden: z.boolean() }), fallbackError: "Не успеа промената на честитката." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -19,5 +19,5 @@ export const DELETE = withCoupleEvent(
     await deleteGreeting(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на честитката." },
+  { feature: "guest_greetings", params: idParams, fallbackError: "Не успеа бришењето на честитката." },
 );

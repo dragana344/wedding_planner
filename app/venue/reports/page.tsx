@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
+import { getVenueFeatures } from "@/lib/entitlements/server";
 import { getReport } from "@/lib/venue/reports";
 import { listRooms } from "@/lib/venue/rooms";
 import { todayIn } from "@/lib/date";
@@ -21,9 +22,14 @@ export default async function ReportsPage({
 
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
-  const rooms = await listRooms(venueId!, supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
+  // A locked section still renders its page (D7): check on the server before
+  // reading any data. The panel shell already shows the LockedBanner here.
+  if (!(await getVenueFeatures(venueId)).reports.enabled) return null;
+  const rooms = await listRooms(venueId, supabase);
   const roomId = rooms.some((r) => r.id === params.room) ? params.room : undefined;
-  const report = await getReport(supabase, venueId!, { from, to, roomId });
+  const report = await getReport(supabase, venueId, { from, to, roomId });
 
   return <ReportsClient report={report} rooms={rooms.map((r) => ({ id: r.id, name: r.name }))} filters={{ from, to, roomId }} />;
 }

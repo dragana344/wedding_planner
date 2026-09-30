@@ -41,7 +41,10 @@ if (user) {
     app_metadata: { role: "platform_admin" },
   });
   if (error) throw error;
-  const { error: resetError } = await admin.auth.resetPasswordForEmail(email);
+  // The link lands on this site's /reset-password when NEXT_PUBLIC_SITE_URL is
+  // set; otherwise Supabase's own Site URL decides (as before).
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  const { error: resetError } = await admin.auth.resetPasswordForEmail(email, site ? { redirectTo: `${site}/reset-password` } : undefined);
   if (resetError) {
     console.error(`Created ${email} (${data.user.id}) as platform admin, but the password-reset email failed to send: ${resetError.message}`);
     process.exit(1);

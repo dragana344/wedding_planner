@@ -9,5 +9,5 @@ import { organizerSide } from "@/lib/couple/organizer-side";
 export const POST = withCoupleEvent(
   async ({ request, eventId, body }) =>
     NextResponse.json({ guests: await markInvitationSent(eventId, body.guest_ids, body.channel, organizerSide(request)) }),
-  { body: guestsSentBody, fallbackError: "Не успеа означувањето на поканите." },
+  { feature: "personal_invite_links", body: guestsSentBody, fallbackError: "Не успеа означувањето на поканите." },
 );

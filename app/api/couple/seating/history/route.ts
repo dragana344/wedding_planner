@@ -10,5 +10,5 @@ export const GET = withCoupleEvent(
     if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
     return NextResponse.json(await coupleSeatingActionsFor(eventId).getHistoryState!(eventId, room.data));
   },
-  { fallbackError: "Не успеа вчитувањето на историјата." },
+  { feature: "seating", fallbackError: "Не успеа вчитувањето на историјата." },
 );

@@ -8,7 +8,7 @@ export const POST = withCoupleEvent(
     const elements = await coupleSeatingActionsFor(eventId).group!(eventId, body.room_id, body.element_ids);
     return NextResponse.json(elements);
   },
-  { body: seatingGroupBody, fallbackError: "Не успеа групирањето на масите." },
+  { feature: "seating", body: seatingGroupBody, fallbackError: "Не успеа групирањето на масите." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -22,5 +22,5 @@ export const DELETE = withCoupleEvent(
     const elements = await coupleSeatingActionsFor(eventId).ungroup!(eventId, q.data.room_id, q.data.group_id);
     return NextResponse.json(elements);
   },
-  { fallbackError: "Не успеа разгрупирањето." },
+  { feature: "seating", fallbackError: "Не успеа разгрупирањето." },
 );

@@ -11,7 +11,7 @@ export const PATCH = withCoupleEvent(
     await resetCoOrganizerPassword(eventId, params.id, body.password);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, body: coOrganizerPasswordBody, fallbackError: "Не успеа промената на лозинката." },
+  { feature: "co_organizers", params: idParams, body: coOrganizerPasswordBody, fallbackError: "Не успеа промената на лозинката." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -20,5 +20,5 @@ export const DELETE = withCoupleEvent(
     await deleteCoOrganizer(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на ко-организаторот." },
+  { feature: "co_organizers", params: idParams, fallbackError: "Не успеа бришењето на ко-организаторот." },
 );

@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function NotificationsPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
-  const items = await listVenueNotifications(supabase, venueId!);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
+  const items = await listVenueNotifications(supabase, venueId);
   return (
     <div className="wrap">
       <section className="panel">

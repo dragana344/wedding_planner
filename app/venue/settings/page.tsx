@@ -9,14 +9,16 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const profile = await getVenueProfile(venueId!, supabase);
+  const profile = await getVenueProfile(venueId, supabase);
 
   return (
     <SettingsClient
-      venueId={venueId!}
+      venueId={venueId}
       venueName={profile.name}
       email={user?.email ?? ""}
       profile={{ address: profile.address, phone: profile.phone, logoUrl: venueLogoUrl(supabase, profile.logo_path) }}

@@ -22,16 +22,18 @@ export default async function EventsPage({
 
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
 
   const [events, rooms, menuTemplates] = await Promise.all([
-    listEventsWithDetails(venueId!, supabase),
-    listRooms(venueId!, supabase),
-    listMenuTemplatesWithItems(venueId!, supabase),
+    listEventsWithDetails(venueId, supabase),
+    listRooms(venueId, supabase),
+    listMenuTemplatesWithItems(venueId, supabase),
   ]);
 
   return (
     <EventsClient
-      venueId={venueId!}
+      venueId={venueId}
       initialEvents={events}
       rooms={rooms}
       menuTemplates={menuTemplates}

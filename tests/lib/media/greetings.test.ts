@@ -7,7 +7,9 @@ import {
 } from "@/lib/media/greetings";
 import { MEDIA_BUCKET } from "@/lib/media/storage";
 import { QUOTA_FULL_ERROR } from "@/lib/media/album";
-import { DEFAULT_STORAGE_BYTES, MAX_PHOTO_BYTES, MAX_VIDEO_BYTES } from "@/lib/media/limits";
+import { MAX_PHOTO_BYTES, MAX_VIDEO_BYTES } from "@/lib/media/limits";
+// The default plan ("Стандарден", 0048) gives every event 5 GB (storage_gb).
+const DEFAULT_STORAGE_BYTES = 5 * 1024 ** 3;
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;

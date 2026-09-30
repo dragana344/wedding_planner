@@ -17,7 +17,7 @@ Run this once per admin, from your own machine, against the production env file 
 node --env-file=<prod env> scripts/make-admin.mjs <email>
 ```
 
-- If the email doesn't exist yet, it creates the Auth user with `app_metadata.role = "platform_admin"` and emails a password-reset/set-password link (via `resetPasswordForEmail`).
+- If the email doesn't exist yet, it creates the Auth user with `app_metadata.role = "platform_admin"` and emails a password-reset/set-password link (via `resetPasswordForEmail`; the link lands on `$NEXT_PUBLIC_SITE_URL/reset-password` when that variable is set, else on Supabase's Site URL).
 - If the email already exists (and isn't venue staff), it just sets `app_metadata.role = "platform_admin"` on the existing user.
 - Refuses (exit 1) if the email belongs to venue staff.
 
@@ -59,7 +59,7 @@ The admin dashboard is platform operations, not a backdoor into couples' or gues
 1. **By code convention**, checked by `tests/security/admin-static.test.ts` (reads the source): `app/admin/**` and `lib/admin/**` never reference guest/couple planning tables — `event_guests`, `event_notes`, `event_budget_items`, `event_checklist_items`, `event_checklist_subtasks`, `event_agenda_items`, `event_locations`, `event_invitations`, `event_custom_menu_items`, `event_menu_item_quantities`, `couple_sessions`, `event_credentials` (except through the `admin_unlock_couple_login`/`admin_sign_out_user`/couple-password-regenerate RPCs, which never read their contents) — and never select `reservations.guest_name/phone/email/note` or `events.contact_email/contact_email_2/contact_phone`.
 2. **By what's actually exposed**: `lib/admin/queries.ts` reads venues, events (date/status/couple name — not guest data), plans/entitlements, `audit_log`, `platform_settings`, and `contact_submissions` — never a couple's guest list, budget, checklist, notes, agenda, locations, custom menu, invitation content, or login credentials.
 
-What the admin **can** do: rename a venue, change its plan, add per-venue or per-event feature overrides (with a free-text note — see below), block/unblock a venue, reset a staff member's password or remove their MFA or sign them out, unlock a couple's login lockout or regenerate their password (the password itself, never seen or read back — see `EventAdminPanels.tsx`'s `CoupleAccessPanel`), read/triage contact-form submissions, flip maintenance mode, and read the audit log.
+What the admin **can** do: rename a venue, change its plan, add per-venue or per-event feature overrides (with a free-text note — see below), block/unblock a venue, reset a staff member's password or remove their MFA or sign them out, unlock a couple's login lockout (this also clears the lockout of the event's co-organizer logins, migration 0084) or regenerate their password (the password itself, never seen or read back — see `EventAdminPanels.tsx`'s `CoupleAccessPanel`), read/triage contact-form submissions, flip maintenance mode, and read the audit log.
 
 ## Plans and entitlements
 
@@ -83,6 +83,8 @@ This is actually **two independent chains**, not one — `enabled` and `limit` e
 **Disabled always means limit = 0, never "unlimited".** The final projection forces `limit_value` to `0` whenever the resolved `enabled` is `false`, regardless of what raw number a stale override or plan row happens to carry — a disabled `max_guests` can never be misread as unlimited.
 
 **Deletes are never gated (D7).** The enforcement triggers (`0049_entitlement_enforcement.sql`) attach only to `INSERT`/relevant `UPDATE`, never `DELETE` — a venue whose plan changed to lock a feature it already used keeps that existing data fully readable and removable; only *new* writes are refused. Likewise, an `UPDATE` whose only effect is nulling out already-set columns (erasure sweeps, `ON DELETE SET NULL` cascades) always passes, even on a locked feature — otherwise a locked plan could permanently wedge the privacy retention sweep or a routine FK cascade.
+
+**Where the capacity limits take effect** (S1 follow-ups): `storage_gb` is the guests' album quota per event (GB × 1024³, null = unlimited, shown as „Неограничено“ on the couple's storage meter; uploads fail closed if the entitlements can't be read). `photo_retention_days` is how long the album is kept after the event (purged only when enabled with a positive limit; disabled, null or 0 = forever); the sweep runs only once the owner sets `MEDIA_RETENTION_ENABLED=true` (`RETENTION.md`). `co_organizers` caps the event's co-organizer logins (trigger 0083, „Достигнат е лимитот од {n} дополнителни организатори.“). `reminders`, `personal_invite_links`, `photo_album`, `guest_greetings` and `video_greetings` also gate the reminders cron and the guests' public album routes (`/api/e/<token>/…`, 403 with the locked message), not only the couple's pages. Staff password-reset emails (Venues — staff support) link to `/reset-password` on `NEXT_PUBLIC_SITE_URL` (else the request's Host via `lib/origin.ts`, with a leading `admin.` removed so the link never lands on the admin host), so that URL must be in Supabase's Redirect URLs.
 
 **On the couple API** (`lib/api/handler.ts`'s `withCoupleEvent`, `HandlerOptions.feature`): only `POST`/`PUT`/`PATCH` on a gated route check the feature; `GET` and `DELETE` always pass. A locked mutation answers `403 { error: "Оваа функција не е вклучена во вашиот пакет." }` — checked **after** the request body passes its own Zod schema, so a malformed body still 400s first.
 
@@ -131,7 +133,7 @@ Every `admin_*` action currently recorded (from `lib/admin/*-actions-core.ts`):
 | `admin_venue_deleted` | Venues — delete account |
 | `admin_event_updated` | Events — edit date/times/status |
 | `admin_event_override_saved` | Events — feature override |
-| `admin_couple_login_unlocked` | Events — unlock couple login |
+| `admin_couple_login_unlocked` | Events — unlock couple login (the couple's and every co-organizer login of the event) |
 | `admin_couple_password_regenerated` | Events — regenerate couple password |
 | `admin_plan_created` | Plans — create |
 | `admin_plan_updated` | Plans — edit name/description/order/visibility |

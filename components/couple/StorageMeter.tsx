@@ -3,18 +3,20 @@ import { formatBytes, storageBreakdown, type StorageUsage } from "@/lib/media/li
 /** The album's space, shown like a phone plan's data meter (C5). */
 export function StorageMeter({ usage }: { usage: StorageUsage }) {
   const b = storageBreakdown(usage);
+  const unlimited = usage.limitBytes === null;
+  const limitLabel = usage.limitBytes === null ? "Неограничено" : formatBytes(usage.limitBytes);
   const segments = [
     { label: "Фотографии", pct: b.photoPct, className: "s4-seg-photo" },
     { label: "Видеа", pct: b.videoPct, className: "s4-seg-video" },
-    { label: "Останато", pct: b.freePct, className: "s4-seg-free" },
+    ...(unlimited ? [] : [{ label: "Останато", pct: b.freePct, className: "s4-seg-free" }]),
   ];
 
   return (
     <section className="s4-meter" aria-labelledby="s4-meter-title">
       <div className="s4-meter-head">
-        <h2 id="s4-meter-title" className="s4-meter-title">Ваш простор: {formatBytes(usage.limitBytes)}</h2>
+        <h2 id="s4-meter-title" className="s4-meter-title">Ваш простор: {limitLabel}</h2>
         <span className="s4-meter-used">
-          Искористено: {formatBytes(b.usedBytes)} / {formatBytes(usage.limitBytes)}
+          Искористено: {formatBytes(b.usedBytes)} / {limitLabel}
         </span>
       </div>
       <div className="s4-meter-bar">
@@ -37,9 +39,11 @@ export function StorageMeter({ usage }: { usage: StorageUsage }) {
       )}
       {/* A plain link, not next/link: /couple/packages is Session 1's page, and until
           it exists the router's prefetch of it never settles (seen in e2e). */}
-      <a className="s4-meter-cta" href="/couple/packages">
-        Активирајте дополнителен пакет за повеќе простор
-      </a>
+      {!unlimited && (
+        <a className="s4-meter-cta" href="/couple/packages">
+          Активирајте дополнителен пакет за повеќе простор
+        </a>
+      )}
     </section>
   );
 }

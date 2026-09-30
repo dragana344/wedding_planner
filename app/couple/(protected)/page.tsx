@@ -17,7 +17,8 @@ export default async function CoupleDashboardPage() {
     getEventSummary(eventId),
     listAgendaItems(eventId),
     listChecklistItems(eventId),
-    getStorageUsage(eventId),
+    // The meter is optional here: if the plan cannot be read, it is left out.
+    getStorageUsage(eventId).catch(() => null),
   ]);
   const checklistStats = computeChecklistStats(checklistItems);
   const upcomingAgenda = agendaItems.slice(0, 5);
@@ -40,7 +41,7 @@ export default async function CoupleDashboardPage() {
       </section>
 
       {/* C5: the album's space, once guests have started sharing. */}
-      {storage.photoBytes + storage.videoBytes > 0 && (
+      {storage && storage.photoBytes + storage.videoBytes > 0 && (
         <div style={{ marginBottom: 16 }}>
           <StorageMeter usage={storage} />
         </div>

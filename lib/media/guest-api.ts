@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z, type ZodType } from "zod";
 import { withPublic, type PublicHandlerContext, type RouteHandler } from "@/lib/api/handler";
 import { getAlbumByToken, type PublicAlbum } from "@/lib/media/album";
+import { eventHasFeature } from "@/lib/entitlements/server";
+import { LOCKED_MESSAGE, type FeatureKey } from "@/lib/entitlements/features";
 import { MAX_PHOTO_BYTES, MAX_VIDEO_BYTES } from "@/lib/media/limits";
 import type { RateLimitRule } from "@/lib/security/rate-limit";
 
@@ -52,21 +54,34 @@ export const greetingBody = z.object({
   video_path: z.string().min(1).max(200).nullish(),
 });
 
+/** 403 with the locked-feature message (admin spec §4.4). */
+export function lockedResponse(): NextResponse {
+  return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 403 });
+}
+
 /**
  * A public route under /api/e/<token>: the token must name an album (else
- * 404), then the handler gets the album alongside the usual context.
+ * 404), and the album's event must have every one of the route's plan
+ * `feature`s (else 403
+ * with the locked message); then the handler gets the album alongside the
+ * usual context. Every route here writes, so the gate always applies.
  */
 export function withGuestAlbum<B>(
   handler: (ctx: PublicHandlerContext<AlbumParams, B> & { album: PublicAlbum }) => Promise<Response>,
-  options: { body: ZodType<B>; fallbackError: string },
+  options: { body: ZodType<B>; fallbackError: string; feature: FeatureKey | readonly FeatureKey[] },
 ): RouteHandler<AlbumParams> {
   const notFound = () => NextResponse.json({ error: ALBUM_NOT_FOUND_ERROR }, { status: 404 });
+  const { feature, ...rest } = options;
+  const features: readonly FeatureKey[] = typeof feature === "string" ? [feature] : feature;
   return withPublic<AlbumParams, B>(
     async (ctx) => {
       const album = await getAlbumByToken(ctx.params.token);
       if (!album) return notFound();
+      for (const key of features) {
+        if (!(await eventHasFeature(album.eventId, key))) return lockedResponse();
+      }
       return handler({ ...ctx, album });
     },
-    { params: albumParams, invalidParamsError: ALBUM_NOT_FOUND_ERROR, ...options },
+    { params: albumParams, invalidParamsError: ALBUM_NOT_FOUND_ERROR, ...rest },
   );
 }

@@ -16,5 +16,5 @@ export const POST = withGuestAlbum(
     }
     return NextResponse.json(await createPhotoUpload(album.eventId, body.bytes));
   },
-  { body: photoUploadBody, fallbackError: ALBUM_UPLOAD_ERROR },
+  { feature: "photo_album", body: photoUploadBody, fallbackError: ALBUM_UPLOAD_ERROR },
 );

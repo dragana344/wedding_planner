@@ -11,7 +11,7 @@ export const PATCH = withCoupleEvent(
     await setPhotoHidden(eventId, params.id, body.hidden);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, body: z.object({ hidden: z.boolean() }), fallbackError: "Не успеа промената на фотографијата." },
+  { feature: "photo_album", params: idParams, body: z.object({ hidden: z.boolean() }), fallbackError: "Не успеа промената на фотографијата." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -19,5 +19,5 @@ export const DELETE = withCoupleEvent(
     await deletePhoto(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на фотографијата." },
+  { feature: "photo_album", params: idParams, fallbackError: "Не успеа бришењето на фотографијата." },
 );

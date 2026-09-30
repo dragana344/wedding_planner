@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { runMediaRetention, type RetentionNotify } from "@/lib/media/retention";
+import { planRetentionDays, runMediaRetention, type RetentionNotify } from "@/lib/media/retention";
 import { getAlbumByToken } from "@/lib/media/album";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
@@ -13,6 +13,8 @@ import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 const NOW = new Date("2019-03-02T10:00:00Z");
 let venueId: string;
+const planVenues: string[] = [];
+const planIds: string[] = [];
 const ids: Record<string, string> = {};
 const tokens: Record<string, string> = {};
 
@@ -46,7 +48,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await admin.from("venues").delete().eq("id", venueId);
+  await admin.from("venues").delete().in("id", [venueId, ...planVenues]);
+  if (planIds.length) await admin.from("plans").delete().in("id", planIds);
   await drainStorageCleanupQueue();
 });
 
@@ -102,5 +105,61 @@ describe("runMediaRetention", () => {
     // The failed warning is retried next time rather than marked as sent.
     const { data } = await admin.from("event_albums").select("retention_notice_sent_at").eq("event_id", ids.failing).single();
     expect(data!.retention_notice_sent_at).toBeNull();
+  });
+});
+
+describe("per-package periods (photo_retention_days)", () => {
+  const NOW2 = new Date("2016-06-01T10:00:00Z");
+
+  /** A venue on its own plan with this retention, and one album dated 2016-05-01. */
+  async function planAlbum(key: string, retention: { enabled: boolean; limit_value: number | null }) {
+    const planId = (await admin.from("plans").insert({ name: `Retention ${key} ${Date.now()}` }).select("id").single()).data!.id;
+    planIds.push(planId);
+    await admin.from("plan_features").insert([
+      { plan_id: planId, feature_key: "max_active_events", enabled: true, limit_value: null },
+      { plan_id: planId, feature_key: "photo_retention_days", ...retention },
+    ]);
+    const venue = (await admin.from("venues").insert({ name: `Retention ${key}`, plan_id: planId }).select("id").single()).data!.id;
+    planVenues.push(venue);
+    const { data: event } = await admin
+      .from("events")
+      .insert({ venue_id: venue, couple_names: `Plan ${key}`, event_date: "2016-05-01", contact_email: `${key}@plan.test` })
+      .select("id")
+      .single();
+    await admin.from("event_albums").insert({ event_id: event!.id, public_token: `plan-${key}-${Date.now()}`.padEnd(24, "x") });
+    await admin.from("event_photos").insert({
+      event_id: event!.id, storage_path: `${event!.id}/photos/p.jpg`, bytes: 10, mime: "image/jpeg", consent_at: NOW2.toISOString(),
+    });
+    return { venue, eventId: event!.id as string };
+  }
+
+  it("resolves each event's period from its package; null keeps forever", async () => {
+    const ten = await planAlbum("ten", { enabled: true, limit_value: 10 });
+    const forever = await planAlbum("forever", { enabled: true, limit_value: null });
+    const long = await planAlbum("long", { enabled: true, limit_value: 365 });
+    const off = await planAlbum("off", { enabled: false, limit_value: 5 });
+    expect(await planRetentionDays(ten.eventId, ten.venue)).toBe(10);
+    expect(await planRetentionDays(forever.eventId, forever.venue)).toBeNull();
+    expect(await planRetentionDays(off.eventId, off.venue)).toBeNull();
+
+    const notify = vi.fn<RetentionNotify>(async () => {});
+    const mine = () => notify.mock.calls.map(([to]) => to).filter((to) => to.endsWith("@plan.test")).sort();
+
+    // Off unless the owner switches it on.
+    delete process.env.MEDIA_RETENTION_ENABLED;
+    expect(await runMediaRetention({ now: NOW2, notify })).toEqual({ skipped: true });
+    expect(mine()).toEqual([]);
+
+    await runMediaRetention({ enabled: true, now: NOW2, notify });
+    // 2016-05-01 + 10 days is past: warned (not yet deleted). Null, disabled and 365 days: untouched.
+    expect(mine()).toEqual(["ten@plan.test"]);
+    expect(await mediaCount(ten.eventId)).toBe(1);
+
+    // Five days after the warning the 10-day album goes; the others stay.
+    await runMediaRetention({ enabled: true, now: new Date("2016-06-06T10:00:00Z"), notify });
+    expect(await mediaCount(ten.eventId)).toBe(0);
+    expect(await mediaCount(forever.eventId)).toBe(1);
+    expect(await mediaCount(long.eventId)).toBe(1);
+    expect(await mediaCount(off.eventId)).toBe(1);
   });
 });

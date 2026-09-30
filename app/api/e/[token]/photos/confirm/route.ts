@@ -14,5 +14,5 @@ export const POST = withGuestAlbum(
         height: body.height,
       }),
     ),
-  { body: photoConfirmBody, fallbackError: ALBUM_UPLOAD_ERROR },
+  { feature: "photo_album", body: photoConfirmBody, fallbackError: ALBUM_UPLOAD_ERROR },
 );

@@ -45,15 +45,17 @@ function skopjeToday(): Date {
 export default async function VenueHomePage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
 
   const now = skopjeToday();
   const today = isoOf(now);
 
   const [rooms, menuTemplates, allEvents, todayReservations] = await Promise.all([
-    listRoomsWithSeatTotals(venueId!, supabase),
-    listMenuTemplatesWithItemCounts(venueId!, supabase),
-    listEventsWithDetails(venueId!, supabase),
-    listReservationsForDate(venueId!, today, supabase),
+    listRoomsWithSeatTotals(venueId, supabase),
+    listMenuTemplatesWithItemCounts(venueId, supabase),
+    listEventsWithDetails(venueId, supabase),
+    listReservationsForDate(venueId, today, supabase),
   ]);
 
   const todayEvents = allEvents.filter((e) => e.event_date === today);

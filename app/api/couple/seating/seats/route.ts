@@ -9,7 +9,7 @@ export const GET = withCoupleEvent(
     if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
     return NextResponse.json(await getRoomSeating(eventId, room.data));
   },
-  { fallbackError: "Не успеа вчитувањето на листите по маса." },
+  { feature: "seating", fallbackError: "Не успеа вчитувањето на листите по маса." },
 );
 
 export const PUT = withCoupleEvent(
@@ -32,5 +32,5 @@ export const PUT = withCoupleEvent(
     }
     return NextResponse.json(await getRoomSeating(eventId, body.room_id));
   },
-  { body: seatsPutBody, fallbackError: "Не успеа зачувувањето на листата." },
+  { feature: "seating", body: seatsPutBody, fallbackError: "Не успеа зачувувањето на листата." },
 );

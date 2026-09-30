@@ -2,7 +2,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { getAlbumByToken, getOrCreateAlbumToken, getStorageUsage, QUOTA_FULL_ERROR, assertQuotaFor } from "@/lib/media/album";
-import { DEFAULT_STORAGE_BYTES } from "@/lib/media/limits";
+// The default plan ("Стандарден", 0048) gives every event 5 GB (storage_gb).
+const DEFAULT_STORAGE_BYTES = 5 * 1024 ** 3;
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 let venueId: string;
@@ -45,7 +46,7 @@ describe("album token", () => {
 });
 
 describe("storage quota", () => {
-  it("reports usage against the default limit", async () => {
+  it("reports usage against the plan's limit", async () => {
     await admin.from("event_photos").insert({
       event_id: eventId, storage_path: `${eventId}/photos/q1.jpg`, bytes: 3000, mime: "image/jpeg", consent_at: new Date().toISOString(),
     });

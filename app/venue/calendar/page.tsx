@@ -11,10 +11,12 @@ export const dynamic = "force-dynamic";
 export default async function CalendarPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
 
   const [rooms, events] = await Promise.all([
-    listRoomsWithSeatTotals(venueId!, supabase),
-    listEventsWithDetails(venueId!, supabase),
+    listRoomsWithSeatTotals(venueId, supabase),
+    listEventsWithDetails(venueId, supabase),
   ]);
 
   const totalCapacity = rooms.reduce((sum, r) => sum + r.seatTotal, 0);

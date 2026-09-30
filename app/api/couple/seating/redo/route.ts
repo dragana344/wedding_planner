@@ -8,5 +8,5 @@ export const POST = withCoupleEvent(
     const restored = await coupleSeatingActionsFor(eventId).redo!(eventId, body.room_id);
     return NextResponse.json(restored);
   },
-  { body: roomIdBody, fallbackError: "Нема што да се повтори." },
+  { feature: "seating", body: roomIdBody, fallbackError: "Нема што да се повтори." },
 );

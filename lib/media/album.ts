@@ -1,7 +1,8 @@
 import "server-only";
 import { randomBytes } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { DEFAULT_STORAGE_BYTES, type StorageUsage } from "@/lib/media/limits";
+import { fitsQuota, storageLimitBytes, type StorageUsage } from "@/lib/media/limits";
+import { getEventFeatures } from "@/lib/entitlements/server";
 
 // The guests' album (Session 4, C1/C5): one public token per event for the
 // QR page, and the album's storage quota.
@@ -44,12 +45,11 @@ export async function getAlbumByToken(token: string): Promise<PublicAlbum | null
 }
 
 /**
- * Album space for the event. The package's `storage_gb` entitlement (Session
- * 1) replaces the default once it exists.
+ * Album space for the event from its package's `storage_gb` entitlement
+ * (null = unlimited). A failed read throws, so uploads fail closed.
  */
-export async function getStorageLimitBytes(eventId: string): Promise<number> {
-  void eventId;
-  return DEFAULT_STORAGE_BYTES;
+export async function getStorageLimitBytes(eventId: string): Promise<number | null> {
+  return storageLimitBytes((await getEventFeatures(eventId)).storage_gb);
 }
 
 export async function getStorageUsage(eventId: string): Promise<StorageUsage> {
@@ -65,5 +65,5 @@ export async function getStorageUsage(eventId: string): Promise<StorageUsage> {
 /** Throws QUOTA_FULL_ERROR when `extraBytes` more would not fit in the album. */
 export async function assertQuotaFor(eventId: string, extraBytes: number): Promise<void> {
   const { limitBytes, photoBytes, videoBytes } = await getStorageUsage(eventId);
-  if (photoBytes + videoBytes + extraBytes > limitBytes) throw new Error(QUOTA_FULL_ERROR);
+  if (!fitsQuota(limitBytes, photoBytes + videoBytes, extraBytes)) throw new Error(QUOTA_FULL_ERROR);
 }

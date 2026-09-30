@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { removed } = await drainStorageCleanupQueue();
     const { removed: staleUploads } = await sweepStaleInvitationUploads();
     const { removed: staleMedia } = await sweepStalePendingMedia();
-    // Guest album retention (Session 4): off until MEDIA_RETENTION_DAYS is set.
+    // Guest album retention (Session 4): off until MEDIA_RETENTION_ENABLED=true; days per event from the package.
     const mediaRetention = await runMediaRetention();
     log("info", "storage_cleanup", { removed, stale_uploads: staleUploads, stale_media: staleMedia, media_retention: mediaRetention });
     return NextResponse.json({ removed, stale_uploads: staleUploads, stale_media: staleMedia, media_retention: mediaRetention });

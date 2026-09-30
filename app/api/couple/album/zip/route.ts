@@ -50,5 +50,5 @@ export const GET = withCoupleEvent(
       },
     });
   },
-  { fallbackError: "Не успеа преземањето на албумот." },
+  { feature: "photo_album", fallbackError: "Не успеа преземањето на албумот." },
 );

@@ -5,13 +5,15 @@ import { emailConfigured, sendEmail } from "@/lib/email";
 import { recordAudit } from "@/lib/audit";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 import { errorFields, log } from "@/lib/log";
+import { retentionDays } from "@/lib/media/limits";
 
 // C6: guests' photos and greetings are kept for a number of days after the
 // event, then deleted (rows first; the 0080 triggers queue the files). The
-// couple is told five days before. OFF until MEDIA_RETENTION_DAYS is set:
-// the period is the owner's decision (docs/production/RETENTION.md). Once the
-// package entitlement `photo_retention_days` exists it replaces the env value
-// per event.
+// couple is told five days before. The number of days is the event's package
+// entitlement `photo_retention_days`; only an enabled feature with a positive
+// limit purges (disabled, missing, null or 0 = kept forever). The sweep as a
+// whole stays OFF until MEDIA_RETENTION_ENABLED=true: switching deletion of
+// guests' photos on is the owner's decision (docs/production/RETENTION.md).
 
 const NOTICE_DAYS = 5;
 
@@ -29,10 +31,22 @@ function shownDate(isoDate: string): string {
   return `${d}.${m}.${y}`;
 }
 
-export function mediaRetentionDaysFromEnv(): number | null {
-  const days = Number.parseInt(process.env.MEDIA_RETENTION_DAYS ?? "", 10);
-  return Number.isInteger(days) && days >= 1 ? days : null;
+/** The owner's switch for the whole sweep (RETENTION.md). */
+export function mediaRetentionEnabled(): boolean {
+  return process.env.MEDIA_RETENTION_ENABLED === "true";
 }
+
+/** Days to keep one event's album (null = forever), from its package. */
+export type RetentionDaysFor = (eventId: string, venueId: string) => Promise<number | null>;
+
+export const planRetentionDays: RetentionDaysFor = async (eventId, venueId) => {
+  const { data, error } = await createServiceRoleClient().rpc("effective_features", { p_venue_id: venueId, p_event_id: eventId });
+  if (error) throw error;
+  const row = (data as { feature_key: string; enabled: boolean; limit_value: number | null }[] | null)?.find(
+    (f) => f.feature_key === "photo_retention_days",
+  );
+  return retentionDays(row ? { enabled: row.enabled, limit: row.limit_value } : undefined);
+};
 
 const emailNotify: RetentionNotify = async (to, coupleNames, deleteOn) => {
   if (!emailConfigured()) return;
@@ -58,24 +72,34 @@ const PAGE = 500;
 /**
  * One pass over the albums whose deletion date is near or past. The couple is
  * always warned first, and the media go no earlier than NOTICE_DAYS after the
- * warning — so switching retention on (or shortening it) never deletes an
- * album without notice. A purged album's row goes too: its guest link stops
- * working and later passes no longer see it.
+ * warning — so switching retention on (or shortening it, e.g. a package
+ * change) never deletes an album without notice. A purged album's row goes
+ * too: its guest link stops working and later passes no longer see it.
+ *
+ * Each event's period comes from its package (`daysFor`, default
+ * `planRetentionDays`); `days` fixes one period for every event instead
+ * (null = skip the run). Without `days`, the run is skipped unless `enabled`
+ * (default: MEDIA_RETENTION_ENABLED) is true.
  */
 export async function runMediaRetention(
-  opts: { days?: number | null; now?: Date; notify?: RetentionNotify } = {},
-): Promise<{ skipped: true } | { noticed: number; purgedEvents: number }> {
-  const days = opts.days === undefined ? mediaRetentionDaysFromEnv() : opts.days;
-  if (!days) return { skipped: true };
+  opts: { days?: number | null; daysFor?: RetentionDaysFor; enabled?: boolean; now?: Date; notify?: RetentionNotify } = {},
+): Promise<{ skipped: true } | { noticed: number; purgedEvents: number; kept: number }> {
+  const fixedDays = opts.days;
+  if (fixedDays === null) return { skipped: true };
+  if (fixedDays === undefined && !(opts.enabled ?? mediaRetentionEnabled())) return { skipped: true };
+  const daysFor = opts.daysFor ?? planRetentionDays;
   const notify = opts.notify ?? emailNotify;
   const now = opts.now ?? new Date();
   const today = todayIn(VENUE_TIME_ZONE, now);
   const client = createServiceRoleClient();
 
-  // Only events whose own deletion date is at most NOTICE_DAYS away can need work.
-  const latestEventDate = addDays(today, NOTICE_DAYS - days);
+  // Only events whose own deletion date is at most NOTICE_DAYS away can need
+  // work; with per-event periods (0 days at the least) that is every event
+  // up to NOTICE_DAYS from now.
+  const latestEventDate = addDays(today, NOTICE_DAYS - (fixedDays ?? 0));
   let noticed = 0;
   let purgedEvents = 0;
+  let kept = 0;
   let cursor = "00000000-0000-0000-0000-000000000000";
 
   for (;;) {
@@ -93,7 +117,13 @@ export async function runMediaRetention(
       const event = album.events;
       if (!event) continue;
       try {
+        const days = fixedDays ?? (await daysFor(album.event_id, event.venue_id));
+        if (days === null) {
+          kept += 1; // never purged under this package (logged once per run below)
+          continue;
+        }
         const deleteOn = addDays(event.event_date, days);
+        if (deleteOn > addDays(today, NOTICE_DAYS)) continue;
 
         if (!album.retention_notice_sent_at) {
           const { data: usage } = await client.rpc("event_media_usage", { p_event_id: album.event_id });
@@ -140,5 +170,6 @@ export async function runMediaRetention(
   }
 
   if (purgedEvents > 0) await drainStorageCleanupQueue().catch(() => {}); // the hourly cron retries
-  return { noticed, purgedEvents };
+  if (kept > 0) log("info", "media_retention_kept", { events: kept });
+  return { noticed, purgedEvents, kept };
 }

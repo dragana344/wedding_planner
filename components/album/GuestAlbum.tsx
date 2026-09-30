@@ -141,7 +141,7 @@ function PhotoUpload({ token }: { token: string }) {
   );
 }
 
-function GreetingForm({ token }: { token: string }) {
+function GreetingForm({ token, allowVideo }: { token: string; allowVideo: boolean }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [message, setMessage] = useState("");
@@ -220,16 +220,20 @@ function GreetingForm({ token }: { token: string }) {
           {message.length} / {MESSAGE_MAX}
         </p>
 
-        <label className="ga-label" htmlFor="ga-video">Видео честитка (до 30 секунди)</label>
-        <input
-          id="ga-video"
-          className="ga-input"
-          type="file"
-          accept="video/*"
-          capture="user"
-          onChange={(e) => void pickVideo(e.target.files?.[0])}
-        />
-        {video && <p className="ga-note">Избрано видео: {video.name}</p>}
+        {allowVideo && (
+          <>
+            <label className="ga-label" htmlFor="ga-video">Видео честитка (до 30 секунди)</label>
+            <input
+              id="ga-video"
+              className="ga-input"
+              type="file"
+              accept="video/*"
+              capture="user"
+              onChange={(e) => void pickVideo(e.target.files?.[0])}
+            />
+            {video && <p className="ga-note">Избрано видео: {video.name}</p>}
+          </>
+        )}
 
         {error && (
           <p className="ga-error" role="alert">
@@ -244,12 +248,27 @@ function GreetingForm({ token }: { token: string }) {
   );
 }
 
+/** Which parts of the page the event's package includes (admin spec §4.4). */
+export type GuestAlbumFeatures = { photos: boolean; greetings: boolean; video: boolean };
+
+const ALL_FEATURES: GuestAlbumFeatures = { photos: true, greetings: true, video: true };
+
+/** Shown to guests instead of the upload form when the album is not in the package. */
+function PhotosUnavailable() {
+  return (
+    <section className="ga-card" aria-labelledby="ga-photos-title" role="status">
+      <h2 id="ga-photos-title" className="ga-h2">Прикачи фотографии</h2>
+      <p className="ga-note">Споделувањето фотографии не е вклучено за овој настан. Ви благодариме што сакавте да ги споделите вашите моменти!</p>
+    </section>
+  );
+}
+
 /** The guests' QR page body: photo upload and greeting (C1, C2, C7). */
-export function GuestAlbum({ token }: { token: string }) {
+export function GuestAlbum({ token, features = ALL_FEATURES }: { token: string; features?: GuestAlbumFeatures }) {
   return (
     <div className="ga-stack">
-      <PhotoUpload token={token} />
-      <GreetingForm token={token} />
+      {features.photos ? <PhotoUpload token={token} /> : <PhotosUnavailable />}
+      {features.greetings && <GreetingForm token={token} allowVideo={features.video} />}
     </div>
   );
 }

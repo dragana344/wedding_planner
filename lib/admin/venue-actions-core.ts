@@ -3,6 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { AdminContext } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { passwordResetRedirectTo } from "@/lib/admin/reset-redirect";
 import { deleteVenueAccount } from "@/lib/privacy/erase";
 import { FEATURE_KEYS, featureDef, type FeatureKey } from "@/lib/entitlements/features";
 
@@ -177,7 +178,8 @@ export const venueActionCore = {
     await requireVenueStaff(i.venueId, i.userId);
     const { user } = await check<{ user: { email?: string | null } | null }>(db().auth.admin.getUserById(i.userId));
     if (!user?.email) throw new Error("Корисникот нема е-пошта.");
-    await check(db().auth.resetPasswordForEmail(user.email));
+    const redirectTo = await passwordResetRedirectTo();
+    await check(db().auth.resetPasswordForEmail(user.email, redirectTo ? { redirectTo } : undefined));
     revalidatePathSafe(`/admin/venues/${i.venueId}`);
     return { data: null, audit: { action: "admin_staff_password_reset_sent", venueId: i.venueId, targetId: i.userId } };
   },
