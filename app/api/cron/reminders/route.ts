@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runDueReminders } from "@/lib/couple/reminders";
 import { errorFields, log } from "@/lib/log";
 import { safeEqual } from "@/lib/security/safe-equal";
+import { resolveOrigin } from "@/lib/origin";
 
 // A10: Vercel Cron (vercel.json, hourly) calls this with
 // `Authorization: Bearer $CRON_SECRET` to send the guests' reminder emails.
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+    const origin = resolveOrigin((name) => request.headers.get(name), process.env.NEXT_PUBLIC_SITE_URL);
     const results = await runDueReminders(new Date(), origin);
     const summary = {
       events: results.length,

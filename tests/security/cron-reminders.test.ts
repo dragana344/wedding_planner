@@ -7,8 +7,8 @@ vi.mock("@/lib/couple/reminders", () => reminders);
 import { GET } from "@/app/api/cron/reminders/route";
 import vercelConfig from "@/vercel.json";
 
-function req(auth?: string) {
-  return new NextRequest("https://app.example.mk/api/cron/reminders", { headers: auth ? { authorization: auth } : {} });
+function req(auth?: string, extra: Record<string, string> = {}) {
+  return new NextRequest("https://app.example.mk/api/cron/reminders", { headers: { ...(auth ? { authorization: auth } : {}), ...extra } });
 }
 
 afterEach(() => {
@@ -32,6 +32,17 @@ describe("reminders cron (A10)", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ events: 1, sent: 3, failed: 1 });
     expect(reminders.runDueReminders).toHaveBeenCalledWith(expect.any(Date), "https://kadesum.mk");
+  });
+
+  it("without a configured site, links use the Host header, never x-forwarded-host", async () => {
+    process.env.CRON_SECRET = "s3cret";
+    // The function may see an internal URL; the public host is the Host header.
+    await GET(
+      new NextRequest("http://127.0.0.1:3000/api/cron/reminders", {
+        headers: { authorization: "Bearer s3cret", host: "app.example.mk", "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" },
+      }),
+    );
+    expect(reminders.runDueReminders).toHaveBeenLastCalledWith(expect.any(Date), "https://app.example.mk");
   });
 
   it("is scheduled hourly in vercel.json", () => {

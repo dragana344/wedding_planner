@@ -11,6 +11,7 @@ vi.mock("next/font/google", () => {
   };
 });
 import { FullInvitation } from "@/components/invite/FullInvitation";
+import { SEAT_LOOKUP_ANCHOR } from "@/lib/seating/qr";
 
 const invitation = {
   couple_names: "Ана и Марко",
@@ -135,6 +136,8 @@ describe("FullInvitation", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ seat: null }) });
     render(<FullInvitation slug="abc123" invitation={invitation} photoUrl={null} />);
     const finder = screen.getByRole("region", { name: "Каде седам?" });
+    // Table QR cards (Session 3, lib/seating/qr.ts) open the invitation at this anchor.
+    expect(finder).toHaveAttribute("id", SEAT_LOOKUP_ANCHOR);
 
     fireEvent.change(within(finder).getByLabelText("Вашето име (како на поканата)"), { target: { value: "Петар Петровски" } });
     fireEvent.click(within(finder).getByRole("button", { name: "Најди ја мојата маса" }));

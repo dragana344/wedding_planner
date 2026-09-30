@@ -329,10 +329,13 @@ describe("sending invitations (A9)", () => {
     expect(sending.markInvitationSent).not.toHaveBeenCalled();
   });
 
-  it("emails invitations with links to the configured site, else this request's origin", async () => {
-    const res = await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
+  it("emails invitations with links to the configured site, else this request's Host (never x-forwarded-host)", async () => {
+    const spoofed = req("POST", { guest_ids: [ID] });
+    spoofed.headers.set("host", "app.example.mk");
+    spoofed.headers.set("x-forwarded-host", "evil.example");
+    const res = await call(guestsEmailRoute.POST, spoofed);
     expect(res).toEqual({ status: 200, body: { sent: 1, skipped: 0, failed: 0 } });
-    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", null);
+    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "https://app.example.mk", null);
 
     process.env.NEXT_PUBLIC_SITE_URL = "https://kadesum.mk";
     try {
@@ -379,7 +382,7 @@ describe("co-organizers (A12)", () => {
     await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID], channel: "sms" }, { side: "groom" }));
     expect(sending.markInvitationSent).toHaveBeenLastCalledWith(EVENT, [ID], "sms", "groom");
     await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }, { side: "bride" }));
-    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", "bride");
+    expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], expect.any(String), "bride");
     await call(guestsSentRoute.POST, req("POST", { guest_ids: [ID], channel: "sms" }));
     expect(sending.markInvitationSent).toHaveBeenLastCalledWith(EVENT, [ID], "sms", null);
   });
