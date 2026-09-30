@@ -137,7 +137,7 @@ describe("LoginPage", () => {
     await waitFor(() => expect(auth.mfa.getAuthenticatorAssuranceLevel.mock.calls.length).toBeLessThanOrEqual(1));
     const checksOnLoad = auth.mfa.getAuthenticatorAssuranceLevel.mock.calls.length;
     signIn();
-    expect(await screen.findByText("Invalid login credentials")).toBeInTheDocument();
+    expect(await screen.findByText("Неточен email или лозинка.")).toBeInTheDocument();
     expect(auth.mfa.getAuthenticatorAssuranceLevel).toHaveBeenCalledTimes(checksOnLoad);
     expect(mockPush).not.toHaveBeenCalled();
   });

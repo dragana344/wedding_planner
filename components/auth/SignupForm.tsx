@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 async function provisionVenue(venueName: string): Promise<Response> {
   return fetch("/api/venue/signup", {
@@ -29,11 +30,11 @@ export function SignupForm() {
       const supabase = createBrowserSupabaseClient();
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
       if (signUpError) {
-        setError(signUpError.message);
+        setError(authErrorMessage(signUpError));
         return;
       }
       if (!signUpData.session) {
-        setError("Please check your email to confirm your account before signing in.");
+        setError("Ви испративме email. Потврдете ја сметката преку линкот, па најавете се.");
         return;
       }
 
@@ -47,13 +48,13 @@ export function SignupForm() {
       }
       if (!response.ok) {
         const { error: message } = await response.json();
-        setError(message ?? "Something went wrong. Please try again.");
+        setError(message ?? GENERIC_ERROR);
         return;
       }
 
       router.push("/venue?tour=1");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }

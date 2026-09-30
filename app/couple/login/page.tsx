@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function CoupleLoginPage() {
   const router = useRouter();
@@ -24,12 +25,12 @@ export default function CoupleLoginPage() {
       });
       if (!response.ok) {
         const { error: message } = await response.json();
-        setError(message ?? "Something went wrong. Please try again.");
+        setError(message ?? GENERIC_ERROR);
         return;
       }
       router.push("/couple");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }

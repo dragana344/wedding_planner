@@ -213,7 +213,7 @@ describe("public schemas", () => {
 
   it("signup: keeps the required message and caps the venue name", () => {
     expect(venueSignupBody.safeParse({ venue_name: "Ресторан" }).success).toBe(true);
-    expect(msg(parseInput(venueSignupBody, { venue_name: "  " }, "D"))).toBe("Venue name is required.");
+    expect(msg(parseInput(venueSignupBody, { venue_name: "  " }, "D"))).toBe("Внесете име на локалот.");
     expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201) }).success).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ async function signup(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return NextResponse.json({ error: "Сесијата истече. Најавете се повторно." }, { status: 401 });
   }
 
   // SEC-002: 5 venue provisionings per hour per IP; fails closed.
@@ -42,6 +42,6 @@ async function signup(request: NextRequest) {
     logSecurityEvent("venue_signup", { user_id: user.id, venue_id: result.venue_id });
     return NextResponse.json(result);
   } catch (err) {
-    return errorResponse(err, "Failed to create venue.", request);
+    return errorResponse(err, "Не успеа отворањето на локалот. Обидете се повторно.", request);
   }
 }

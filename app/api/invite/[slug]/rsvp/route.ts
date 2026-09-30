@@ -35,7 +35,7 @@ export const POST = withPublic(
     }
   },
   {
-    invalidJsonError: "Invalid JSON body",
+    invalidJsonError: RSVP_INVALID_ERROR,
     params: slugParams,
     invalidParamsError: RSVP_NOT_FOUND_ERROR,
     body: rsvpBody,

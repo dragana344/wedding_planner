@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 // SEC-016: the TOTP code step, shared by login and password reset.
 
@@ -47,13 +48,13 @@ export function MfaCodeForm({
       const supabase = createBrowserSupabaseClient();
       const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
       if (verifyError) {
-        setError(/invalid/i.test(verifyError.message) ? "Кодот не е точен. Обидете се повторно." : verifyError.message);
+        setError(/invalid/i.test(verifyError.message) ? "Кодот не е точен. Обидете се повторно." : authErrorMessage(verifyError));
         setCode("");
         return;
       }
       await onVerified();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }

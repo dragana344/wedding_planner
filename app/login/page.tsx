@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
+import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function LoginPage() {
       const supabase = createBrowserSupabaseClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        setError(signInError.message);
+        setError(authErrorMessage(signInError));
         return;
       }
       const factorId = await pendingSecondFactor(supabase);
@@ -49,7 +50,7 @@ export default function LoginPage() {
       }
       router.push("/venue");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,12 +137,12 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (resetError) {
-        setError(resetError.message);
+        setError(authErrorMessage(resetError));
         return;
       }
       setStatus("If an account exists for that email, a reset link has been sent.");
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
+import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function ResetPasswordPage() {
       }
       await savePassword();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -38,7 +39,7 @@ export default function ResetPasswordPage() {
     const supabase = createBrowserSupabaseClient();
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     if (updateError) {
-      setError(updateError.message);
+      setError(authErrorMessage(updateError));
       return;
     }
     // SEC-017: a password change ends the sessions on other devices; this

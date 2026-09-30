@@ -55,7 +55,7 @@ describe("SignupForm", () => {
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
-    expect(await screen.findByText("User already registered")).toBeInTheDocument();
+    expect(await screen.findByText("Веќе постои сметка со овој email. Најавете се.")).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -89,7 +89,7 @@ describe("SignupForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
     expect(
-      await screen.findByText("Please check your email to confirm your account before signing in.")
+      await screen.findByText("Ви испративме email. Потврдете ја сметката преку линкот, па најавете се.")
     ).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
