@@ -10,6 +10,6 @@ export default async function VenuePrintQrPage({ params }: { params: Promise<{ e
   const { supabase, origin } = await staffPrintAccess(eventId);
   const data = await venuePrintData(supabase, eventId, origin);
   return (
-    <TableQrCards title={data.title} hint="Скенирај за поканата" cards={data.cards} fontClassName={printSerif.variable} backHref="/venue/events" />
+    <TableQrCards title={data.title} hint="Скенирај: каде седам, програма" cards={data.cards} fontClassName={printSerif.variable} backHref="/venue/events" />
   );
 }

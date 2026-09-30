@@ -14,7 +14,7 @@ export default async function CouplePrintPage({ searchParams }: { searchParams: 
   const { view } = await searchParams;
   const data = await couplePrintData(eventId, await requestOrigin());
   if (view === "qr") {
-    return <TableQrCards title={data.title} hint="Скенирај за поканата" cards={data.cards} fontClassName={printSerif.variable} backHref="/couple/seating/print" />;
+    return <TableQrCards title={data.title} hint="Скенирај: каде седам, програма" cards={data.cards} fontClassName={printSerif.variable} backHref="/couple/seating/print" />;
   }
   return (
     <>

@@ -56,7 +56,7 @@ describe("print data", () => {
     expect(data.rooms[0].items.map((i) => i.text).sort()).toEqual(["", "1", "Кумови"]);
     expect(data.cards.map((c) => c.title)).toEqual(["Маса 1", "Кумови"]);
     expect(data.cards[0].svg.startsWith("<svg")).toBe(true);
-    expect(data.qrTarget).toBe(`https://kadesum.mk/invite/${RUN}-slug`);
+    expect(data.qrTarget).toBe(`https://kadesum.mk/invite/${RUN}-slug#kade-sedam`);
   });
 
   it("couple: their own draft, not the confirmed layout", async () => {

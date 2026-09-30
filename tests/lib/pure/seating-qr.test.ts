@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { qrSvg, tableQrTarget } from "@/lib/seating/qr";
 
 describe("table QR codes", () => {
-  it("points at the public invitation until guests get personal pages", () => {
-    expect(tableQrTarget("https://kadesum.mk", "ana-marko")).toBe("https://kadesum.mk/invite/ana-marko");
-    expect(tableQrTarget("https://kadesum.mk/", "ana-marko")).toBe("https://kadesum.mk/invite/ana-marko");
+  it("opens the invitation at \"Каде седам?\" (Session 2's seat lookup)", () => {
+    expect(tableQrTarget("https://kadesum.mk", "ana-marko")).toBe("https://kadesum.mk/invite/ana-marko#kade-sedam");
+    expect(tableQrTarget("https://kadesum.mk/", "ana-marko")).toBe("https://kadesum.mk/invite/ana-marko#kade-sedam");
     expect(tableQrTarget("https://kadesum.mk", null)).toBe("https://kadesum.mk");
   });
 
