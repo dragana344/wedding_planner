@@ -303,8 +303,8 @@ export function ReservationsClient({
         </div>
         <div className="qb-toolbar">
           <div className="qb-field">
-            <label className="lab-s">Датум</label>
-            <input type="date" className="fld" value={date} onChange={(e) => setDate(e.target.value)} />
+            <label className="lab-s" htmlFor="qb-date">Датум</label>
+            <input id="qb-date" type="date" className="fld" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="qb-field qb-field-time">
             <label className="lab-s">Термин</label>
@@ -336,8 +336,9 @@ export function ReservationsClient({
             />
           </div>
           <div className="qb-field qb-field-narrow">
-            <label className="lab-s">Гости</label>
+            <label className="lab-s" htmlFor="qb-party-size">Гости</label>
             <input
+              id="qb-party-size"
               type="number"
               className="fld"
               min={1}

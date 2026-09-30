@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { IconSprite } from "@/components/venue/shell/IconSprite";
 import { LogoutButton } from "@/components/couple/LogoutButton";
+import { DrawerButton } from "@/components/venue/shell/DrawerButton";
+import { useDrawer } from "@/components/venue/shell/useDrawer";
 import { buildCoupleNavItems, matchCoupleNavItem } from "./nav";
 
 export function CoupleShell({
@@ -21,6 +23,7 @@ export function CoupleShell({
 }) {
   const pathname = usePathname();
   const [mini, setMini] = useState(false);
+  const { open: drawerOpen, toggle: toggleDrawer, close: closeDrawer, drawerRef, buttonRef } = useDrawer();
   const navItems = buildCoupleNavItems(rooms);
   const active = matchCoupleNavItem(pathname, navItems);
 
@@ -28,7 +31,7 @@ export function CoupleShell({
     <div className={`vp app${mini ? " mini" : ""}`}>
       <IconSprite />
 
-      <aside className="side">
+      <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
         <button
           className="side-toggle"
           type="button"
@@ -68,14 +71,17 @@ export function CoupleShell({
             </Link>
           ))}
         </nav>
-        <Link href="/privacy" target="_blank" style={{ display: "block", padding: "12px 20px", fontSize: 12.5, color: "var(--muted)" }}>
+        <Link href="/privacy" target="_blank" style={{ display: "block", padding: "12px 20px", fontSize: 12.5, color: "var(--side-text)" }}>
           Политика за приватност
         </Link>
       </aside>
 
+      {drawerOpen && <div className="scrim" onClick={closeDrawer} aria-hidden />}
+
       <div className="main">
         <header className="top">
           <div className="title-wrap">
+            <DrawerButton open={drawerOpen} onClick={toggleDrawer} buttonRef={buttonRef} />
             <div>
               <h1 className="page-title">{active.title}</h1>
               <p className="page-sub">{active.subtitle}</p>

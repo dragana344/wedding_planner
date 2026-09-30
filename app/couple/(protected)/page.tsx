@@ -68,7 +68,7 @@ export default async function CoupleDashboardPage() {
             </div>
           )}
           <div style={{ padding: "0 14px 14px" }}>
-            <Link href="/couple/agenda" style={{ color: "var(--gold-lo)", fontSize: 13.5 }}>
+            <Link href="/couple/agenda" style={{ color: "#8a6a22", fontSize: 13.5 }}>
               Погледни ги сите →
             </Link>
           </div>
@@ -100,7 +100,7 @@ export default async function CoupleDashboardPage() {
             </div>
           )}
           <div style={{ padding: "0 14px 14px" }}>
-            <Link href="/couple/checklist" style={{ color: "var(--gold-lo)", fontSize: 13.5 }}>
+            <Link href="/couple/checklist" style={{ color: "#8a6a22", fontSize: 13.5 }}>
               Погледни ги сите →
             </Link>
           </div>
