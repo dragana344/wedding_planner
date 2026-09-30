@@ -122,7 +122,8 @@ export function InvitationClient({
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <p className="lab-s" style={{ marginBottom: 8 }}>Изберете дизајн</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Inline grid, not the `grid` class: panel.css gives `.vp .grid` a 1010px min-width. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
           {INVITATION_TEMPLATES.map((template) => (
             <button
               key={template.id}
@@ -138,6 +139,7 @@ export function InvitationClient({
               }}
             >
               <p style={{ fontWeight: 700, margin: 0 }}>{template.name}</p>
+              {template.premium ? <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--gold-lo)" }}>Премиум</p> : null}
             </button>
           ))}
         </div>

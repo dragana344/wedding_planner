@@ -39,11 +39,11 @@ export function CountdownTimer({
   ];
 
   return (
-    <div style={{ display: "flex", gap: 18, justifyContent: "center", margin: "24px 0" }}>
+    <div style={{ display: "flex", gap: "clamp(6px, 2.5vw, 18px)", justifyContent: "center", margin: "28px 0 0" }}>
       {units.map((u, i) => (
-        <div key={u.label} style={{ textAlign: "center", display: "flex", alignItems: "center", gap: 18 }}>
+        <div key={u.label} style={{ textAlign: "center", display: "flex", alignItems: "center", gap: "clamp(6px, 2.5vw, 18px)" }}>
           <div>
-            <div style={{ fontFamily, fontSize: 30, fontWeight: 600, color, lineHeight: 1 }}>
+            <div style={{ fontFamily, fontStyle: "italic", fontSize: "clamp(24px, 8vw, 32px)", fontWeight: 500, color, lineHeight: 1, fontVariantNumeric: "tabular-nums lining-nums" }}>
               {u.value === null ? "--" : String(u.value).padStart(2, "0")}
             </div>
             <div style={{ fontFamily, fontSize: 11, letterSpacing: "0.1em", color, opacity: 0.75, marginTop: 4 }}>
@@ -64,4 +64,10 @@ export function formatMkDate(iso: string): string {
     "јули", "август", "септември", "октомври", "ноември", "декември",
   ];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** "сабота" for "2027-06-12". */
+export function formatMkWeekday(iso: string): string {
+  const days = ["недела", "понеделник", "вторник", "среда", "четврток", "петок", "сабота"];
+  return days[new Date(`${iso}T00:00:00`).getDay()];
 }

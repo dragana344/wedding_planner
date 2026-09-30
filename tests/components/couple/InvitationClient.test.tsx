@@ -25,6 +25,13 @@ function photoFetch(extra: (url: string) => unknown = () => undefined) {
 }
 
 describe("InvitationClient", () => {
+  it("marks the premium templates (A13)", () => {
+    render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" />);
+    const gold = screen.getByRole("button", { name: /Елегантен златен/ });
+    expect(gold).toHaveTextContent("Премиум");
+    expect(screen.getByRole("button", { name: /Класичен минималист/ })).not.toHaveTextContent("Премиум");
+  });
+
   it("lets the couple pick a template, add a message, and generate a link", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

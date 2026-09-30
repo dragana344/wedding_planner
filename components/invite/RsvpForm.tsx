@@ -44,6 +44,7 @@ export function RsvpForm({
   venueName,
   invitee,
   guestToken,
+  titleClassName = "font-display text-lg",
 }: {
   slug: string;
   accentColor: string;
@@ -52,6 +53,8 @@ export function RsvpForm({
   /** Set on a personal link (A1): the guest is known, so no name is asked. */
   invitee?: Invitee | null;
   guestToken?: string;
+  /** The invitation template's display face for the card title. */
+  titleClassName?: string;
 }) {
   const personal = Boolean(invitee && guestToken);
   const initialStatus = isAnswer(invitee?.rsvpStatus) ? invitee.rsvpStatus : null;
@@ -144,7 +147,7 @@ export function RsvpForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-8 space-y-5 text-left">
-      <p className="text-center font-display text-lg" style={{ color: accentColor }}>
+      <p className={`text-center ${titleClassName}`} style={{ color: accentColor, fontSize: 28, margin: 0 }}>
         Потврда за доаѓање
       </p>
 
