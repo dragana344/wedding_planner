@@ -36,7 +36,7 @@ export default async function CoupleDashboardPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" style={{ marginBottom: 16 }}>
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2" style={{ marginBottom: 16 }}>
         <section className="panel">
           <div className="panel-h">
             <h2 className="panel-t"><Icon name="cal-dot" size="sm" /> Агенда</h2>
