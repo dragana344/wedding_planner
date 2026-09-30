@@ -13,7 +13,7 @@ function req(auth?: string) {
 
 afterEach(() => {
   delete process.env.CRON_SECRET;
-  delete process.env.SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
 });
 
 describe("reminders cron (A10)", () => {
@@ -27,7 +27,7 @@ describe("reminders cron (A10)", () => {
 
   it("sends due reminders with links to the public site", async () => {
     process.env.CRON_SECRET = "s3cret";
-    process.env.SITE_URL = "https://kadesum.mk";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://kadesum.mk";
     const res = await GET(req("Bearer s3cret"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ events: 1, sent: 3, failed: 1 });

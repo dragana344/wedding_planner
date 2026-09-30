@@ -9,7 +9,7 @@ Provider: **Resend**, on a verified sending subdomain, e.g. `mail.<domain>`. Two
    - the guests' reminder, by default 15 days before at 10:00 Skopje, sent by the hourly cron `/api/cron/reminders` (A10, `lib/couple/reminders.ts`);
    - a note to the couple when a guest changes an earlier answer (A11, `lib/couple/rsvp.ts`).
 
-   Guest emails use Reply-To = the couple's contact email, and links point at `SITE_URL` (see SECRETS.md).
+   Guest emails use Reply-To = the couple's contact email, and links point at `NEXT_PUBLIC_SITE_URL` (see SECRETS.md).
 
 ## One-time setup
 

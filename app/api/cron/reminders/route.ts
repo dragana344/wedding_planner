@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const origin = process.env.SITE_URL || new URL(request.url).origin;
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
     const results = await runDueReminders(new Date(), origin);
     const summary = {
       events: results.length,

@@ -334,12 +334,12 @@ describe("sending invitations (A9)", () => {
     expect(res).toEqual({ status: 200, body: { sent: 1, skipped: 0, failed: 0 } });
     expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "http://localhost", null);
 
-    process.env.SITE_URL = "https://kadesum.mk";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://kadesum.mk";
     try {
       await call(guestsEmailRoute.POST, req("POST", { guest_ids: [ID] }));
       expect(sending.sendInvitationEmails).toHaveBeenLastCalledWith(EVENT, [ID], "https://kadesum.mk", null);
     } finally {
-      delete process.env.SITE_URL;
+      delete process.env.NEXT_PUBLIC_SITE_URL;
     }
     expect((await call(guestsEmailRoute.POST, req("POST", { guest_ids: Array(201).fill(ID) }))).status).toBe(400);
   });
