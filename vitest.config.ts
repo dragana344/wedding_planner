@@ -15,6 +15,7 @@ export const unitTestFiles = [
   "tests/lib/security/**/*.test.ts",
   "tests/lib/date.test.ts",
   "tests/lib/pure/**/*.test.ts",
+  "tests/lib/admin/**/*.test.ts",
 ];
 
 export default defineConfig({

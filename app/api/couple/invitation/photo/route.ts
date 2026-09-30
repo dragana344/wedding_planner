@@ -14,5 +14,5 @@ export const POST = withCoupleEvent(
     if (!limit.ok) return rateLimitedResponse(limit);
     return NextResponse.json(await createInvitationPhotoUpload(eventId));
   },
-  { fallbackError: "Не успеа прикачувањето на фотографијата." },
+  { feature: "invitation_photo", fallbackError: "Не успеа прикачувањето на фотографијата." },
 );

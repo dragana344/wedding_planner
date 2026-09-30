@@ -10,7 +10,7 @@ export const GET = withCoupleEvent(
     const stats = computeChecklistStats(items);
     return NextResponse.json({ items, stats });
   },
-  { fallbackError: "Не успеа вчитувањето на чеклистата." },
+  { feature: "checklist", fallbackError: "Не успеа вчитувањето на чеклистата." },
 );
 
 export const POST = withCoupleEvent(
@@ -18,5 +18,5 @@ export const POST = withCoupleEvent(
     const created = await addChecklistItem(eventId, { title: body.title, due_date: body.due_date || null });
     return NextResponse.json(created);
   },
-  { body: checklistCreateBody, fallbackError: "Не успеа додавањето на задачата." },
+  { feature: "checklist", body: checklistCreateBody, fallbackError: "Не успеа додавањето на задачата." },
 );

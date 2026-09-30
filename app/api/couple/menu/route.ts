@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { withCoupleEvent } from "@/lib/api/handler";
 import { menuSelectionBody } from "@/lib/api/schemas";
 import { setEventMenuSelection } from "@/lib/couple/menu";
+import { eventHasFeature } from "@/lib/entitlements/server";
+import { LOCKED_MESSAGE } from "@/lib/entitlements/features";
 
 export const PATCH = withCoupleEvent(
   async ({ eventId, body }) => {
@@ -11,6 +13,9 @@ export const PATCH = withCoupleEvent(
     if (body.mode === "template") {
       await setEventMenuSelection(eventId, { mode: "template", menuTemplateId: body.menu_template_id });
     } else {
+      if (!(await eventHasFeature(eventId, "custom_menu"))) {
+        return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 403 });
+      }
       await setEventMenuSelection(eventId, { mode: "custom", menuItemIds: body.menu_item_ids ?? [] });
     }
     return NextResponse.json({ ok: true });

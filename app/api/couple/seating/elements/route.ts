@@ -16,7 +16,7 @@ export const GET = withCoupleEvent(
     ]);
     return NextResponse.json({ fixedElements, layoutElements });
   },
-  { fallbackError: "Не успеа вчитувањето на распоредот." },
+  { feature: "seating", fallbackError: "Не успеа вчитувањето на распоредот." },
 );
 
 export const POST = withCoupleEvent(
@@ -37,5 +37,5 @@ export const POST = withCoupleEvent(
     });
     return NextResponse.json(created);
   },
-  { body: seatingElementCreateBody, fallbackError: "Не успеа додавањето на елементот." },
+  { feature: "seating", body: seatingElementCreateBody, fallbackError: "Не успеа додавањето на елементот." },
 );

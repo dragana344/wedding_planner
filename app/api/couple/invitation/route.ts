@@ -6,7 +6,7 @@ import { getInvitation, upsertInvitation } from "@/lib/couple/invitations";
 
 export const GET = withCoupleEvent(
   async ({ eventId }) => NextResponse.json(await getInvitation(eventId)),
-  { fallbackError: "Не успеа вчитувањето на поканата." },
+  { feature: "invitation", fallbackError: "Не успеа вчитувањето на поканата." },
 );
 
 export const PUT = withCoupleEvent(
@@ -14,5 +14,5 @@ export const PUT = withCoupleEvent(
     const saved = await upsertInvitation(eventId, { template_id: body.template_id, message: body.message || null });
     return NextResponse.json(saved);
   },
-  { body: invitationBody, fallbackError: "Не успеа зачувувањето на поканата." },
+  { feature: "invitation", body: invitationBody, fallbackError: "Не успеа зачувувањето на поканата." },
 );

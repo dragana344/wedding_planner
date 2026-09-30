@@ -7,6 +7,7 @@ import { confirmInvitationPhotoUpload } from "@/lib/couple/invitations";
 export const POST = withCoupleEvent(
   async ({ eventId, body }) => NextResponse.json({ photo_path: await confirmInvitationPhotoUpload(eventId, body.path) }),
   {
+    feature: "invitation_photo",
     body: z.object({ path: z.string().min(1).max(200) }),
     fallbackError: "Не успеа прикачувањето на фотографијата.",
   },

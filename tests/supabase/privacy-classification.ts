@@ -21,7 +21,7 @@ const N = "none" as const;
 
 export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> = {
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N },
-  contact_submissions: { id: N, name: P, email: P, message: P, created_at: C },
+  contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N },
   event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, sort_order: N, created_at: N },
   event_budget_items: { id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N },
@@ -29,6 +29,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_checklist_subtasks: { id: N, checklist_item_id: N, title: P, is_done: N, created_at: N },
   event_credentials: { event_id: N, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N },
   event_custom_menu_items: { event_id: N, menu_item_id: C },
+  event_feature_overrides: {
+    event_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,
+  },
   event_guests: {
     id: N, event_id: N, full_name: P, phone: P, party_size: C, rsvp_status: C, notes: P, created_at: N, side: P,
     rsvp_changed_via_link_at: C, rsvp_previous_status: C,
@@ -55,6 +58,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   menu_template_items: { menu_template_id: N, menu_item_id: N },
   menu_templates: { id: N, venue_id: N, name: N, description: N, created_at: N },
+  plan_features: { plan_id: N, feature_key: N, enabled: N, limit_value: N },
+  plans: { id: N, name: N, description: N, sort_order: N, is_default: N, is_public: N, created_at: N },
+  platform_settings: { id: N, maintenance_mode: N, updated_at: N, updated_by: N },
   rate_limits: { key: N, window_start: N, hits: N },
   reservation_tables: { reservation_id: N, layout_element_id: N, span: N, active: N },
   reservations: {
@@ -71,6 +77,12 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N },
   storage_cleanup_queue: { id: N, bucket: N, path: N, queued_at: N },
   table_types: { id: N, room_id: N, name: N, shape: N, seats: N, width_cm: N, length_cm: N, quantity: N, created_at: N },
+  venue_feature_overrides: {
+    venue_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,
+  },
   venue_staff: { user_id: P, venue_id: N },
-  venues: { id: N, name: P, created_at: N, layout_lock_password_hash: S, terms_version: N, terms_accepted_at: N },
+  venues: {
+    id: N, name: P, created_at: N, layout_lock_password_hash: S, terms_version: N, terms_accepted_at: N,
+    plan_id: N, blocked_at: N, blocked_reason: C,
+  },
 };

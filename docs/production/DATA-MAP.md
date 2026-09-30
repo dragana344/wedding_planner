@@ -205,22 +205,30 @@ Created in `0016_reservations.sql`. Policies replaced in `0017_reservations_room
 - **Retention:** none defined, see DATA-007.
 
 ### 2.12 `contact_submissions`
-Created in `0029_contact_submissions.sql`.
+Created in `0029_contact_submissions.sql`. Columns `status` (`new`/`read`/`answered`) and `handled_at` added in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1) — triage state, not personal data.
 
 | Field | Personal? |
 |---|---|
 | `name`, `email`, `message`, `created_at` | **Yes** |
+| `status`, `handled_at` | No — the admin's own triage state for the row |
 
 - **Subject:** contact-form sender.
 - **Purpose:** answering sales enquiries about the platform.
 - **Lawful basis:** legitimate interest / pre-contract steps at the sender's request (*to confirm in COMP-001*).
-- **Access:** insert only. The public, unauthenticated `POST /api/venue/contact` calls `submitContactMessage` (`lib/venue/contact.ts`), which uses the service role. There is **no anon grant or RLS policy**: anonymous visitors write only through that server route. Nothing in the app reads the table. It is read manually by the platform operator with SQL (Supabase dashboard).
+- **Access:** insert via the public, unauthenticated `POST /api/venue/contact` (`submitContactMessage`, `lib/venue/contact.ts`, service role; no anon grant or RLS policy — anonymous visitors write only through that server route). Read and `status`/`handled_at` updates via the admin **Контакт пораки** page (`lib/admin/message-actions-core.ts`, also service role only).
 - **Retention:** none defined, see DATA-007. Nothing ever deletes these rows.
 
 ### 2.13 Tables with no personal data (checked)
 `rooms`, `table_types` (0001), `menu_templates`, `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_custom_menu_items` (0013), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
 
-### 2.14 Historic (removed, not in the final schema)
+### 2.14 Entitlements: `plans`, `plan_features`, `venue_feature_overrides`, `event_feature_overrides`, `platform_settings`, and `venues.plan_id`/`blocked_at`/`blocked_reason`
+`plans`/`plan_features`/`venue_feature_overrides`/`event_feature_overrides`/`venues.plan_id`/`blocked_at`/`blocked_reason` created in `0048_plans_and_entitlements.sql`; `plans.is_public` added in `0052_plans_is_public.sql`; `platform_settings` created in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1 — the DB half of the maintenance-mode flag, `lib/platform-settings.ts`; `updated_by` is an `auth.users.id`, no direct personal-data column). See [ADMIN.md](ADMIN.md) for the resolution order and the plans/overrides model in full.
+
+- **Subject:** none — this is platform configuration (which features a venue's plan unlocks; whether the site is in maintenance), not venue/couple/guest data. The one exception is free text: `venue_feature_overrides.note`, `event_feature_overrides.note`, and `venues.blocked_reason` are the **platform admin's own** justification for an override or a block, not authored by or belonging to the venue.
+- **Access:** service role only (`effective_features`, `event_has_feature`, `venue_has_feature`, `feature_limit`, and `platform_settings` reads/writes from `lib/platform-settings.ts`/the admin System page); RLS is on with no policies, no `anon`/`authenticated` table grants on any of these tables.
+- **Export/retention:** the admin's override/block notes above are **not** included in the venue's own data export (`lib/privacy/export.ts`; see `NOT_EXPORTED` in `tests/supabase/privacy_guard.test.ts`) — they're the platform's record about the venue, not the venue's record. `plans`/`plan_features`/`platform_settings` hold no personal data at all. No retention mechanism defined; not applicable (no personal subject).
+
+### 2.15 Historic (removed, not in the final schema)
 - `events.couple_user_id` (0003) was dropped in `0010_event_organizers.sql`. Its values moved to `event_organizers`.
 - `event_organizers` (`event_id`, `user_id` to `auth.users`) was created in `0010`, got an RLS fix in `0011_fix_event_organizers_rls_recursion.sql`, and was **dropped** in `0013_couple_dashboard.sql` together with `is_organizer_for_event()`. Couples no longer have Supabase Auth accounts. Any `auth.users` rows created for organizers before 0013 are **not** removed by the migration. Check production for orphans (DATA-005).
 

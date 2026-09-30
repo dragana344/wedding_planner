@@ -45,6 +45,15 @@ vi.mock("@/lib/couple/rsvp", () => rsvp);
 const contact = vi.hoisted(() => ({ submitContactMessage: vi.fn(async () => undefined) }));
 vi.mock("@/lib/venue/contact", () => contact);
 
+// The feature gate (lib/api/handler.ts) checks entitlement before calling a
+// gated route's handler, after params/body validation. Every route case
+// below is exercised for validation only and never reaches it, except the
+// one legitimate POST /api/couple/seating/elements case, so this always
+// resolves enabled (the default-plan behaviour this suite otherwise assumes
+// by never mocking entitlements at all).
+const entitlements = vi.hoisted(() => ({ eventHasFeature: vi.fn(async () => true) }));
+vi.mock("@/lib/entitlements/server", () => entitlements);
+
 import * as quantitiesRoute from "@/app/api/couple/menu/quantities/route";
 import * as menuRoute from "@/app/api/couple/menu/route";
 import * as elementsRoute from "@/app/api/couple/seating/elements/route";

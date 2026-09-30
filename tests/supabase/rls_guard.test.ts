@@ -42,6 +42,11 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "contact_submissions",
   "rate_limits",
   "storage_cleanup_queue",
+  "plans",
+  "plan_features",
+  "venue_feature_overrides",
+  "event_feature_overrides",
+  "platform_settings",
 ];
 
 let db: Client;

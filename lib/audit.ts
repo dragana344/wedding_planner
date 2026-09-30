@@ -8,7 +8,7 @@ import { errorFields, log } from "@/lib/log";
 
 export type AuditEntry = {
   action: string;
-  actorType: "staff" | "couple" | "guest" | "system";
+  actorType: "staff" | "couple" | "guest" | "system" | "admin";
   actorId?: string | null;
   venueId?: string | null;
   eventId?: string | null;

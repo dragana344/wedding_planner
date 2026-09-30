@@ -15,7 +15,7 @@ export const PATCH = withCoupleEvent(
     });
     return NextResponse.json(updated);
   },
-  { params: idParams, body: agendaUpdateBody, fallbackError: "Не успеа ажурирањето на ставката." },
+  { feature: "agenda", params: idParams, body: agendaUpdateBody, fallbackError: "Не успеа ажурирањето на ставката." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -23,5 +23,5 @@ export const DELETE = withCoupleEvent(
     await deleteAgendaItem(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на ставката." },
+  { feature: "agenda", params: idParams, fallbackError: "Не успеа бришењето на ставката." },
 );

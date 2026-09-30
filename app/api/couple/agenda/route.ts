@@ -5,7 +5,7 @@ import { listAgendaItems, addAgendaItem } from "@/lib/couple/agenda";
 
 export const GET = withCoupleEvent(
   async ({ eventId }) => NextResponse.json(await listAgendaItems(eventId)),
-  { fallbackError: "Не успеа вчитувањето на агендата." },
+  { feature: "agenda", fallbackError: "Не успеа вчитувањето на агендата." },
 );
 
 export const POST = withCoupleEvent(
@@ -13,5 +13,5 @@ export const POST = withCoupleEvent(
     const created = await addAgendaItem(eventId, { time: body.time || null, title: body.title, notes: body.notes || null });
     return NextResponse.json(created);
   },
-  { body: agendaCreateBody, fallbackError: "Не успеа додавањето на ставката." },
+  { feature: "agenda", body: agendaCreateBody, fallbackError: "Не успеа додавањето на ставката." },
 );

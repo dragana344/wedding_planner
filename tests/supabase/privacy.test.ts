@@ -259,6 +259,42 @@ describe("event erasure (DATA-005)", () => {
   it("returns false for an unknown event", async () => {
     expect(await eraseEventPersonalData(randomUUID())).toBe(false);
   });
+
+  it("succeeds when seating is locked and a layout element carries a label (critical fix, migration 0049)", async () => {
+    // Before 0049 added the "only-nulled" skip, this failed: erasure's own
+    // `update event_layout_elements set label = null ...` (0043) tripped the
+    // seating-lock entitlement check and aborted the whole erasure.
+    const plan = await must(admin.from("plans").insert({ name: `Locked seating ${stamp}` }).select("id").single());
+    // A feature_key absent from plan_features resolves disabled with limit 0
+    // (Task 2.2's controller ruling), not unlimited — so max_active_events
+    // must be explicitly enabled or the trigger refuses this fixture's own
+    // event insert below (0 active events already >= a limit of 0).
+    await must(admin.from("plan_features").insert({ plan_id: plan.id, feature_key: "max_active_events", enabled: true }));
+    const v = await newVenue("LS");
+    await must(admin.from("venues").update({ plan_id: plan.id }).eq("id", v.venueId));
+    const event = await must(
+      admin.from("events").insert({ venue_id: v.venueId, couple_names: `Locked ${stamp}`, event_date: "2027-06-01" }).select("id").single(),
+    );
+    // Unlock seating just long enough to create the labelled layout element,
+    // as a couple would have while the feature was still enabled, then lock
+    // it again before erasing.
+    await must(admin.from("plan_features").insert({ plan_id: plan.id, feature_key: "seating", enabled: true }));
+    const el = await must(
+      admin
+        .from("event_layout_elements")
+        .insert({ event_id: event.id, room_id: v.roomId, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100, label: `Table ${stamp}` })
+        .select("id")
+        .single(),
+    );
+    await must(admin.from("plan_features").update({ enabled: false }).eq("plan_id", plan.id).eq("feature_key", "seating"));
+
+    expect(await eraseEventPersonalData(event.id)).toBe(true);
+    const after = await must(admin.from("event_layout_elements").select("label").eq("id", el.id).single());
+    expect(after.label).toBeNull();
+
+    await admin.from("venues").delete().eq("id", v.venueId);
+    await admin.from("plans").delete().eq("id", plan.id);
+  });
 });
 
 describe("venue account deletion (DATA-005)", () => {
@@ -346,6 +382,42 @@ describe("retention purge mechanism (DATA-007)", () => {
     // Already-erased events are skipped on the next run.
     const again = await must(admin.rpc("purge_expired_personal_data", { p_guest_data_months: 1200, p_contact_months: 1200 }));
     expect(again).toEqual({ events_erased: 0, contact_submissions_deleted: 0 });
+  });
+
+  it("erases an event via the retention sweep even when seating is locked (critical fix, migration 0049)", async () => {
+    const plan = await must(admin.from("plans").insert({ name: `Locked seating retention ${stamp}` }).select("id").single());
+    // Same reason as the erasure test above: max_active_events must be
+    // explicit or this fixture's own event insert is refused.
+    await must(admin.from("plan_features").insert({ plan_id: plan.id, feature_key: "max_active_events", enabled: true }));
+    const v = await newVenue("LR");
+    await must(admin.from("venues").update({ plan_id: plan.id }).eq("id", v.venueId));
+    const event = await must(
+      admin.from("events").insert({ venue_id: v.venueId, couple_names: `Locked retention ${stamp}`, event_date: "1921-05-01" }).select("id").single(),
+    );
+    await must(admin.from("plan_features").insert({ plan_id: plan.id, feature_key: "seating", enabled: true }));
+    const el = await must(
+      admin
+        .from("event_layout_elements")
+        .insert({ event_id: event.id, room_id: v.roomId, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100, label: `Table ${stamp}` })
+        .select("id")
+        .single(),
+    );
+    await must(admin.from("plan_features").update({ enabled: false }).eq("plan_id", plan.id).eq("feature_key", "seating"));
+
+    // >=1, not ===1: this sweep runs against the whole shared database (same
+    // as the ancient/recent test above), so it may also catch other
+    // deliberately 100+-year-old fixtures. What matters here is this event
+    // specifically got through the lock unharmed.
+    const result = await must(admin.rpc("purge_expired_personal_data", { p_guest_data_months: 1200, p_contact_months: 1200 }));
+    expect((result as { events_erased: number }).events_erased).toBeGreaterThanOrEqual(1);
+
+    const after = await must(admin.from("event_layout_elements").select("label").eq("id", el.id).single());
+    expect(after.label).toBeNull();
+    const erasedEvent = await must(admin.from("events").select("personal_data_erased_at").eq("id", event.id).single());
+    expect(erasedEvent.personal_data_erased_at).not.toBeNull();
+
+    await admin.from("venues").delete().eq("id", v.venueId);
+    await admin.from("plans").delete().eq("id", plan.id);
   });
 
   it("rejects missing or non-positive periods", async () => {

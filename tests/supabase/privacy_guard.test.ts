@@ -13,6 +13,8 @@ const NOT_EXPORTED: Record<string, string> = {
   contact_submissions: "platform sales enquiries, not venue data; handled by the retention purge (DATA-007)",
   couple_sessions: "session secrets only",
   audit_log: "append-only security trail; holds user ids, never names or contact data",
+  venue_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
+  event_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
 };
 
 let db: Client;

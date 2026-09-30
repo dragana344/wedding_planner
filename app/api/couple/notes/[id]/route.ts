@@ -9,7 +9,7 @@ export const PATCH = withCoupleEvent(
     const updated = await updateNote(eventId, params.id, { title: body.title || null, content: body.content ?? "" });
     return NextResponse.json(updated);
   },
-  { params: idParams, body: noteBody, fallbackError: "Не успеа зачувувањето на белешката." },
+  { feature: "notes", params: idParams, body: noteBody, fallbackError: "Не успеа зачувувањето на белешката." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -17,5 +17,5 @@ export const DELETE = withCoupleEvent(
     await deleteNote(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на белешката." },
+  { feature: "notes", params: idParams, fallbackError: "Не успеа бришењето на белешката." },
 );

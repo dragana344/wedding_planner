@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withCoupleEvent, withPublic, errorResponse } from "@/lib/api/handler";
+import { LOCKED_MESSAGE } from "@/lib/entitlements/features";
 
 function req(opts: { eventId?: string; body?: string; method?: string } = {}) {
   const headers = new Headers({ "content-type": "application/json" });
@@ -25,6 +26,26 @@ describe("errorResponse", () => {
 
   it("uses the fallback for non-Error values", async () => {
     expect(await read(errorResponse("nope", "fallback"))).toEqual({ status: 400, body: { error: "fallback" } });
+  });
+
+  // Entitlement triggers (migration 0049) raise SQLSTATE P0001 for both the
+  // locked-feature message and every limit refusal; other, pre-existing
+  // functions also raise P0001 with internal-only text (SEC-003), so only
+  // messages matching ours may pass through.
+  it("treats a P0001 error with our exact locked-feature message as user-facing", async () => {
+    const err = Object.assign(new Error(LOCKED_MESSAGE), { code: "P0001" });
+    expect(await read(errorResponse(err, "fallback"))).toEqual({ status: 400, body: { error: LOCKED_MESSAGE } });
+  });
+
+  it("treats a P0001 error with a limit refusal message as user-facing", async () => {
+    const message = "Достигнат е лимитот од 2 гости за овој настан.";
+    const err = Object.assign(new Error(message), { code: "P0001" });
+    expect(await read(errorResponse(err, "fallback"))).toEqual({ status: 400, body: { error: message } });
+  });
+
+  it("hides an unrelated P0001 error (e.g. the audit log's append-only guard) behind the fallback", async () => {
+    const err = Object.assign(new Error("audit_log is append-only"), { code: "P0001" });
+    expect(await read(errorResponse(err, "fallback"))).toEqual({ status: 400, body: { error: "fallback" } });
   });
 });
 

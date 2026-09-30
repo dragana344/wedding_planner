@@ -6,15 +6,16 @@
 
 **Architecture:** Same Next.js 16 app and Vercel project. `proxy.ts` rewrites every request on an `admin.` host to `app/admin/*` and 404s `/admin` elsewhere. Admin = Supabase Auth user with `app_metadata.role = "platform_admin"` and mandatory TOTP, checked by one `requireAdmin()` guard used by every admin page and Server Action. Entitlements live in Postgres (`plans`, `plan_features`, per-venue and per-event overrides) resolved by one SQL function and enforced by triggers, the couple API wrapper, and lock UI.
 
-**Tech Stack:** Next.js 16.3 (App Router, Server Actions, `proxy.ts`), React 19, TypeScript, Supabase (Postgres 17, Auth with TOTP MFA, supabase-js 2.112, @supabase/ssr 0.12), zod 4, Vitest 1.6 (unit + DB suites), Playwright.
+**Tech Stack:** Next.js 16.3 (App Router, Server Actions, `proxy.ts`), React 19, TypeScript, Supabase (Postgres 17, Auth with TOTP MFA, supabase-js 2.112, @supabase/ssr 0.12), zod 4, Vitest 5 (unit + DB suites), Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-09-29-admin-dashboard-design.md`
 
 ## Global Constraints
 
+- `LOCAL_DB=postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Node 22 for every command: prefix with `export PATH=/opt/homebrew/opt/node@22/bin:$PATH;`.
 - **Never run `git commit`.** Each task's last step lists the commit commands for the user; no `Co-Authored-By` line (user memory).
-- New migrations are numbered from `0047` upward, one file per task that needs one; apply locally with `npx supabase migration up --local`; never edit an existing migration.
+- New migrations are numbered from `0047` upward, one file per task that needs one; apply locally with psql (see Session 1 context below); never edit an existing migration.
 - Privileges are explicit (since 0031): new tables `enable row level security`, `revoke all … from anon, authenticated`, `grant … to service_role`; every new function `revoke all … from public, anon, authenticated` and grant only to the callers; `security definer` functions `set search_path = public, extensions, pg_temp`.
 - Every new public table is classified in `tests/supabase/rls_guard.test.ts` (STAFF_TABLES or SERVICE_ROLE_ONLY_TABLES) and every new column in `tests/supabase/privacy-classification.ts`.
 - Server modules using the service-role client start with `import "server-only";`.
@@ -22,6 +23,8 @@
 - Admin code (`app/admin/**`, `lib/admin/**`) never references these tables: `event_guests`, `event_notes`, `event_budget_items`, `event_checklist_items`, `event_checklist_subtasks`, `event_agenda_items`, `event_locations`, `event_invitations`, `event_custom_menu_items`, `event_menu_item_quantities`, `couple_sessions`, `event_credentials` (except through the `regenerate_event_password` RPC and the lockout reset RPC defined here), and never selects `reservations.guest_name/phone/email/note` or `events.contact_email/contact_email_2/contact_phone` (spec D2).
 - Gates for every task: `npm run typecheck`, `npm run lint`, `npm run test:unit`, and for DB work `npx vitest run -c vitest.db.config.ts <files>`; the last task of each phase runs the full `npm run test:db` and `npx playwright test`.
 - Existing behaviour must not change for existing venues: the default plan unlocks every feature with unlimited limits.
+- **Session 1 context (docs/MASTER.md, docs/sessions/SESSION-1-admin.md):** work in the worktree `/Users/filipmicevski/Desktop/wedding_planner-s1` (branch `s1-admin`). Three other sessions work in parallel in their own worktrees and share the local Supabase. **Apply migrations with `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/migrations/<file>.sql`** (not `supabase migration up`, which refuses to run when the shared DB holds other sessions' migrations, and never `supabase db reset`). Each migration is applied once; write them so a failed half-apply is impossible (they run in one psql call; wrap the body in `begin; … commit;`). Playwright runs with `E2E_PORT=3201`. DB-wide guard tests (`rls_guard`, `privileges`, `privacy_guard`, drift checks) enumerate every table/function in the shared DB, so they may fail only because of objects created by sessions 2–4 (e.g. `event_seat_assignments`, `event_photos`, `event_greetings`, `event_co_organizers`, `event_reminders`, anything from migrations 0060–0089): that is expected — report it, don't classify or touch other sessions' objects. A failure on an object from 0001–0059 is real. This session's migration numbers are 0047–0059 only. The default plan keeps `storage_gb` = 5 and `photo_retention_days` = 15 (the only limits it sets).
+- The feature catalogue has 26 keys (17 original + `photo_album`, `guest_greetings`, `video_greetings`, `reminders`, `personal_invite_links`, `print_qr`, `storage_gb`, `photo_retention_days`, `co_organizers`, all scope `event`). No trigger enforces the 9 new keys in this plan; sessions 2–4 gate their own routes with `feature:`.
 
 ## Review Focus
 
@@ -354,7 +357,7 @@ In `lib/audit.ts` change the union to `actorType: "staff" | "couple" | "guest" |
 
 - [ ] **Step 4: Apply and test**
 
-Run: `npx supabase migration up --local && npx vitest run -c vitest.db.config.ts tests/supabase/admin_foundation.test.ts tests/supabase/privileges.test.ts tests/supabase/audit_log.test.ts`
+Run: `psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f <this task's migration> && npx vitest run -c vitest.db.config.ts tests/supabase/admin_foundation.test.ts tests/supabase/privileges.test.ts tests/supabase/audit_log.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit (user runs)**
@@ -661,6 +664,8 @@ function files(dir: string): string[] {
 const adminFiles = [...files("app/admin"), ...files("lib/admin"), ...files("components/admin")];
 
 const PRIVATE_TABLES = [
+  // Tables owned by sessions 2–4 (MASTER §7) are private too.
+  "event_seat_assignments", "event_photos", "event_greetings", "event_co_organizers", "event_reminders",
   "event_guests", "event_notes", "event_budget_items", "event_checklist_items", "event_checklist_subtasks",
   "event_agenda_items", "event_locations", "event_invitations", "event_custom_menu_items",
   "event_menu_item_quantities", "couple_sessions", "event_credentials",
@@ -980,7 +985,9 @@ export type FeatureKind = "switch" | "limit";
 export type FeatureKey =
   | "invitation" | "invitation_all_templates" | "invitation_photo" | "seating" | "custom_menu"
   | "budget" | "checklist" | "agenda" | "locations" | "notes" | "max_guests"
-  | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports";
+  | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports"
+  | "photo_album" | "guest_greetings" | "video_greetings" | "reminders" | "personal_invite_links" | "print_qr"
+  | "storage_gb" | "photo_retention_days" | "co_organizers";
 export type FeatureDef = { key: FeatureKey; label: string; scope: FeatureScope; kind: FeatureKind };
 export const FEATURES: readonly FeatureDef[];
 export const FEATURE_KEYS: readonly FeatureKey[];
@@ -1000,9 +1007,9 @@ import { FEATURES, FEATURE_KEYS, featureDef, BASIC_TEMPLATE_IDS } from "@/lib/en
 import { INVITATION_TEMPLATES } from "@/lib/couple/invitation-templates";
 
 describe("feature catalogue (spec §4.1)", () => {
-  it("has the 17 features with unique keys and Macedonian labels", () => {
-    expect(FEATURE_KEYS).toHaveLength(17);
-    expect(new Set(FEATURE_KEYS).size).toBe(17);
+  it("has the 26 features with unique keys and Macedonian labels", () => {
+    expect(FEATURE_KEYS).toHaveLength(26);
+    expect(new Set(FEATURE_KEYS).size).toBe(26);
     for (const f of FEATURES) expect(f.label.length).toBeGreaterThan(2);
     expect(featureDef("max_guests")).toMatchObject({ scope: "event", kind: "limit" });
     expect(featureDef("reservations")).toMatchObject({ scope: "venue", kind: "switch" });
@@ -1035,7 +1042,9 @@ export type FeatureKind = "switch" | "limit";
 export type FeatureKey =
   | "invitation" | "invitation_all_templates" | "invitation_photo" | "seating" | "custom_menu"
   | "budget" | "checklist" | "agenda" | "locations" | "notes" | "max_guests"
-  | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports";
+  | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports"
+  | "photo_album" | "guest_greetings" | "video_greetings" | "reminders" | "personal_invite_links" | "print_qr"
+  | "storage_gb" | "photo_retention_days" | "co_organizers";
 
 export type FeatureDef = { key: FeatureKey; label: string; scope: FeatureScope; kind: FeatureKind };
 
@@ -1057,6 +1066,15 @@ export const FEATURES: readonly FeatureDef[] = [
   { key: "max_rooms", label: "Максимален број простории", scope: "venue", kind: "limit" },
   { key: "max_active_events", label: "Максимален број активни настани", scope: "venue", kind: "limit" },
   { key: "reports", label: "Извештаи", scope: "venue", kind: "switch" },
+  { key: "photo_album", label: "Албум со фотографии од гостите", scope: "event", kind: "switch" },
+  { key: "guest_greetings", label: "Честитки од гостите", scope: "event", kind: "switch" },
+  { key: "video_greetings", label: "Видео честитки", scope: "event", kind: "switch" },
+  { key: "reminders", label: "Потсетници до гостите", scope: "event", kind: "switch" },
+  { key: "personal_invite_links", label: "Персонални линкови за покана", scope: "event", kind: "switch" },
+  { key: "print_qr", label: "Печатење QR кодови", scope: "event", kind: "switch" },
+  { key: "storage_gb", label: "Простор за фотографии (GB)", scope: "event", kind: "limit" },
+  { key: "photo_retention_days", label: "Чување на фотографии (денови)", scope: "event", kind: "limit" },
+  { key: "co_organizers", label: "Дополнителни организатори", scope: "event", kind: "limit" },
 ];
 
 export const FEATURE_KEYS: readonly FeatureKey[] = FEATURES.map((f) => f.key);
@@ -1073,7 +1091,7 @@ export const LOCKED_MESSAGE = "Оваа функција не е вклучен�
 export const BASIC_TEMPLATE_IDS: readonly string[] = INVITATION_TEMPLATES.slice(0, 2).map((t) => t.id);
 ```
 
-- [ ] **Step 4: Run** `npx vitest run tests/lib/pure/features.test.ts -t "17 features|basic"` — Expected: PASS (the migration test passes after Task 2.2).
+- [ ] **Step 4: Run** `npx vitest run tests/lib/pure/features.test.ts -t "26 features|basic"` — Expected: PASS (the migration test passes after Task 2.2).
 
 - [ ] **Step 5: Commit (user runs)**
 ```bash
@@ -1135,7 +1153,7 @@ describe("effective_features (spec §4.3)", () => {
     expect(f.seating).toEqual({ enabled: false, limit: null });
     expect(f.max_guests).toEqual({ enabled: true, limit: 150 });
     expect(f.budget).toEqual({ enabled: false, limit: 0 });
-    expect(Object.keys(f)).toHaveLength(17);
+    expect(Object.keys(f)).toHaveLength(26);
   });
 
   it("applies a venue override over the plan", async () => {
@@ -1170,6 +1188,8 @@ describe("effective_features (spec §4.3)", () => {
     const f = await resolved(fresh as string, null);
     for (const [k, r] of Object.entries(f)) expect(r.enabled, k).toBe(true);
     expect(f.max_rooms.limit).toBeNull();
+    expect(f.storage_gb.limit).toBe(5);
+    expect(f.photo_retention_days.limit).toBe(15);
   });
 
   it("refuses an unknown feature key", async () => {
@@ -1205,7 +1225,9 @@ create table public.plan_features (
   feature_key text not null check (feature_key in (
     'invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
     'budget','checklist','agenda','locations','notes','max_guests',
-    'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports')),
+    'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports',
+    'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+    'storage_gb','photo_retention_days','co_organizers')),
   enabled boolean not null,
   limit_value integer check (limit_value is null or limit_value >= 0),
   primary key (plan_id, feature_key)
@@ -1216,7 +1238,9 @@ create table public.venue_feature_overrides (
   feature_key text not null check (feature_key in (
     'invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
     'budget','checklist','agenda','locations','notes','max_guests',
-    'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports')),
+    'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports',
+    'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+    'storage_gb','photo_retention_days','co_organizers')),
   enabled boolean,
   limit_override boolean not null default false,
   limit_value integer check (limit_value is null or limit_value >= 0),
@@ -1230,7 +1254,9 @@ create table public.event_feature_overrides (
   event_id uuid not null references public.events(id) on delete cascade,
   feature_key text not null check (feature_key in (
     'invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
-    'budget','checklist','agenda','locations','notes','max_guests')),
+    'budget','checklist','agenda','locations','notes','max_guests',
+    'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+    'storage_gb','photo_retention_days','co_organizers')),
   enabled boolean,
   limit_override boolean not null default false,
   limit_value integer check (limit_value is null or limit_value >= 0),
@@ -1254,11 +1280,13 @@ grant all on public.plans, public.plan_features, public.venue_feature_overrides,
 insert into public.plans (name, description, sort_order, is_default)
 values ('Стандарден', 'Сите функции отклучени, без лимити.', 0, true);
 insert into public.plan_features (plan_id, feature_key, enabled, limit_value)
-select p.id, k, true, null
+select p.id, k, true, case k when 'storage_gb' then 5 when 'photo_retention_days' then 15 else null end
 from public.plans p,
      unnest(array['invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
                   'budget','checklist','agenda','locations','notes','max_guests',
-                  'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports']) as k
+                  'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports',
+                  'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+                  'storage_gb','photo_retention_days','co_organizers']) as k
 where p.is_default;
 
 alter table public.venues add column plan_id uuid references public.plans(id) on delete restrict;
@@ -1340,7 +1368,9 @@ begin
   with keys(k) as (
     select unnest(array['invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
                         'budget','checklist','agenda','locations','notes','max_guests',
-                        'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports'])
+                        'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports',
+                  'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+                  'storage_gb','photo_retention_days','co_organizers'])
   ),
   plan_row as (select plan_id from venues where id = p_venue_id)
   select keys.k,
@@ -1401,7 +1431,7 @@ Note: `event_has_feature`/`venue_has_feature`/`feature_limit` are `security defi
 
 - [ ] **Step 4: Apply and test**
 
-Run: `npx supabase migration up --local && npx vitest run -c vitest.db.config.ts tests/supabase/entitlements_resolution.test.ts tests/supabase/rls_guard.test.ts tests/supabase/privileges.test.ts tests/supabase/privacy_guard.test.ts tests/supabase/mfa_staff.test.ts tests/supabase/rls_isolation.test.ts && npx vitest run tests/lib/pure/features.test.ts`
+Run: `psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f <this task's migration> && npx vitest run -c vitest.db.config.ts tests/supabase/entitlements_resolution.test.ts tests/supabase/rls_guard.test.ts tests/supabase/privileges.test.ts tests/supabase/privacy_guard.test.ts tests/supabase/mfa_staff.test.ts tests/supabase/rls_isolation.test.ts && npx vitest run tests/lib/pure/features.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit (user runs)**
@@ -1656,7 +1686,7 @@ export function isUserFacingError(err: unknown): err is Error {
 
 - [ ] **Step 4: Apply and test**
 
-Run: `npx supabase migration up --local && npx vitest run -c vitest.db.config.ts tests/supabase/entitlements_enforcement.test.ts && npm run test:db && npm run test:unit`
+Run: `psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f <this task's migration> && npx vitest run -c vitest.db.config.ts tests/supabase/entitlements_enforcement.test.ts && npm run test:db && npm run test:unit`
 Expected: PASS (existing suites still green: default plan unlocks everything).
 
 - [ ] **Step 5: Commit (user runs)**
@@ -1767,7 +1797,7 @@ afterAll(async () => {
 describe("server feature reads", () => {
   it("returns a complete map", async () => {
     const f = await getEventFeatures(eventId);
-    expect(Object.keys(f)).toHaveLength(17);
+    expect(Object.keys(f)).toHaveLength(26);
     expect(f.budget.enabled).toBe(true);
     expect(f.seating.enabled).toBe(false);
     expect((await getVenueFeatures(venueId)).reservations.enabled).toBe(false);
@@ -2167,9 +2197,125 @@ git add components/entitlements components/couple/shell components/venue/shell a
 git commit -m "feat(entitlements): show locked features to couples and venues"
 ```
 
-### Task 2.9: Phase 2 gate
+### Task 2.9: Seed packages and the packages page (Session 1 brief, E3)
 
-- [ ] **Step 1:** `npx supabase db reset --local && node scripts/write-test-env.mjs && npm run typecheck && npm run lint && npm run test:unit && npm run test:db && npx playwright test` — Expected: all PASS; migrations 0047–0049 apply from scratch.
+**Files:**
+- Create: `supabase/migrations/0051_seed_packages.sql`, `app/couple/(protected)/packages/page.tsx`, `lib/entitlements/packages.ts`
+- Modify: `components/entitlements/LockedBanner.tsx` (couple variant links to `/couple/packages`)
+- Test: `tests/supabase/seed_packages.test.ts`, `tests/components/couple/PackagesPage.test.tsx`
+
+**Interfaces:**
+- Consumes: `plans`, `plan_features` (Task 2.2), `FEATURES` (Task 2.1).
+- Produces: `listPackagesForDisplay(): Promise<{ id: string; name: string; description: string | null; features: Record<FeatureKey, ResolvedFeature> }[]>` (service role, ordered by `sort_order`, all plans except none); page `/couple/packages` (read-only, no payment).
+
+Packages (from `productioncheck/img/0-02-05-ee847208…jpg`), inserted only if a plan with that name does not exist; the default plan "Стандарден" stays default and keeps every existing venue:
+
+| name | sort | description | differences from "everything on, unlimited" |
+|---|---|---|---|
+| START | 10 | Бесплатно, го обезбедува ресторанот. Фото и видео се чуваат 15 дена. | `video_greetings` off, `storage_gb` 5, `photo_retention_days` 15, `invitation_all_templates` off, `reports` off |
+| PREMIUM | 20 | 20 GB · 2.000 ден. · чување 30 дена · преземање во оригинален квалитет | `storage_gb` 20, `photo_retention_days` 30, `reports` off |
+| PREMIUM+ | 30 | 50 GB · 4.000 ден. · чување 40 дена · статистика · приоритетна поддршка | `storage_gb` 50, `photo_retention_days` 40 |
+| ULTRA | 40 | 100 GB · 6.000 ден. · чување 60 дена · напредна статистика · тематски албуми | `storage_gb` 100, `photo_retention_days` 60 |
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/supabase/seed_packages.test.ts`:
+```ts
+import { describe, it, expect } from "vitest";
+import { createClient } from "@supabase/supabase-js";
+
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+
+async function features(name: string) {
+  const { data: plan } = await admin.from("plans").select("id, is_default").eq("name", name).single();
+  const { data } = await admin.from("plan_features").select("feature_key, enabled, limit_value").eq("plan_id", plan!.id);
+  return { isDefault: plan!.is_default, f: Object.fromEntries(data!.map((r) => [r.feature_key, r])) };
+}
+
+describe("seeded packages (0051)", () => {
+  it("creates START..ULTRA with every catalogue key", async () => {
+    for (const name of ["START", "PREMIUM", "PREMIUM+", "ULTRA"]) {
+      const { isDefault, f } = await features(name);
+      expect(isDefault, name).toBe(false);
+      expect(Object.keys(f), name).toHaveLength(26);
+    }
+  });
+  it("sets storage and retention per package", async () => {
+    const expected: Record<string, [number, number]> = { START: [5, 15], PREMIUM: [20, 30], "PREMIUM+": [50, 40], ULTRA: [100, 60] };
+    for (const [name, [gb, days]] of Object.entries(expected)) {
+      const { f } = await features(name);
+      expect(f.storage_gb.limit_value, name).toBe(gb);
+      expect(f.photo_retention_days.limit_value, name).toBe(days);
+    }
+    expect((await features("START")).f.video_greetings.enabled).toBe(false);
+    expect((await features("PREMIUM")).f.video_greetings.enabled).toBe(true);
+  });
+  it("keeps Стандарден as the default plan", async () => {
+    expect((await features("Стандарден")).isDefault).toBe(true);
+  });
+});
+```
+
+`tests/components/couple/PackagesPage.test.tsx`: mock `@/lib/entitlements/packages` to return two packages, render `await PackagesPage()`, assert both names, the description text and a „Заклучено“/„Вклучено“ mark per feature row; assert no payment button (`queryByRole("button", { name: /плати|купи/i })` is null) and the text „За активирање контактирајте го вашиот ресторан.“
+
+- [ ] **Step 2: Run to verify they fail** — `npx vitest run -c vitest.db.config.ts tests/supabase/seed_packages.test.ts` → FAIL (no plans).
+
+- [ ] **Step 3: Implement**
+
+`supabase/migrations/0051_seed_packages.sql`:
+```sql
+-- 0051: the packages from the owner's pricing slide (admin brief E3).
+-- Stored as ordinary plans; the admin can edit them. Prices live in the
+-- description until payments exist (DECISIONS.md).
+insert into public.plans (name, description, sort_order)
+select v.name, v.description, v.sort_order
+from (values
+  ('START', 'Бесплатно, го обезбедува ресторанот. Фото и видео се чуваат 15 дена.', 10),
+  ('PREMIUM', '20 GB · 2.000 ден. · чување 30 дена · преземање во оригинален квалитет', 20),
+  ('PREMIUM+', '50 GB · 4.000 ден. · чување 40 дена · статистика · приоритетна поддршка', 30),
+  ('ULTRA', '100 GB · 6.000 ден. · чување 60 дена · напредна статистика · тематски албуми', 40)
+) as v(name, description, sort_order)
+where not exists (select 1 from public.plans p where p.name = v.name);
+
+insert into public.plan_features (plan_id, feature_key, enabled, limit_value)
+select p.id, k,
+  case
+    when p.name = 'START' and k in ('video_greetings', 'invitation_all_templates', 'reports') then false
+    when p.name = 'PREMIUM' and k = 'reports' then false
+    else true
+  end,
+  case k
+    when 'storage_gb' then case p.name when 'START' then 5 when 'PREMIUM' then 20 when 'PREMIUM+' then 50 else 100 end
+    when 'photo_retention_days' then case p.name when 'START' then 15 when 'PREMIUM' then 30 when 'PREMIUM+' then 40 else 60 end
+    else null
+  end
+from public.plans p,
+     unnest(array['invitation','invitation_all_templates','invitation_photo','seating','custom_menu',
+                  'budget','checklist','agenda','locations','notes','max_guests',
+                  'reservations','floor_plan','showcase_photos','max_rooms','max_active_events','reports',
+                  'photo_album','guest_greetings','video_greetings','reminders','personal_invite_links','print_qr',
+                  'storage_gb','photo_retention_days','co_organizers']) as k
+where p.name in ('START', 'PREMIUM', 'PREMIUM+', 'ULTRA')
+on conflict (plan_id, feature_key) do nothing;
+```
+
+`lib/entitlements/packages.ts` (server-only, service role): select plans with `plan_features`, map to `toFeatureMap`-style records (missing key → locked), order by `sort_order`, exclude plans whose name starts with `_` (reserved for internal/test plans).
+
+`app/couple/(protected)/packages/page.tsx`: server component; heading „Пакети“, one column per package (stack on mobile) with name, description, and the `FEATURES` rows grouped scope `event` only: switch → „Вклучено“/„Заклучено“, limit → value or „Неограничено“. Footer text „За активирање контактирајте го вашиот ресторан.“ No payment controls.
+
+`LockedBanner` couple variant: append `<a href="/couple/packages">Види пакети</a>`.
+
+- [ ] **Step 4: Run** — `psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f <this task's migration> && npx vitest run -c vitest.db.config.ts tests/supabase/seed_packages.test.ts && npx vitest run tests/components/couple/PackagesPage.test.tsx && npm run typecheck` → PASS. Also rerun `tests/supabase/entitlements_*.test.ts` (their fixtures create their own plans, unaffected).
+
+- [ ] **Step 5: Commit (user runs)**
+```bash
+git add supabase/migrations/0051_seed_packages.sql lib/entitlements/packages.ts app/couple/\(protected\)/packages components/entitlements/LockedBanner.tsx tests/supabase/seed_packages.test.ts tests/components/couple/PackagesPage.test.tsx
+git commit -m "feat(entitlements): seed START..ULTRA packages and a read-only packages page"
+```
+
+### Task 2.10: Phase 2 gate
+
+- [ ] **Step 1:** `npm run typecheck && npm run lint && npm run test:unit && npm run test:db && npx playwright test` — Expected: all PASS.
 - [ ] **Step 2: Commit (user runs)** — confirm nothing from Phase 2 is left unstaged.
 
 ---
@@ -2965,7 +3111,7 @@ git commit -m "feat(admin): venue plan, feature overrides, staff support actions
 - Test: `tests/supabase/admin_plan_actions.test.ts`, `tests/components/admin/PlanFeaturesEditor.test.tsx`
 
 **Interfaces:**
-- Produces: `planActionCore = { create, update, setFeatures, remove, makeDefault }` in `lib/admin/plan-actions-core.ts`; actions `createPlan({ name, description, sortOrder })` → `{ id }`, `updatePlan({ planId, name, description, sortOrder })`, `setPlanFeatures({ planId, features: { featureKey, enabled, limitValue }[] })` (replaces all 17 rows), `deletePlan({ planId })`, `makeDefaultPlan({ planId })`.
+- Produces: `planActionCore = { create, update, setFeatures, remove, makeDefault }` in `lib/admin/plan-actions-core.ts`; actions `createPlan({ name, description, sortOrder })` → `{ id }`, `updatePlan({ planId, name, description, sortOrder })`, `setPlanFeatures({ planId, features: { featureKey, enabled, limitValue }[] })` (replaces all 26 rows), `deletePlan({ planId })`, `makeDefaultPlan({ planId })`.
 - Rules: `deletePlan` refuses with „Нивото го користат сали. Прво преместете ги.“ when any venue uses it, and „Стандардното ниво не може да се избрише.“ when it is default; `makeDefaultPlan` clears the old default and sets the new one in one RPC-free sequence (clear then set, both service role; a unique partial index protects the invariant); new plans start with every feature locked (explicit rows `enabled false, limit 0` for limits).
 
 - [ ] **Step 1: Write the failing test**
@@ -3109,7 +3255,7 @@ describe("PlanFeaturesEditor", () => {
     fireEvent.change(screen.getByLabelText("Лимит за Максимален број гости"), { target: { value: "150" } });
     fireEvent.click(screen.getByRole("button", { name: "Зачувај" }));
     const saved = onSave.mock.calls[0][0] as { featureKey: string; enabled: boolean; limitValue: number | null }[];
-    expect(saved).toHaveLength(17);
+    expect(saved).toHaveLength(26);
     expect(saved.find((f) => f.featureKey === "seating")!.enabled).toBe(true);
     expect(saved.find((f) => f.featureKey === "max_guests")).toEqual({ featureKey: "max_guests", enabled: true, limitValue: 150 });
   });
@@ -3456,7 +3602,7 @@ export const messageActionCore = {
 ```
 `app/admin/(panel)/messages/actions.ts` exports `setMessageStatus`, `deleteMessage`; `app/admin/(panel)/system/actions.ts` exports `setMaintenanceMode` — each `adminAction(schema, core)`. `messages/page.tsx`: table of `contact_submissions` (created_at, name, email as `mailto:` link, message, status select via `ActionButton`s „Прочитано“/„Одговорено“, „Избриши“ with confirm), filter by status from search params, ordered newest first, limit 500. Add `/admin/system` page: current state of `getMaintenanceMode()` and env flag, `ActionButton` to toggle, release SHA from `process.env.RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"`.
 
-- [ ] **Step 4: Run** `npx supabase migration up --local && npx vitest run -c vitest.db.config.ts tests/supabase/platform_settings.test.ts tests/supabase/admin_messages.test.ts tests/supabase/rls_guard.test.ts tests/supabase/privacy_guard.test.ts && npx vitest run tests/security && npm run typecheck` — Expected: PASS.
+- [ ] **Step 4: Run** `psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f <this task's migration> && npx vitest run -c vitest.db.config.ts tests/supabase/platform_settings.test.ts tests/supabase/admin_messages.test.ts tests/supabase/rls_guard.test.ts tests/supabase/privacy_guard.test.ts && npx vitest run tests/security && npm run typecheck` — Expected: PASS.
 
 - [ ] **Step 5: Commit (user runs)**
 ```bash
@@ -3615,7 +3761,7 @@ Add to the venue detail plan section a `<label htmlFor="venue-plan">Ниво</la
 
 - [ ] **Step 3: Write `docs/production/ADMIN.md`**: who the admin is, how to create them (`node --env-file=<prod env> scripts/make-admin.mjs <email>` run by the owner, never committed), mandatory TOTP and recovery (delete the factor via the Supabase dashboard after identity check), `admin.<domain>` setup (Vercel domain on the same project; Supabase Auth redirect `https://admin.<domain>/**`), what the admin can and cannot see (D2), plans/overrides model with the resolution order and D7, blocking semantics (D8), audit actions list (every `admin_*` action from Tasks 3.3–4.1). Update SETUP.md (new step „Админ поддомен“), DOMAIN.md, AUTH.md, DATA-MAP.md (tables `plans`, `plan_features`, `venue_feature_overrides`, `event_feature_overrides`, `platform_settings`; columns `venues.plan_id/blocked_at/blocked_reason`, `contact_submissions.status/handled_at`; override notes may contain business terms, no personal data), DECISIONS.md (row for plans/entitlements).
 
-- [ ] **Step 4: Final gate** — `npx supabase db reset --local && node scripts/write-test-env.mjs && npm run typecheck && npm run lint && npm audit --omit=dev --audit-level=high && npm run test:unit:coverage && npm run test:db:coverage && npx playwright test && npm run build` — Expected: all PASS; migrations 0047–0050 apply from scratch.
+- [ ] **Step 4: Final gate** — `npm run typecheck && npm run lint && npm audit --omit=dev --audit-level=high && npm run test:unit:coverage && npm run test:db:coverage && npx playwright test && npm run build` — Expected: all PASS. From-scratch migration check (0001–0059 on an empty DB) happens at the merge step (Session 4 LAUNCH.md), not here.
 
 - [ ] **Step 5: Commit (user runs)**
 ```bash

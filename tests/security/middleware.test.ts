@@ -1,8 +1,21 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy as middleware, isCrossOriginMutation } from "@/proxy";
 import { afterEach } from "vitest";
+
+// proxy.ts's maintenanceResponse now ORs the env flag with the DB-stored
+// flag (task 4.1) — this unit suite has no database, so the module is
+// mocked here rather than exercising the real one (that's
+// tests/supabase/platform_settings.test.ts's job). isMaintenanceModeStale
+// returns false so proxy() never starts a background refresh in this file.
+vi.mock("@/lib/platform-settings", () => ({
+  peekMaintenanceMode: () => false,
+  isMaintenanceModeStale: () => false,
+  refreshMaintenanceMode: async () => false,
+  invalidateMaintenanceCache: () => {},
+}));
+
+import { proxy as middleware, isCrossOriginMutation } from "@/proxy";
 
 function req(path: string, init: { method?: string; headers?: Record<string, string> } = {}) {
   return new NextRequest(new URL(path, "http://localhost:3000"), {

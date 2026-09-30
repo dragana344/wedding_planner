@@ -5,7 +5,7 @@ import { getBudgetSummary, addBudgetItem } from "@/lib/couple/budget";
 
 export const GET = withCoupleEvent(
   async ({ eventId }) => NextResponse.json(await getBudgetSummary(eventId)),
-  { fallbackError: "Не успеа вчитувањето на буџетот." },
+  { feature: "budget", fallbackError: "Не успеа вчитувањето на буџетот." },
 );
 
 export const POST = withCoupleEvent(
@@ -19,5 +19,5 @@ export const POST = withCoupleEvent(
     });
     return NextResponse.json(created);
   },
-  { body: budgetItemBody, fallbackError: "Не успеа додавањето на ставката." },
+  { feature: "budget", body: budgetItemBody, fallbackError: "Не успеа додавањето на ставката." },
 );

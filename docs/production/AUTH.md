@@ -1,6 +1,6 @@
 # Authentication settings (SEC-012, AUTH-002)
 
-Three kinds of users (see [HOSTING.md](HOSTING.md)): venue staff use Supabase Auth; couples use the app's own event credentials; guests use invitation links. This page is about Supabase Auth for venue staff.
+Three kinds of users (see [HOSTING.md](HOSTING.md)): venue staff use Supabase Auth; couples use the app's own event credentials; guests use invitation links. This page is about Supabase Auth for venue staff. The platform admin (`admin.<domain>`) is a fourth, separate Supabase Auth identity — same Auth project, `app_metadata.role = "platform_admin"` instead of a `venue_staff` row, and TOTP is mandatory rather than opt-in. See [ADMIN.md](ADMIN.md) for that flow in full; the redirect URL it needs is in the table below.
 
 ## Production Supabase Auth settings
 
@@ -9,7 +9,7 @@ Set these in the production project (Supabase → Authentication). Local develop
 | Setting | Where | Production value | Local (`config.toml`) |
 |---|---|---|---|
 | Site URL | URL Configuration | `https://<domain>` (canonical, INFRA-002) | `http://127.0.0.1:3000` |
-| Redirect URLs | URL Configuration | `https://<domain>/reset-password` (only) | `http://127.0.0.1:3000/reset-password` |
+| Redirect URLs | URL Configuration | `https://<domain>/reset-password`, `https://admin.<domain>/**` ([ADMIN.md](ADMIN.md)) | `http://127.0.0.1:3000/reset-password`, `http://admin.localhost:<port>/**` |
 | Confirm email | Sign In / Providers → Email | **On** | Off (dev convenience; flows still work without a mail round-trip) |
 | Secure email change | Sign In / Providers → Email | On | On |
 | Secure password change | Sign In / Providers → Email | **On** | On |
