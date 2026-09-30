@@ -33,6 +33,20 @@ Decisions taken while working through `production-tasks/`, so nobody has to redi
 | Bot protection | Not now; revisit if rate limits prove insufficient after launch | Spec makes it conditional; avoids a third-party widget and CSP change | SEC-013 |
 | Product analytics | Not now | Needs consent design and a tool choice; no need before launch | OBS-007 |
 | Maintenance mode | Env flag + team bypass cookie | Rarely needed; expand/contract avoids downtime | REL-007 |
+| Personal invite links | `/invite/<slug>?g=<token>`; token 24 chars, one per guest, never exported, stripped from Sentry by the query-string scrub; wrong/other-event token shows the shared invitation, RSVP with it is refused | Guests answer without typing a name; the shared link keeps working | A1 (S2) |
+| RSVP answers | Statuses yes / no / later; menu, allergies and children only with a yes; "later" or "no" keeps the couple's numbers; old `attending` body still accepted | Guests change their minds; a page opened before the deploy must not break | A2–A5 (S2) |
+| Language | RSVP, "Каде седам?" and all staff/couple auth messages in Macedonian (Supabase Auth errors mapped by code; unknown ones get a generic line) | Resolves open item 9 | A18 (S2) |
+| Sending invitations | WhatsApp/Viber/SMS/mailto links, or email through Resend when configured; a guest is marked sent when the couple clicks (the app cannot see delivery); Viber has no "to number with text" link, so the couple picks the chat | Works on any phone without app integrations | A9 (S2) |
+| Co-organizers | One extra login per side; sees every guest, sends only for their side (enforced server-side); managed by the couple's own login only; username space shared with couple logins | Two families send their own invitations | A12 (S2) |
+| Couple contacts at event creation | Email + phone required in the venue's forms and in `lib/venue/events`; **no DB constraint** | A NOT VALID check still fires on every update of old events and on erasure (0043 nulls them) | A21 (S2) |
+| Client-side validation | No zod in browser bundles of panel forms | zod 4's JIT probe (`new Function`) is a CSP `unsafe-eval` violation | A21 (S2) |
+| Reminders | One per event, default 15 days before at 10:00 Skopje, couple can move/switch off; hourly cron; claim per event + stamp per guest so nobody gets it twice; nothing sent (and nothing claimed) until email is configured | Idempotent under retries and overlapping cron runs | A10 (S2) |
+| Changed answers | Couple is emailed when a guest changes an earlier answer (not for a first answer); best effort | The list already marks the change; email is the nudge | A11 (S2) |
+| Public programme | The invitation shows agenda (time + title, never notes), locations and menu; map links only http(s), else a Maps search | Guests need them; couple-typed links are untrusted on a public page | A14 (S2) |
+| Premium templates | Elegant gold, Rustic, Royal green marked premium; all usable until the `invitation_all_templates` entitlement exists | At most three per the brief | A13 (S2) |
+| "Каде седам?" | Only an exact, unique name match returns a table; unknown name and unseated guest get the same answer; 30 lookups/h/IP/invitation | The guest list must not be probeable | A16 (S2) |
+| Guest page | One scrolling page with a sticky section menu instead of tabs; table shown as text, **room mini-map deferred** until Session 3's read-only plan renderer exists | Tabs would duplicate sections; the brief allows "number only" | A15 (S2) |
+| Countdown | Timer counts days; "УТРЕ е денот!" / "ДЕНЕС е денот!" by the Skopje calendar | A separate "Уште N дена" disagreed with the timer by a day | A19 (S2) |
 
 ## Open — owner decisions
 
@@ -44,5 +58,5 @@ Decisions taken while working through `production-tasks/`, so nobody has to redi
 6. **Legal**: fill company details in the privacy policy/terms/DPA placeholders; consider a human lawyer's check (LEGAL-REVIEW.md).
 7. **Domain, Resend, Sentry, R2, uptime monitor**: accounts to create (SETUP.md).
 8. **On-call**: names and contacts in INCIDENTS.md.
-9. **RSVP form language**: the public RSVP form and some auth messages are still in English (found by the E2E run). Translate to Macedonian?
+9. ~~**RSVP form language**~~: done (Session 2, A18), see "Language" above.
 10. **Accessibility fixes** (A11Y.md): unlabeled inputs, muted-colour contrast, `<html lang="en">` → `mk` — approve the markup/colour changes.
