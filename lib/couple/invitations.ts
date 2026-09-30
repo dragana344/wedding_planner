@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { IMAGE_SNIFF_BYTES, sniffImageType } from "@/lib/image-type";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 import { sortDishes, type ProgramDish, type ProgramItem, type ProgramLocation } from "@/lib/couple/invitation-program";
+import { eventHasFeature } from "@/lib/entitlements/server";
 
 export interface Invitation {
   event_id: string;
@@ -151,6 +152,8 @@ export interface PublicInvitation {
   agenda: ProgramItem[];
   locations: ProgramLocation[];
   menu: ProgramDish[];
+  /** The package includes seating: show "Каде седам?" / "Мојата маса" (default true). */
+  seating_enabled?: boolean;
 }
 
 export async function getInvitationBySlug(slug: string): Promise<PublicInvitation | null> {
@@ -175,12 +178,13 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
     .map((r) => (Array.isArray(r.rooms) ? r.rooms[0]?.name : r.rooms?.name))
     .filter((n): n is string => Boolean(n));
 
-  const [agenda, locations, menu] = await Promise.all([
+  const [agenda, locations, menu, seatingEnabled] = await Promise.all([
     client.from("event_agenda_items").select("time, title").eq("event_id", invitation.event_id).order("sort_order").limit(100),
     client.from("event_locations").select("label, address, map_url").eq("event_id", invitation.event_id).order("sort_order").limit(50),
     event.menu_template_id
       ? client.from("menu_template_items").select("menu_items(course, name)").eq("menu_template_id", event.menu_template_id)
       : client.from("event_custom_menu_items").select("menu_items(course, name)").eq("event_id", invitation.event_id),
+    eventHasFeature(invitation.event_id, "seating"),
   ]);
   if (agenda.error) throw agenda.error;
   if (locations.error) throw locations.error;
@@ -198,6 +202,7 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
     agenda: agenda.data.map((item) => ({ time: item.time ? String(item.time).slice(0, 5) : null, title: item.title })),
     locations: locations.data,
     menu: sortDishes(dishes),
+    seating_enabled: seatingEnabled,
     venue_name: venue?.name ?? "",
     room_names: roomNames,
     template_id: invitation.template_id,

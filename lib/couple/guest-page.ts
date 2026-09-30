@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 import { matchGuestByName } from "@/lib/couple/rsvp-match";
 import { getGuestSeat, type GuestSeat } from "@/lib/couple/guests";
+import { eventHasFeature } from "@/lib/entitlements/server";
 
 // A15/A16: where a guest sits, for the guest's own page (personal link) and
 // the public "Каде седам?" lookup. `found: false` covers an unknown guest, a
@@ -14,11 +15,13 @@ export type SeatLookup = { found: boolean; seat: GuestSeat | null };
 const NOT_FOUND: SeatLookup = { found: false, seat: null };
 const TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
 
+/** The invitation's event, when its package includes seating (else no table is ever shown). */
 async function eventIdForSlug(slug: string): Promise<string | null> {
   const client = createServiceRoleClient();
   const { data, error } = await client.from("event_invitations").select("event_id").eq("public_slug", slug).maybeSingle();
   if (error) throw error;
-  return data?.event_id ?? null;
+  if (!data) return null;
+  return (await eventHasFeature(data.event_id, "seating")) ? data.event_id : null;
 }
 
 export async function getSeatByToken(slug: string, token: string): Promise<SeatLookup> {

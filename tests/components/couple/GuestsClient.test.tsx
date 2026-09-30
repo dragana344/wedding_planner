@@ -342,3 +342,18 @@ describe("GuestsClient for a co-organizer (A12)", () => {
     expect(within(screen.getByRole("dialog", { name: "Масовно праќање" })).getByText("1 гости без испратена покана")).toBeInTheDocument();
   });
 });
+
+describe("GuestsClient without personal invite links in the package", () => {
+  it("offers no sending, and says why in the details", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ seat: null }) });
+    const share = { slug: "abcDEF123", coupleNames: "Ана и Марко", eventDate: "2027-06-12", venueName: "Сала", eventType: "wedding", emailEnabled: true };
+    render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" share={share} sendingEnabled={false} />);
+    expect(screen.queryByRole("button", { name: /Прати покана на/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Масовно праќање" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Ана Петровска" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ана Петровска" });
+    expect(within(dialog).getByText("Праќањето персонални покани не е вклучено во вашиот пакет.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("link", { name: "WhatsApp" })).not.toBeInTheDocument();
+  });
+});
+

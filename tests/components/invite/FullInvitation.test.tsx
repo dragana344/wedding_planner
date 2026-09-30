@@ -170,4 +170,20 @@ describe("FullInvitation", () => {
       vi.useRealTimers();
     }
   });
+
+  it("leaves out the seat sections when the package has no seating", () => {
+    render(<FullInvitation slug="abc123" invitation={{ ...invitation, seating_enabled: false }} photoUrl={null} />);
+    expect(screen.queryByRole("region", { name: "Каде седам?" })).not.toBeInTheDocument();
+    render(
+      <FullInvitation
+        slug="abc123"
+        invitation={{ ...invitation, seating_enabled: false }}
+        photoUrl={null}
+        invitee={invitee}
+        guestToken={"T".repeat(24)}
+        mySeat={{ found: false, seat: null }}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: "Мојата маса" })).not.toBeInTheDocument();
+  });
 });

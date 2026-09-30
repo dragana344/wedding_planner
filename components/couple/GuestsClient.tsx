@@ -51,6 +51,7 @@ export function GuestsClient({
   eventType,
   share,
   organizerSide = null,
+  sendingEnabled = true,
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
@@ -59,6 +60,8 @@ export function GuestsClient({
   share?: ShareContext;
   /** Set when a co-organizer is signed in (A12): they send only to this side. */
   organizerSide?: GuestSide | null;
+  /** The package includes `personal_invite_links` (A9). */
+  sendingEnabled?: boolean;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -242,7 +245,7 @@ export function GuestsClient({
   }, [guests, query, statusFilter, menuFilter, sentFilter]);
 
   const openGuest = guests.find((g) => g.id === openGuestId) ?? null;
-  const canSend = (g: Guest) => !organizerSide || g.side === organizerSide;
+  const canSend = (g: Guest) => sendingEnabled && (!organizerSide || g.side === organizerSide);
 
   function renderGuestRow(guest: Guest) {
     const unsent = guest.invitation_sent_at === null;
@@ -392,9 +395,11 @@ export function GuestsClient({
           <option value="sent">Испратени</option>
           <option value="unsent">Неиспратени</option>
         </select>
-        <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
-          Масовно праќање
-        </button>
+        {sendingEnabled ? (
+          <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
+            Масовно праќање
+          </button>
+        ) : null}
         <a href="/api/couple/guests/export" className="btn btn-ghost" download>
           Извези CSV
         </a>
@@ -475,7 +480,8 @@ export function GuestsClient({
           showSide={isWedding}
           share={share}
           actions={sendActions}
-          sendBlockedBy={canSend(openGuest) ? null : openGuest.side}
+          sendBlockedBy={canSend(openGuest) || !sendingEnabled ? null : openGuest.side}
+          sendingEnabled={sendingEnabled}
           onClose={closeDetail}
         />
       ) : null}

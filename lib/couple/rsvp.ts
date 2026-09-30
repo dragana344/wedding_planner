@@ -8,6 +8,7 @@ import { RSVP_NOT_FOUND_ERROR, RSVP_REQUIRED_ERROR } from "@/lib/api/schemas";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
 import { STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { eventHasFeature } from "@/lib/entitlements/server";
 import type { RsvpStatus } from "@/lib/couple/guests";
 
 export type RsvpAnswer = "confirmed" | "declined" | "later";
@@ -63,6 +64,8 @@ export async function getInviteeByToken(slug: string, token: string): Promise<In
     .maybeSingle();
   if (invitationError) throw invitationError;
   if (!invitation) return null;
+  // Without the package feature a ?g= link is just the shared invitation.
+  if (!(await eventHasFeature(invitation.event_id, "personal_invite_links"))) return null;
 
   const { data: guest, error } = await client
     .from("event_guests")
@@ -130,6 +133,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
   let match: { id: string; full_name: string; rsvp_status: string } | null;
   if (input.guestToken) {
     if (!INVITE_TOKEN_RE.test(input.guestToken)) throw new Error(RSVP_NOT_FOUND_ERROR);
+    if (!(await eventHasFeature(invitation.event_id, "personal_invite_links"))) throw new Error(RSVP_NOT_FOUND_ERROR);
     const { data: guest, error } = await client
       .from("event_guests")
       .select("id, full_name, rsvp_status")

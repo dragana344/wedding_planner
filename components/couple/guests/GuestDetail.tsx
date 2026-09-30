@@ -26,6 +26,7 @@ export function GuestDetail({
   share,
   actions,
   sendBlockedBy = null,
+  sendingEnabled = true,
   onClose,
 }: {
   guest: Guest;
@@ -34,6 +35,8 @@ export function GuestDetail({
   actions: SendActions;
   /** A co-organizer viewing the other side's guest (A12): that side sends. */
   sendBlockedBy?: GuestSide | null;
+  /** The package includes `personal_invite_links`. */
+  sendingEnabled?: boolean;
   onClose: () => void;
 }) {
   const [seat, setSeat] = useState<GuestSeat | null | undefined>(undefined);
@@ -114,7 +117,9 @@ export function GuestDetail({
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
         <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>{guest.invitation_sent_at ? "Прати повторно" : "Прати покана"}</h3>
-        {sendBlockedBy ? (
+        {!sendingEnabled ? (
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>Праќањето персонални покани не е вклучено во вашиот пакет.</p>
+        ) : sendBlockedBy ? (
           <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>
             {`Поканата ја праќа страната на ${sendBlockedBy === "bride" ? "невестата" : "младоженецот"}.`}
           </p>

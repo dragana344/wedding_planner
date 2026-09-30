@@ -9,6 +9,7 @@ import { ReminderPanel } from "@/components/couple/guests/ReminderPanel";
 import { getReminder } from "@/lib/couple/reminders";
 import { listCoOrganizers } from "@/lib/couple/co-organizers";
 import { COUPLE_ORGANIZER_SIDE_HEADER } from "@/lib/couple/session-verify";
+import { getEventFeatures } from "@/lib/entitlements/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,18 @@ export default async function GuestsPage() {
   // A12: set by proxy.ts for a co-organizer's session only.
   const sideHeader = requestHeaders.get(COUPLE_ORGANIZER_SIDE_HEADER);
   const organizerSide = sideHeader === "bride" || sideHeader === "groom" ? sideHeader : null;
-  const [guests, stats, summary, invitation, reminder] = await Promise.all([
+  const [guests, stats, summary, invitation, reminder, features] = await Promise.all([
     listGuests(eventId),
     getGuestStats(eventId),
     getEventSummary(eventId),
     getInvitation(eventId),
     getReminder(eventId),
+    getEventFeatures(eventId),
   ]);
+  // What the package includes (the routes refuse the rest; this only hides it).
+  const sendingEnabled = features.personal_invite_links.enabled;
+  const remindersEnabled = features.reminders.enabled;
+  const coOrganizersEnabled = features.co_organizers.enabled && features.co_organizers.limit !== 0;
   const share = {
     slug: invitation?.public_slug ?? null,
     coupleNames: summary.couple_names,
@@ -33,7 +39,8 @@ export default async function GuestsPage() {
     eventType: summary.event_type,
     emailEnabled: emailConfigured(),
   };
-  const coOrganizers = !organizerSide && summary.event_type === "wedding" ? await listCoOrganizers(eventId) : null;
+  const coOrganizers =
+    !organizerSide && coOrganizersEnabled && summary.event_type === "wedding" ? await listCoOrganizers(eventId) : null;
   return (
     <main style={{ padding: "18px 22px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
       <GuestsClient
@@ -42,8 +49,9 @@ export default async function GuestsPage() {
         eventType={summary.event_type}
         share={share}
         organizerSide={organizerSide}
+        sendingEnabled={sendingEnabled}
       />
-      <ReminderPanel initial={reminder} guests={guests} share={share} organizerSide={organizerSide} />
+      {remindersEnabled ? <ReminderPanel initial={reminder} guests={guests} share={share} organizerSide={organizerSide} /> : null}
       {coOrganizers ? <CoOrganizersPanel initial={coOrganizers} /> : null}
     </main>
   );

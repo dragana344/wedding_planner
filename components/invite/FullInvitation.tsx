@@ -187,9 +187,10 @@ export function FullInvitation({
   const BottomMotif = theme.bottomMotif;
   const startTime = invitation.start_time?.slice(0, 5) ?? null;
   const personal = Boolean(invitee && guestToken);
+  const seating = invitation.seating_enabled !== false;
   const sections = [
     { id: "pokana", label: "Покана" },
-    ...(personal && mySeat ? [{ id: "moja-masa", label: "Мојата маса" }] : []),
+    ...(personal && mySeat && seating ? [{ id: "moja-masa", label: "Мојата маса" }] : []),
     ...(invitation.agenda.length > 0 ? [{ id: "programa", label: "Програма" }] : []),
     ...(invitation.locations.length > 0 ? [{ id: "lokacii", label: "Локации" }] : []),
     { id: "potvrda", label: "Потврда" },
@@ -312,7 +313,7 @@ export function FullInvitation({
         <DayBanner eventDate={invitation.event_date} color={theme.textColor} fontFamily={theme.numeralFont} />
         <CountdownTimer target={target} color={theme.textColor} fontFamily={theme.numeralFont} />
 
-        {personal && mySeat ? (
+        {personal && mySeat && seating ? (
           <Section id="moja-masa" title="Мојата маса" theme={theme}>
             <p style={{ fontSize: 20, margin: 0 }}>
               {mySeat.seat ? seatText(mySeat.seat) : "Распоредот на маси уште не е готов. Проверете повторно неколку дена пред настанот."}
@@ -320,7 +321,7 @@ export function FullInvitation({
           </Section>
         ) : null}
 
-        {!personal ? (
+        {!personal && seating ? (
           <Section id="kade-sedam" title="Каде седам?" theme={theme}>
             <SeatFinder slug={slug} color={theme.textColor} lineColor={theme.lineColor} />
           </Section>
