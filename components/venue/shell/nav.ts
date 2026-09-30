@@ -1,3 +1,5 @@
+import type { FeatureKey } from "@/lib/entitlements/features";
+
 /*
  * Venue panel navigation, mirroring the Diamond design prototype's sidebar.
  *
@@ -16,6 +18,9 @@ export type NavItem = {
   title: string;
   subtitle: string;
   ready: boolean;
+  /** The entitlements feature this section is gated on, if any (admin
+   * dashboard spec §4.4). Undefined means the section is never locked. */
+  feature?: FeatureKey;
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -42,6 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
     title: "РЕЗЕРВАЦИИ",
     subtitle: "Резервирајте маси и управувајте со сите резервации",
     ready: true,
+    feature: "reservations",
   },
   {
     href: "/venue/tables",
@@ -91,6 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
     title: "ИЗВЕШТАИ",
     subtitle: "Аналитика и извештаи за работењето",
     ready: true,
+    feature: "reports",
   },
   {
     href: "/venue/settings",

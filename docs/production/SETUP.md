@@ -78,6 +78,7 @@ Settings → **API Keys**. Supabase сега има два сета:
   - `https://<tvojdomen>/**`
   - `https://<tvojdomen>/reset-password`
   - `https://*-<vercel-team>.vercel.app/**` (preview deployments)
+  - `https://admin.<tvojdomen>/**` (админ поддомен, чекор 3.2.1 — `docs/production/ADMIN.md`)
 - [ ] **Email → Confirm email**: одлука ⚑ (SEC-012). Локално е исклучено. Препорака за прод: **вклучено**, за да не се регистрира сала со туѓ мејл
 - [ ] **Minimum password length**: 10+; **Leaked password protection**: ON (Pro)
 - [ ] **Rate limits**: провери ги default вредностите за sign-up, reset и OTP
@@ -112,6 +113,16 @@ Settings → **API Keys**. Supabase сега има два сета:
 - [ ] 🧑 Settings → Domains → додај `<tvojdomen>` и `www.<tvojdomen>`; едниот redirect кон другиот
 - [ ] 🧑 Внеси ги DNS записите што ги дава Vercel (A / CNAME). TLS е автоматски
 - [ ] Врати се на чекор 1.4 и стави го вистинскиот Site URL
+
+### 3.2.1 Админ поддомен (`admin.<tvojdomen>`)
+
+Админ панелот (`app/admin/**`) не е посебен Vercel проект — истата апликација, рутирана по host (`proxy.ts`). Само уште еден домен на истиот проект:
+
+- [ ] 🧑 Settings → Domains → додај `admin.<tvojdomen>` (истиот проект; **не** ново `vercel link`)
+- [ ] 🧑 Внеси го DNS записот што го дава Vercel за `admin` (обично `CNAME admin → cname.vercel-dns.com`) — доменот и `www` од 3.2 не го покриваат ова поддоменско име автоматски
+- [ ] Врати се на чекор 1.4 и додади `https://admin.<tvojdomen>/**` во Redirect URLs (потребно за TOTP recovery/reset-link флоу на админ сметките)
+- [ ] ✅ Тест: `https://admin.<tvojdomen>/login` враќа login екран (не 404); `https://<tvojdomen>/admin` враќа 404 (главниот домен никогаш не го служи админ панелот)
+- [ ] Прво создај го првиот админ: `node --env-file=<prod env> scripts/make-admin.mjs <твојот мејл>` (детали и mandatory TOTP во `docs/production/ADMIN.md`)
 
 ### 3.3 Environment variables
 

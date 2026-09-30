@@ -14,6 +14,8 @@ const NOT_EXPORTED: Record<string, string> = {
   couple_sessions: "session secrets only",
   event_reminders: "when the reminder email goes out, no one's data; each guest's reminder_sent_at is exported with the guest",
   audit_log: "append-only security trail; holds user ids, never names or contact data",
+  venue_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
+  event_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
 };
 
 let db: Client;

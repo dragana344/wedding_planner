@@ -2781,3 +2781,53 @@
   color: var(--ink-2);
   margin: 16px 8px 6px;
 }
+
+/* ---------- admin panel: simple data tables (Task 3.2) ----------
+ * No comparable class existed in this file for a plain row/column table
+ * (the venue dashboard's own lists use CSS-grid "row" divs tailored to each
+ * screen's specific columns); this is a small, generic add for the admin
+ * read-only tables (overview, venues, events, plans, audit log). */
+.vp .s1-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.vp .s1-tbl th,
+.vp .s1-tbl td {
+  text-align: left;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.vp .s1-tbl th {
+  font-family: var(--data);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.vp .s1-tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+.vp .s1-tbl a {
+  color: var(--gold-lo);
+  font-weight: 600;
+  text-decoration: none;
+}
+.vp .s1-tbl a:hover {
+  text-decoration: underline;
+}
+.vp .s1-empty {
+  padding: 20px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+/* Audit log details/request-id cells (Task 4.2): raw JSON/ids can run long
+ * and must never force the table wider than the panel. */
+.vp .s1-tbl code {
+  font-family: var(--data);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

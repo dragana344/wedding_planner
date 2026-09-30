@@ -31,6 +31,7 @@ const COUPLE_PAGES = [
   "/couple/checklist",
   "/couple/notes",
   "/couple/invitation",
+  "/couple/packages",
   "/couple/greetings",
   "/couple/messages",
   "/couple/album",

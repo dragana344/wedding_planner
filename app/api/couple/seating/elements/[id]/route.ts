@@ -18,7 +18,7 @@ export const PATCH = withCoupleEvent(
     // Any other `type` is rejected by the schema ("Непознат тип на ажурирање.").
     return NextResponse.json(await actions.rotateElement(params.id, body.rotation_deg));
   },
-  { params: idParams, body: seatingElementUpdateBody, fallbackError: "Не успеа ажурирањето на елементот." },
+  { feature: "seating", params: idParams, body: seatingElementUpdateBody, fallbackError: "Не успеа ажурирањето на елементот." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -26,5 +26,5 @@ export const DELETE = withCoupleEvent(
     await coupleSeatingActionsFor(eventId).deleteElement(params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на елементот." },
+  { feature: "seating", params: idParams, fallbackError: "Не успеа бришењето на елементот." },
 );

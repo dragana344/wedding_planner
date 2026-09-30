@@ -8,5 +8,5 @@ export const POST = withCoupleEvent(
     const created = await addSubtask(eventId, params.id, body.title);
     return NextResponse.json(created);
   },
-  { params: idParams, body: subtaskCreateBody, fallbackError: "Не успеа додавањето на подзадачата." },
+  { feature: "checklist", params: idParams, body: subtaskCreateBody, fallbackError: "Не успеа додавањето на подзадачата." },
 );

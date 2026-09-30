@@ -6,7 +6,7 @@ import { listNotes, createNote } from "@/lib/couple/notes";
 
 export const GET = withCoupleEvent(
   async ({ eventId }) => NextResponse.json(await listNotes(eventId)),
-  { fallbackError: "Не успеа вчитувањето на белешките." },
+  { feature: "notes", fallbackError: "Не успеа вчитувањето на белешките." },
 );
 
 export const POST = withCoupleEvent(
@@ -14,5 +14,5 @@ export const POST = withCoupleEvent(
     const created = await createNote(eventId, { title: body.title || null, content: body.content ?? "" });
     return NextResponse.json(created);
   },
-  { body: noteBody, fallbackError: "Не успеа создавањето на белешката." },
+  { feature: "notes", body: noteBody, fallbackError: "Не успеа создавањето на белешката." },
 );

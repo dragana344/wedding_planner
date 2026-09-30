@@ -8,5 +8,5 @@ export const POST = withCoupleEvent(
     const restored = await coupleSeatingActionsFor(eventId).revertToStandard(eventId, body.room_id);
     return NextResponse.json(restored);
   },
-  { body: roomIdBody, fallbackError: "Не успеа враќањето на стандардниот распоред." },
+  { feature: "seating", body: roomIdBody, fallbackError: "Не успеа враќањето на стандардниот распоред." },
 );

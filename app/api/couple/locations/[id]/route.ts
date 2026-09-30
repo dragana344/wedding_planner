@@ -12,7 +12,7 @@ export const PATCH = withCoupleEvent(
     });
     return NextResponse.json(updated);
   },
-  { params: idParams, body: locationBody, fallbackError: "Не успеа ажурирањето на локацијата." },
+  { feature: "locations", params: idParams, body: locationBody, fallbackError: "Не успеа ажурирањето на локацијата." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -20,5 +20,5 @@ export const DELETE = withCoupleEvent(
     await deleteLocation(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на локацијата." },
+  { feature: "locations", params: idParams, fallbackError: "Не успеа бришењето на локацијата." },
 );

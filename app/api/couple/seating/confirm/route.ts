@@ -13,7 +13,7 @@ export const GET = withCoupleEvent(
     const confirmedAt = await actions.getConfirmedAt!(eventId, roomId);
     return NextResponse.json({ confirmedAt });
   },
-  { fallbackError: "Не успеа вчитувањето на потврдата." },
+  { feature: "seating", fallbackError: "Не успеа вчитувањето на потврдата." },
 );
 
 export const POST = withCoupleEvent(
@@ -21,7 +21,7 @@ export const POST = withCoupleEvent(
     await coupleSeatingActionsFor(eventId).confirm!(eventId, body.room_id);
     return NextResponse.json({ ok: true });
   },
-  { body: roomIdBody, fallbackError: "Не успеа потврдувањето на распоредот." },
+  { feature: "seating", body: roomIdBody, fallbackError: "Не успеа потврдувањето на распоредот." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -33,5 +33,5 @@ export const DELETE = withCoupleEvent(
     await coupleSeatingActionsFor(eventId).unconfirm!(eventId, roomId);
     return NextResponse.json({ ok: true });
   },
-  { fallbackError: "Не успеа поништувањето на потврдата на распоредот." },
+  { feature: "seating", fallbackError: "Не успеа поништувањето на потврдата на распоредот." },
 );

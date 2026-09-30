@@ -28,14 +28,18 @@ export async function validateAndRenewCoupleSession(token: string): Promise<Coup
   // REL-004: middleware awaits this on every couple request; bound it (the
   // abort also stops supabase-js's retries) so a stalled database cannot hang
   // the whole couple area.
+  // events(venues(blocked_at)) joins onto this same lookup (no extra round
+  // trip): admin spec D8 refuses a blocked venue's couple sessions.
   const { data } = await client
     .from("couple_sessions")
-    .select("event_id, expires_at, created_at, event_co_organizers(side)")
+    .select("event_id, expires_at, created_at, event_co_organizers(side), events(venues(blocked_at))")
     .eq("token", tokenHash)
     .abortSignal(AbortSignal.timeout(SESSION_LOOKUP_TIMEOUT_MS))
     .maybeSingle();
 
   if (!data) return null;
+  const venue = (data as unknown as { events: { venues: { blocked_at: string | null } | null } | null }).events?.venues;
+  if (venue?.blocked_at) return null;
   const expiresAt = new Date(data.expires_at).getTime();
   if (expiresAt <= Date.now()) return null;
   // SEC-025 SR-06: sliding renewal never extends a session past 90 days from

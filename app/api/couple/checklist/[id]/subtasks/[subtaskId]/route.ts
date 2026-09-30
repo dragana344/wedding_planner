@@ -8,7 +8,7 @@ export const PATCH = withCoupleEvent(
     const updated = await toggleSubtask(eventId, params.id, params.subtaskId, body.is_done);
     return NextResponse.json(updated);
   },
-  { params: subtaskParams, body: subtaskUpdateBody, fallbackError: "Не успеа ажурирањето на подзадачата." },
+  { feature: "checklist", params: subtaskParams, body: subtaskUpdateBody, fallbackError: "Не успеа ажурирањето на подзадачата." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -16,5 +16,5 @@ export const DELETE = withCoupleEvent(
     await deleteSubtask(eventId, params.id, params.subtaskId);
     return NextResponse.json({ ok: true });
   },
-  { params: subtaskParams, fallbackError: "Не успеа бришењето на подзадачата." },
+  { feature: "checklist", params: subtaskParams, fallbackError: "Не успеа бришењето на подзадачата." },
 );

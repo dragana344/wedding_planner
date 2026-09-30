@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { INVALID_ID_ERROR, INVALID_INPUT_ERROR, parseInput } from "@/lib/api/schemas";
+import { LOCKED_MESSAGE, type FeatureKey } from "@/lib/entitlements/features";
 import { REQUEST_ID_HEADER, errorFields, log } from "@/lib/log";
 
 export const COUPLE_EVENT_HEADER = "x-couple-event-id";
@@ -72,6 +73,12 @@ export type HandlerOptions<B = JsonBody, P = unknown> = {
   params?: ZodType<P>;
   /** Message for params that fail `params` (default "Неважечки идентификатор."). */
   invalidParamsError?: string;
+  /**
+   * Plan entitlement for this route (admin spec §4.4). POST/PUT/PATCH answer
+   * 403 when the event lacks it; GET and DELETE always pass (existing data
+   * stays readable and removable).
+   */
+  feature?: FeatureKey;
 };
 
 export type PublicHandlerContext<P, B = JsonBody> = {
@@ -85,16 +92,36 @@ export type CoupleEventHandlerContext<P, B = JsonBody> = PublicHandlerContext<P,
   eventId: string;
 };
 
+/**
+ * Entitlement and limit refusals raised by our database triggers (migration
+ * 0049) use SQLSTATE P0001 — the plpgsql default for a bare `raise
+ * exception`, which several OTHER functions predating this feature also use
+ * for internal-only text (e.g. the couple-credentials authorization checks
+ * in 0013/0034/0045, or "audit_log is append-only" in 0042). Those must
+ * never reach a response, so P0001 is only treated as user-facing when the
+ * message is one of ours: the locked-feature message, matched exactly
+ * against the same constant the trigger's SQL literal was written from
+ * (`lib/entitlements/features.ts`), or a limit refusal, matched by the
+ * prefix common to all three (only the number and noun after it vary).
+ */
+const ENTITLEMENT_LIMIT_MESSAGE_PREFIX = "Достигнат е лимитот од ";
+
 /** The route's standard error response: `{ error }` with status 400. */
 /**
  * Messages our own code throws on purpose (`throw new Error("...")`) are meant
  * for the user. Everything else — PostgREST, Storage and Auth errors (all
  * Error subclasses), TypeErrors, anything carrying a `code` — can reveal table,
  * column or constraint names, so the route's fallback message is shown
- * instead and the original is logged (SEC-003).
+ * instead and the original is logged (SEC-003). The one exception is our own
+ * entitlement triggers' P0001 (see ENTITLEMENT_MESSAGE_PREFIXES above).
  */
 export function isUserFacingError(err: unknown): err is Error {
-  return err instanceof Error && err.constructor === Error && !("code" in err);
+  if (err instanceof Error && err.constructor === Error && !("code" in err)) return true;
+  if (typeof err !== "object" || err === null) return false;
+  const code = (err as { code?: unknown }).code;
+  const message = (err as { message?: unknown }).message;
+  if (code !== "P0001" || typeof message !== "string") return false;
+  return message === LOCKED_MESSAGE || message.startsWith(ENTITLEMENT_LIMIT_MESSAGE_PREFIX);
 }
 
 /** The route's standard error response: `{ error }` with status 400. */
@@ -209,8 +236,20 @@ export function withCoupleEvent<P = Record<string, never>, B = JsonBody>(
     withRequestLog(request, async () => {
       const eventId = request.headers.get(COUPLE_EVENT_HEADER);
       if (!eventId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
-      return run(request, await context?.params, options, (req, params, body) =>
-        handler({ request: req, params, body, eventId }),
-      );
+      return run(request, await context?.params, options, async (req, params, body) => {
+        // Checked after params/body validation (above, inside `run`) so a
+        // request that fails plain input validation never reaches the
+        // feature check's DB round-trip — cheap, synchronous rejections stay
+        // cheap. Dynamic import keeps this module importable from unit tests
+        // without the service-role client (it is only reached for routes
+        // that opt into a `feature` gate).
+        if (options.feature && ["POST", "PUT", "PATCH"].includes(req.method)) {
+          const { eventHasFeature } = await import("@/lib/entitlements/server");
+          if (!(await eventHasFeature(eventId, options.feature))) {
+            return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 403 });
+          }
+        }
+        return handler({ request: req, params, body, eventId });
+      });
     });
 }

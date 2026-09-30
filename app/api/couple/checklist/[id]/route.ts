@@ -12,7 +12,7 @@ export const PATCH = withCoupleEvent(
     const updated = await updateChecklistItem(eventId, params.id, { title: body.title, due_date: body.due_date || null });
     return NextResponse.json(updated);
   },
-  { params: idParams, body: checklistUpdateBody, fallbackError: "Не успеа ажурирањето на задачата." },
+  { feature: "checklist", params: idParams, body: checklistUpdateBody, fallbackError: "Не успеа ажурирањето на задачата." },
 );
 
 export const DELETE = withCoupleEvent(
@@ -20,5 +20,5 @@ export const DELETE = withCoupleEvent(
     await deleteChecklistItem(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { params: idParams, fallbackError: "Не успеа бришењето на задачата." },
+  { feature: "checklist", params: idParams, fallbackError: "Не успеа бришењето на задачата." },
 );
