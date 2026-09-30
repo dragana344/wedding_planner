@@ -74,7 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Известувања",
     title: "ИЗВЕСТУВАЊА",
     subtitle: "Известувања и потсетници",
-    ready: false,
+    ready: true,
   },
   {
     href: "/venue/menus",
@@ -85,20 +85,12 @@ export const NAV_ITEMS: NavItem[] = [
     ready: true,
   },
   {
-    href: "/venue/messages",
-    icon: "msg",
-    label: "Пораки",
-    title: "ПОРАКИ",
-    subtitle: "Комуникација со клиенти",
-    ready: false,
-  },
-  {
     href: "/venue/reports",
     icon: "chart",
     label: "Извештаи",
     title: "ИЗВЕШТАИ",
     subtitle: "Аналитика и извештаи за работењето",
-    ready: false,
+    ready: true,
   },
   {
     href: "/venue/settings",

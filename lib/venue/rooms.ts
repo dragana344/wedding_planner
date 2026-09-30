@@ -150,3 +150,13 @@ export async function deleteRoom(roomId: string): Promise<void> {
   const { error } = await resolveSupabaseClient().from("rooms").delete().eq("id", roomId);
   if (error) throw error;
 }
+
+/** Seated guests a change to this table type would unseat (0076): those on seats above `seats`, or all when deleting (`null`). */
+export async function seatsAffectedByTableType(tableTypeId: string, seats: number | null): Promise<number> {
+  const { data, error } = await resolveSupabaseClient().rpc("seats_affected_by_table_type", {
+    p_table_type_id: tableTypeId,
+    p_seats: seats,
+  });
+  if (error) throw error;
+  return (data as number) ?? 0;
+}

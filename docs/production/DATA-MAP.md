@@ -199,6 +199,14 @@ Created in `0012_floor_plan_layers.sql`.
 - **Access:** staff via RLS `"venue staff manage own event layout elements"` (0012). Couples via the service role in `lib/couple/seating.ts`. The organizer policy from 0012 was dropped in 0013.
 - **Retention:** none defined, see DATA-007.
 
+### 2.9a `event_seat_assignments`
+Created in `0070_event_seat_assignments.sql`.
+
+- Who sits on which seat of which table: `guest_id` (link to `event_guests`) or `guest_name` (free text, ≤ 200 chars — typed by the couple for people not on the guest list).
+- **Subject:** guests. **Purpose:** seating plan, place cards, "Каде седам?".
+- **Access:** staff via RLS `"venue staff manage own event seat assignments"` (0070). Couples and guests via the service role (`guest_seat()`).
+- **Export / erasure:** exported as `seat_assignments`. Guest-linked rows cascade with the guest; every row is deleted when the event's personal data is erased (trigger on `events.personal_data_erased_at`).
+
 ### 2.10 `event_showcase_photos`
 Created in `0008_event_showcase_photos.sql`.
 

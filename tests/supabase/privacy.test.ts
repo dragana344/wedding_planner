@@ -87,6 +87,7 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
         contact_phone: `070-${tag}`,
         total_price: 1000,
         seating_draft: { [v.roomId]: [{ label: `Draft ${tag}` }] },
+        seating_history: { [v.roomId]: { past: [{ elements: [], seats: [{ guest_name: `History ${tag}` }] }], future: [] } },
       })
       .select("id")
       .single(),
@@ -107,9 +108,24 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
   );
   await must(admin.from("event_custom_menu_items").insert({ event_id: eventId, menu_item_id: dish.id }));
   await must(admin.from("event_menu_item_quantities").insert({ event_id: eventId, menu_item_id: dish.id, guest_count: 7 }));
-  await must(
+  const tableType = await must(
+    admin.from("table_types").insert({ room_id: v.roomId, name: `Round ${tag}`, shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 1 }).select("id").single(),
+  );
+  const table = await must(
     admin.from("event_layout_elements").insert({
-      event_id: eventId, room_id: v.roomId, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100, label: `Table ${tag}`,
+      event_id: eventId, room_id: v.roomId, element_type: "table", table_type_id: tableType.id, x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100,
+      label: `Table ${tag}`,
+    }).select("id").single(),
+  );
+  // The couple's draft names this table, so it is seatable (0072: draft wins).
+  await must(
+    admin.from("events")
+      .update({ seating_draft: { [v.roomId]: [{ id: table.id, element_type: "table", table_type_id: tableType.id, label: `Draft ${tag}` }] } })
+      .eq("id", eventId),
+  );
+  await must(
+    admin.from("event_seat_assignments").insert({
+      event_id: eventId, room_id: v.roomId, layout_element_id: table.id, seat_number: 1, guest_name: `Seated ${tag}`,
     }),
   );
 
@@ -153,7 +169,7 @@ async function remainingPersonalData(eventId: string, checklistId: string): Prom
     const notEmpty = sensitive
       .map((c) => {
         if (table === "events" && c === "couple_names") return `couple_names <> '${ERASED_COUPLE_NAMES}'`;
-        if (table === "events" && c.startsWith("seating_draft")) return `${c} <> '{}'::jsonb`;
+        if (table === "events" && (c.startsWith("seating_draft") || c.endsWith("_history"))) return `${c} <> '{}'::jsonb`;
         return `${c} is not null`;
       })
       .join(" or ");
@@ -199,7 +215,7 @@ describe("export (DATA-005)", () => {
     for (const text of [
       `Couple ${eventA.tag}`, `${eventA.tag}@couple.test`, `user-${eventA.tag}`, `Guest ${eventA.tag}`, `Allergy ${eventA.tag}`,
       `Content ${eventA.tag}`, `Agenda ${eventA.tag}`, `Street ${eventA.tag}`, `Vendor ${eventA.tag}`, `Subtask ${eventA.tag}`,
-      `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
+      `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, `Seated ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
       `Booker ${stamp}`, staff.email, a.name, `co-${eventA.tag}`,
     ]) {
       expect(json, text).toContain(text);

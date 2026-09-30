@@ -60,6 +60,10 @@ import * as seatingConfirmRoute from "@/app/api/couple/seating/confirm/route";
 import * as seatingElementsRoute from "@/app/api/couple/seating/elements/route";
 import * as seatingElementIdRoute from "@/app/api/couple/seating/elements/[id]/route";
 import * as seatingRevertRoute from "@/app/api/couple/seating/revert/route";
+import * as seatingSeatsRoute from "@/app/api/couple/seating/seats/route";
+import * as seatingRedoRoute from "@/app/api/couple/seating/redo/route";
+import * as seatingHistoryRoute from "@/app/api/couple/seating/history/route";
+import * as seatingGroupRoute from "@/app/api/couple/seating/group/route";
 import * as seatingUndoRoute from "@/app/api/couple/seating/undo/route";
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -100,13 +104,13 @@ async function insert<T extends Row>(table: string, values: Row | Row[]): Promis
   return data as T[];
 }
 
-function draftElement(id: string, eventId: string, roomId: string, label: string): Row {
+function draftElement(id: string, eventId: string, roomId: string, label: string, tableTypeId: string | null = null): Row {
   return {
     id,
     event_id: eventId,
     room_id: roomId,
     element_type: "table",
-    table_type_id: null,
+    table_type_id: tableTypeId,
     x_cm: 100,
     y_cm: 100,
     width_cm: 180,
@@ -144,8 +148,11 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     layout_initialized_at: new Date().toISOString(),
   });
 
+  const [tableType] = await insert<{ id: string }>("table_types", {
+    room_id: room.id, name: text("round"), shape: "round", seats: 8, width_cm: 180, length_cm: 180, quantity: 4,
+  });
   const draftElementId = crypto.randomUUID();
-  const draft = { [room.id]: [draftElement(draftElementId, event.id, room.id, text("draft table"))] };
+  const draft = { [room.id]: [draftElement(draftElementId, event.id, room.id, text("draft table"), tableType.id)] };
   const { error: draftError } = await admin
     .from("events")
     .update({
@@ -160,6 +167,7 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     event_id: event.id,
     room_id: room.id,
     element_type: "table",
+    table_type_id: tableType.id,
     x_cm: 100,
     y_cm: 100,
     width_cm: 180,
@@ -168,6 +176,10 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
   });
 
   const [guest] = await insert<{ id: string }>("event_guests", { event_id: event.id, full_name: text("guest") });
+  // The room has a draft, so its tables are the seatable ones.
+  await insert("event_seat_assignments", {
+    event_id: event.id, room_id: room.id, layout_element_id: draftElementId, seat_number: 1, guest_id: guest.id,
+  });
   const [budget] = await insert<{ id: string }>("event_budget_items", {
     event_id: event.id,
     category: "catering",
@@ -239,6 +251,7 @@ async function snapshotEvent(f: EventFixture): Promise<Record<string, Row[]>> {
     events: await byEvent("events", "id"),
     event_rooms: await byEvent("event_rooms", "event_id", ""),
     event_layout_elements: await byEvent("event_layout_elements"),
+    event_seat_assignments: await byEvent("event_seat_assignments"),
     event_guests: await byEvent("event_guests"),
     event_budget_items: await byEvent("event_budget_items"),
     event_checklist_items: await byEvent("event_checklist_items"),
@@ -319,7 +332,13 @@ async function resetASeating() {
   const draft = { [A.roomId]: [draftElement(A.draftElementId, A.eventId, A.roomId, `${RUN} draft table A`)] };
   const { error } = await admin
     .from("events")
-    .update({ seating_draft: draft, seating_draft_undo: draft, seating_confirmed_at: {} })
+    .update({
+      seating_draft: draft,
+      seating_draft_undo: draft,
+      seating_confirmed_at: {},
+      // One undo step (0072 history), so the undo route has something to do.
+      seating_history: { [A.roomId]: { past: [{ elements: draft[A.roomId], seats: [] }], future: [] } },
+    })
     .eq("id", A.eventId);
   if (error) throw error;
 }
@@ -857,6 +876,7 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
             { type: "position", x_cm: 5, y_cm: 5 },
             { type: "size", width_cm: 5, length_cm: 5 },
             { type: "rotation", rotation_deg: 45 },
+            { type: "label", label: "hijacked" },
           ]) {
             expect((await call(seatingElementIdRoute.PATCH, { id }, "PATCH", { body })).status).toBe(400);
           }
@@ -885,6 +905,81 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         expect(res.status).toBe(400);
         const own = await call(seatingRevertRoute.POST, NONE, "POST", { body: { room_id: A.roomId } });
         expect(own.status).toBe(200);
+      },
+    },
+  },
+  "seating/seats/route.ts": {
+    module: seatingSeatsRoute,
+    methods: {
+      GET: async () => {
+        await resetASeating();
+        const res = await call(seatingSeatsRoute.GET, NONE, "GET", { query: { room_id: B.roomId } });
+        expect(res.status).toBe(400);
+        const own = await call(seatingSeatsRoute.GET, NONE, "GET", { query: { room_id: A.roomId } });
+        expect(own.status).toBe(200);
+        expect(own.text).toContain(A.guestId);
+      },
+      PUT: async () => {
+        await resetASeating();
+        for (const element of [B.draftElementId, B.layoutElementId]) {
+          const res = await call(seatingSeatsRoute.PUT, NONE, "PUT", {
+            body: { room_id: B.roomId, layout_element_id: element, seats: [{ seat_number: 1, guest_id: B.guestId }] },
+          });
+          expect(res.status).toBe(400);
+        }
+        // Own room, B's table and guest: refused by the seat trigger.
+        const mixed = await call(seatingSeatsRoute.PUT, NONE, "PUT", {
+          body: { room_id: A.roomId, layout_element_id: B.layoutElementId, seats: [{ seat_number: 1, guest_id: B.guestId }] },
+        });
+        expect(mixed.status).toBe(409);
+      },
+    },
+  },
+  "seating/redo/route.ts": {
+    module: seatingRedoRoute,
+    methods: {
+      POST: async () => {
+        await resetASeating();
+        expect((await call(seatingRedoRoute.POST, NONE, "POST", { body: { room_id: B.roomId } })).status).toBe(400);
+        // Nothing to redo yet: a user-facing refusal, not a crash.
+        const own = await call(seatingRedoRoute.POST, NONE, "POST", { body: { room_id: A.roomId } });
+        expect(own.status).toBe(400);
+        expect((own.json as Row).error).toBe("Нема што да се повтори.");
+      },
+    },
+  },
+  "seating/history/route.ts": {
+    module: seatingHistoryRoute,
+    methods: {
+      GET: async () => {
+        await resetASeating();
+        expect((await call(seatingHistoryRoute.GET, NONE, "GET", { query: { room_id: B.roomId } })).status).toBe(400);
+        const own = await call(seatingHistoryRoute.GET, NONE, "GET", { query: { room_id: A.roomId } });
+        expect(own.status).toBe(200);
+        expect(own.json).toEqual({ canUndo: expect.any(Boolean), canRedo: expect.any(Boolean) });
+      },
+    },
+  },
+  "seating/group/route.ts": {
+    module: seatingGroupRoute,
+    methods: {
+      POST: async () => {
+        await resetASeating();
+        const res = await call(seatingGroupRoute.POST, NONE, "POST", {
+          body: { room_id: B.roomId, element_ids: [B.draftElementId, B.layoutElementId] },
+        });
+        expect(res.status).toBe(400);
+        // Own room, B's element ids: nothing to group.
+        const mixed = await call(seatingGroupRoute.POST, NONE, "POST", {
+          body: { room_id: A.roomId, element_ids: [B.draftElementId, B.layoutElementId] },
+        });
+        expect(mixed.status).toBe(400);
+      },
+      DELETE: async () => {
+        await resetASeating();
+        const groupId = crypto.randomUUID();
+        expect((await call(seatingGroupRoute.DELETE, NONE, "DELETE", { query: { room_id: B.roomId, group_id: groupId } })).status).toBe(400);
+        expect((await call(seatingGroupRoute.DELETE, NONE, "DELETE", { query: { room_id: A.roomId, group_id: groupId } })).status).toBe(200);
       },
     },
   },

@@ -4,6 +4,18 @@ import { useEffect, useRef, useState } from "react";
 
 export const PX_PER_CM = 0.4;
 
+/** A dashed frame around grouped tables (B3); purely visual. */
+export interface CanvasGroup {
+  id: string;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  height_cm: number;
+  label: string;
+}
+
+const GROUP_PAD_CM = 30;
+
 export interface CanvasElement {
   id: string;
   x_cm: number;
@@ -15,6 +27,12 @@ export interface CanvasElement {
   shape: "rect" | "circle";
   locked?: boolean;
   rotationDeg?: number;
+  /** Gold outline: picked in the "Сите маси" view. */
+  highlighted?: boolean;
+  /** Seat fill state of a table (B5), exposed for tests and styling. */
+  occupancy?: "free" | "partial" | "full";
+  /** Small second line under the label, e.g. "7/10". */
+  badge?: string;
 }
 
 interface DragInfo {
@@ -82,6 +100,8 @@ export function FloorPlanCanvas({
   mode = "edit",
   selectedIds,
   onToggleSelect,
+  groups = [],
+  zoom = 1,
 }: {
   widthCm: number;
   heightCm: number;
@@ -95,7 +115,47 @@ export function FloorPlanCanvas({
   mode?: "edit" | "select";
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
+  groups?: CanvasGroup[];
+  /** Display scale (B4 zoom buttons); geometry stays in centimetres. */
+  zoom?: number;
 }) {
+  const pxPerCm = PX_PER_CM * zoom;
+
+  // Touch: the svg is touch-none (drags need every pointer move), so a finger
+  // on the empty floor pans instead — the plan's scroll box sideways, the
+  // page up and down.
+  const panRef = useRef<{ x: number; y: number; scroller: HTMLElement | null } | null>(null);
+  useEffect(() => {
+    function move(e: PointerEvent) {
+      const pan = panRef.current;
+      if (!pan) return;
+      const dx = e.clientX - pan.x;
+      const dy = e.clientY - pan.y;
+      if (pan.scroller) pan.scroller.scrollLeft -= dx;
+      if (dy) window.scrollBy(0, -dy);
+      pan.x = e.clientX;
+      pan.y = e.clientY;
+    }
+    function end() {
+      panRef.current = null;
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, []);
+
+  function scrollParent(el: HTMLElement | null): HTMLElement | null {
+    for (let node = el; node; node = node.parentElement) {
+      const overflow = getComputedStyle(node).overflowX;
+      if (overflow === "auto" || overflow === "scroll") return node;
+    }
+    return null;
+  }
   const canvasRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragInfo | null>(null);
   const liveGeometryRef = useRef<LiveGeometry | null>(null);
@@ -121,8 +181,8 @@ export function FloorPlanCanvas({
         return;
       }
 
-      const dxCm = (e.clientX - drag.startClientX) / PX_PER_CM;
-      const dyCm = (e.clientY - drag.startClientY) / PX_PER_CM;
+      const dxCm = (e.clientX - drag.startClientX) / pxPerCm;
+      const dyCm = (e.clientY - drag.startClientY) / pxPerCm;
 
       let next: LiveGeometry;
       if (drag.mode === "move") {
@@ -174,7 +234,7 @@ export function FloorPlanCanvas({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [elements, widthCm, heightCm, onMoveEnd, onResizeEnd, onRotateEnd]);
+  }, [elements, widthCm, heightCm, onMoveEnd, onResizeEnd, onRotateEnd, pxPerCm]);
 
   function startMove(el: CanvasElement, e: React.PointerEvent) {
     e.stopPropagation();
@@ -219,8 +279,8 @@ export function FloorPlanCanvas({
     if (el.locked) return;
     const svgRect = canvasRef.current?.getBoundingClientRect();
     if (!svgRect) return;
-    const centerPageX = svgRect.left + (el.x_cm + el.width_cm / 2) * PX_PER_CM;
-    const centerPageY = svgRect.top + (el.y_cm + el.height_cm / 2) * PX_PER_CM;
+    const centerPageX = svgRect.left + (el.x_cm + el.width_cm / 2) * pxPerCm;
+    const centerPageY = svgRect.top + (el.y_cm + el.height_cm / 2) * pxPerCm;
     const startAngleDeg = (Math.atan2(e.clientY - centerPageY, e.clientX - centerPageX) * 180) / Math.PI;
     dragRef.current = {
       mode: "rotate",
@@ -238,7 +298,7 @@ export function FloorPlanCanvas({
     };
   }
 
-  const gridStepPx = 50 * PX_PER_CM;
+  const gridStepPx = 50 * pxPerCm;
 
   const resolvedGeometries = elements.map((el) =>
     liveGeometry && liveGeometry.id === el.id ? liveGeometry : el
@@ -249,12 +309,15 @@ export function FloorPlanCanvas({
     <svg
       ref={canvasRef}
       data-testid="floor-plan-canvas"
-      width={widthCm * PX_PER_CM}
-      height={heightCm * PX_PER_CM}
-      onPointerDown={() => {
+      width={widthCm * pxPerCm}
+      height={heightCm * pxPerCm}
+      onPointerDown={(e) => {
         if (mode === "edit") onSelect(null);
+        // Only the bare floor pans; elements stop propagation themselves.
+        panRef.current = { x: e.clientX, y: e.clientY, scroller: scrollParent(canvasRef.current?.parentElement ?? null) };
       }}
-      className="rounded-lg border border-neutral-200 bg-neutral-50"
+      // touch-none: on touch/tablet, pointer events drive drags; the browser must not pan.
+      className="touch-none rounded-lg border border-neutral-200 bg-neutral-50"
     >
       <defs>
         <pattern id="floor-plan-grid" width={gridStepPx} height={gridStepPx} patternUnits="userSpaceOnUse">
@@ -263,19 +326,40 @@ export function FloorPlanCanvas({
       </defs>
       <rect width="100%" height="100%" fill="url(#floor-plan-grid)" pointerEvents="none" />
 
+      {groups.map((g) => (
+        <g key={g.id} data-testid={`floor-plan-group-${g.id}`} pointerEvents="none">
+          <rect
+            x={(g.x_cm - GROUP_PAD_CM) * pxPerCm}
+            y={(g.y_cm - GROUP_PAD_CM) * pxPerCm}
+            width={(g.width_cm + 2 * GROUP_PAD_CM) * pxPerCm}
+            height={(g.height_cm + 2 * GROUP_PAD_CM) * pxPerCm}
+            rx={8}
+            fill="rgba(184,145,58,0.06)"
+            stroke="#B8913A"
+            strokeWidth={1.5}
+            strokeDasharray="6 4"
+          />
+          <text x={(g.x_cm - GROUP_PAD_CM) * pxPerCm + 4} y={(g.y_cm - GROUP_PAD_CM) * pxPerCm - 4} fontSize={10} fill="#8a6a22">
+            {g.label}
+          </text>
+        </g>
+      ))}
+
       {elements.map((el) => {
         const geometry: LiveGeometry = liveGeometry && liveGeometry.id === el.id ? liveGeometry : el;
         const isSelected = mode === "select" ? (selectedIds ?? []).includes(el.id) : el.id === selectedElementId;
         const isOverlapping = overlappingIds.has(el.id);
-        const centerX = (geometry.x_cm + geometry.width_cm / 2) * PX_PER_CM;
-        const centerY = (geometry.y_cm + geometry.height_cm / 2) * PX_PER_CM;
+        const centerX = (geometry.x_cm + geometry.width_cm / 2) * pxPerCm;
+        const centerY = (geometry.y_cm + geometry.height_cm / 2) * pxPerCm;
         const rotationDeg = liveRotation && liveRotation.id === el.id ? liveRotation.deg : el.rotationDeg ?? 0;
         const shapeProps = {
           "data-testid": `floor-plan-element-${el.id}`,
           onPointerDown: (e: React.PointerEvent) => (mode === "select" ? startSelect(el, e) : startMove(el, e)),
+          "data-highlighted": el.highlighted ? "true" : undefined,
+          "data-occupancy": el.occupancy,
           fill: el.color,
-          stroke: isOverlapping ? "#dc2626" : isSelected ? "#171717" : "none",
-          strokeWidth: isOverlapping ? 3 : isSelected ? 2 : 0,
+          stroke: isOverlapping ? "#dc2626" : el.highlighted ? "#B8913A" : isSelected ? "#171717" : "none",
+          strokeWidth: isOverlapping || el.highlighted ? 3 : isSelected ? 2 : 0,
           strokeDasharray: isOverlapping ? "4 2" : undefined,
           style: { cursor: el.locked ? "default" : mode === "select" ? "pointer" : "grab" },
         };
@@ -287,13 +371,13 @@ export function FloorPlanCanvas({
             transform={rotationDeg ? `rotate(${rotationDeg} ${centerX} ${centerY})` : undefined}
           >
             {el.shape === "circle" ? (
-              <circle cx={centerX} cy={centerY} r={(geometry.width_cm / 2) * PX_PER_CM} {...shapeProps} />
+              <circle cx={centerX} cy={centerY} r={(geometry.width_cm / 2) * pxPerCm} {...shapeProps} />
             ) : (
               <rect
-                x={geometry.x_cm * PX_PER_CM}
-                y={geometry.y_cm * PX_PER_CM}
-                width={geometry.width_cm * PX_PER_CM}
-                height={geometry.height_cm * PX_PER_CM}
+                x={geometry.x_cm * pxPerCm}
+                y={geometry.y_cm * pxPerCm}
+                width={geometry.width_cm * pxPerCm}
+                height={geometry.height_cm * pxPerCm}
                 {...shapeProps}
               />
             )}
@@ -310,20 +394,34 @@ export function FloorPlanCanvas({
                 {el.label}
               </text>
             ) : null}
+            {el.badge ? (
+              <text
+                x={centerX}
+                y={centerY + 13}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={10}
+                fontWeight={600}
+                fill="#ffffff"
+                pointerEvents="none"
+              >
+                {el.badge}
+              </text>
+            ) : null}
             {mode === "edit" && isSelected && !el.locked ? (
               <>
                 <line
                   x1={centerX}
-                  y1={geometry.y_cm * PX_PER_CM}
+                  y1={geometry.y_cm * pxPerCm}
                   x2={centerX}
-                  y2={geometry.y_cm * PX_PER_CM - 16}
+                  y2={geometry.y_cm * pxPerCm - 16}
                   stroke="#171717"
                   strokeWidth={1}
                 />
                 <circle
                   data-testid={`floor-plan-rotate-${el.id}`}
                   cx={centerX}
-                  cy={geometry.y_cm * PX_PER_CM - 20}
+                  cy={geometry.y_cm * pxPerCm - 20}
                   r={6}
                   fill="#ffffff"
                   stroke="#171717"
@@ -333,8 +431,8 @@ export function FloorPlanCanvas({
                 />
                 <rect
                   data-testid={`floor-plan-resize-${el.id}`}
-                  x={geometry.x_cm * PX_PER_CM + geometry.width_cm * PX_PER_CM - 8}
-                  y={geometry.y_cm * PX_PER_CM + geometry.height_cm * PX_PER_CM - 8}
+                  x={geometry.x_cm * pxPerCm + geometry.width_cm * pxPerCm - 8}
+                  y={geometry.y_cm * pxPerCm + geometry.height_cm * pxPerCm - 8}
                   width={12}
                   height={12}
                   fill="#ffffff"
@@ -344,8 +442,8 @@ export function FloorPlanCanvas({
                   onPointerDown={(e) => startResize(el, e)}
                 />
                 <text
-                  x={geometry.x_cm * PX_PER_CM + geometry.width_cm * PX_PER_CM}
-                  y={geometry.y_cm * PX_PER_CM + geometry.height_cm * PX_PER_CM + 12}
+                  x={geometry.x_cm * pxPerCm + geometry.width_cm * pxPerCm}
+                  y={geometry.y_cm * pxPerCm + geometry.height_cm * pxPerCm + 12}
                   textAnchor="end"
                   fontSize={9}
                   fill="#6b7280"
@@ -356,8 +454,8 @@ export function FloorPlanCanvas({
                 </text>
                 <circle
                   data-testid={`floor-plan-delete-${el.id}`}
-                  cx={geometry.x_cm * PX_PER_CM - 2}
-                  cy={geometry.y_cm * PX_PER_CM - 2}
+                  cx={geometry.x_cm * pxPerCm - 2}
+                  cy={geometry.y_cm * pxPerCm - 2}
                   r={7}
                   fill="#c0392b"
                   style={{ cursor: "pointer" }}
@@ -367,8 +465,8 @@ export function FloorPlanCanvas({
                   }}
                 />
                 <text
-                  x={geometry.x_cm * PX_PER_CM - 2}
-                  y={geometry.y_cm * PX_PER_CM - 2}
+                  x={geometry.x_cm * pxPerCm - 2}
+                  y={geometry.y_cm * pxPerCm - 2}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize={9}

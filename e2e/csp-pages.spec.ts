@@ -18,7 +18,6 @@ const VENUE_PAGES = [
   "/venue/settings",
   "/venue/support",
   "/venue/notifications",
-  "/venue/messages",
   "/venue/reports",
 ];
 
