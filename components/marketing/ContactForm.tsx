@@ -39,21 +39,21 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="contact-form">
-      <div className="auth-field">
-        <label className="lab-s" htmlFor="contact-name">Име</label>
-        <input id="contact-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
-      </div>
-      <div className="auth-field">
-        <label className="lab-s" htmlFor="contact-email">Е-пошта</label>
-        <input id="contact-email" className="fld" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      </div>
-      <div className="auth-field">
-        <label className="lab-s" htmlFor="contact-message">Порака</label>
-        <textarea id="contact-message" className="fld" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} required />
-      </div>
-      {error ? <p className="auth-error">{error}</p> : null}
-      <button type="submit" disabled={isSubmitting} className="btn btn-gold">
-        {isSubmitting ? "Се испраќа..." : "Испрати"}
+      <label htmlFor="contact-name">
+        Име
+        <input id="contact-name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
+      </label>
+      <label htmlFor="contact-email">
+        Е-пошта
+        <input id="contact-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+      </label>
+      <label htmlFor="contact-message">
+        Порака
+        <textarea id="contact-message" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} required />
+      </label>
+      {error ? <p className="contact-error">{error}</p> : null}
+      <button type="submit" disabled={isSubmitting} className="btn btn-red">
+        {isSubmitting ? "Се испраќа..." : "Испрати порака"}
       </button>
     </form>
   );
