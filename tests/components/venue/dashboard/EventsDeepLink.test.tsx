@@ -4,6 +4,10 @@ import { EventsClient } from "@/components/venue/dashboard/EventsClient";
 import type { EventDetail } from "@/lib/venue/events";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }));
+// The edit form loads photos and the couple's username on mount; stub them so
+// a unit test never sends a request to Supabase.
+vi.mock("@/lib/venue/showcase", async (orig) => ({ ...(await orig<object>()), listShowcasePhotos: vi.fn().mockResolvedValue([]) }));
+vi.mock("@/lib/venue/credentials", async (orig) => ({ ...(await orig<object>()), getEventUsername: vi.fn().mockResolvedValue("ana-marko") }));
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 
 const event: EventDetail = {

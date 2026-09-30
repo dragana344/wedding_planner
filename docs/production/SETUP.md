@@ -38,12 +38,13 @@
 
 ## 1. Supabase — прод проект
 
-### 1.1 Креирање
+### 1.1 Проектот (веќе постои)
 
-- [ ] 🧑 Нов **Organization** или користи постоечка, план **Pro** (backups, поголеми upload лимити, custom SMTP)
-- [ ] 🧑 Нов проект: име `wedding-planner-prod`, регион **EU (Frankfurt `eu-central-1`)**
-- [ ] 🔒 **Database password**: генерирај силна, чувај ја во password manager. Ќе треба за `supabase link` и `db push`
-- [ ] 📤 Прати ми: **Project ref** (20 знаци од URL-то, `https://<ref>.supabase.co`) и регионот
+Прод проектот е веќе креиран: **`kade-sum`**, ref `vltzigldrqcvkxwylzbx`, регион **`eu-west-1` (Ireland)** — ист регион како Vercel функциите (`dub1`, Dublin). Нов проект не треба (`HOSTING.md`, `ENVIRONMENTS.md`).
+
+- [ ] 🧑 Организацијата *Wedding Planner* на план **Pro** (daily backups, поголеми upload лимити, custom SMTP, leaked password protection) — одлука ⚑ (DECISIONS.md, Open 1)
+- [ ] 🔒 **Database password**: во password manager. Ќе треба за `supabase link` и `db push`
+- [ ] По желба: посебен staging проект `wedding-planner-staging`, исто `eu-west-1` (ENVIRONMENTS.md)
 
 ### 1.2 API клучеви — кои да ги земеш
 
@@ -64,10 +65,19 @@ Settings → **API Keys**. Supabase сега има два сета:
 
 ### 1.3 Миграции
 
-- [ ] 🔌 `npx supabase link --project-ref <ref>` (бара DB password; внеси ја ти во терминалот)
-- [ ] 🔌 `npx supabase db push`: ги пушта сите 30 миграции (`supabase/migrations/0001` до `0030`)
-- [ ] Провери: Dashboard → Table Editor ги има `venues`, `events`, `guests`...; Storage ги има bucket-ите `menu-item-photos`, `event-showcase-photos`, `invitation-photos`
-- [ ] Dashboard → **Advisors** (Security + Performance): прати ми screenshot или листа ако има предупредувања
+Во repo-то има **68 миграции**, `0001`–`0084` со празнини по опсези на сесиите: `0001`–`0053` (0047–0053 = admin и пакети), `0060`–`0062` (гости), `0070`–`0077` (распоред), `0080`–`0081` (албум), `0083`–`0084` (follow-ups). Сите се применуваат од нула по редослед на број.
+
+Важно: сесиите работеа паралелно, па 0047–0053 се **пониски** од 0060–0077, а се споени подоцна. Ако на прод веќе е применета некоја повисока миграција (пр. 0060+) а пониска (пр. 0047) не е, обичниот `supabase db push` одбива. Затоа прво провери што има на прод:
+
+- [ ] 🔌 `npx supabase link --project-ref vltzigldrqcvkxwylzbx` (бара DB password; внеси ја ти во терминалот)
+- [ ] 🔌 `npx supabase migration list --linked`: колоната *Remote* покажува што е применето. Не претпоставувај — провери (може да е до 0030 или до 0046)
+- [ ] 🔌 `npx supabase db push --linked --dry-run --include-all`: листа на тоа што ќе се пушти
+- [ ] 🔌 `npx supabase db push --linked --include-all`: `--include-all` е потребно само ако на прод веќе постои миграција со повисок број од некоја што недостасува; инаку е безопасно. После првиот push, `deploy.yml` (без `--include-all`) работи нормално, бидејќи новите миграции се секогаш со повисок број
+- [ ] Провери: `npx supabase migration list --linked` — секоја Local има и Remote, до `0084`; `npx supabase db diff --linked --schema public` не печати ништо
+- [ ] Storage ги има bucket-ите (ги креираат миграциите): `menu-item-photos`, `event-showcase-photos`, `invitation-photos` (јавни), `event-media`, `event-media-uploads` (приватни, албумот на гостите)
+- [ ] Dashboard → **Advisors** (Security + Performance): прати ми листа ако има предупредувања
+
+Чекорите со команди: `docs/production/LAUNCH.md` §2.
 
 ### 1.4 Auth поставки (Authentication → URL Configuration)
 
@@ -78,10 +88,11 @@ Settings → **API Keys**. Supabase сега има два сета:
   - `https://<tvojdomen>/**`
   - `https://<tvojdomen>/reset-password`
   - `https://*-<vercel-team>.vercel.app/**` (preview deployments)
-  - `https://admin.<tvojdomen>/**` (админ поддомен, чекор 3.2.1 — `docs/production/ADMIN.md`)
+  - `https://admin.<tvojdomen>/**` и `https://admin.<tvojdomen>/reset-password` (админ поддомен, чекор 3.2.1 — `docs/production/ADMIN.md`)
 - [ ] **Email → Confirm email**: одлука ⚑ (SEC-012). Локално е исклучено. Препорака за прод: **вклучено**, за да не се регистрира сала со туѓ мејл
 - [ ] **Minimum password length**: 10+; **Leaked password protection**: ON (Pro)
 - [ ] **Rate limits**: провери ги default вредностите за sign-up, reset и OTP
+- [ ] **Multi-Factor → TOTP**: enabled (задолжително за админ, опционално за персонал на сала)
 
 ### 1.5 Backups
 
@@ -126,21 +137,48 @@ Settings → **API Keys**. Supabase сега има два сета:
 
 ### 3.3 Environment variables
 
-Settings → Environment Variables. **Production** и **Preview** се посебни.
+Settings → Environment Variables. **Production** и **Preview** се посебни. Целосниот опис и ротација: `docs/production/SECRETS.md`. Env промените важат дури по нов deploy.
 
-| Име | Production | Preview | Sensitive |
-|---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | прод URL | staging URL* | не |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | прод publishable | staging publishable* | не |
-| `SUPABASE_SERVICE_ROLE_KEY` | прод secret | staging secret* | ✅ **Sensitive** |
+| Име | Production | Preview | Sensitive | Задолжително? |
+|---|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://vltzigldrqcvkxwylzbx.supabase.co` | staging URL* | не | **да** (build паѓа без него) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | прод publishable | staging publishable* | не | **да** |
+| `SUPABASE_SERVICE_ROLE_KEY` | прод secret | staging secret* | ✅ | **да** |
+| `NEXT_PUBLIC_SITE_URL` | `https://<tvojdomen>` (канонски, без `/` на крај) | — | не | да за прод: линкови во мејлови, QR кодови, reset линкови |
+| `CRON_SECRET` | случајни 32+ знаци (`openssl rand -hex 32`) | — | ✅ | **да**: без него cron рутите одбиваат (3.4) |
+| `RESEND_API_KEY` | Resend `app` клуч (чекор 4) | — | ✅ | за мејлови (покани, потсетници, контакт, известувања); без него не се праќа ништо |
+| `EMAIL_FROM` | `КАДЕ СУМ? <no-reply@mail.<tvojdomen>>` | — | не | со `RESEND_API_KEY` |
+| `CONTACT_NOTIFY_EMAIL` | тимски inbox за контакт формата | — | не | препорачано |
+| `SUPPORT_EMAIL` | адреса на страницата „Поддршка“ (инаку `CONTACT_NOTIFY_EMAIL`) | — | не | по желба |
+| `SECURITY_CONTACT_EMAIL` | за `/.well-known/security.txt` | — | не | препорачано |
+| `MEDIA_RETENTION_ENABLED` | **не го сетирај** додека не одобриш (RETENTION.md); потоа `true` | — | не | не — исклучено = албумите не се бришат |
+| `NEXT_PUBLIC_SENTRY_DSN` | DSN (чекор 6) | истиот | не | по желба (празно = Sentry исклучен) |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | slug-ови | исто | не | со Sentry |
+| `SENTRY_AUTH_TOKEN` | org token (чекор 6) | исто | ✅ | со Sentry (source maps) |
+| `IP_PSEUDONYM_SECRET` | случајни 32+ бајти | посебна вредност | ✅ | препорачано (инаку се користи service key-от) |
+| `MAINTENANCE_MODE` | **не** (само за време на одржување: `1`) | — | не | не |
+| `MAINTENANCE_BYPASS_TOKEN` | случаен токен | — | ✅ | сетирај го однапред, за да можеш да влезеш за време на одржување |
+
+`VERCEL_ENV`, `VERCEL_GIT_COMMIT_SHA` ги поставува Vercel, а `RELEASE_SHA` го поставува `deploy.yml`. **Не** го поставувај стариот `MEDIA_RETENTION_DAYS` (не се чита повеќе; ако постои, избриши го).
 
 \* **Preview никогаш не смее да покажува кон прод базата** (DATA-010). Или направи втор мал Supabase проект `wedding-planner-staging` (Free е доволен), или исклучи preview deployments додека не се направи.
 
-- [ ] 🧑 Внеси ги трите за Production, а `SUPABASE_SERVICE_ROLE_KEY` означи го како **Sensitive**
+- [ ] 🧑 Внеси ги сите за Production; тајните означи ги како **Sensitive**
 - [ ] 🧑 Staging Supabase проект + Preview env vars (или preview исклучен)
 - [ ] 🔌 Кога ќе завршиш, кажи ми и ќе проверам со `vercel env ls` дека се сите тука (вредностите не ги гледам)
 
----
+### 3.4 Cron jobs (`vercel.json`)
+
+Се креираат автоматски при production deploy (Vercel Pro; на Hobby само еднаш дневно). Vercel ги повикува со `Authorization: Bearer $CRON_SECRET`, затоа `CRON_SECRET` мора да е поставен.
+
+| Рута | Распоред (UTC) | Што прави |
+|---|---|---|
+| `/api/cron/storage-cleanup` | `23 * * * *` (секој час) | ги брише фајловите од cleanup queue, непотврдените upload-и постари од 24 h, и (само со `MEDIA_RETENTION_ENABLED=true`) албумите по истекот на пакетот, со известување 5 дена пред |
+| `/api/cron/reminders` | `7 * * * *` (секој час) | ги праќа потсетниците до гостите (default 15 дена пред, 10:00 Скопје); само ако Resend е конфигуриран и пакетот има `reminders` |
+
+- [ ] 🧑 По првиот production deploy: Settings → **Cron Jobs** ги покажува двете; „Run“ на едната → Logs без 401
+
+Во базата (pg_cron, од миграциите) работат и: `purge-expired-couple-sessions` (дневно) и чистење на `rate_limits`. Retention sweep-от за лични податоци **не** е закажан (RETENTION.md §3, чека одлука).
 
 ## 4. Email — Resend
 
@@ -228,12 +266,13 @@ Settings → Environment Variables. **Production** и **Preview** се посе�
 ## 11. Отворени одлуки (одговори ми)
 
 - [ ] Supabase Pro + Vercel Pro: одобрено?
-- [ ] Next.js 14 → 16 upgrade сега? (1 critical + 1 high ранливост, SEC-024)
 - [ ] Email confirmation при регистрација на сала: да/не?
 - [ ] Колку долго се чуваат податоците за гостите по свадбата?
 - [ ] При бришење на сметка на сала, дали нешто останува (анонимизирани финансии)?
-- [ ] Дали гостин може да го смени својот RSVP одговор преку јавниот линк?
-- [ ] Дали парот се одјавува кога салата ќе му регенерира лозинка?
+- [ ] Периодите за бришење на албумите (15/30/40/60 дена по пакет) и дали да се вклучи `MEDIA_RETENTION_ENABLED`
+- [ ] MFA задолжително за персонал на сала: сега / подоцна?
+
+(Next.js 16, RSVP промена преку линк и одјава при нова лозинка се веќе решени — DECISIONS.md.)
 
 ---
 
