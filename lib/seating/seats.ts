@@ -12,7 +12,7 @@ export type { RoomSeating, Seat, SeatGuest, SeatInput, SeatTable } from "./types
 export { tableTitle } from "./types";
 export { getRoomSeatingForStaff } from "./read";
 import { readRoom } from "./read";
-import { recordCoupleHistory } from "@/lib/couple/seating";
+import { captureCoupleSnapshot, pushCoupleHistory } from "@/lib/couple/seating";
 
 async function assertRoomBelongsToEvent(client: SupabaseClient, eventId: string, roomId: string): Promise<void> {
   const { data, error } = await client
@@ -62,8 +62,8 @@ export async function replaceTableSeats(
   const client = createServiceRoleClient();
   await assertRoomBelongsToEvent(client, eventId, roomId);
   // The couple's saves are undo steps too, so undoing a later layout edit
-  // does not silently drop them.
-  if (recordHistory) await recordCoupleHistory(eventId, roomId, client);
+  // does not silently drop them — recorded only once the save went through.
+  const before = recordHistory ? await captureCoupleSnapshot(eventId, roomId, client) : null;
   const toRows = (list: SeatInput[]) =>
     list
       .map((s) => ({ seat_number: s.seatNumber, guest_id: s.guestId ?? null, guest_name: s.guestId ? null : s.guestName?.trim() || null }))
@@ -77,6 +77,7 @@ export async function replaceTableSeats(
     p_expected: expected ? toRows(expected) : null,
   });
   if (error) throw error;
+  if (before) await pushCoupleHistory(eventId, roomId, before, client);
 }
 
 export const SEAT_LIST_CHANGED_ERROR = "Листата е сменета на друг уред. Освежете ја и обидете се повторно.";

@@ -6,8 +6,8 @@ import { tableTitle, type RoomSeating } from "./types";
 const HEADER = ["Сала", "Маса", "Столче", "Гостин"];
 
 function cell(value: string): string {
-  // A leading = + - @ would run as a formula in a spreadsheet.
-  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  // A leading = + - @ (or a tab/CR before one) would run as a formula in a spreadsheet.
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   return /[;"\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 

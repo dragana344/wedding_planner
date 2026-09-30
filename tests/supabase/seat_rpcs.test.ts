@@ -125,4 +125,14 @@ describe("seat RPCs (0071)", () => {
     const { data: seats } = await admin.from("event_seat_assignments").select("id").eq("event_id", B.eventId);
     expect(seats).toHaveLength(1);
   });
+
+  it("restore_room_seats cannot delete or add another venue's seats (review M9)", async () => {
+    await must(replace(B, [{ seat_number: 1, guest_name: "Туѓ" }]));
+    await staffA.rpc("restore_room_seats", {
+      p_event_id: B.eventId, p_room_id: B.roomId,
+      p_seats: [{ layout_element_id: B.tableId, seat_number: 2, guest_id: null, guest_name: "Упад" }],
+    });
+    const { data } = await admin.from("event_seat_assignments").select("guest_name").eq("event_id", B.eventId);
+    expect(data).toEqual([{ guest_name: "Туѓ" }]);
+  });
 });

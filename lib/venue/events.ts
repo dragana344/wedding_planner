@@ -292,16 +292,31 @@ export async function updateEvent(
     .eq("id", eventId);
   if (eventError) throw eventError;
 
-  const { error: deleteRoomsError } = await supabase
+  // Only the halls that actually changed: removing a hall frees its seats
+  // (0077), so kept halls must not be deleted and re-added; that also keeps
+  // their layout_initialized_at claim.
+  const { data: current, error: currentError } = await supabase
     .from("event_rooms")
-    .delete()
+    .select("room_id")
     .eq("event_id", eventId);
-  if (deleteRoomsError) throw deleteRoomsError;
+  if (currentError) throw currentError;
+  const had = new Set((current ?? []).map((r) => r.room_id as string));
+  const removed = Array.from(had).filter((id) => !input.room_ids.includes(id));
+  const added = input.room_ids.filter((id) => !had.has(id));
 
-  if (input.room_ids.length > 0) {
+  if (removed.length > 0) {
+    const { error: deleteRoomsError } = await supabase
+      .from("event_rooms")
+      .delete()
+      .eq("event_id", eventId)
+      .in("room_id", removed);
+    if (deleteRoomsError) throw deleteRoomsError;
+  }
+
+  if (added.length > 0) {
     const { error: insertRoomsError } = await supabase
       .from("event_rooms")
-      .insert(input.room_ids.map((room_id) => ({ event_id: eventId, room_id })));
+      .insert(added.map((room_id) => ({ event_id: eventId, room_id })));
     if (insertRoomsError) throw insertRoomsError;
   }
 }

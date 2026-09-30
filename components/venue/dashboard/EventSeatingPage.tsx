@@ -330,7 +330,8 @@ export function EventSeatingPage({
 
   async function handleRevert() {
     const seated = seating?.seats.length ?? 0;
-    if (seated > 0 && !window.confirm(`Стандардниот распоред ќе ги ослободи местата на масите што ги нема (${seated} седнати гости во салата).`)) return;
+    // Standard tables get fresh ids, so every seat in the hall is freed (undo restores them).
+    if (seated > 0 && !window.confirm(`Стандардниот распоред ги ослободува сите места во салата (${seated} седнати гости). Можете да ги вратите со „↶ Врати“.`)) return;
     setError(null);
     try {
       await actions.revertToStandard(eventId, room.id);

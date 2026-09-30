@@ -245,4 +245,15 @@ describe("EventSeatingPage seat lists", () => {
     await waitFor(() => expect(screen.getByLabelText("Столче 3")).toHaveValue("Од друг уред"));
     expect(screen.getByLabelText("Столче 2")).toHaveValue("");
   });
+
+  it("warns that reverting to the standard layout frees every seat in the hall, and that undo brings them back", async () => {
+    const a = actions({ revertToStandard: vi.fn().mockResolvedValue([]), getHistoryState: vi.fn().mockResolvedValue({ canUndo: true, canRedo: false }) });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage(a);
+    fireEvent.click(screen.getByRole("button", { name: "Врати на стандарден распоред" }));
+    expect(confirm).toHaveBeenCalledWith(
+      "Стандардниот распоред ги ослободува сите места во салата (1 седнати гости). Можете да ги вратите со „↶ Врати“.",
+    );
+    expect(a.revertToStandard).not.toHaveBeenCalled();
+  });
 });

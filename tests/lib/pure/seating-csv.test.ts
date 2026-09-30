@@ -39,4 +39,18 @@ describe("seatingCsv", () => {
     });
     expect(csv.split("\r\n")[1]).toBe("Сала;Маса 1;1;'=HYPERLINK(1)");
   });
+
+  it("also neutralises a leading tab or carriage return", () => {
+    const csv = seatingCsv("Сала", {
+      tables: [{ elementId: "t1", label: null, number: 1, capacity: 2 }],
+      seats: [
+        { elementId: "t1", seatNumber: 1, guestId: null, guestName: "\t=1+1", displayName: "\t=1+1" },
+        { elementId: "t1", seatNumber: 2, guestId: null, guestName: "\r=1+1", displayName: "\r=1+1" },
+      ],
+      guests: [],
+    });
+    const rows = csv.split("\r\n");
+    expect(rows[1]).toBe("Сала;Маса 1;1;'\t=1+1");
+    expect(rows[2]).toBe('Сала;Маса 1;2;"\'\r=1+1"');
+  });
 });

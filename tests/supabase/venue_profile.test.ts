@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { setVenueLogoPath } from "@/lib/venue/venue-profile";
 
 // S3 task 10 (migration 0074): venue profile — address, phone, logo. The logo
 // lives in the event-showcase-photos bucket under the venue's own folder.
@@ -74,5 +75,10 @@ describe("venue profile (0074)", () => {
       { bucket: "event-showcase-photos", path: `${venueA}/logo-1.png` },
       { bucket: "event-showcase-photos", path: `${venueA}/logo-2.png` },
     ]);
+  });
+
+  it("reports failure instead of success when the logo row was not updated (review M10)", async () => {
+    await expect(setVenueLogoPath(venueB, `${venueB}/logo-9.png`, staff)).rejects.toThrow("Логото не е зачувано.");
+    await expect(setVenueLogoPath(venueA, null, staff)).resolves.toBeUndefined();
   });
 });

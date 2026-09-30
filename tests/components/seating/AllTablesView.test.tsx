@@ -59,4 +59,22 @@ describe("AllTablesView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Печати листи" }));
     expect(print).toHaveBeenCalled();
   });
+
+  it("lists guests holding more seats than their party size (review M8)", () => {
+    const over = {
+      ...seating,
+      guests: [
+        { id: "g1", fullName: "Ана Петровска", partySize: 1, seatsTaken: 2, side: null },
+        { id: "g2", fullName: "Марко", partySize: 3, seatsTaken: 2, side: null },
+      ],
+    };
+    render(<AllTablesView roomName="Сала" seating={over} highlightedId={null} onHighlight={() => {}} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Повеќе места од бројот на лица: Ана Петровска (2/1)");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Марко");
+  });
+
+  it("shows no warning when everyone fits", () => {
+    render(<AllTablesView roomName="Сала" seating={seating} highlightedId={null} onHighlight={() => {}} />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

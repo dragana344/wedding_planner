@@ -2,7 +2,7 @@ import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import type { SeatingActions } from "@/components/venue/dashboard/EventSeatingPage";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
 import type { History, SnapshotSeat } from "@/lib/seating/history";
-import { recordStep, redoStep, roomHistory, stepState, undoStep, type HistoryStore } from "@/lib/seating/history-store";
+import { recordAround, redoStep, roomHistory, stepState, undoStep, type HistoryStore } from "@/lib/seating/history-store";
 import {
   addEventLayoutElement,
   deleteEventLayoutElement,
@@ -76,10 +76,10 @@ async function roomOf(elementId: string): Promise<{ eventId: string; roomId: str
   return { eventId: data.event_id, roomId: data.room_id };
 }
 
-async function recordFor(elementId: string): Promise<{ eventId: string; roomId: string }> {
+/** Runs a staff edit of one element with its undo step kept only on success. */
+async function editElement<T>(elementId: string, edit: (where: { eventId: string; roomId: string }) => Promise<T>): Promise<T> {
   const where = await roomOf(elementId);
-  await recordStep(staffHistoryStore(where.eventId, where.roomId));
-  return where;
+  return recordAround(staffHistoryStore(where.eventId, where.roomId), () => edit(where));
 }
 
 async function pruneSeats(eventId: string): Promise<void> {
@@ -88,52 +88,38 @@ async function pruneSeats(eventId: string): Promise<void> {
 }
 
 async function setGroup(eventId: string, roomId: string, ids: string[], groupId: string | null): Promise<EventLayoutElement[]> {
-  await recordStep(staffHistoryStore(eventId, roomId));
-  const { error } = await resolveSupabaseClient()
-    .from("event_layout_elements")
-    .update({ group_id: groupId })
-    .eq("event_id", eventId)
-    .eq("room_id", roomId)
-    .in("id", ids);
-  if (error) throw error;
-  return listEventLayoutElements(eventId, roomId);
+  return recordAround(staffHistoryStore(eventId, roomId), async () => {
+    const { error } = await resolveSupabaseClient()
+      .from("event_layout_elements")
+      .update({ group_id: groupId })
+      .eq("event_id", eventId)
+      .eq("room_id", roomId)
+      .in("id", ids);
+    if (error) throw error;
+    return listEventLayoutElements(eventId, roomId);
+  });
 }
 
 export const venueHistoryActions: SeatingActions = {
   listFixedElements,
   listLayoutElements: listEventLayoutElements,
   initializeFromStandard: initializeEventLayoutFromStandard,
-  addElement: async (input) => {
-    await recordStep(staffHistoryStore(input.event_id, input.room_id));
-    return addEventLayoutElement(input);
-  },
-  moveElement: async (id, xCm, yCm) => {
-    await recordFor(id);
-    return updateEventLayoutElementPosition(id, xCm, yCm);
-  },
-  resizeElement: async (id, widthCm, lengthCm) => {
-    await recordFor(id);
-    return updateEventLayoutElementSize(id, widthCm, lengthCm);
-  },
-  rotateElement: async (id, rotationDeg) => {
-    await recordFor(id);
-    return updateEventLayoutElementRotation(id, rotationDeg);
-  },
-  relabelElement: async (id, label) => {
-    await recordFor(id);
-    return updateEventLayoutElementLabel(id, label?.trim() || null);
-  },
-  deleteElement: async (id) => {
-    const { eventId } = await recordFor(id);
-    await deleteEventLayoutElement(id);
-    await pruneSeats(eventId);
-  },
-  revertToStandard: async (eventId, roomId) => {
-    await recordStep(staffHistoryStore(eventId, roomId));
-    const elements = await revertEventLayoutToStandard(eventId, roomId);
-    await pruneSeats(eventId);
-    return elements;
-  },
+  addElement: (input) => recordAround(staffHistoryStore(input.event_id, input.room_id), () => addEventLayoutElement(input)),
+  moveElement: (id, xCm, yCm) => editElement(id, () => updateEventLayoutElementPosition(id, xCm, yCm)),
+  resizeElement: (id, widthCm, lengthCm) => editElement(id, () => updateEventLayoutElementSize(id, widthCm, lengthCm)),
+  rotateElement: (id, rotationDeg) => editElement(id, () => updateEventLayoutElementRotation(id, rotationDeg)),
+  relabelElement: (id, label) => editElement(id, () => updateEventLayoutElementLabel(id, label?.trim() || null)),
+  deleteElement: (id) =>
+    editElement(id, async ({ eventId }) => {
+      await deleteEventLayoutElement(id);
+      await pruneSeats(eventId);
+    }),
+  revertToStandard: (eventId, roomId) =>
+    recordAround(staffHistoryStore(eventId, roomId), async () => {
+      const elements = await revertEventLayoutToStandard(eventId, roomId);
+      await pruneSeats(eventId);
+      return elements;
+    }),
   // The multi-step history replaced the single page-load snapshot.
   captureSnapshot: async () => {},
   undo: (eventId, roomId) => undoStep(staffHistoryStore(eventId, roomId)),

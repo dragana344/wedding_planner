@@ -17,6 +17,8 @@ export function AllTablesView({
   onHighlight: (elementId: string | null) => void;
 }) {
   const tables = [...seating.tables].sort((a, b) => a.number - b.number);
+  // e.g. a family's party size was lowered after they were seated.
+  const overbooked = seating.guests.filter((g) => g.seatsTaken > g.partySize);
 
   function exportCsv() {
     const blob = new Blob([seatingCsv(roomName, seating)], { type: "text/csv;charset=utf-8" });
@@ -49,6 +51,11 @@ export function AllTablesView({
           Печати листи
         </button>
       </div>
+      {overbooked.length > 0 ? (
+        <p role="alert" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          Повеќе места од бројот на лица: {overbooked.map((g) => `${g.fullName} (${g.seatsTaken}/${g.partySize})`).join(", ")}
+        </p>
+      ) : null}
       {tables.length === 0 ? <p className="text-sm text-neutral-500">Во салата уште нема маси.</p> : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {tables.map((t) => {

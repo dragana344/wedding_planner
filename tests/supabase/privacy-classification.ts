@@ -50,7 +50,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, menu_template_id: N, created_at: N,
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
-    deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P,
+    deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
   },
   menu_items: {
     id: N, course: N, name: N, allergen_tags: N, is_vegetarian: N, is_vegan: N, created_at: N, price: N, photo_path: N,

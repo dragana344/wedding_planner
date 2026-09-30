@@ -89,12 +89,21 @@ export async function uploadVenueLogo(venueId: string, file: File): Promise<stri
     .from(LOGO_BUCKET)
     .upload(path, file, { contentType: LOGO_TYPES[ext], cacheControl: "31536000" });
   if (uploadError) throw uploadError;
-  const { error } = await client.from("venues").update({ logo_path: path }).eq("id", venueId);
-  if (error) throw error;
+  await setVenueLogoPath(venueId, path, client);
   return venueLogoUrl(client, path)!;
 }
 
-export async function removeVenueLogo(venueId: string): Promise<void> {
-  const { error } = await resolveSupabaseClient().from("venues").update({ logo_path: null }).eq("id", venueId);
+/** Points the venue at a logo (or none). Throws when no row changed — e.g. RLS refused — instead of reporting success. */
+export async function setVenueLogoPath(
+  venueId: string,
+  logoPath: string | null,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  const { data, error } = await client.from("venues").update({ logo_path: logoPath }).eq("id", venueId).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Логото не е зачувано. Обидете се повторно.");
+}
+
+export async function removeVenueLogo(venueId: string): Promise<void> {
+  await setVenueLogoPath(venueId, null);
 }

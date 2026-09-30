@@ -16,10 +16,12 @@ export interface HistoryStore {
 export const NOTHING_TO_UNDO = "Нема што да се врати.";
 export const NOTHING_TO_REDO = "Нема што да се повтори.";
 
-/** Call before an edit, so the edit can be undone. */
-export async function recordStep(store: HistoryStore): Promise<void> {
-  const [history, current] = await Promise.all([store.read(), store.snapshot()]);
-  await store.write(record(history, current));
+/** Runs an edit and keeps its undo step only if it succeeded (review M4). */
+export async function recordAround<T>(store: HistoryStore, edit: () => Promise<T>): Promise<T> {
+  const before = await store.snapshot();
+  const result = await edit();
+  await store.write(record(await store.read(), before));
+  return result;
 }
 
 async function move(store: HistoryStore, step: typeof undo, emptyMessage: string): Promise<EventLayoutElement[]> {
