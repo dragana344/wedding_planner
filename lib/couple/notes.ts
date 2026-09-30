@@ -1,5 +1,7 @@
 // lib/couple/notes.ts
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface Note {
   id: string;
@@ -23,9 +25,10 @@ export async function listNotes(eventId: string): Promise<Note[]> {
     .from("event_notes")
     .select(COLUMNS)
     .eq("event_id", eventId)
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "event_notes");
 }
 
 export async function createNote(eventId: string, input: NoteInput): Promise<Note> {
@@ -58,20 +61,6 @@ export async function deleteNote(eventId: string, noteId: string): Promise<void>
   if (error) throw error;
 }
 
-/**
- * List-row display for a note, matching how Apple Notes derives a title:
- * an explicit title wins; otherwise the first non-blank line of the content
- * becomes the title and the next non-blank line becomes the preview. An
- * explicit title always pairs with the content's first non-blank line as
- * its preview, since in that case the title hasn't "consumed" any of it.
- */
-export function deriveNoteDisplay(title: string | null, content: string): { title: string; preview: string } {
-  const lines = content.split("\n").map((l) => l.trim());
-  const nonBlank = lines.filter((l) => l.length > 0);
-  const explicitTitle = title?.trim();
-
-  if (explicitTitle) {
-    return { title: explicitTitle, preview: nonBlank[0] ?? "" };
-  }
-  return { title: nonBlank[0] ?? "Белешка без наслов", preview: nonBlank[1] ?? "" };
-}
+// Pure display helper, kept in its own module so client components can use it
+// without pulling this service-role module into the browser bundle.
+export { deriveNoteDisplay } from "./note-display";

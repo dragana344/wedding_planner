@@ -1,25 +1,18 @@
 // app/api/couple/notes/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { noteBody } from "@/lib/api/schemas";
 import { listNotes, createNote } from "@/lib/couple/notes";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await listNotes(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на белешките." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await listNotes(eventId)),
+  { feature: "notes", fallbackError: "Не успеа вчитувањето на белешките." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
     const created = await createNote(eventId, { title: body.title || null, content: body.content ?? "" });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа создавањето на белешката." }, { status: 400 });
-  }
-}
+  },
+  { feature: "notes", body: noteBody, fallbackError: "Не успеа создавањето на белешката." },
+);

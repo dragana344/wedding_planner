@@ -1,31 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { guestCreateBody } from "@/lib/api/schemas";
 import { listGuests, addGuest, getGuestStats } from "@/lib/couple/guests";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
+export const GET = withCoupleEvent(
+  async ({ eventId }) => {
     const [guests, stats] = await Promise.all([listGuests(eventId), getGuestStats(eventId)]);
     return NextResponse.json({ guests, stats });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на гостите." }, { status: 400 });
-  }
-}
+  },
+  { fallbackError: "Не успеа вчитувањето на гостите." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
     const created = await addGuest(eventId, {
       full_name: body.full_name,
       phone: body.phone || null,
+      email: body.email || null,
       party_size: body.party_size ?? 1,
       notes: body.notes || null,
       side: body.side || null,
     });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на гостинот." }, { status: 400 });
-  }
-}
+  },
+  { body: guestCreateBody, fallbackError: "Не успеа додавањето на гостинот." },
+);

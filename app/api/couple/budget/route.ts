@@ -1,21 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { budgetItemBody } from "@/lib/api/schemas";
 import { getBudgetSummary, addBudgetItem } from "@/lib/couple/budget";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await getBudgetSummary(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на буџетот." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await getBudgetSummary(eventId)),
+  { feature: "budget", fallbackError: "Не успеа вчитувањето на буџетот." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
     const created = await addBudgetItem(eventId, {
       category: body.category,
       custom_label: body.custom_label || null,
@@ -24,7 +18,6 @@ export async function POST(request: NextRequest) {
       paid_amount: body.paid_amount ?? 0,
     });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на ставката." }, { status: 400 });
-  }
-}
+  },
+  { feature: "budget", body: budgetItemBody, fallbackError: "Не успеа додавањето на ставката." },
+);

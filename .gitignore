@@ -38,3 +38,13 @@ yarn-error.log*
 
 # TypeScript
 tsconfig.tsbuildinfo
+.vercel
+.env*
+!.env.local.example
+
+# Playwright (TEST-005)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+productioncheck/

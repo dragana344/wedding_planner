@@ -13,9 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function ReservationsPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
   const [reservations, rooms] = await Promise.all([
-    listReservations(venueId!, supabase),
-    listRoomsWithSeatTotals(venueId!, supabase),
+    listReservations(venueId, supabase),
+    listRoomsWithSeatTotals(venueId, supabase),
   ]);
-  return <ReservationsClient venueId={venueId!} initialReservations={reservations} rooms={rooms} />;
+  return <ReservationsClient venueId={venueId} initialReservations={reservations} rooms={rooms} />;
 }

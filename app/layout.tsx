@@ -42,8 +42,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="mk" data-scroll-behavior="smooth">
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} ${manrope.variable} ${plexSans.variable} antialiased`}
       >
         {children}

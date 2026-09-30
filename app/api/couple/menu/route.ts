@@ -1,28 +1,24 @@
 // app/api/couple/menu/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { menuSelectionBody } from "@/lib/api/schemas";
 import { setEventMenuSelection } from "@/lib/couple/menu";
+import { eventHasFeature } from "@/lib/entitlements/server";
+import { LOCKED_MESSAGE } from "@/lib/entitlements/features";
 
-export async function PATCH(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-
-  let body: { mode?: string; menu_template_id: string; menu_item_ids?: string[] };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Неважечко JSON тело" }, { status: 400 });
-  }
-
-  try {
+export const PATCH = withCoupleEvent(
+  async ({ eventId, body }) => {
+    // An unknown or missing `mode` is rejected by the schema with the route's
+    // "Непознат режим на избор." message.
     if (body.mode === "template") {
       await setEventMenuSelection(eventId, { mode: "template", menuTemplateId: body.menu_template_id });
-    } else if (body.mode === "custom") {
-      await setEventMenuSelection(eventId, { mode: "custom", menuItemIds: body.menu_item_ids ?? [] });
     } else {
-      return NextResponse.json({ error: "Непознат режим на избор." }, { status: 400 });
+      if (!(await eventHasFeature(eventId, "custom_menu"))) {
+        return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 403 });
+      }
+      await setEventMenuSelection(eventId, { mode: "custom", menuItemIds: body.menu_item_ids ?? [] });
     }
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа зачувувањето на избраното мени." }, { status: 400 });
-  }
-}
+  },
+  { invalidJsonError: "Неважечко JSON тело", body: menuSelectionBody, fallbackError: "Не успеа зачувувањето на избраното мени." },
+);

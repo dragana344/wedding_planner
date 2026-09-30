@@ -11,14 +11,16 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage() {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
 
   const [events, rooms, menuTemplates] = await Promise.all([
-    listEventsWithDetails(venueId!, supabase),
-    listRooms(venueId!, supabase),
-    listMenuTemplatesWithItems(venueId!, supabase),
+    listEventsWithDetails(venueId, supabase),
+    listRooms(venueId, supabase),
+    listMenuTemplatesWithItems(venueId, supabase),
   ]);
 
   return (
-    <ClientsClient venueId={venueId!} initialEvents={events} rooms={rooms} menuTemplates={menuTemplates} />
+    <ClientsClient venueId={venueId} initialEvents={events} rooms={rooms} menuTemplates={menuTemplates} />
   );
 }

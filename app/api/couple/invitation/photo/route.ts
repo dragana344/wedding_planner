@@ -1,17 +1,18 @@
 // app/api/couple/invitation/photo/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { uploadInvitationPhoto } from "@/lib/couple/invitations";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { createInvitationPhotoUpload } from "@/lib/couple/invitations";
+import { RATE_LIMITS, checkRateLimit, rateLimitedResponse } from "@/lib/security/rate-limit";
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const formData = await request.formData();
-    const file = formData.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "Не е доставена датотека." }, { status: 400 });
-    const path = await uploadInvitationPhoto(eventId, file);
-    return NextResponse.json({ photo_path: path });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата." }, { status: 400 });
-  }
-}
+// SEC-005 step 1: a signed upload for a server-chosen path. The photo itself
+// never passes through this function (Vercel's 4.5 MB body limit); the
+// browser uploads it straight to Storage, then calls ./confirm.
+export const POST = withCoupleEvent(
+  async ({ eventId }) => {
+    // SEC-002: 20 uploads per hour per event.
+    const limit = await checkRateLimit(RATE_LIMITS.invitationPhoto, eventId);
+    if (!limit.ok) return rateLimitedResponse(limit);
+    return NextResponse.json(await createInvitationPhotoUpload(eventId));
+  },
+  { feature: "invitation_photo", fallbackError: "Не успеа прикачувањето на фотографијата." },
+);

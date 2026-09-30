@@ -8,8 +8,8 @@ const admin = createClient(
 
 let venueAId: string;
 let venueBId: string;
-let staffAEmail = "staff-a@test.local";
-let staffAPassword = "test-password-123";
+const staffAEmail = "staff-a@test.local";
+const staffAPassword = "test-password-123";
 let staffAUserId: string;
 
 describe("0004 RLS: venue staff isolation", () => {

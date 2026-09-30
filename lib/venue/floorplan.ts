@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 
-export type FixedElementType = "wall" | "pillar" | "door" | "bar_fixed" | "other";
+export type FixedElementType = "wall" | "pillar" | "door" | "bar_fixed" | "entrance" | "wc" | "other";
 
 export interface FixedElement {
   id: string;
@@ -97,9 +97,11 @@ export async function deleteFixedElement(id: string): Promise<void> {
 
 export const FIXED_TYPE_COLORS: Record<FixedElementType, string> = {
   wall: "#525252",
-  pillar: "#F97316",
+  pillar: "#9CA3AF",
   door: "#A3A3A3",
   bar_fixed: "#78350F",
+  entrance: "#0F766E",
+  wc: "#64748B",
   other: "#737373",
 };
 
@@ -141,13 +143,46 @@ export async function updateRoomDimensions(
   if (error) throw error;
 }
 
-export type LayoutElementType = "table" | "stage" | "dance_floor" | "bar_movable" | "other";
+export type LayoutElementType = "table" | "stage" | "dance_floor" | "bar_movable" | "music" | "photo_stage" | "other";
+
+/** What a table is for (0073): only guest tables are numbered "Маса N". */
+export type TableRole = "guest" | "couple" | "head";
+
+export const TABLE_ROLE_LABELS: Record<TableRole, string> = {
+  guest: "Маса",
+  couple: "Маса на младенците",
+  head: "Главна маса",
+};
+
+export const COUPLE_TABLE_COLOR = "#8B6CC9";
+
+export const FIXED_LABELS: Record<FixedElementType, string> = {
+  wall: "Ѕид",
+  pillar: "Столб",
+  door: "Врата",
+  bar_fixed: "Фиксен шанк",
+  entrance: "Влез",
+  wc: "WC",
+  other: "Друго",
+};
+
+export const MOVABLE_LABELS: Record<LayoutElementType, string> = {
+  table: "Маса",
+  stage: "Бина",
+  dance_floor: "Танц подиум",
+  bar_movable: "Шанк",
+  music: "Музика",
+  photo_stage: "Бина за сликање",
+  other: "Друго",
+};
 
 export const MOVABLE_TYPE_COLORS: Record<LayoutElementType, string> = {
   table: "#3B82F6",
   stage: "#1F2937",
   dance_floor: "#7C3AED",
   bar_movable: "#78350F",
+  music: "#BE185D",
+  photo_stage: "#B8913A",
   other: "#737373",
 };
 
@@ -163,6 +198,9 @@ export interface RoomLayoutElement {
   rotation_deg: number;
   label: string | null;
   created_at: string;
+  /** Tables sharing this id are one group (0072). */
+  group_id?: string | null;
+  table_role?: TableRole;
 }
 
 export interface RoomLayoutElementInput {
@@ -174,10 +212,11 @@ export interface RoomLayoutElementInput {
   width_cm: number;
   length_cm: number;
   label?: string | null;
+  table_role?: TableRole;
 }
 
 const ROOM_LAYOUT_COLUMNS =
-  "id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, created_at";
+  "id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, created_at, group_id, table_role";
 
 export async function listRoomLayoutElements(
   roomId: string,
@@ -201,11 +240,12 @@ export async function listRoomLayoutElements(
  * Assigns each table a stable, staff-facing number (1, 2, 3, ...) based on
  * the order it was first placed on the grid — not its current position — so
  * the number stays put as staff drag the table around later. Non-table
- * elements (stage, bar, dance floor) are never numbered.
+ * elements (stage, bar, dance floor) and the couple/head tables are never
+ * numbered.
  */
 export function numberTables(elements: RoomLayoutElement[]): Map<string, number> {
   const tables = elements
-    .filter((el) => el.element_type === "table")
+    .filter((el) => el.element_type === "table" && (el.table_role ?? "guest") === "guest")
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   const numbers = new Map<string, number>();
@@ -281,6 +321,9 @@ export interface EventLayoutElement {
   length_cm: number;
   rotation_deg: number;
   label: string | null;
+  /** Tables sharing this id are one group (0072). */
+  group_id?: string | null;
+  table_role?: TableRole;
 }
 
 export interface EventLayoutElementInput {
@@ -293,10 +336,11 @@ export interface EventLayoutElementInput {
   width_cm: number;
   length_cm: number;
   label?: string | null;
+  table_role?: TableRole;
 }
 
 const EVENT_LAYOUT_COLUMNS =
-  "id, event_id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label";
+  "id, event_id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, group_id, table_role";
 
 export async function listEventLayoutElements(
   eventId: string,
@@ -372,6 +416,21 @@ export async function updateEventLayoutElementRotation(
   return data;
 }
 
+export async function updateEventLayoutElementLabel(
+  id: string,
+  label: string | null,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<EventLayoutElement> {
+  const { data, error } = await client
+    .from("event_layout_elements")
+    .update({ label })
+    .eq("id", id)
+    .select(EVENT_LAYOUT_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteEventLayoutElement(
   id: string,
   client: SupabaseClient = resolveSupabaseClient()
@@ -390,7 +449,10 @@ async function copyRoomLayoutToEvent(
   const { data, error } = await client
     .from("event_layout_elements")
     .insert(
-      roomElements.map((el) => ({
+      // Explicit, increasing created_at: one bulk insert would give every row
+      // the same timestamp and scramble "Маса N" (numbered by created_at).
+      roomElements.map((el, i) => ({
+        created_at: new Date(Date.now() + i).toISOString(),
         event_id: eventId,
         room_id: roomId,
         element_type: el.element_type,
@@ -401,6 +463,8 @@ async function copyRoomLayoutToEvent(
         length_cm: el.length_cm,
         rotation_deg: el.rotation_deg,
         label: el.label,
+        group_id: el.group_id ?? null,
+        table_role: el.table_role ?? "guest",
       }))
     )
     .select(EVENT_LAYOUT_COLUMNS);
@@ -500,7 +564,10 @@ export async function undoEventLayout(
     const { data, error: insertError } = await client
       .from("event_layout_elements")
       .insert(
-        snapshot.map((el) => ({
+        // Same ids as before the edit, so seat assignments reattach (0070).
+        snapshot.map((el, i) => ({
+          id: el.id,
+          created_at: new Date(Date.now() + i).toISOString(),
           event_id: eventId,
           room_id: roomId,
           element_type: el.element_type,
@@ -511,6 +578,8 @@ export async function undoEventLayout(
           length_cm: el.length_cm,
           rotation_deg: el.rotation_deg,
           label: el.label,
+          group_id: el.group_id ?? null,
+          table_role: el.table_role ?? "guest",
         }))
       )
       .select(EVENT_LAYOUT_COLUMNS);

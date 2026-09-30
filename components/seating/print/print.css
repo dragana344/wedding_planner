@@ -1,0 +1,188 @@
+/* S3 print pages (B7): A4 plan (landscape) and QR cards (portrait), cream & gold. */
+.s3-print-root {
+  --s3-cream: #f5efe4;
+  --s3-gold: #b8913a;
+  --s3-ink: #5b4a3a;
+  background: #e9e4da;
+  padding: 24px 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  font-family: var(--s3-serif, "Cormorant Garamond", Georgia, serif);
+  color: var(--s3-ink);
+}
+.s3-print-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+.s3-print-toolbar button,
+.s3-print-toolbar a {
+  border: 1px solid var(--s3-gold);
+  background: #fff;
+  color: var(--s3-ink);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.s3-print-page {
+  background: var(--s3-cream);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+.s3-print-page.is-plan {
+  width: 297mm;
+  height: 210mm;
+  padding: 10mm 12mm;
+  display: flex;
+  flex-direction: column;
+  page: s3-plan;
+}
+.s3-print-page.is-cards {
+  width: 210mm;
+  height: 297mm;
+  padding: 12mm;
+  page: s3-cards;
+}
+.s3-print-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4mm;
+}
+.s3-print-title {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 500;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s3-print-sub {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.s3-print-svg {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+.s3-print-num {
+  font-style: italic;
+}
+.s3-print-logo {
+  position: absolute;
+  right: 12mm;
+  bottom: 8mm;
+  max-height: 14mm;
+  max-width: 40mm;
+  object-fit: contain;
+}
+.s3-print-room {
+  position: absolute;
+  left: 12mm;
+  bottom: 8mm;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.s3-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6mm;
+  height: 100%;
+}
+.s3-qr-card {
+  margin: 0;
+  border: 1px solid var(--s3-gold);
+  outline: 1px solid var(--s3-gold);
+  outline-offset: -3mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3mm;
+  padding: 6mm;
+  text-align: center;
+  background: #fffdf8;
+}
+.s3-qr-card svg {
+  width: 38mm;
+  height: 38mm;
+}
+.s3-qr-card .s3-qr-title {
+  font-size: 30px;
+  font-style: italic;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.s3-qr-card .s3-qr-title.is-long {
+  font-size: 20px;
+}
+.s3-qr-card .s3-qr-hint {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.s3-qr-card .s3-qr-meta {
+  font-size: 11px;
+  opacity: 0.7;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s3-howto {
+  display: grid;
+  gap: 8mm;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.s3-howto ol {
+  margin: 0;
+  padding-left: 6mm;
+}
+
+@page s3-plan {
+  size: A4 landscape;
+  margin: 0;
+}
+@page s3-cards {
+  size: A4 portrait;
+  margin: 0;
+}
+@media print {
+  body:has(.s3-print-root) * {
+    visibility: hidden;
+  }
+  body:has(.s3-print-root) .s3-print-root,
+  body:has(.s3-print-root) .s3-print-root * {
+    visibility: visible;
+  }
+  .s3-print-root {
+    position: absolute;
+    inset: 0 auto auto 0;
+    padding: 0;
+    gap: 0;
+    background: none;
+  }
+  .s3-print-toolbar {
+    display: none;
+  }
+  .s3-print-page {
+    box-shadow: none;
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

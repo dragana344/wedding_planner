@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Placeholder public config for jobs that build or import app code. Never a
+# real project: tests refuse non-local URLs and the build only needs values.
+env:
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  # CICD-001 / TEST-004: install, lint, typecheck, unit tests, build.
+  checks:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-unit
+          path: coverage/unit
+      - run: npm run build
+      - name: Bundle size (PERF-003, informational)
+        run: npm run bundle:report -- --markdown >> "$GITHUB_STEP_SUMMARY"
+
+  # SEC-011: high/critical vulnerabilities in production dependencies fail CI.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm audit --omit=dev --audit-level=high
+
+  # SEC-011: committed secrets anywhere in history fail CI.
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (full history)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 detect --source=/repo --redact --verbose --exit-code=1
+
+  # DATA-003 / CICD-002: migrations apply from zero, lint clean, DB and
+  # authorization tests pass against a throwaway local Supabase.
+  database:
+    name: Migrations and DB tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Migration numbers are unique
+        run: |
+          dupes=$(ls supabase/migrations | cut -d_ -f1 | sort | uniq -d)
+          if [ -n "$dupes" ]; then echo "Duplicate migration prefixes: $dupes"; exit 1; fi
+      - name: Start local Supabase
+        run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+      - name: Apply every migration from scratch
+        run: npx supabase db reset --local
+      - name: Lint schema
+        run: npx supabase db lint --local --level warning --fail-on error
+      - name: DB tests (with coverage floor)
+        run: npm run test:db:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-db
+          path: coverage/db
+      - if: always()
+        run: npx supabase stop --no-backup
+
+  # TEST-005: Playwright smoke tests of the critical flows (venue signup,
+  # event + couple credentials, couple login + guest, invitation RSVP,
+  # password-reset email) against a production build and a local Supabase.
+  # Every test also fails on any Content-Security-Policy violation. Main only:
+  # it builds the app and boots the whole Supabase stack.
+  e2e:
+    name: E2E smoke tests
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Start local Supabase (Mailpit stays up for the reset-email test)
+        run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+      - name: Write .env.test.local for the local instance
+        run: node scripts/write-test-env.mjs
+      - name: E2E tests
+        run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - if: always()
+        run: npx supabase stop --no-backup

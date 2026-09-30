@@ -1,4 +1,5 @@
 // lib/couple/dashboard.ts
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { listAgendaItems } from "./agenda";
 import { listLocations } from "./locations";

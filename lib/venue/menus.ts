@@ -53,6 +53,7 @@ export interface MenuItemUpdateInput {
 const MENU_ITEM_COLUMNS = "id, venue_id, tiers, course, name, allergen_tags, is_vegetarian, is_vegan, price, photo_path";
 
 const MENU_ITEM_PHOTOS_BUCKET = "menu-item-photos";
+const PHOTO_CACHE_SECONDS = "31536000";
 
 export function getMenuItemPhotoUrl(photoPath: string | null): string | null {
   if (!photoPath) return null;
@@ -65,7 +66,8 @@ export async function uploadMenuItemPhoto(venueId: string, itemId: string, file:
   const path = `${venueId}/${itemId}-${Date.now()}.${extension}`;
   const { error } = await resolveSupabaseClient()
     .storage.from(MENU_ITEM_PHOTOS_BUCKET)
-    .upload(path, file, { upsert: true });
+    // Each upload gets a new path, so the file never changes: cache it for a year (PERF-001).
+    .upload(path, file, { upsert: true, cacheControl: PHOTO_CACHE_SECONDS });
   if (error) throw error;
   return path;
 }

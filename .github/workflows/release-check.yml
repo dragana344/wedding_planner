@@ -1,0 +1,25 @@
+name: Release check
+
+# CICD-005: the release running in production must be a commit on main.
+# Catches a hand-deploy of unreviewed code.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-release-is-on-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: vars.PRODUCTION_URL != ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          release=$(curl -fsS "${{ vars.PRODUCTION_URL }}/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).release))')
+          echo "Live release: $release"
+          git merge-base --is-ancestor "$release" origin/main || { echo "::error::Production runs $release, which is not on main"; exit 1; }

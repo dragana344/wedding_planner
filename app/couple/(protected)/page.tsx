@@ -6,15 +6,19 @@ import { listChecklistItems, computeChecklistStats } from "@/lib/couple/checklis
 import { GuestCountEditor } from "@/components/couple/GuestCountEditor";
 import { ContactInfoEditor } from "@/components/couple/ContactInfoEditor";
 import { Icon } from "@/components/venue/shell/Icon";
+import { StorageMeter } from "@/components/couple/StorageMeter";
+import { getStorageUsage } from "@/lib/media/album";
 
 export const dynamic = "force-dynamic";
 
 export default async function CoupleDashboardPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [summary, agendaItems, checklistItems] = await Promise.all([
+  const [summary, agendaItems, checklistItems, storage] = await Promise.all([
     getEventSummary(eventId),
     listAgendaItems(eventId),
     listChecklistItems(eventId),
+    // The meter is optional here: if the plan cannot be read, it is left out.
+    getStorageUsage(eventId).catch(() => null),
   ]);
   const checklistStats = computeChecklistStats(checklistItems);
   const upcomingAgenda = agendaItems.slice(0, 5);
@@ -36,7 +40,14 @@ export default async function CoupleDashboardPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" style={{ marginBottom: 16 }}>
+      {/* C5: the album's space, once guests have started sharing. */}
+      {storage && storage.photoBytes + storage.videoBytes > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <StorageMeter usage={storage} />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2" style={{ marginBottom: 16 }}>
         <section className="panel">
           <div className="panel-h">
             <h2 className="panel-t"><Icon name="cal-dot" size="sm" /> Агенда</h2>
@@ -58,7 +69,7 @@ export default async function CoupleDashboardPage() {
             </div>
           )}
           <div style={{ padding: "0 14px 14px" }}>
-            <Link href="/couple/agenda" style={{ color: "var(--gold-lo)", fontSize: 13.5 }}>
+            <Link href="/couple/agenda" style={{ color: "#8a6a22", fontSize: 13.5 }}>
               Погледни ги сите →
             </Link>
           </div>
@@ -90,7 +101,7 @@ export default async function CoupleDashboardPage() {
             </div>
           )}
           <div style={{ padding: "0 14px 14px" }}>
-            <Link href="/couple/checklist" style={{ color: "var(--gold-lo)", fontSize: 13.5 }}>
+            <Link href="/couple/checklist" style={{ color: "#8a6a22", fontSize: 13.5 }}>
               Погледни ги сите →
             </Link>
           </div>

@@ -107,7 +107,7 @@ export function CustomMenuBuilder({
   return (
     <section>
       <h2 className="panel-t" style={{ marginBottom: 12 }}>Или составете сопствено</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
         <div>
           <p className="lab-s" style={{ marginBottom: 8 }}>Достапни јадења (повлечете во вашето мени)</p>
           <ul style={{ display: "flex", flexDirection: "column", gap: 6, listStyle: "none", padding: 0, margin: 0 }}>

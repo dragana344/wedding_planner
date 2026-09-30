@@ -1,4 +1,6 @@
+import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface Location {
   id: string;
@@ -19,9 +21,14 @@ const COLUMNS = "id, event_id, label, address, map_url, sort_order";
 
 export async function listLocations(eventId: string): Promise<Location[]> {
   const client = createServiceRoleClient();
-  const { data, error } = await client.from("event_locations").select(COLUMNS).eq("event_id", eventId).order("sort_order");
+  const { data, error } = await client
+    .from("event_locations")
+    .select(COLUMNS)
+    .eq("event_id", eventId)
+    .order("sort_order")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "event_locations");
 }
 
 export async function addLocation(eventId: string, input: LocationInput): Promise<Location> {

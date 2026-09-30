@@ -5,6 +5,9 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { EventSeatingPage } from "./EventSeatingPage";
 import { listFixedElements, listEventLayoutElements, type FixedElement, type EventLayoutElement } from "@/lib/venue/floorplan";
 import { listTableTypes, type Room, type TableType } from "@/lib/venue/rooms";
+import { getRoomSeatingForStaff } from "@/lib/seating/read";
+import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
+import type { RoomSeating } from "@/lib/seating/types";
 
 /**
  * Full-size overlay for editing one room's seating for an event, opened from
@@ -29,14 +32,20 @@ export function EventSeatingOverlay({
     fixedElements: FixedElement[];
     layoutElements: EventLayoutElement[];
     tableTypes: TableType[];
+    seating: RoomSeating;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([listFixedElements(room.id), listEventLayoutElements(eventId, room.id), listTableTypes(room.id)])
-      .then(([fixedElements, layoutElements, tableTypes]) => {
-        if (!cancelled) setData({ fixedElements, layoutElements, tableTypes });
+    Promise.all([
+      listFixedElements(room.id),
+      listEventLayoutElements(eventId, room.id),
+      listTableTypes(room.id),
+      getRoomSeatingForStaff(resolveSupabaseClient(), eventId, room.id),
+    ])
+      .then(([fixedElements, layoutElements, tableTypes, seating]) => {
+        if (!cancelled) setData({ fixedElements, layoutElements, tableTypes, seating });
       })
       .catch((err) => {
         if (!cancelled) {
@@ -82,6 +91,9 @@ export function EventSeatingOverlay({
               initialFixedElements={data.fixedElements}
               initialLayoutElements={data.layoutElements}
               initialTableTypes={data.tableTypes}
+              initialSeating={data.seating}
+              seatingReadOnly
+              printLinks={{ plan: `/venue/events/${eventId}/print/plan`, qr: `/venue/events/${eventId}/print/qr` }}
               onBack={onClose}
               backLabel="← Затвори"
             />

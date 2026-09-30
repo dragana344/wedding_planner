@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; event?: string }>;
 }) {
-  const { filter } = await searchParams;
+  const { filter, event } = await searchParams;
   const initialFilter =
     filter === "upcoming" || filter === "today" || filter === "week" ||
     filter === "month" || filter === "done"
@@ -22,20 +22,23 @@ export default async function EventsPage({
 
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
+  // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
+  if (!venueId) return null;
 
   const [events, rooms, menuTemplates] = await Promise.all([
-    listEventsWithDetails(venueId!, supabase),
-    listRooms(venueId!, supabase),
-    listMenuTemplatesWithItems(venueId!, supabase),
+    listEventsWithDetails(venueId, supabase),
+    listRooms(venueId, supabase),
+    listMenuTemplatesWithItems(venueId, supabase),
   ]);
 
   return (
     <EventsClient
-      venueId={venueId!}
+      venueId={venueId}
       initialEvents={events}
       rooms={rooms}
       menuTemplates={menuTemplates}
       initialFilter={initialFilter}
+      initialEventId={event}
     />
   );
 }

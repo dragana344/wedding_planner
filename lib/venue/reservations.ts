@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import type { EventType } from "./events";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 /**
  * Arrival-based lifecycle: reserved (booked, guests not here yet) -> seated
@@ -108,9 +109,10 @@ export async function listReservations(
     .select(RESERVATION_COLUMNS)
     .eq("venue_id", venueId)
     .order("date", { ascending: false })
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS); // newest first, so older history is what a bound drops
   if (error) throw error;
-  return (data ?? []).map(mapRow);
+  return checkListBound(data, "reservations").map(mapRow);
 }
 
 export async function listReservationsForDate(
@@ -123,7 +125,8 @@ export async function listReservationsForDate(
     .select(RESERVATION_COLUMNS)
     .eq("venue_id", venueId)
     .eq("date", date)
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }
@@ -139,7 +142,8 @@ export async function listReservationsForRoom(
     .eq("room_id", roomId)
     .eq("date", date)
     .not("status", "in", `(${INACTIVE_STATUSES.join(",")})`)
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }
@@ -332,6 +336,8 @@ export async function getTableAvailability(
   return { reserved: Array.from(reserved), limited: Array.from(limited) };
 }
 
+const TABLE_CONFLICT_MESSAGE = "One or more selected tables are already reserved for that time.";
+
 export async function createReservation(
   input: ReservationInput,
   client: SupabaseClient = resolveSupabaseClient()
@@ -346,7 +352,7 @@ export async function createReservation(
     client
   );
   if (conflicts.length > 0) {
-    throw new Error("One or more selected tables are already reserved for that time.");
+    throw new Error(TABLE_CONFLICT_MESSAGE);
   }
 
   const { data: reservation, error } = await client
@@ -378,6 +384,10 @@ export async function createReservation(
       // delete it so a failed createReservation call never leaves an
       // orphaned row behind.
       await client.from("reservations").delete().eq("id", reservation.id);
+      // The database's no-overlap constraint (migration 0035) caught a
+      // booking that raced ours past the check above: 23P01, or 40P01 when
+      // both inserts were in flight at once and each waited on the other.
+      if (tablesError.code === "23P01" || tablesError.code === "40P01") throw new Error(TABLE_CONFLICT_MESSAGE);
       throw tablesError;
     }
   }

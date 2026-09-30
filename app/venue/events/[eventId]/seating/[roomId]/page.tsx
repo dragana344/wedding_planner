@@ -5,18 +5,20 @@ import { getEventById } from "@/lib/venue/events";
 import { getRoomById, listTableTypes } from "@/lib/venue/rooms";
 import { listFixedElements, listEventLayoutElements } from "@/lib/venue/floorplan";
 import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
+import { getRoomSeatingForStaff } from "@/lib/seating/read";
 
 export default async function EventSeatingRoute({
   params,
 }: {
-  params: { eventId: string; roomId: string };
+  params: Promise<{ eventId: string; roomId: string }>;
 }) {
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
   if (!venueId) notFound();
 
-  const event = await getEventById(params.eventId, supabase);
-  const room = await getRoomById(params.roomId, supabase);
+  const { eventId, roomId } = await params;
+  const event = await getEventById(eventId, supabase);
+  const room = await getRoomById(roomId, supabase);
   if (!event || !room || event.venue_id !== venueId || room.venue_id !== venueId) notFound();
 
   const { data: eventRoomLink, error: eventRoomLinkError } = await supabase
@@ -28,10 +30,11 @@ export default async function EventSeatingRoute({
   if (eventRoomLinkError) throw eventRoomLinkError;
   if (!eventRoomLink) notFound();
 
-  const [fixedElements, layoutElements, tableTypes] = await Promise.all([
+  const [fixedElements, layoutElements, tableTypes, seating] = await Promise.all([
     listFixedElements(room.id, supabase),
     listEventLayoutElements(event.id, room.id, supabase),
     listTableTypes(room.id, supabase),
+    getRoomSeatingForStaff(supabase, event.id, room.id),
   ]);
 
   return (
@@ -42,6 +45,9 @@ export default async function EventSeatingRoute({
       initialFixedElements={fixedElements}
       initialLayoutElements={layoutElements}
       initialTableTypes={tableTypes}
+      initialSeating={seating}
+      seatingReadOnly
+      printLinks={{ plan: `/venue/events/${event.id}/print/plan`, qr: `/venue/events/${event.id}/print/qr` }}
     />
   );
 }

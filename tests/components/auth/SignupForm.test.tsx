@@ -55,7 +55,7 @@ describe("SignupForm", () => {
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
-    expect(await screen.findByText("User already registered")).toBeInTheDocument();
+    expect(await screen.findByText("Веќе постои сметка со овој email. Најавете се.")).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -89,9 +89,18 @@ describe("SignupForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
     expect(
-      await screen.findByText("Please check your email to confirm your account before signing in.")
+      await screen.findByText("Ви испративме email. Потврдете ја сметката преку линкот, па најавете се.")
     ).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("SignupForm legal notice (COMP-001)", () => {
+  it("links the terms, the DPA and the privacy policy under the signup button", () => {
+    render(<SignupForm />);
+    expect(screen.getByRole("link", { name: "Условите за користење" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Договорот за обработка на лични податоци" })).toHaveAttribute("href", "/dpa");
+    expect(screen.getByRole("link", { name: "Политиката за приватност" })).toHaveAttribute("href", "/privacy");
   });
 });

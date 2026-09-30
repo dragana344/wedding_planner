@@ -9,8 +9,8 @@ const admin = createClient(
 let venueAId: string;
 let venueBId: string;
 let roomAId: string;
-let staffAEmail = "0016-staff-a@test.local";
-let staffAPassword = "test-password-123";
+const staffAEmail = "0016-staff-a@test.local";
+const staffAPassword = "test-password-123";
 let staffAUserId: string;
 
 describe("0016 schema: reservations", () => {

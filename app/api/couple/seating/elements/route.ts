@@ -1,32 +1,42 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { parseInput, roomIdQuery, ROOM_ID_REQUIRED_ERROR, seatingElementCreateBody } from "@/lib/api/schemas";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  const roomId = request.nextUrl.searchParams.get("room_id");
-  if (!roomId) return NextResponse.json({ error: "room_id е задолжителен." }, { status: 400 });
+export const GET = withCoupleEvent(
+  async ({ eventId, request }) => {
+    const room = parseInput(roomIdQuery, request.nextUrl.searchParams.get("room_id"), ROOM_ID_REQUIRED_ERROR);
+    if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
+    const roomId = room.data;
 
-  try {
     const actions = coupleSeatingActionsFor(eventId);
     const [fixedElements, layoutElements] = await Promise.all([
       actions.listFixedElements(roomId),
       actions.listLayoutElements(eventId, roomId),
     ]);
     return NextResponse.json({ fixedElements, layoutElements });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на распоредот." }, { status: 400 });
-  }
-}
+  },
+  { feature: "seating", fallbackError: "Не успеа вчитувањето на распоредот." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
-    const created = await coupleSeatingActionsFor(eventId).addElement({ ...body, event_id: eventId });
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
+    // Only the schema's whitelisted fields are passed on; event_id always
+    // comes from the session, never from the client.
+    const { room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, label, table_role } = body;
+    const created = await coupleSeatingActionsFor(eventId).addElement({
+      event_id: eventId,
+      room_id,
+      element_type,
+      table_type_id,
+      x_cm,
+      y_cm,
+      width_cm,
+      length_cm,
+      label,
+      table_role,
+    });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на елементот." }, { status: 400 });
-  }
-}
+  },
+  { feature: "seating", body: seatingElementCreateBody, fallbackError: "Не успеа додавањето на елементот." },
+);

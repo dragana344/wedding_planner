@@ -280,3 +280,56 @@ describe("FloorPlanCanvas select mode", () => {
     expect(onMoveEnd).toHaveBeenCalledWith("t1", 200, 200);
   });
 });
+
+describe("FloorPlanCanvas highlight", () => {
+  it("outlines a highlighted element in gold", () => {
+    renderCanvas({ elements: [{ ...table, highlighted: true }] });
+    const el = screen.getByTestId("floor-plan-element-t1");
+    expect(el).toHaveAttribute("data-highlighted", "true");
+    expect(el).toHaveAttribute("stroke", "#B8913A");
+  });
+});
+
+describe("FloorPlanCanvas zoom", () => {
+  it("scales the drawing and keeps drags in real centimetres", () => {
+    const { onMoveEnd } = renderCanvas({ zoom: 2 });
+    const svg = screen.getByTestId("floor-plan-canvas");
+    expect(svg).toHaveAttribute("width", String(2000 * 0.4 * 2));
+    expect(svg).toHaveClass("touch-none");
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"), { clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(window, { clientX: 80, clientY: 0 });
+    fireEvent.pointerUp(window, { clientX: 80, clientY: 0 });
+    // 80 screen px at 0.8 px/cm = 100 cm.
+    expect(onMoveEnd).toHaveBeenCalledWith("t1", 200, 100);
+  });
+});
+
+describe("FloorPlanCanvas background pan (touch)", () => {
+  it("dragging the empty floor scrolls the plan and the page instead of doing nothing", () => {
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const onSelect = vi.fn();
+    render(
+      <div data-testid="scroller" style={{ overflowX: "auto" }}>
+        <FloorPlanCanvas
+          widthCm={2000}
+          heightCm={1500}
+          elements={[table]}
+          selectedElementId={null}
+          onSelect={onSelect}
+          onMoveEnd={vi.fn()}
+          onResizeEnd={vi.fn()}
+          onRotateEnd={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </div>,
+    );
+    const scroller = screen.getByTestId("scroller");
+    scroller.scrollLeft = 200;
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-canvas"), { clientX: 300, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 250, clientY: 260 });
+    fireEvent.pointerUp(window, { clientX: 250, clientY: 260 });
+    expect(scroller.scrollLeft).toBe(250);
+    expect(scrollBy).toHaveBeenCalledWith(0, 40);
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+});

@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { INVITATION_TEMPLATES } from "@/lib/couple/invitation-templates";
 import type { Invitation } from "@/lib/couple/invitations";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export function InvitationClient({
   initialInvitation,
@@ -78,7 +79,7 @@ export function InvitationClient({
     setError(null);
     setIsUploadingPhoto(true);
     try {
-      // uploadInvitationPhoto (Task 10) only updates an existing event_invitations
+      // The photo is attached to an existing event_invitations
       // row, so a photo picked before "Generate link" has been clicked would
       // silently vanish — create the row first if it doesn't exist yet.
       let current = invitation;
@@ -92,9 +93,23 @@ export function InvitationClient({
         );
         setInvitation(current);
       }
-      const formData = new FormData();
-      formData.append("file", file);
-      const result = await jsonOrThrow(await fetch("/api/couple/invitation/photo", { method: "POST", body: formData }));
+      // SEC-005: straight to Storage with a one-time signed upload (no size
+      // limit from our server), then the server checks it is a real image.
+      const upload = await jsonOrThrow(await fetch("/api/couple/invitation/photo", { method: "POST" }));
+      const { error: uploadError } = await createBrowserSupabaseClient()
+        .storage.from("invitation-photos")
+        .uploadToSignedUrl(upload.path, upload.token, file, {
+          contentType: file.type || "application/octet-stream",
+          cacheControl: "31536000",
+        });
+      if (uploadError) throw new Error("Датотеката не е поддржана слика или е преголема (до 50 MB).");
+      const result = await jsonOrThrow(
+        await fetch("/api/couple/invitation/photo/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: upload.path }),
+        }),
+      );
       setInvitation((prev) => (prev ? { ...prev, photo_path: result.photo_path } : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата.");
@@ -107,7 +122,8 @@ export function InvitationClient({
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <p className="lab-s" style={{ marginBottom: 8 }}>Изберете дизајн</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Inline grid, not the `grid` class: panel.css gives `.vp .grid` a 1010px min-width. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
           {INVITATION_TEMPLATES.map((template) => (
             <button
               key={template.id}
@@ -123,6 +139,7 @@ export function InvitationClient({
               }}
             >
               <p style={{ fontWeight: 700, margin: 0 }}>{template.name}</p>
+              {template.premium ? <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--gold-lo)" }}>Премиум</p> : null}
             </button>
           ))}
         </div>
@@ -143,7 +160,7 @@ export function InvitationClient({
         <label htmlFor="invitation-photo" className="lab-s">
           Фотографија (опционално)
         </label>
-        <input id="invitation-photo" aria-label="Фотографија (опционално)" type="file" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
+        <input id="invitation-photo" aria-label="Фотографија (опционално)" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
         {isUploadingPhoto ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Се прикачува...</p> : null}
         {invitation?.photo_path ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>Фотографијата е прикачена.</p> : null}
       </div>
@@ -160,7 +177,10 @@ export function InvitationClient({
           <button type="button" onClick={handleCopyLink} className="btn btn-ghost">
             {isCopied ? "Копирано!" : "Копирај линк"}
           </button>
-          {qrDataUrl ? <img src={qrDataUrl} alt="QR код на поканата" style={{ marginTop: 8, height: 160, width: 160 }} /> : null}
+          {qrDataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a generated data: URL; next/image has nothing to optimise
+            <img src={qrDataUrl} alt="QR код на поканата" style={{ marginTop: 8, height: 160, width: 160 }} />
+          ) : null}
         </div>
       ) : null}
     </div>

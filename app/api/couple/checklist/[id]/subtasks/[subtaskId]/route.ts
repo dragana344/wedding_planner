@@ -1,25 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { subtaskParams, subtaskUpdateBody } from "@/lib/api/schemas";
 import { toggleSubtask, deleteSubtask } from "@/lib/couple/checklist";
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string; subtaskId: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const PATCH = withCoupleEvent(
+  async ({ eventId, params, body }) => {
     const updated = await toggleSubtask(eventId, params.id, params.subtaskId, body.is_done);
     return NextResponse.json(updated);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа ажурирањето на подзадачата." }, { status: 400 });
-  }
-}
+  },
+  { feature: "checklist", params: subtaskParams, body: subtaskUpdateBody, fallbackError: "Не успеа ажурирањето на подзадачата." },
+);
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string; subtaskId: string } }) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
+export const DELETE = withCoupleEvent(
+  async ({ eventId, params }) => {
     await deleteSubtask(eventId, params.id, params.subtaskId);
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа бришењето на подзадачата." }, { status: 400 });
-  }
-}
+  },
+  { feature: "checklist", params: subtaskParams, fallbackError: "Не успеа бришењето на подзадачата." },
+);

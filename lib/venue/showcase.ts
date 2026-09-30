@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 
 export interface ShowcasePhoto {
   id: string;
@@ -21,9 +22,10 @@ export async function listShowcasePhotos(eventId: string): Promise<ShowcasePhoto
     .from("event_showcase_photos")
     .select("id, event_id, photo_path")
     .eq("event_id", eventId)
-    .order("created_at");
+    .order("created_at")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "event_showcase_photos");
 }
 
 export async function addShowcasePhoto(
@@ -37,7 +39,8 @@ export async function addShowcasePhoto(
 
   const { error: uploadError } = await supabase.storage
     .from(SHOWCASE_PHOTOS_BUCKET)
-    .upload(path, file);
+    // Unique path per upload: safe to cache for a year (PERF-001).
+    .upload(path, file, { cacheControl: "31536000" });
   if (uploadError) throw uploadError;
 
   const { data, error } = await supabase

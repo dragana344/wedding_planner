@@ -1,0 +1,21 @@
+/* S3: "Печати листи" prints only the seat-list grid, whatever shell is around it. */
+@media print {
+  body.s3-printing-lists * {
+    visibility: hidden;
+  }
+  body.s3-printing-lists .s3-print-lists,
+  body.s3-printing-lists .s3-print-lists * {
+    visibility: visible;
+  }
+  body.s3-printing-lists .s3-print-lists {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+  .s3-print-lists .s3-no-print {
+    display: none;
+  }
+  .s3-print-lists .s3-table-card {
+    break-inside: avoid;
+  }
+}

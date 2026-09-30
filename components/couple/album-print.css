@@ -1,0 +1,115 @@
+/* C4: printable album QR cards. On screen a preview; in print only the cards. */
+.s4-print-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+.s4-print-controls label {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.s4-print-controls .s4-print-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.s4-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 105mm), 1fr));
+  gap: 0;
+  background: #fff;
+}
+.s4-card,
+.s4-poster {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f5efe4;
+  color: #2b2620;
+  border: 1px dashed #b8913a;
+  break-inside: avoid;
+  font-family: Georgia, "Times New Roman", serif;
+}
+.s4-card {
+  aspect-ratio: 105 / 148;
+  padding: 10mm;
+}
+.s4-poster {
+  width: min(100%, 190mm);
+  aspect-ratio: 210 / 297;
+  margin: 0 auto;
+  padding: 20mm;
+}
+.s4-card-kicker {
+  margin: 0 0 8mm;
+  color: #8a6a22;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 14pt;
+}
+.s4-card-table {
+  margin: 0 0 4mm;
+  font-style: italic;
+  font-size: 20pt;
+  color: #8a6a22;
+}
+.s4-card-qr {
+  width: 60%;
+  aspect-ratio: 1;
+  background: #fff;
+}
+.s4-poster .s4-card-qr {
+  width: 70%;
+}
+.s4-card-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.s4-card-cta {
+  margin: 5mm 0 0;
+  font-style: italic;
+  font-size: 13pt;
+  line-height: 1.3;
+}
+.s4-poster .s4-card-cta {
+  font-size: 22pt;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  .vp .side,
+  .vp .top,
+  .vp .scrim,
+  .s4-print-controls {
+    display: none !important;
+  }
+  .vp.app {
+    display: block;
+  }
+  .vp .main > main {
+    padding: 0 !important;
+  }
+  .s4-sheet {
+    grid-template-columns: 105mm 105mm;
+  }
+  .s4-card {
+    width: 105mm;
+    height: 148.5mm;
+    aspect-ratio: auto;
+  }
+  .s4-poster {
+    width: 210mm;
+    height: 297mm;
+    border: 0;
+  }
+}

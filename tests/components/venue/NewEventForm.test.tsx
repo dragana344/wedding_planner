@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewEventForm } from "@/components/venue/NewEventForm";
 import * as events from "@/lib/venue/events";
@@ -29,11 +29,13 @@ describe("NewEventForm", () => {
     await userEvent.selectOptions(screen.getByLabelText(/^статус/i), "confirmed");
     await userEvent.type(screen.getByLabelText(/број на гости/i), "80");
     await userEvent.type(screen.getByLabelText(/^крај/i), "22:00");
-    await userEvent.click(screen.getByLabelText("Garden"));
+    // One room: already picked, no room step.
+    expect(screen.getByLabelText("Garden")).toBeChecked();
     await userEvent.selectOptions(screen.getByLabelText(/^мени$/i), "m1");
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "ivana-petar");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
-    await userEvent.type(screen.getByPlaceholderText(/е-пошта за контакт/i), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     expect(createSpy).toHaveBeenCalledWith({
@@ -47,13 +49,11 @@ describe("NewEventForm", () => {
       guest_count_estimate: 80,
       room_ids: ["r1"],
       menu_template_id: "m1",
+      contacts: { contact_email: "couple@example.com", contact_email_2: null, contact_phone: "070 123 456" },
     });
     expect(credentialsSpy).toHaveBeenCalledWith("e1", "ivana-petar", "a-strong-password");
-    expect(contactSpy).toHaveBeenCalledWith("e1", {
-      contact_email: "couple@example.com",
-      contact_email_2: null,
-      contact_phone: null,
-    });
+    // A21: saved with the event itself, not as a second step.
+    expect(contactSpy).not.toHaveBeenCalled();
     expect(financeSpy).toHaveBeenCalledWith("e1", {
       total_price: null,
       deposit_paid: null,
@@ -78,10 +78,71 @@ describe("NewEventForm", () => {
     await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
     await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "taken-username");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     expect(deleteSpy).toHaveBeenCalledWith("e1");
     expect(await screen.findByText(/username taken/i)).toBeInTheDocument();
+  });
+
+  it("does not create an event without the couple's email and phone (A21)", async () => {
+    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    render(<NewEventForm venueId="v1" rooms={[]} menuTemplates={[]} onCreated={vi.fn()} />);
+    expect(screen.getByLabelText("Email на парот")).toBeRequired();
+    expect(screen.getByLabelText("Телефон на парот")).toBeRequired();
+
+    await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
+    await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
+    await userEvent.type(screen.getByLabelText(/корисничко име/i), "ivana-petar");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    fireEvent.submit(screen.getByRole("button", { name: /креирај настан/i }).closest("form")!);
+
+    expect(await screen.findByText("Внесете телефон на парот.")).toBeInTheDocument();
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  describe("room first (B6)", () => {
+    const rooms = [
+      { id: "r1", venue_id: "v1", name: "Голема сала", width_cm: 3600, height_cm: 2100 },
+      { id: "r2", venue_id: "v1", name: "Мала сала", width_cm: 1500, height_cm: 1000 },
+    ];
+    const totals = { r1: { tables: 41, seats: 404 }, r2: { tables: 8, seats: 80 } };
+
+    it("starts with picking the hall when the venue has several", async () => {
+      render(<NewEventForm venueId="v1" rooms={rooms} roomTotals={totals} menuTemplates={[]} onCreated={() => {}} />);
+      expect(screen.getByRole("heading", { name: "Во која сала?" })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/имиња на славениците/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Голема сала/ })).toHaveTextContent("41 маси · 404 места");
+      const next = screen.getByRole("button", { name: "Продолжи" });
+      expect(next).toBeDisabled();
+
+      await userEvent.click(screen.getByRole("button", { name: /Мала сала/ }));
+      expect(screen.getByRole("button", { name: /Мала сала/ })).toHaveAttribute("aria-pressed", "true");
+      await userEvent.click(next);
+
+      expect(screen.getByLabelText(/имиња на славениците/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Мала сала")).toBeChecked();
+      expect(screen.getByLabelText("Голема сала")).not.toBeChecked();
+      await userEvent.click(screen.getByRole("button", { name: "Смени сала" }));
+      expect(screen.getByRole("heading", { name: "Во која сала?" })).toBeInTheDocument();
+    });
+
+    it("an event can use both halls", async () => {
+      render(<NewEventForm venueId="v1" rooms={rooms} menuTemplates={[]} onCreated={() => {}} />);
+      await userEvent.click(screen.getByRole("button", { name: /Голема сала/ }));
+      await userEvent.click(screen.getByRole("button", { name: /Мала сала/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Продолжи" }));
+      expect(screen.getByLabelText("Мала сала")).toBeChecked();
+      expect(screen.getByLabelText("Голема сала")).toBeChecked();
+    });
+
+    it("skips the step when a hall was already chosen (?room=)", () => {
+      render(<NewEventForm venueId="v1" rooms={rooms} initialRoomIds={["r2"]} menuTemplates={[]} onCreated={() => {}} />);
+      expect(screen.queryByRole("heading", { name: "Во која сала?" })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Мала сала")).toBeChecked();
+    });
   });
 });

@@ -8,6 +8,7 @@ import { listEventsWithDetails, type EventDetail, type EventType } from "@/lib/v
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
+import { todayIn } from "@/lib/date";
 
 type Tab = "all" | EventType;
 
@@ -69,7 +70,7 @@ export function ClientsClient({
   const [query, setQuery] = useState("");
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => todayIn(), []);
 
   async function refresh() {
     setEvents(await listEventsWithDetails(venueId));

@@ -1,24 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { withCoupleEvent } from "@/lib/api/handler";
+import { locationBody } from "@/lib/api/schemas";
 import { listLocations, addLocation } from "@/lib/couple/locations";
 
-export async function GET(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    return NextResponse.json(await listLocations(eventId));
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа вчитувањето на локациите." }, { status: 400 });
-  }
-}
+export const GET = withCoupleEvent(
+  async ({ eventId }) => NextResponse.json(await listLocations(eventId)),
+  { feature: "locations", fallbackError: "Не успеа вчитувањето на локациите." },
+);
 
-export async function POST(request: NextRequest) {
-  const eventId = request.headers.get("x-couple-event-id");
-  if (!eventId) return NextResponse.json({ error: "Не сте најавени" }, { status: 401 });
-  try {
-    const body = await request.json();
+export const POST = withCoupleEvent(
+  async ({ eventId, body }) => {
     const created = await addLocation(eventId, { label: body.label, address: body.address || null, map_url: body.map_url || null });
     return NextResponse.json(created);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Не успеа додавањето на локацијата." }, { status: 400 });
-  }
-}
+  },
+  { feature: "locations", body: locationBody, fallbackError: "Не успеа додавањето на локацијата." },
+);

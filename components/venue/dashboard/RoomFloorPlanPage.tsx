@@ -22,28 +22,17 @@ import {
   numberTables,
   FIXED_TYPE_COLORS,
   MOVABLE_TYPE_COLORS,
+  FIXED_LABELS,
+  MOVABLE_LABELS,
+  TABLE_ROLE_LABELS,
+  COUPLE_TABLE_COLOR,
+  type TableRole,
   type FixedElement,
   type FixedElementType,
   type RoomLayoutElement,
   type LayoutElementType,
 } from "@/lib/venue/floorplan";
 import { type Room, type TableType } from "@/lib/venue/rooms";
-
-const FIXED_LABELS: Record<FixedElementType, string> = {
-  wall: "Ѕид",
-  pillar: "Столб",
-  door: "Врата",
-  bar_fixed: "Фиксен шанк",
-  other: "Друго",
-};
-
-const MOVABLE_LABELS: Record<LayoutElementType, string> = {
-  table: "Маса",
-  stage: "Бина",
-  dance_floor: "Плоштад за танцување",
-  bar_movable: "Movable bar",
-  other: "Друго",
-};
 
 export function RoomFloorPlanPage({
   venueId,
@@ -96,7 +85,7 @@ export function RoomFloorPlanPage({
       setIsUnlocked(true);
       setPasswordInput("");
     } else {
-      setPasswordError("Погрешна лозинка.");
+      setPasswordError("Погрешна лозинка. Ако сè уште немате лозинка, поставете ја во Поставки.");
     }
   }
 
@@ -140,6 +129,31 @@ export function RoomFloorPlanPage({
     }
   }
 
+  /** Couple / head tables use a rectangular table type when the room has one. */
+  const specialTableType = tableTypes.find((tt) => tt.shape === "rectangular") ?? tableTypes[0] ?? null;
+
+  async function handleAddSpecialTable(role: Exclude<TableRole, "guest">) {
+    if (!specialTableType) return;
+    setActionError(null);
+    try {
+      const created = await addRoomLayoutElement({
+        room_id: room.id,
+        element_type: "table",
+        table_type_id: specialTableType.id,
+        table_role: role,
+        x_cm: Math.max(0, (widthCm - specialTableType.width_cm) / 2),
+        y_cm: 100,
+        width_cm: specialTableType.width_cm,
+        length_cm: specialTableType.length_cm,
+        label: null,
+      });
+      await refresh();
+      setSelectedId(created.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
+    }
+  }
+
   async function handleAddTable(tableType: TableType) {
     setActionError(null);
     if (tablesPlacedForType(tableType.id) >= tableType.quantity) {
@@ -155,7 +169,8 @@ export function RoomFloorPlanPage({
         y_cm: Math.max(0, (heightCm - tableType.length_cm) / 2),
         width_cm: tableType.width_cm,
         length_cm: tableType.length_cm,
-        label: tableType.name,
+        label: null,
+        table_role: "guest",
       });
       await refresh();
       setSelectedId(created.id);
@@ -263,8 +278,11 @@ export function RoomFloorPlanPage({
       const shape: "rect" | "circle" =
         el.element_type === "table" ? (tableType?.shape === "rectangular" ? "rect" : "circle") : "rect";
       const tableNumber = tableNumbers.get(el.id);
+      const role = el.table_role ?? "guest";
       const label =
-        el.element_type === "table" && tableNumber != null
+        el.element_type === "table" && role !== "guest"
+          ? (el.label ?? TABLE_ROLE_LABELS[role])
+          : el.element_type === "table" && tableNumber != null
           ? tableType
             ? `${tableNumber} (${tableType.seats})`
             : String(tableNumber)
@@ -275,7 +293,7 @@ export function RoomFloorPlanPage({
         y_cm: el.y_cm,
         width_cm: el.width_cm,
         height_cm: el.length_cm,
-        color: MOVABLE_TYPE_COLORS[el.element_type],
+        color: el.element_type === "table" && role === "couple" ? COUPLE_TABLE_COLOR : MOVABLE_TYPE_COLORS[el.element_type],
         label,
         shape,
         rotationDeg: el.rotation_deg,
@@ -374,16 +392,34 @@ export function RoomFloorPlanPage({
                 <button type="button" className="chip" onClick={() => handleAddFixed("bar_fixed")}>
                   + Фиксен шанк
                 </button>
+                <button type="button" className="chip" onClick={() => handleAddFixed("entrance")}>
+                  + Влез
+                </button>
+                <button type="button" className="chip" onClick={() => handleAddFixed("wc")}>
+                  + WC
+                </button>
               </>
             ) : null}
             <button type="button" className="chip" onClick={() => handleAddMovable("stage")}>
               + Бина
             </button>
             <button type="button" className="chip" onClick={() => handleAddMovable("dance_floor")}>
-              + Плоштад за танцување
+              + Танц подиум
             </button>
             <button type="button" className="chip" onClick={() => handleAddMovable("bar_movable")}>
-              + Movable bar
+              + Шанк
+            </button>
+            <button type="button" className="chip" onClick={() => handleAddMovable("music")}>
+              + Музика
+            </button>
+            <button type="button" className="chip" onClick={() => handleAddMovable("photo_stage")}>
+              + Бина за сликање
+            </button>
+            <button type="button" className="chip" disabled={!specialTableType} onClick={() => handleAddSpecialTable("couple")}>
+              + Маса на младенците
+            </button>
+            <button type="button" className="chip" disabled={!specialTableType} onClick={() => handleAddSpecialTable("head")}>
+              + Главна маса
             </button>
             {tableTypes.map((tt) => (
               <button

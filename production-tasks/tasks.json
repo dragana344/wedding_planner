@@ -1,0 +1,3443 @@
+[
+  {
+    "id": "INFRA-001",
+    "title": "Decide and document the production hosting target",
+    "category": "infra",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md",
+        "SETUP.md",
+        "docker-compose.prod.yml"
+      ],
+      "commits": [
+        "1792f7b"
+      ],
+      "pattern_summary": "Coachfio writes down exactly where production runs (one droplet, Docker Compose, Caddy, Postgres, R2) and every command that touches it lives in DEPLOY.md. Nothing about production is tribal knowledge."
+    },
+    "target_files": [
+      "docs/production/HOSTING.md (new)"
+    ],
+    "description": "DECIDED 27 Sep 2026: Vercel for the Next.js app, Supabase Cloud for database/auth/storage, Resend for email, a domain still to be bought. Record this and the facts that follow from it: which Supabase plan (PITR needs Pro), which region, which Vercel project, who owns each account. Every infra/ci-cd task below reads this file. If a different target is chosen (e.g. self-hosted Node + self-hosted Supabase), the dependent tasks keep their intent and change only the mechanism - note that here.",
+    "acceptance_criteria": [
+      "docs/production/HOSTING.md exists and names: app host, DB/auth/storage host, region, plan, account owners (roles, not credentials).",
+      "Every open question in 00-target-overview.md marked 'hosting' is answered in it."
+    ],
+    "verification": [
+      "Review: the file answers 'where does prod run, who can deploy, who can see the DB' without asking anyone."
+    ],
+    "out_of_scope": [
+      "Creating accounts or projects (that is INFRA-002/REL-002).",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-001-decide-and-document-the-production-hosting-target.md"
+  },
+  {
+    "id": "INFRA-002",
+    "title": "Domain, TLS and canonical host",
+    "category": "infra",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "deploy/Caddyfile"
+      ],
+      "commits": [
+        "bd58c4a"
+      ],
+      "pattern_summary": "Coachfio serves one canonical host: www permanently redirects to the apex with path and query kept, because two hosts with one content made Google pick the wrong canonical. TLS is automatic."
+    },
+    "target_files": [
+      "docs/production/HOSTING.md",
+      "(host dashboard config, e.g. Vercel domains)"
+    ],
+    "description": "The domain is not bought yet (decided 27 Sep 2026): buy it at a registrar that allows full DNS control, keep it separate from any email-forwarding service (see INFRA-006). Attach it to Vercel, enable TLS, and make exactly one host canonical (apex or www) with a 308 from the other that keeps path and query. Set Supabase Auth 'Site URL' to the canonical https origin (see SEC-012).",
+    "acceptance_criteria": [
+      "https://<domain>/ serves the app with a valid certificate.",
+      "The non-canonical host answers 308 to the canonical one, preserving path and query.",
+      "http:// redirects to https://."
+    ],
+    "verification": [
+      "curl -sI http://<domain>/x?y=1 | grep -i location",
+      "curl -sI https://www.<domain>/x?y=1 | grep -i location"
+    ],
+    "out_of_scope": [
+      "DNS for email (INFRA-006).",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-002-domain-tls-and-canonical-host.md"
+  },
+  {
+    "id": "INFRA-003",
+    "title": "Secrets management and key hygiene",
+    "category": "infra",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        ".env.prod.example",
+        "core/config.py",
+        "api/main.py"
+      ],
+      "commits": [
+        "3bebf2e"
+      ],
+      "pattern_summary": "Coachfio keeps secrets only in .env.prod on the box (0600) and host config, documents every variable in .env.prod.example, and refuses to boot production with a development default for a secret."
+    },
+    "target_files": [
+      ".env.local.example",
+      "lib/supabase/service-role.ts",
+      "docs/production/SECRETS.md (new)"
+    ],
+    "description": "Production secrets (SUPABASE_SERVICE_ROLE_KEY and any added later: Sentry DSN, SMTP, rate-limit store) live only in the host's encrypted env settings, per environment. Confirm the service-role key is never exposed with a NEXT_PUBLIC_ prefix and never reaches a client bundle (see SEC-014 for the code guard). Document every variable, which environments need it, and how to rotate it. Keep .env.local.example complete with placeholder values only.",
+    "acceptance_criteria": [
+      "docs/production/SECRETS.md lists every env var, its environments, owner and rotation steps.",
+      "No production secret is present in the repo or its history (git log -p shows none).",
+      "The production service-role key is distinct from staging/dev and was never committed."
+    ],
+    "verification": [
+      "git log -p --all | grep -nE 'service_role|eyJhbGci' || echo clean",
+      "After `next build`: grep -r SUPABASE_SERVICE_ROLE_KEY .next/static || echo not-in-client-bundle"
+    ],
+    "out_of_scope": [
+      "Rotating keys used only on a laptop against local Supabase.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-003-secrets-management-and-key-hygiene.md"
+  },
+  {
+    "id": "INFRA-004",
+    "title": "README, Node version pin and lockfile policy",
+    "category": "infra",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "SETUP.md",
+        "CLAUDE.md"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio has a run-it-first SETUP.md and an architecture/gotchas file; a new engineer can go from clone to green tests without asking anyone. Toolchain versions are pinned."
+    },
+    "target_files": [
+      "README.md (new)",
+      "package.json",
+      ".nvmrc (new)"
+    ],
+    "description": "Add a README: prerequisites, `supabase start`, env setup from .env.local.example, `npm run dev`, how to run unit vs DB tests (TEST-001), how to deploy (CICD-003). Pin Node with .nvmrc and package.json `engines`. Decide the lockfile policy: package-lock.json is committed and CI uses `npm ci` (the working tree currently has an uncommitted lockfile change - resolve it deliberately, do not discard it blindly).",
+    "acceptance_criteria": [
+      "A clean clone + README steps reaches a running app and a green unit test run.",
+      "`node -v` mismatch is caught by engines/.nvmrc.",
+      "package-lock.json is clean and CI uses npm ci."
+    ],
+    "verification": [
+      "Fresh clone into /tmp, follow README verbatim."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-004-readme-node-version-pin-and-lockfile-policy.md"
+  },
+  {
+    "id": "INFRA-006",
+    "title": "Production email: custom SMTP for Supabase Auth plus SPF/DKIM/DMARC",
+    "category": "infra",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "INFRA-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md (Email section)",
+        "core/notify/"
+      ],
+      "commits": [
+        "849dcee",
+        "1963ad4"
+      ],
+      "pattern_summary": "Coachfio sends through Resend on a verified subdomain with SPF/DKIM, and DEPLOY.md records the DNS traps that once silently killed sign-in emails (forwarding mode deleting MX, duplicate SPF records)."
+    },
+    "target_files": [
+      "(Supabase Auth SMTP settings)",
+      "docs/production/EMAIL.md (new)"
+    ],
+    "description": "Supabase's built-in SMTP is rate-limited to a handful of emails per hour and is not for production: signup confirmation and password reset (AUTH-002) would stop working with a few real users. DECIDED 27 Sep 2026: Resend. Verify a sending subdomain (e.g. send.<domain>) in Resend, add its SPF/DKIM records plus a DMARC record on the apex, and set Resend as custom SMTP in the production Supabase project. The same Resend account sends team notifications (OBS-005). Customise the auth email templates' sender name only if approved (templates are user-visible text).",
+    "acceptance_criteria": [
+      "Signup confirmation and password-reset emails arrive in Gmail and Outlook inboxes (not spam) from the production domain.",
+      "SPF, DKIM and DMARC pass (mail-tester or Gmail 'show original').",
+      "Auth email rate limit in Supabase is raised to match the provider."
+    ],
+    "verification": [
+      "Trigger a password reset on production for a test account; inspect headers for spf=pass dkim=pass dmarc=pass."
+    ],
+    "out_of_scope": [
+      "Marketing email.",
+      "Changing auth email wording without approval.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-006-production-email-custom-smtp-for-supabase-auth-plus-spf-dkim.md"
+  },
+  {
+    "id": "SEC-001",
+    "title": "Security headers and Content-Security-Policy",
+    "category": "security",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/main.py (add_security_headers)",
+        "tests/test_csp.py"
+      ],
+      "commits": [
+        "d5531ec",
+        "a2488ae"
+      ],
+      "pattern_summary": "Coachfio stamps every response with CSP (no unsafe-inline scripts), X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy and HSTS, and a test fails the build if an inline script appears."
+    },
+    "target_files": [
+      "next.config.mjs",
+      "middleware.ts (only if a nonce-based CSP is chosen)",
+      "tests/security/headers.test.ts (new)"
+    ],
+    "description": "next.config.mjs sets no headers today. Add headers() for all routes: Strict-Transport-Security, X-Content-Type-Options nosniff, X-Frame-Options DENY (or frame-ancestors 'none'), Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (camera/mic/geolocation off), and a CSP whose connect-src/img-src allow the Supabase project URL and storage. Ship the CSP as Content-Security-Policy-Report-Only first, collect violations for a few days, then enforce. Next.js inline bootstrap scripts need either a nonce (middleware) or 'unsafe-inline' for script-src in the interim - document the choice.",
+    "acceptance_criteria": [
+      "Every HTML and API response carries the headers above.",
+      "CSP is enforced (not report-only) with zero violations on every page of the venue panel, couple panel, invitation page and marketing page.",
+      "A test asserts the header set so it cannot silently disappear."
+    ],
+    "verification": [
+      "curl -sI https://<domain>/ | grep -iE 'content-security|strict-transport|x-frame|x-content-type|referrer|permissions'",
+      "securityheaders.com grade A or better",
+      "Browser console on each page: no CSP violations"
+    ],
+    "out_of_scope": [
+      "Rewriting components to remove inline styles.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-001-security-headers-and-content-security-policy.md"
+  },
+  {
+    "id": "SEC-002",
+    "title": "Rate limiting on public and credential endpoints",
+    "category": "security",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/auth/ratelimit.py",
+        "api/routes/client_errors.py"
+      ],
+      "commits": [
+        "a5c0070",
+        "cc6c05e",
+        "6697bad"
+      ],
+      "pattern_summary": "Coachfio rate-limits per IP in Redis; every route that sends email or costs money fails CLOSED when the limiter is down, everything else fails open, and a limiter outage answers 503 rather than a false 'too many attempts'."
+    },
+    "target_files": [
+      "middleware.ts or lib/security/rate-limit.ts (new)",
+      "app/api/couple/login/route.ts",
+      "app/api/invite/[slug]/rsvp/route.ts",
+      "app/api/venue/contact/route.ts",
+      "app/api/venue/signup/route.ts",
+      "app/api/couple/invitation/photo/route.ts"
+    ],
+    "description": "There is no request-level limiting anywhere. The DB lockout in verify_event_credentials (5 tries / 15 min per username) protects one username but not a spray across usernames, and the public RSVP and contact endpoints write to the DB with no limit at all (an attacker can fill a couple's guest list or the contact table). Add a shared limiter keyed on client IP (x-forwarded-for from the trusted proxy only) backed by a store that works on the host (Upstash Redis on Vercel, or a Postgres table). Suggested budgets to confirm: couple login 10/min/IP, RSVP 20/h/IP per slug, contact 5/h/IP, signup 5/h/IP, photo upload 20/h/event. Over the limit returns 429 with the route's existing localized message style.",
+    "acceptance_criteria": [
+      "Each listed route returns 429 once its budget is exceeded, and recovers after the window.",
+      "Limiter unavailability: login/signup/contact fail closed (503), others fail open - documented per route.",
+      "Unit tests cover allow, over, and store-down for the limiter."
+    ],
+    "verification": [
+      "for i in $(seq 1 15); do curl -s -o /dev/null -w '%{http_code}\\n' -X POST https://<domain>/api/couple/login -d '{\"username\":\"x\",\"password\":\"y\"}'; done  # expect 401s then 429"
+    ],
+    "out_of_scope": [
+      "Changing the DB lockout rules.",
+      "CAPTCHA (SEC-013).",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-002-rate-limiting-on-public-and-credential-endpoints.md"
+  },
+  {
+    "id": "SEC-003",
+    "title": "Stop returning raw database/internal error text from API routes",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "ARCH-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "api/main.py (exception handlers)",
+        "api/routes/matches.py"
+      ],
+      "commits": [
+        "03f201e"
+      ],
+      "pattern_summary": "Coachfio answers errors with deliberate messages and keeps internals in logs/Sentry; a 404 is used instead of 403 so an id's existence is never confirmed."
+    },
+    "target_files": [
+      "app/api/**/route.ts (all 30 handlers)",
+      "lib/api/handler.ts (from ARCH-001)"
+    ],
+    "description": "Almost every route does `catch (err) { return json({ error: err.message }) }`, so Postgres/PostgREST messages (constraint names, column names, RLS errors) reach the browser. Keep domain errors the code throws on purpose (e.g. 'Invitation not found.', 'Table type does not belong to this room.') but replace any other error with the fallback message each route ALREADY defines, and log the original server-side with a request id (OBS-002).",
+    "acceptance_criteria": [
+      "No API response body contains a raw Postgres/PostgREST/Supabase error message.",
+      "Intentional domain messages are unchanged.",
+      "The original error is logged server-side with a request id."
+    ],
+    "verification": [
+      "Force a DB error (e.g. invalid uuid) against each route; response shows the fallback text, logs show the original."
+    ],
+    "out_of_scope": [
+      "Changing the wording of the existing fallback messages.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "User-visible error text changes in failure cases only: a raw DB message is replaced by the route's own existing fallback message. No success path changes.",
+    "file": "tasks/SEC-003-stop-returning-raw-database-internal-error-text-from-api-rou.md"
+  },
+  {
+    "id": "SEC-004",
+    "title": "Input validation on every API route (and a PostgREST filter-injection fix)",
+    "category": "security",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "ARCH-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/schemas.py",
+        "api/routes/matches.py (_owned)"
+      ],
+      "commits": [
+        "19f00ec"
+      ],
+      "pattern_summary": "Coachfio validates every request body with a typed schema (bounded strings, enums, ids) before touching the DB, and path ids are checked against the caller's ownership."
+    },
+    "target_files": [
+      "lib/api/schemas.ts (new, e.g. zod)",
+      "app/api/**/route.ts",
+      "lib/couple/menu.ts (setMenuItemQuantities)",
+      "app/api/couple/seating/elements/route.ts"
+    ],
+    "description": "Route bodies are used unvalidated. Concretely: (1) lib/couple/menu.ts builds a PostgREST filter string `.not(\"menu_item_id\",\"in\",`(${ids.join(\",\")})`)` from client-supplied ids - a crafted id can alter the filter; validate every id as a UUID before it is interpolated. (2) seating/elements POST spreads the whole body into the insert (`{...body, event_id}`) - whitelist fields. (3) Enforce types, lengths (names, notes, messages), enums (rsvp_status, side, mode) and numeric ranges (party_size >= 1, sane max) on all couple routes and the three public routes. Invalid input returns 400 with the route's existing message style; valid input behaves exactly as today.",
+    "acceptance_criteria": [
+      "Every route parses its body/params through a schema.",
+      "Non-UUID ids are rejected before any query is built.",
+      "Only whitelisted fields reach insert/update.",
+      "Existing component and lib tests stay green; new tests cover rejection cases."
+    ],
+    "verification": [
+      "npm run test:unit",
+      "curl ... PATCH /api/couple/menu/quantities with an id like 'x),menu_item_id.not.is.null' returns 400"
+    ],
+    "out_of_scope": [
+      "Changing validation of valid inputs the UI already sends.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-004-input-validation-on-every-api-route-and-a-postgrest-filter-i.md"
+  },
+  {
+    "id": "SEC-005",
+    "title": "Invitation photo upload: any image, any size the platform allows, safely",
+    "category": "security",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/pipeline/media_admission.py",
+        "api/main.py (_BodyCap)",
+        "tests/test_body_caps.py"
+      ],
+      "commits": [
+        "1f4c269",
+        "1792f7b"
+      ],
+      "pattern_summary": "Coachfio sniffs the real file type instead of trusting the name or declared type, rejects anything outside a known list before storing it, and keeps every size ceiling in the stack consistent so the smallest one is never a silent wall."
+    },
+    "target_files": [
+      "lib/couple/invitations.ts (uploadInvitationPhoto)",
+      "app/api/couple/invitation/photo/route.ts",
+      "components/couple/InvitationClient.tsx (upload call only)",
+      "supabase/migrations/00xx_invitation_photos_policy.sql (new)"
+    ],
+    "description": "DECIDED 27 Sep 2026: no product size limit, formats decided by engineering. What that means in practice: (1) SIZE - Vercel caps a function request body at 4.5 MB, so the current route (file posted through the Next.js server) would reject most phone photos with a bare 413. Switch to a signed upload URL: the route authenticates the couple and returns a Supabase Storage signed upload URL for a server-chosen path; the browser uploads straight to Storage. The only ceiling left is the Storage upload limit (50 MB default, raisable on Pro) - set the bucket's file_size_limit to that platform maximum explicitly, no lower product limit. (2) FORMATS - accept raster images a browser can display to every guest: JPEG, PNG, WebP, GIF, AVIF. Reject SVG (it can carry script and the bucket is public) and non-images. HEIC is not needed as a separate case: iOS converts HEIC to JPEG when a photo is picked in a browser file input. Enforce the list in the bucket (allowed_mime_types) and verify magic bytes server-side after upload before saving photo_path; derive the extension from the sniffed type, never from the filename. (3) Delete the previous object when a new photo replaces it.",
+    "acceptance_criteria": [
+      "A 20 MB JPEG from a phone uploads and renders on /invite/<slug>.",
+      "SVG, HTML renamed to .jpg, and non-image files are refused and nothing stays in the bucket.",
+      "The bucket itself enforces allowed_mime_types and file_size_limit (migration).",
+      "No request body through a Vercel function carries the photo."
+    ],
+    "verification": [
+      "Upload a 20 MB photo on a Vercel preview -> 200",
+      "Upload evil.svg and a renamed .html -> refused",
+      "select allowed_mime_types, file_size_limit from storage.buckets where id = 'invitation-photos';"
+    ],
+    "out_of_scope": [
+      "Image resizing/compression.",
+      "Changing the invitation page layout."
+    ],
+    "approval_note": "Decision given 27 Sep 2026 (no product size limit; formats chosen by engineering). Remaining approval is for the implementation: the upload call in InvitationClient changes from posting the file to the API to uploading via a signed URL - same look, same result.",
+    "file": "tasks/SEC-005-invitation-photo-upload-any-image-any-size-the-platform-allo.md"
+  },
+  {
+    "id": "SEC-006",
+    "title": "Harden SECURITY DEFINER functions and function grants",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "migrations/versions/*",
+        "admin/vault_crypto.py"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio treats privileged code paths as the highest-risk surface and pins them with tests."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_harden_security_definer.sql (new)"
+    ],
+    "description": "is_venue_staff_for, is_organizer_for_event, create_event_credentials, regenerate_event_password, get_event_username, verify_event_credentials and the layout-password functions are SECURITY DEFINER without `set search_path`, which Supabase's advisor flags (function_search_path_mutable) - a caller-controlled search_path can hijack unqualified names. Add `set search_path = public, extensions` (or pg_catalog + schema-qualify), and `revoke execute ... from public, anon` so each function is callable only by the roles the comments intend.",
+    "acceptance_criteria": [
+      "All SECURITY DEFINER functions set an explicit search_path.",
+      "anon cannot execute any credential function; verify_event_credentials is service_role only.",
+      "Supabase database advisor shows no security findings for these functions."
+    ],
+    "verification": [
+      "supabase db lint",
+      "select proname, proconfig from pg_proc where prosecdef;",
+      "DB tests still pass"
+    ],
+    "out_of_scope": [
+      "Changing what the functions compute.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-006-harden-security-definer-functions-and-function-grants.md"
+  },
+  {
+    "id": "SEC-007",
+    "title": "RLS guard: every table decided, advisors clean",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/test_erasure.py (guard test)",
+        "tests/test_admin_routes.py"
+      ],
+      "commits": [
+        "32bd54c"
+      ],
+      "pattern_summary": "Coachfio has guard tests that fail the build when a new table or route appears without an explicit decision (an erasure rule, a host-gate prefix), so coverage cannot silently rot."
+    },
+    "target_files": [
+      "tests/supabase/rls_guard.test.ts (new)"
+    ],
+    "description": "All 30 migrations enable RLS today (verified). Keep it that way: add a DB test that lists every table in public and fails if one lacks RLS, plus a table-by-table expectation (service-role-only vs. which policies) so a new table must be classified. Run the Supabase security advisor against the production project and fix or document every finding.",
+    "acceptance_criteria": [
+      "A new table without RLS makes the test suite fail.",
+      "Supabase security advisor: zero unresolved findings."
+    ],
+    "verification": [
+      "npm run test:db",
+      "Supabase dashboard -> Advisors -> Security"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-007-rls-guard-every-table-decided-advisors-clean.md"
+  },
+  {
+    "id": "SEC-008",
+    "title": "Couple sessions: hash tokens at rest and throttle renewal writes",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py (refuse_stale)",
+        "core/auth/session.py"
+      ],
+      "commits": [
+        "1247ee8"
+      ],
+      "pattern_summary": "Coachfio's session cookie is signed and carries a revocation epoch; the database never holds a usable bearer token."
+    },
+    "target_files": [
+      "lib/couple/session-token.ts",
+      "lib/couple/session-verify.ts",
+      "supabase/migrations/00xx_hash_couple_sessions.sql (new)"
+    ],
+    "description": "couple_sessions stores the raw 32-byte token as primary key, so a read of that table (backup, leaked service key, SQL console) yields live logins. Store sha256(token) instead, looking up by hash; the migration hashes existing rows in place (`update couple_sessions set token = encode(digest(token,'sha256'),'hex')`) so nobody is logged out. Also: middleware currently issues an UPDATE on every couple request to slide the expiry - renew only when less than e.g. 29 of 30 days remain, and add a scheduled delete of expired rows (DATA-007).",
+    "acceptance_criteria": [
+      "No plaintext token is stored; existing sessions keep working after the migration.",
+      "At most one renewal write per session per day.",
+      "Unit tests cover create/validate/renew/delete with hashing."
+    ],
+    "verification": [
+      "select length(token) from couple_sessions limit 1;  -- 64 hex chars of a hash",
+      "Log in as a couple before and after the migration: still logged in."
+    ],
+    "out_of_scope": [
+      "Session lifetime (30 days) and cookie attributes.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-008-couple-sessions-hash-tokens-at-rest-and-throttle-renewal-wri.md"
+  },
+  {
+    "id": "SEC-009",
+    "title": "Revoke couple sessions when the event password is regenerated",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "SEC-008"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py (session_epoch)",
+        "admin auth revoke_sessions()"
+      ],
+      "commits": [
+        "1247ee8"
+      ],
+      "pattern_summary": "In Coachfio a credential reset revokes every live session (epoch bump); without it a stolen cookie survives the reset."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_regenerate_revokes_sessions.sql (new)"
+    ],
+    "description": "regenerate_event_password() resets the hash but leaves couple_sessions intact, so a leaked couple cookie keeps working for up to 30 days after the venue resets the password - exactly the case the reset exists for. Delete the event's couple_sessions inside the same function.",
+    "acceptance_criteria": [
+      "After regenerate_event_password(event), every existing couple session for that event is rejected."
+    ],
+    "verification": [
+      "Log in as couple, regenerate password in the venue panel, reload couple page -> redirected to /couple/login."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "Behaviour change: couples are logged out when the venue regenerates their password (intended security behaviour, but it is a user-visible change).",
+    "file": "tasks/SEC-009-revoke-couple-sessions-when-the-event-password-is-regenerate.md"
+  },
+  {
+    "id": "SEC-010",
+    "title": "Remove the shared default floor-plan lock password '0000'",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/config.py (refuse default secrets at boot)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio refuses to boot production with a development default for any secret."
+    },
+    "target_files": [
+      "supabase/migrations/0012_floor_plan_layers.sql (reference only)",
+      "supabase/migrations/00xx_layout_lock_default.sql (new)",
+      "lib/venue/provisioning.ts"
+    ],
+    "description": "Migration 0012 sets every venue's layout_lock_password_hash to crypt('0000') by default, so every venue - including every self-signed-up one - shares the same lock code until staff change it. Options (pick one): generate a random code per venue at provisioning and show it once in settings, or require setting it on first use. Either changes what staff see.",
+    "acceptance_criteria": [
+      "No venue created after the change has the '0000' code.",
+      "Existing venues still on '0000' are identified (report) for follow-up."
+    ],
+    "verification": [
+      "select count(*) from venues where layout_lock_password_hash = crypt('0000', layout_lock_password_hash);"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets). (beyond the approved minimal change)"
+    ],
+    "approval_note": "Changes venue onboarding behaviour (how the floor-plan lock code is set). Needs a product decision on the flow.",
+    "file": "tasks/SEC-010-remove-the-shared-default-floor-plan-lock-password-0000.md"
+  },
+  {
+    "id": "SEC-011",
+    "title": "Dependency and secret scanning in CI",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "CICD-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        ".github/workflows/ci.yml (secret-scan job)",
+        "uv.lock"
+      ],
+      "commits": [
+        "6dc267f",
+        "5e7b5c9",
+        "3bebf2e"
+      ],
+      "pattern_summary": "Coachfio has a reproducible lock, a secret-scan job and vulnerability scanning in CI, so a leaked key or a known-vulnerable dependency fails the build."
+    },
+    "target_files": [
+      ".github/workflows/ci.yml",
+      ".github/dependabot.yml (new)"
+    ],
+    "description": "Add a gitleaks (or trufflehog) job over the full history, `npm audit --omit=dev --audit-level=high` as a failing step, and Dependabot (npm + github-actions, weekly, grouped).",
+    "acceptance_criteria": [
+      "CI fails on a committed secret or a high/critical production vulnerability.",
+      "Dependabot opens update PRs."
+    ],
+    "verification": [
+      "Push a branch containing a fake key -> secret-scan job red.",
+      "npm audit --omit=dev --audit-level=high"
+    ],
+    "out_of_scope": [
+      "Upgrading major versions as part of this task.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-011-dependency-and-secret-scanning-in-ci.md"
+  },
+  {
+    "id": "SEC-012",
+    "title": "Production Supabase Auth settings",
+    "category": "security",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-002",
+      "INFRA-006"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/auth/",
+        "DEPLOY.md (Supabase section)"
+      ],
+      "commits": [
+        "849dcee"
+      ],
+      "pattern_summary": "Coachfio proves identity with the provider (email code/OAuth) and never trusts an unverified claim; dev-only shortcuts are refused the moment a provider is configured."
+    },
+    "target_files": [
+      "supabase/config.toml (local parity)",
+      "(production Supabase Auth settings)",
+      "docs/production/AUTH.md (new)"
+    ],
+    "description": "Local config has email confirmations OFF, minimum password length 6, secure_password_change off, and site_url/redirects on 127.0.0.1. For production: Site URL = canonical https origin; redirect allowlist = <origin>/reset-password only; confirmations ON; minimum length >= 10 with leaked-password protection; secure password change ON; sane auth rate limits. SignupForm already handles the 'no session until confirmed' case, so the code path exists - but turning confirmations on changes the signup experience.",
+    "acceptance_criteria": [
+      "Production auth settings match docs/production/AUTH.md.",
+      "A new signup must confirm email before reaching /venue.",
+      "Password shorter than the minimum is refused."
+    ],
+    "verification": [
+      "Sign up on production with a new address; confirm the email gate.",
+      "Supabase dashboard -> Auth -> Settings screenshot attached to the doc."
+    ],
+    "out_of_scope": [
+      "Adding MFA or OAuth providers.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "Enabling email confirmation and a longer minimum password changes the venue signup experience (an extra confirmation step).",
+    "file": "tasks/SEC-012-production-supabase-auth-settings.md"
+  },
+  {
+    "id": "SEC-013",
+    "title": "Bot protection on public forms",
+    "category": "security",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "SEC-002"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "api/routes/support.py (fail-closed limits on email-sending forms)"
+      ],
+      "commits": [
+        "6697bad"
+      ],
+      "pattern_summary": "Coachfio's signed-out forms are the most abused surface and get the strictest limits."
+    },
+    "target_files": [
+      "components/marketing/ContactForm.tsx",
+      "components/auth/SignupForm.tsx",
+      "components/invite/RsvpForm.tsx",
+      "matching API routes"
+    ],
+    "description": "Add an invisible/low-friction challenge (Cloudflare Turnstile or hCaptcha, also usable as Supabase Auth captcha) to contact, signup and RSVP if rate limiting alone proves insufficient after launch.",
+    "acceptance_criteria": [
+      "Automated submissions without a valid token are rejected server-side."
+    ],
+    "verification": [
+      "Submit via curl without a token -> 400/403."
+    ],
+    "out_of_scope": [
+      "Changing form fields or layout beyond the widget."
+    ],
+    "approval_note": "Adds a visible (or invisible) challenge widget to three public forms.",
+    "file": "tasks/SEC-013-bot-protection-on-public-forms.md"
+  },
+  {
+    "id": "SEC-014",
+    "title": "Keep server-only code out of client bundles",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "web/src (build-time contract tests)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio encodes 'this must never happen' as a build-time test rather than a convention."
+    },
+    "target_files": [
+      "lib/supabase/service-role.ts",
+      "lib/couple/*.ts",
+      "lib/venue/provisioning.ts",
+      "lib/venue/contact.ts",
+      "lib/supabase/resolve-client.ts",
+      "package.json"
+    ],
+    "description": "Every module that creates the service-role client should `import \"server-only\"` so a future accidental import from a client component fails the build instead of shipping the key path to browsers. Review resolve-client.ts: it switches to the service-role client when VITEST is set - make sure that branch can never be reached in a production build.",
+    "acceptance_criteria": [
+      "Importing any service-role module from a 'use client' file fails `next build`.",
+      "No reference to SUPABASE_SERVICE_ROLE_KEY in .next/static after build."
+    ],
+    "verification": [
+      "npm run build && grep -r SUPABASE_SERVICE_ROLE_KEY .next/static || echo clean"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-014-keep-server-only-code-out-of-client-bundles.md"
+  },
+  {
+    "id": "SEC-015",
+    "title": "CSRF defence for cookie-authenticated mutations",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/main.py (CORS allowlist)",
+        "core/auth/"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio relies on SameSite cookies plus a strict CORS allowlist; state-changing routes are never reachable cross-site with the victim's cookie."
+    },
+    "target_files": [
+      "middleware.ts"
+    ],
+    "description": "couple_session is SameSite=Lax (good) but POST/PATCH/PUT/DELETE on /api/couple/* are not otherwise checked. Add an Origin/Referer check in middleware for non-GET requests under /api/ that rejects foreign origins with 403. The venue side uses Supabase auth cookies set by @supabase/ssr - include /api/venue/* too.",
+    "acceptance_criteria": [
+      "A cross-origin POST to any /api/couple or /api/venue route with a valid cookie is refused.",
+      "Same-origin requests work unchanged."
+    ],
+    "verification": [
+      "curl -X POST -H 'Origin: https://evil.example' -b 'couple_session=...' https://<domain>/api/couple/notes -> 403"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-015-csrf-defence-for-cookie-authenticated-mutations.md"
+  },
+  {
+    "id": "SEC-016",
+    "title": "MFA (TOTP) for venue staff",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "SEC-012"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "admin/ (mandatory TOTP for staff)",
+        "migration 0023"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio requires TOTP for every staff account on the admin host: the account that can see everyone's data gets the stronger control."
+    },
+    "target_files": [
+      "app/login/page.tsx",
+      "app/venue/settings/page.tsx",
+      "middleware.ts",
+      "docs/production/AUTH.md"
+    ],
+    "description": "A venue staff account can read every event, couple and guest of that venue and create couple credentials. Enable Supabase Auth MFA (TOTP): enrolment in venue settings, a second step at login when a factor exists, and require aal2 on /venue and /api/venue once enrolled. Start as opt-in, decide later whether to make it mandatory.",
+    "acceptance_criteria": [
+      "Staff can enrol TOTP in settings and must pass it at login afterwards.",
+      "With a factor enrolled, an aal1 session cannot reach /venue data."
+    ],
+    "verification": [
+      "Enrol on staging, sign out, sign in: the code is required.",
+      "Call a venue API with an aal1 token -> refused."
+    ],
+    "out_of_scope": [
+      "Making MFA mandatory (separate decision)."
+    ],
+    "approval_note": "New screens in login and settings.",
+    "file": "tasks/SEC-016-mfa-totp-for-venue-staff.md"
+  },
+  {
+    "id": "SEC-017",
+    "title": "Sign out everywhere for venue staff",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "AUTH-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py (session_epoch)",
+        "api/routes/auth.py (signout?everywhere=true)"
+      ],
+      "commits": [
+        "1247ee8"
+      ],
+      "pattern_summary": "In Coachfio a copied session cookie (shared laptop, lost phone) can be killed from any device; without it the honest answer is that nothing can be done."
+    },
+    "target_files": [
+      "app/venue/settings/page.tsx",
+      "components/venue/shell/PanelShell.tsx (sign-out action)"
+    ],
+    "description": "Supabase supports `signOut({ scope: \"global\" })`, which revokes every refresh token of the user. Offer it next to the normal sign-out, and call it automatically after a password change (reset-password page).",
+    "acceptance_criteria": [
+      "'Sign out everywhere' ends sessions on other devices within one token lifetime.",
+      "A password change signs out other devices."
+    ],
+    "verification": [
+      "Sign in on two browsers, sign out everywhere on one, the other loses access after refresh."
+    ],
+    "out_of_scope": [
+      "Changing the normal sign-out."
+    ],
+    "approval_note": "Adds a button in settings/sign-out.",
+    "file": "tasks/SEC-017-sign-out-everywhere-for-venue-staff.md"
+  },
+  {
+    "id": "SEC-018",
+    "title": "Persistent audit log for sensitive actions",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "OBS-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "admin/storage/audit.py",
+        "commit 935a47d"
+      ],
+      "commits": [
+        "935a47d"
+      ],
+      "pattern_summary": "Coachfio writes an audit row for every sensitive read or write, with the actor and counts only - never a copy of the data - so 'who did this' has an answer months later."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_audit_log.sql (new)",
+      "lib/audit.ts (new)",
+      "lib/venue/credentials.ts",
+      "lib/venue/events.ts",
+      "lib/privacy/*.ts"
+    ],
+    "description": "Logs rotate and are not queryable by venue. Add an append-only audit_log table (service-role insert only, no update/delete) for: couple credential create/regenerate, event delete, guest bulk changes, data export/erasure, staff sign-in failures and MFA changes. Actor, action, target id, time, request id - no guest names or contact details.",
+    "acceptance_criteria": [
+      "Each listed action writes exactly one audit row.",
+      "Rows cannot be changed or deleted by any client role."
+    ],
+    "verification": [
+      "Regenerate a couple password on staging -> one audit row.",
+      "Try update/delete on audit_log as authenticated -> denied."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-018-persistent-audit-log-for-sensitive-actions.md"
+  },
+  {
+    "id": "SEC-019",
+    "title": "Storage update policy must check the destination folder",
+    "category": "security",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/integration/ (tenant isolation on real Postgres)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio pins cross-tenant isolation on the real database, including the half that is easy to forget."
+    },
+    "target_files": [
+      "supabase/migrations/0007_menu_item_price_photo.sql (reference)",
+      "supabase/migrations/00xx_storage_update_with_check.sql (new)",
+      "tests/supabase/storage_policies.test.ts (new)"
+    ],
+    "description": "Of 35 policies, one update policy has no WITH CHECK: \"venue staff update own menu item photos\" on storage.objects checks the folder of the row BEFORE the update only. A staff member can therefore update an object's name into another venue's folder, planting or overwriting a file there. Add WITH CHECK with the same is_venue_staff_for condition, and a test that tries it.",
+    "acceptance_criteria": [
+      "Moving/renaming an object into another venue's folder is refused.",
+      "Staff can still update their own photos."
+    ],
+    "verification": [
+      "npm run test:db -- storage_policies"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-019-storage-update-policy-must-check-the-destination-folder.md"
+  },
+  {
+    "id": "SEC-020",
+    "title": "Stop anonymous listing of the public storage buckets",
+    "category": "security",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/integration/ (tenant isolation on real Postgres)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio serves media by signed URL scoped to one object; nothing lets a stranger enumerate other customers' files."
+    },
+    "target_files": [
+      "supabase/migrations/0007_menu_item_price_photo.sql, 0008_event_showcase_photos.sql, 0022_organizer_tools.sql (reference)",
+      "supabase/migrations/00xx_storage_no_public_list.sql (new)",
+      "tests/supabase/storage_policies.test.ts"
+    ],
+    "description": "Three buckets have `create policy ... for select using (bucket_id = '<bucket>')` with no role restriction. That policy is not needed to view a public object (public buckets serve /object/public/... without RLS) - what it grants is LIST: anyone holding the public anon key can list every object in invitation-photos, whose names are `<eventId>-<timestamp>.<ext>`, i.e. every couple's photo and every event id. Drop the three select policies (or restrict them to the owning staff), keep public URLs working, and add a test that anon list() returns nothing.",
+    "acceptance_criteria": [
+      "Anonymous list() on all three buckets returns no objects.",
+      "Existing public photo URLs still load on menus, showcase and invitations."
+    ],
+    "verification": [
+      "supabase.storage.from('invitation-photos').list() with the anon key -> []",
+      "Open /invite/<slug> -> photo still shows"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-020-stop-anonymous-listing-of-the-public-storage-buckets.md"
+  },
+  {
+    "id": "SEC-021",
+    "title": "Protect guests' RSVP answers from being changed by other guests",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "SEC-018"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "admin/storage/audit.py (answerable later)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio records who changed what so a disputed change has an answer."
+    },
+    "target_files": [
+      "lib/couple/rsvp.ts",
+      "app/api/invite/[slug]/rsvp/route.ts",
+      "components/guests (couple view of RSVP history)"
+    ],
+    "description": "The invite link is shared with all guests, and submitRsvpBySlug updates the guest whose name matches exactly. So anyone with the link can decline (or confirm) someone else by typing their name. Minimum: record every public RSVP change (old value, new value, time, anonymised requester) in the audit log and show the couple the last change per guest. Stronger options to decide: refuse to flip an already-answered guest through the public form, or give each guest a personal link.",
+    "acceptance_criteria": [
+      "Every public RSVP change is recorded and visible to the couple.",
+      "The chosen overwrite rule is enforced and tested."
+    ],
+    "verification": [
+      "Submit two RSVPs for the same name on staging; the couple sees both events."
+    ],
+    "out_of_scope": [
+      "Changing the invitation design."
+    ],
+    "approval_note": "Changes RSVP rules and adds information to the couple's guest view; the overwrite rule is a product decision.",
+    "file": "tasks/SEC-021-protect-guests-rsvp-answers-from-being-changed-by-other-gues.md"
+  },
+  {
+    "id": "SEC-022",
+    "title": "Couple login must not reveal which usernames exist",
+    "category": "security",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "SEC-002"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "api/routes/support.py (404 never 403)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio never answers in a way that confirms an identifier exists."
+    },
+    "target_files": [
+      "supabase/migrations/0013_couple_dashboard.sql (reference)",
+      "app/api/couple/login/route.ts"
+    ],
+    "description": "verify_event_credentials returns 'locked' only for a real username, so the lockout message confirms that a username exists. With IP rate limiting (SEC-002) in place, return the same message for unknown and locked usernames, or lock unknown usernames symmetrically.",
+    "acceptance_criteria": [
+      "Unknown and existing-but-locked usernames produce the same response."
+    ],
+    "verification": [
+      "Script 6 bad logins for a real and a fake username; compare responses."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "A locked couple would see the generic 'wrong username or password' text instead of 'too many attempts'.",
+    "file": "tasks/SEC-022-couple-login-must-not-reveal-which-usernames-exist.md"
+  },
+  {
+    "id": "SEC-023",
+    "title": "Revoke table privileges from the anon role",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py (deny by default)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio denies by default and opens exactly what a signed-out visitor needs."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_revoke_anon.sql (new)"
+    ],
+    "description": "Every migration does `grant all on <tables> to anon, authenticated`, relying on RLS alone. The app never queries tables as anon (public pages use the service role on the server), so revoke table privileges from anon entirely - one mistaken permissive policy later then exposes nothing to signed-out users.",
+    "acceptance_criteria": [
+      "anon has no privileges on any public table.",
+      "All pages and tests still work."
+    ],
+    "verification": [
+      "select grantee, table_name from information_schema.role_table_grants where grantee='anon' and table_schema='public'; -- empty"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-023-revoke-table-privileges-from-the-anon-role.md"
+  },
+  {
+    "id": "SEC-024",
+    "title": "Upgrade Next.js off the vulnerable 14.2 line",
+    "category": "security",
+    "priority": "P0",
+    "effort": "L",
+    "depends_on": [
+      "TEST-001",
+      "CICD-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        ".github/workflows/ci.yml (dependency gates)"
+      ],
+      "commits": [
+        "3bebf2e"
+      ],
+      "pattern_summary": "Coachfio keeps dependencies current and gated in CI, so a known-vulnerable framework never ships."
+    },
+    "target_files": [
+      "package.json",
+      "package-lock.json",
+      "app/**/page.tsx and route.ts (async params in Next 15+)",
+      "next.config.mjs"
+    ],
+    "description": "`npm audit --omit=dev` (27 Sep 2026): 1 critical (next: DoS via Image Optimizer remotePatterns) and 1 high (postcss XSS in stringify), fix available only in Next 16.x. Plan the major upgrade: Next 14 -> 15 -> 16 with React 19, codemods for async `params`/`cookies()`, and re-check caching (Next 15 changed fetch/route caching defaults - this app already fights stale data, see next.config.mjs staleTimes and the service-role fetch override). Until upgraded, do NOT add images.remotePatterns (PERF-001 depends on this task).",
+    "acceptance_criteria": [
+      "npm audit --omit=dev reports no high/critical.",
+      "All unit, DB and E2E tests pass on the new version.",
+      "No stale-data regression on the pages listed in next.config.mjs."
+    ],
+    "verification": [
+      "npm audit --omit=dev --audit-level=high",
+      "npm run build && npm run test:unit && npm run test:db"
+    ],
+    "out_of_scope": [
+      "Adopting new Next features beyond what the upgrade requires."
+    ],
+    "approval_note": "A framework major upgrade touches every page and route; behaviour must stay identical but the risk is real and needs a staging soak.",
+    "file": "tasks/SEC-024-upgrade-next-js-off-the-vulnerable-14-2-line.md"
+  },
+  {
+    "id": "SEC-025",
+    "title": "Pre-launch security review",
+    "category": "security",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "SEC-001",
+      "SEC-002",
+      "SEC-004",
+      "SEC-005",
+      "SEC-019",
+      "SEC-020",
+      "TEST-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "docs/audit-2026-09-02.md",
+        "docs/audit-remediation-plan.md"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio had an external audit and a written remediation plan; several of its best fixes came from it (body caps, route markers)."
+    },
+    "target_files": [
+      "docs/production/SECURITY-REVIEW.md (new)"
+    ],
+    "description": "After the P0 security tasks, run a focused review on staging: OWASP ASVS L1 checklist, authenticated scans of the venue and couple APIs (e.g. OWASP ZAP), manual tests of the couple session, invite slug, RSVP and upload flows, and the Supabase security advisor. Record findings and fixes.",
+    "acceptance_criteria": [
+      "A written review exists with every finding fixed or accepted with a reason."
+    ],
+    "verification": [
+      "Review SECURITY-REVIEW.md"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-025-pre-launch-security-review.md"
+  },
+  {
+    "id": "SEC-026",
+    "title": "security.txt and a disclosure contact",
+    "category": "security",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [],
+      "commits": [],
+      "pattern_summary": "A reachable security contact turns a finder into a reporter."
+    },
+    "target_files": [
+      "public/.well-known/security.txt (new)"
+    ],
+    "description": "Publish /.well-known/security.txt (RFC 9116) with a contact address and expiry.",
+    "acceptance_criteria": [
+      "https://<domain>/.well-known/security.txt is served."
+    ],
+    "verification": [
+      "curl https://<domain>/.well-known/security.txt"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/SEC-026-security-txt-and-a-disclosure-contact.md"
+  },
+  {
+    "id": "REL-006",
+    "title": "Use the venue's local date, not UTC, for 'today'",
+    "category": "reliability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/config.py (explicit timezones)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio never lets a server clock decide a user's calendar day."
+    },
+    "target_files": [
+      "lib/venue/reservations.ts:202",
+      "lib/couple/checklist.ts:218",
+      "components/venue/dashboard/EventsClient.tsx:84",
+      "components/venue/dashboard/ClientsClient.tsx:72",
+      "components/couple/ChecklistClient.tsx:213",
+      "lib/date.ts (new helper)"
+    ],
+    "description": "`new Date().toISOString().slice(0, 10)` is always the UTC date, in the browser too. Between 00:00 and 01:00/02:00 in Skopje (CET/CEST) every 'today' above is still yesterday: overdue checklist items, this-week events and today's reservations are off by a day. app/venue/page.tsx already formats in Europe/Skopje - reuse that as one shared helper (todayIn(timeZone)) and use it in all five places.",
+    "acceptance_criteria": [
+      "All five places compute 'today' in Europe/Skopje.",
+      "A test pins 00:30 Skopje time to the correct date."
+    ],
+    "verification": [
+      "vi.setSystemTime('2026-06-14T22:30:00Z') -> today === '2026-06-15'"
+    ],
+    "out_of_scope": [
+      "Per-venue time zones (single-country product for now)."
+    ],
+    "approval_note": "Fixes displayed dates during the first 1-2 hours after midnight - a behaviour change, though it corrects a bug.",
+    "file": "tasks/REL-006-use-the-venue-s-local-date-not-utc-for-today.md"
+  },
+  {
+    "id": "REL-007",
+    "title": "Maintenance mode and status communication",
+    "category": "reliability",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "OBS-003"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "deploy/gate/on.caddy (preview gate)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio can close the site to the public with one switch while the team keeps access."
+    },
+    "target_files": [
+      "middleware.ts",
+      "docs/production/INCIDENTS.md"
+    ],
+    "description": "An env flag that serves a static maintenance page (503 + Retry-After) to everyone except the team, for migrations that need downtime; plus a public status page link from the uptime provider.",
+    "acceptance_criteria": [
+      "Setting the flag shows the maintenance page within one deploy/edge-config change."
+    ],
+    "verification": [
+      "Toggle on staging."
+    ],
+    "out_of_scope": [
+      "Designing a new page beyond a minimal notice."
+    ],
+    "approval_note": "Adds a user-visible maintenance page.",
+    "file": "tasks/REL-007-maintenance-mode-and-status-communication.md"
+  },
+  {
+    "id": "DATA-009",
+    "title": "Database-level limits and constraints",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "SEC-004"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "migrations (check constraints)",
+        "api/schemas.py (bounded fields)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio bounds every user-supplied field twice: in the request schema and in the column."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_field_limits.sql (new)"
+    ],
+    "description": "Couple tables accept unbounded text: guest full_name/notes, notes, budget labels, agenda, locations, invitation message, contact_submissions (public!). Add check constraints (length caps well above real use, party_size between 1 and a sane max, non-empty names) so a bug or bypass of SEC-004 still cannot store megabytes or nonsense.",
+    "acceptance_criteria": [
+      "Every free-text column written by couples or the public has a length check.",
+      "Existing data satisfies the constraints (checked before adding)."
+    ],
+    "verification": [
+      "insert a 1 MB note via the service role -> constraint error"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-009-database-level-limits-and-constraints.md"
+  },
+  {
+    "id": "DATA-010",
+    "title": "Never copy production personal data into staging or laptops",
+    "category": "data",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "REL-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/conftest.py (isolated settings)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio keeps production data on the production box; tests and development never need it."
+    },
+    "target_files": [
+      "docs/production/ENVIRONMENTS.md",
+      "supabase/seed.sql (new, synthetic)"
+    ],
+    "description": "Write the rule down and make it easy to follow: a synthetic seed for local and staging (venues, events, fake guests), and a documented prohibition on restoring production dumps anywhere but the restore drill's isolated project.",
+    "acceptance_criteria": [
+      "`supabase db reset` loads a realistic synthetic dataset.",
+      "The rule is in ENVIRONMENTS.md."
+    ],
+    "verification": [
+      "supabase db reset && open Studio"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-010-never-copy-production-personal-data-into-staging-or-laptops.md"
+  },
+  {
+    "id": "COMP-004",
+    "title": "Keep private pages out of search engines",
+    "category": "compliance",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "frontend/robots.txt",
+        "api/main.py (X-Robots-Tag noindex on /api/)"
+      ],
+      "commits": [
+        "bd58c4a"
+      ],
+      "pattern_summary": "Coachfio opens to crawlers exactly the public pages and marks everything else noindex."
+    },
+    "target_files": [
+      "app/robots.ts (new)",
+      "app/invite/[slug]/page.tsx (metadata only)",
+      "app/couple/(protected)/layout.tsx (metadata only)",
+      "app/venue/layout.tsx (metadata only)",
+      "next.config.mjs (X-Robots-Tag headers)"
+    ],
+    "description": "There is no robots.txt and no noindex anywhere. The invitation page shows couples' names, date and venue - if a link is posted publicly it can be indexed. Add robots.txt (allow /, disallow /venue, /couple, /invite, /api), `robots: { index: false }` metadata on invite, couple and venue layouts, and X-Robots-Tag: noindex on those paths and /api.",
+    "acceptance_criteria": [
+      "/invite, /venue, /couple and /api responses carry noindex.",
+      "robots.txt disallows them; the marketing page stays indexable."
+    ],
+    "verification": [
+      "curl -sI https://<domain>/invite/x | grep -i x-robots-tag",
+      "curl https://<domain>/robots.txt"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/COMP-004-keep-private-pages-out-of-search-engines.md"
+  },
+  {
+    "id": "COMP-005",
+    "title": "Data processing terms with venues (B2B)",
+    "category": "compliance",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "COMP-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "docs/ea-content-position.md (sourced legal position)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio records its legal position with sources, per counterparty."
+    },
+    "target_files": [
+      "docs/legal/DPA.md (new)",
+      "app/terms/page.tsx (reference)"
+    ],
+    "description": "Venues upload their clients' and guests' personal data, which makes each venue a controller and the platform its processor (GDPR Art. 28 / the Macedonian Law on Personal Data Protection). Venues need a data processing agreement: subject matter, data categories, sub-processors (Supabase, Vercel, Resend, Sentry), security measures, breach notification, deletion at end of contract. Accepting it becomes part of signup or the first sale.",
+    "acceptance_criteria": [
+      "A DPA exists in MK and EN and has been reviewed.",
+      "Sub-processor list matches COMP-003."
+    ],
+    "verification": [
+      "Legal review record in docs/production/LEGAL-REVIEW.md"
+    ],
+    "out_of_scope": [
+      "Payment terms (sales are off-platform)."
+    ],
+    "approval_note": "Legal document and possibly a signup acceptance step.",
+    "file": "tasks/COMP-005-data-processing-terms-with-venues-b2b.md"
+  },
+  {
+    "id": "INFRA-007",
+    "title": "Vercel plan for commercial use and region placement",
+    "category": "infra",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md (one box, measured latency)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio's app and database sit next to each other; every request that crosses a region pays for it."
+    },
+    "target_files": [
+      "docs/production/HOSTING.md",
+      "vercel.json (new, regions)"
+    ],
+    "description": "Vercel's Hobby plan is for non-commercial use only - a product sold to venues needs Pro. Also pin serverless/middleware execution to the region of the Supabase project (e.g. fra1 with Supabase eu-central-1): middleware queries the database on every couple request, so a cross-Atlantic default region adds latency to every page.",
+    "acceptance_criteria": [
+      "Production runs on a commercial Vercel plan.",
+      "Function region equals the Supabase region."
+    ],
+    "verification": [
+      "Vercel dashboard -> Settings -> Functions region",
+      "Measure TTFB of /couple on production"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/INFRA-007-vercel-plan-for-commercial-use-and-region-placement.md"
+  },
+  {
+    "id": "INFRA-008",
+    "title": "Auth emails in Macedonian from the product's own sender",
+    "category": "infra",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-006"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/notify/templates.py"
+      ],
+      "commits": [
+        "849dcee"
+      ],
+      "pattern_summary": "Coachfio sends every email in the product's voice from its own domain."
+    },
+    "target_files": [
+      "supabase/templates/*.html (new)",
+      "supabase/config.toml ([auth.email.template])"
+    ],
+    "description": "Signup confirmation, password reset and email-change emails are Supabase's English defaults. Write Macedonian templates (with an English line), keep them in the repo, and configure them for production.",
+    "acceptance_criteria": [
+      "Confirmation and reset emails arrive in Macedonian from the product domain."
+    ],
+    "verification": [
+      "Trigger each email on staging."
+    ],
+    "out_of_scope": [
+      "Marketing emails."
+    ],
+    "approval_note": "User-visible email copy.",
+    "file": "tasks/INFRA-008-auth-emails-in-macedonian-from-the-product-s-own-sender.md"
+  },
+  {
+    "id": "TEST-007",
+    "title": "Accessibility audit of the key screens",
+    "category": "testing",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "TEST-005"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "admin-ui/src/a11y.test.tsx",
+        "docs/accessibility-2026-08-29.md"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio runs an automated accessibility test in CI and keeps a dated audit."
+    },
+    "target_files": [
+      "e2e/a11y.spec.ts (new, axe)",
+      "docs/production/ACCESSIBILITY.md (new)"
+    ],
+    "description": "Run axe via Playwright on login, signup, venue dashboard, couple guests, invitation and RSVP; record violations. Fixes that change markup are separate, approved changes.",
+    "acceptance_criteria": [
+      "An axe report exists for each screen and runs in CI (warn, then fail on serious)."
+    ],
+    "verification": [
+      "npx playwright test e2e/a11y.spec.ts"
+    ],
+    "out_of_scope": [
+      "Fixing findings in this task."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-007-accessibility-audit-of-the-key-screens.md"
+  },
+  {
+    "id": "TEST-008",
+    "title": "Load test before launch",
+    "category": "testing",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "CICD-003",
+      "INFRA-007"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "docs/load-test-2026-08-29.md",
+        "docs/load-test-TEMPLATE.md"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio measured its ceiling before launch and wrote it down, so capacity is a number, not a feeling."
+    },
+    "target_files": [
+      "loadtest/*.js (new, k6)",
+      "docs/production/LOAD-TEST.md (new)"
+    ],
+    "description": "On staging with production-like data: simulate an invitation going viral (hundreds of guests opening /invite and posting RSVPs within minutes) and a busy venue panel. Record p95 latency, error rate, Supabase CPU/connections, and the first limit hit.",
+    "acceptance_criteria": [
+      "Documented p95 and error rate at 2x expected peak, with the first bottleneck named."
+    ],
+    "verification": [
+      "k6 run loadtest/invite-rsvp.js"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-008-load-test-before-launch.md"
+  },
+  {
+    "id": "OBS-006",
+    "title": "Incident response runbook and on-call",
+    "category": "observability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "OBS-003",
+      "CICD-004"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md",
+        "CLAUDE.md (dated incident notes)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio writes down every incident's cause and fix, so the next one takes minutes, not an evening."
+    },
+    "target_files": [
+      "docs/production/INCIDENTS.md (new)"
+    ],
+    "description": "Who is on call, how alerts reach them, first steps for the likely incidents (site down, Supabase down, email not arriving, data deleted by mistake, leaked key), how to communicate with venues, and a template for a short post-incident note.",
+    "acceptance_criteria": [
+      "INCIDENTS.md covers the five scenarios with concrete steps and names."
+    ],
+    "verification": [
+      "Tabletop exercise: walk one scenario end to end."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-006-incident-response-runbook-and-on-call.md"
+  },
+  {
+    "id": "OBS-007",
+    "title": "Product analytics with consent",
+    "category": "observability",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "COMP-002"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "admin/ga4.py",
+        "frontend/consent.js",
+        "docs/analytics-events.md"
+      ],
+      "commits": [
+        "849dcee"
+      ],
+      "pattern_summary": "Coachfio measures its funnel (visits -> signups -> first analysis) and loads analytics only after consent."
+    },
+    "target_files": [
+      "lib/analytics.ts (new)",
+      "docs/production/ANALYTICS.md (new)"
+    ],
+    "description": "Decide a privacy-friendly analytics tool (e.g. Plausible, no cookies, or GA4 behind consent), and track the funnel: marketing visit -> signup -> first event created -> couple credentials issued -> invitation sent -> first RSVP. Never send guest or couple personal data.",
+    "acceptance_criteria": [
+      "The funnel is visible in a dashboard.",
+      "No personal data in events; consent respected if cookies are used."
+    ],
+    "verification": [
+      "Check the analytics dashboard after a staging walkthrough."
+    ],
+    "out_of_scope": [
+      "Visible banners unless cookies require consent."
+    ],
+    "approval_note": "Tool choice and possibly a consent banner.",
+    "file": "tasks/OBS-007-product-analytics-with-consent.md"
+  },
+  {
+    "id": "SEC-027",
+    "title": "Minimum strength for couple passwords",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "SEC-006"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/auth/ (provider password policy)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio never lets a person-chosen credential be the weak link; the provider enforces the policy."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_couple_password_policy.sql (new)",
+      "components/venue/NewEventForm.tsx (reference)"
+    ],
+    "description": "Staff type the couple's password by hand in NewEventForm (the random generator is optional) and create_event_credentials accepts anything - '1234' included. The per-username lockout slows guessing but a 4-digit password falls in a day of patient tries. Enforce a minimum (e.g. 10 characters) inside create_event_credentials and regenerate_event_password, and show the rule in the form.",
+    "acceptance_criteria": [
+      "A password under the minimum is refused by the database function.",
+      "The generated password always satisfies it."
+    ],
+    "verification": [
+      "select create_event_credentials('<event>', 'u', '1234'); -> error"
+    ],
+    "out_of_scope": [
+      "Changing the username rules."
+    ],
+    "approval_note": "Staff can no longer set short couple passwords; the form shows a rule.",
+    "file": "tasks/SEC-027-minimum-strength-for-couple-passwords.md"
+  },
+  {
+    "id": "SEC-028",
+    "title": "Type and size limits on the venue photo buckets",
+    "category": "security",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "SEC-005"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/pipeline/media_admission.py"
+      ],
+      "commits": [
+        "1792f7b"
+      ],
+      "pattern_summary": "Coachfio admits an upload only after checking what it really is."
+    },
+    "target_files": [
+      "lib/venue/menus.ts:67",
+      "lib/venue/showcase.ts:40",
+      "supabase/migrations/00xx_venue_buckets_limits.sql (new)"
+    ],
+    "description": "Staff upload menu and showcase photos straight from the browser; the storage policies check the folder but not the file, and neither bucket sets allowed_mime_types or file_size_limit. Anything - HTML, SVG, a 50 MB video - can be put on a public URL under the product's storage domain. Apply the same image list as SEC-005 (JPEG, PNG, WebP, GIF, AVIF) at the bucket level.",
+    "acceptance_criteria": [
+      "Non-image and SVG uploads to both buckets are refused by Storage.",
+      "Normal photos still upload."
+    ],
+    "verification": [
+      "Upload a .html to menu-item-photos as staff -> refused"
+    ],
+    "out_of_scope": [
+      "Resizing."
+    ],
+    "approval_note": "Staff can no longer upload non-image files (e.g. a PDF menu) to these buckets - confirm nobody relies on that.",
+    "file": "tasks/SEC-028-type-and-size-limits-on-the-venue-photo-buckets.md"
+  },
+  {
+    "id": "DATA-011",
+    "title": "Delete files when their rows are deleted",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/storage/erasure.py (objects deleted with the row)",
+        "api/routes/matches.py (DELETE removes the object prefix)"
+      ],
+      "commits": [],
+      "pattern_summary": "In Coachfio deleting a match removes its whole object prefix; a row that is gone must not leave a public file behind."
+    },
+    "target_files": [
+      "lib/venue/events.ts:304 (deleteEvent)",
+      "lib/venue/menus.ts (deleteMenuItem)",
+      "lib/venue/showcase.ts:52",
+      "lib/couple/invitations.ts (photo replace)",
+      "supabase/migrations/00xx_storage_cleanup.sql (new, optional trigger/queue)"
+    ],
+    "description": "There is not a single `storage.remove()` call in the codebase. Deleting an event cascades its rows but leaves the couple's invitation photo and the showcase photos on public URLs forever; deleting a menu item or replacing a photo leaves the old file too. Remove the objects alongside the rows (in the same operation, or via a cleanup queue the DATA-007 job drains), and sweep existing orphans once.",
+    "acceptance_criteria": [
+      "After deleting an event, its invitation and showcase photos return 404.",
+      "Replacing a photo deletes the previous object.",
+      "A one-off sweep reports and removes existing orphans."
+    ],
+    "verification": [
+      "Delete a test event on staging; its photo URLs 404."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-011-delete-files-when-their-rows-are-deleted.md"
+  },
+  {
+    "id": "DATA-012",
+    "title": "Database-level protection against double booking",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/storage/usage.py (atomic conditional update instead of read-then-write)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio makes the database enforce invariants that two concurrent requests could otherwise both pass (e.g. the atomic usage charge)."
+    },
+    "target_files": [
+      "lib/venue/reservations.ts (conflict check ~line 263)",
+      "supabase/migrations/00xx_reservation_no_overlap.sql (new)"
+    ],
+    "description": "Table conflicts are checked in JavaScript (read existing reservations, then insert). Two staff members booking the same table for overlapping times at the same moment both pass the check. Add an exclusion constraint (btree_gist) over (table, time range) - the range must be a real tstzrange because events may run past midnight (migration 0015) - so the second insert fails and the UI shows the existing conflict message.",
+    "acceptance_criteria": [
+      "Two concurrent overlapping bookings of the same table: exactly one succeeds.",
+      "Existing non-overlapping bookings and overnight events still work."
+    ],
+    "verification": [
+      "Run two inserts in parallel in a DB test -> one exclusion_violation"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-012-database-level-protection-against-double-booking.md"
+  },
+  {
+    "id": "ARCH-002",
+    "title": "Remove the unused organizer feature from the schema",
+    "category": "architecture",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "CLAUDE.md (deleted pipeline removed, not kept 'just in case')"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio deletes a replaced mechanism instead of leaving a second path to maintain and secure."
+    },
+    "target_files": [
+      "supabase/migrations/0010_event_organizers.sql, 0011 (reference)",
+      "supabase/migrations/00xx_drop_event_organizers.sql (new)"
+    ],
+    "description": "event_organizers, is_organizer_for_event() and their policies were replaced by couple credentials (0013) and nothing in lib/, app/ or components/ uses them. They still grant a table to anon/authenticated and a SECURITY DEFINER function. Drop them after confirming the table is empty in production.",
+    "acceptance_criteria": [
+      "The table, function and policies are gone; all tests pass."
+    ],
+    "verification": [
+      "select count(*) from event_organizers; -- 0 before dropping"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/ARCH-002-remove-the-unused-organizer-feature-from-the-schema.md"
+  },
+  {
+    "id": "ARCH-003",
+    "title": "Decide what to do with the placeholder pages at launch",
+    "category": "architecture",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "-"
+      ],
+      "commits": [],
+      "pattern_summary": "Ship what works; a nav link to 'coming soon' reads as unfinished to a paying customer."
+    },
+    "target_files": [
+      "app/venue/{messages,notifications,reports,support}/page.tsx",
+      "app/couple/(protected)/{greetings,messages,album}/page.tsx",
+      "components/venue/shell/nav.ts",
+      "components/couple/shell/nav.ts"
+    ],
+    "description": "Seven routes render a ComingSoon placeholder (confirmed in the build: ~166 B each) and are linked from the venue and couple navigation. Decide per page: hide from nav until built, mark as 'soon' visibly, or build. Venue 'Support' in particular should at least show a real contact route.",
+    "acceptance_criteria": [
+      "Every nav item leads to a working page or is clearly marked/hidden, per the decision."
+    ],
+    "verification": [
+      "Click every nav item on staging."
+    ],
+    "out_of_scope": [
+      "Building the features."
+    ],
+    "approval_note": "Changes what appears in both navigation menus.",
+    "file": "tasks/ARCH-003-decide-what-to-do-with-the-placeholder-pages-at-launch.md"
+  },
+  {
+    "id": "TEST-009",
+    "title": "Fast unit tests for lib logic without a database",
+    "category": "testing",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/test_stages.py (offline-scripted model, no API key)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio tests its pipeline logic offline with scripted doubles, so the core logic runs in seconds on any machine."
+    },
+    "target_files": [
+      "tests/lib/**/*.test.ts",
+      "tests/helpers/supabase-stub.ts (new)"
+    ],
+    "description": "Measured 27 Sep 2026: with no database, 20 of 52 test files pass and all 32 files covering lib/ fail - every piece of domain logic (RSVP matching, seating, reservations overlap, menus, budget) is only ever tested against a live Supabase. Keep those as integration tests, and add pure unit tests for the decision logic (e.g. rangesOverlap, RSVP matching, seating draft mutations) with a stubbed client.",
+    "acceptance_criteria": [
+      "The pure logic in lib/ has unit tests that pass with Supabase stopped."
+    ],
+    "verification": [
+      "supabase stop && npm run test:unit"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-009-fast-unit-tests-for-lib-logic-without-a-database.md"
+  },
+  {
+    "id": "AUTH-001",
+    "title": "Supabase session refresh in middleware for the venue panel",
+    "category": "auth",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py (require_user)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio enforces the signed-in gate on the server for every protected route, not only in page layouts."
+    },
+    "target_files": [
+      "middleware.ts",
+      "lib/supabase/server.ts"
+    ],
+    "description": "@supabase/ssr requires middleware that calls supabase.auth.getUser() to refresh the auth cookie; without it, server components cannot persist a refreshed token (server.ts swallows the cookie write) and venue sessions degrade after the 1-hour JWT expiry. Extend middleware to run the documented Supabase session-refresh for /venue/* and /api/venue/*, and redirect unauthenticated /venue requests to /login at the edge (the layout check stays as defence in depth).",
+    "acceptance_criteria": [
+      "A venue session stays valid across the JWT expiry without a manual re-login.",
+      "Unauthenticated /venue/* is redirected by middleware."
+    ],
+    "verification": [
+      "Set jwt_expiry low locally (e.g. 120s), stay on /venue past it, navigate: still signed in."
+    ],
+    "out_of_scope": [
+      "Changing the couple session mechanism.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/AUTH-001-supabase-session-refresh-in-middleware-for-the-venue-panel.md"
+  },
+  {
+    "id": "AUTH-002",
+    "title": "Password reset works end to end in production",
+    "category": "auth",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "SEC-012",
+      "INFRA-006"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md (auth redirects)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio verifies every auth email path against the real provider, not just locally."
+    },
+    "target_files": [
+      "app/login/page.tsx",
+      "components/RecoveryRedirect.tsx",
+      "app/reset-password/page.tsx",
+      "docs/production/AUTH.md"
+    ],
+    "description": "RecoveryRedirect exists because local Supabase ignores redirectTo; in production the redirect allowlist must include <origin>/reset-password so the link lands on the right page. Verify the whole flow on production and on staging, and document it. No code change expected unless the flow fails.",
+    "acceptance_criteria": [
+      "Forgot password -> email -> link -> /reset-password -> new password works on production.",
+      "Reset link cannot be used twice."
+    ],
+    "verification": [
+      "Run the flow on production with a test account."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/AUTH-002-password-reset-works-end-to-end-in-production.md"
+  },
+  {
+    "id": "ARCH-001",
+    "title": "One shared API route wrapper (auth context, JSON parsing, errors)",
+    "category": "architecture",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/deps.py",
+        "api/main.py (exception handlers)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio has one dependency that resolves the caller and one error path; routes never re-implement them."
+    },
+    "target_files": [
+      "lib/api/handler.ts (new)",
+      "app/api/**/route.ts"
+    ],
+    "description": "The 27 couple routes hand-copy the same four steps: read x-couple-event-id, return 401, parse JSON, catch and return err.message. Extract a wrapper (e.g. withCoupleEvent(handler) and withPublic(handler)) that does exactly what the routes do today, then migrate routes to it one by one. This is a pure refactor with identical responses; it is the seam SEC-003, SEC-004 and OBS-002 plug into.",
+    "acceptance_criteria": [
+      "All couple routes use the wrapper.",
+      "Response bodies and status codes are byte-identical to before for every existing test."
+    ],
+    "verification": [
+      "npm run test:unit",
+      "git diff shows no change to response shapes"
+    ],
+    "out_of_scope": [
+      "Changing any response, status code or message in this task.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/ARCH-001-one-shared-api-route-wrapper-auth-context-json-parsing-error.md"
+  },
+  {
+    "id": "DATA-001",
+    "title": "Automated backups for database and storage",
+    "category": "data",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "scripts/backup_db.sh",
+        "scripts/backup_sync.sh",
+        "scripts/backup_freshness.sh"
+      ],
+      "commits": [
+        "1431ab7",
+        "f8d2584"
+      ],
+      "pattern_summary": "Coachfio takes scheduled database dumps, syncs them off the primary host, and alerts when the newest backup is too old - a backup nobody checks is not a backup."
+    },
+    "target_files": [
+      "docs/production/BACKUPS.md (new)",
+      "(Supabase project settings)",
+      ".github/workflows/backup.yml (optional, new)"
+    ],
+    "description": "Enable Supabase daily backups (and PITR if the plan allows). Supabase backups do NOT include Storage objects: add a scheduled off-site copy of the invitation/menu/showcase photo buckets and a weekly logical dump (pg_dump via the Supabase CLI) to storage outside the Supabase project. Record retention and who can restore.",
+    "acceptance_criteria": [
+      "Daily DB backups (and PITR if enabled) are on for production.",
+      "Storage buckets are copied off-site on a schedule.",
+      "Backup freshness is monitored (OBS-003)."
+    ],
+    "verification": [
+      "Supabase dashboard -> Database -> Backups shows recent entries.",
+      "List the off-site bucket: newest object < 36h old."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-001-automated-backups-for-database-and-storage.md"
+  },
+  {
+    "id": "DATA-002",
+    "title": "Restore drill",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "DATA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tools/restore_drill.py",
+        "scripts/restore_drill_monthly.sh",
+        ".github/workflows/ci.yml (restore-drill job)"
+      ],
+      "commits": [
+        "1792f7b"
+      ],
+      "pattern_summary": "Coachfio restores a real backup into a scratch database on a schedule and checks it, because the only proof a backup works is a restore."
+    },
+    "target_files": [
+      "docs/production/BACKUPS.md",
+      "scripts/restore-drill.sh (new)"
+    ],
+    "description": "Write and run a restore procedure: restore the latest dump into a scratch Supabase project/local instance, run migrations check and row-count sanity queries, restore a sample of storage objects. Schedule it monthly and record the result.",
+    "acceptance_criteria": [
+      "A documented restore completed successfully, with timing (RTO) and data age (RPO) recorded."
+    ],
+    "verification": [
+      "Run scripts/restore-drill.sh against the latest backup; compare row counts."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-002-restore-drill.md"
+  },
+  {
+    "id": "DATA-003",
+    "title": "Migration discipline: applied by pipeline, drift-checked",
+    "category": "data",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [
+      "CICD-001",
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "migrations/",
+        "api/main.py (init_db upgrades to head)",
+        "CLAUDE.md (migration notes)"
+      ],
+      "commits": [
+        "fc1b9ad",
+        "7b48fe2"
+      ],
+      "pattern_summary": "Coachfio changes schema only through versioned migrations applied automatically, never by hand, and learned (fc1b9ad) that two branches can claim the same migration number."
+    },
+    "target_files": [
+      "supabase/migrations/",
+      ".github/workflows/ci.yml",
+      "docs/production/MIGRATIONS.md (new)"
+    ],
+    "description": "Production schema must only change via `supabase db push` from CI (CICD-003), never via the dashboard SQL editor. Add a CI check that fails on duplicate migration numbers and on drift (`supabase db diff` against a fresh local apply must be empty). Adopt expand/contract for breaking changes so an app rollback never meets an incompatible schema (CICD-004).",
+    "acceptance_criteria": [
+      "CI fails on duplicate migration prefixes and on schema drift.",
+      "Dashboard SQL edits are forbidden by policy (documented)."
+    ],
+    "verification": [
+      "ls supabase/migrations | cut -d_ -f1 | sort | uniq -d  # empty",
+      "supabase db diff --linked  # empty"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-003-migration-discipline-applied-by-pipeline-drift-checked.md"
+  },
+  {
+    "id": "DATA-004",
+    "title": "Index review for hot paths",
+    "category": "data",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "migrations/ (indexes)",
+        "admin/storage/capacity.py"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio sizes the database against measured query patterns, not guesses."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_indexes.sql (new)"
+    ],
+    "description": "Check indexes for every FK used in filters (event_id on all event_* tables, venue_id, room_id), couple_sessions(expires_at) for cleanup, event_invitations(public_slug) unique, event_credentials(username) unique. Use EXPLAIN on the heaviest pages (venue dashboard, guest list) with realistic data.",
+    "acceptance_criteria": [
+      "Every filtered FK column is indexed.",
+      "No sequential scan on the hot queries at 10x current data."
+    ],
+    "verification": [
+      "EXPLAIN ANALYZE of the listed queries",
+      "Supabase performance advisor"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-004-index-review-for-hot-paths.md"
+  },
+  {
+    "id": "DATA-005",
+    "title": "Personal data export and erasure (server side)",
+    "category": "data",
+    "priority": "P1",
+    "effort": "L",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "core/storage/erasure.py",
+        "tests/test_erasure.py"
+      ],
+      "commits": [
+        "32bd54c",
+        "13ae8a3"
+      ],
+      "pattern_summary": "Coachfio exports every user-linked table and erases with a tombstone that keeps financial history anonymised; a guard test fails the build when a new table with personal data has no erasure decision."
+    },
+    "target_files": [
+      "lib/privacy/export.ts (new)",
+      "lib/privacy/erase.ts (new)",
+      "supabase/migrations/00xx_privacy_functions.sql (new)",
+      "tests/lib/privacy/*.test.ts (new)"
+    ],
+    "description": "The app stores personal data of three groups: venue staff (auth email), couples (names, contact email/phone), and guests (names, phones, notes, RSVP) - the guests never agreed to anything themselves. Build server-side functions to (a) export all data for a venue account and for an event, (b) erase an event's personal data and (c) delete a venue account with everything it owns, including storage objects. Include a guard test that lists every column holding personal data and fails when a new one appears without a rule.",
+    "acceptance_criteria": [
+      "Export returns every personal-data table for the subject.",
+      "Erasure leaves no personal data in DB or storage for the subject.",
+      "Guard test fails on an unclassified personal-data column."
+    ],
+    "verification": [
+      "npm run test:db -- privacy"
+    ],
+    "out_of_scope": [
+      "UI entry points (DATA-006).",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "New data-deletion capability: what gets deleted vs. retained (e.g. anonymised reservation/finance records) is a business decision.",
+    "file": "tasks/DATA-005-personal-data-export-and-erasure-server-side.md"
+  },
+  {
+    "id": "DATA-006",
+    "title": "Export and delete entry points for venues and couples",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "DATA-005"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "web/src/pages/Account.tsx ('Your data' card)"
+      ],
+      "commits": [
+        "32bd54c"
+      ],
+      "pattern_summary": "Coachfio puts export and erase on the account page itself - a right whose mechanism is 'know the endpoint' is self-service for engineers only - and makes erasure type the account address to confirm."
+    },
+    "target_files": [
+      "app/venue/settings/page.tsx",
+      "components/venue/dashboard/SettingsClient.tsx",
+      "app/api/venue/privacy/* (new)"
+    ],
+    "description": "Expose DATA-005 to users: venue staff can download their data and delete their venue account; venues can erase an event's personal data (e.g. after the wedding). Confirmation must require typing the venue name/email.",
+    "acceptance_criteria": [
+      "Venue settings offer export and delete with a typed confirmation.",
+      "Actions are logged (OBS-002)."
+    ],
+    "verification": [
+      "Manual test on staging with a throwaway venue."
+    ],
+    "out_of_scope": [
+      "Visual redesign of settings beyond the new section."
+    ],
+    "approval_note": "New UI in venue settings.",
+    "file": "tasks/DATA-006-export-and-delete-entry-points-for-venues-and-couples.md"
+  },
+  {
+    "id": "DATA-007",
+    "title": "Retention and cleanup jobs",
+    "category": "data",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "DATA-005"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "tests/test_retention_matches_the_policy.py",
+        "core/support/ (12-month sweep)"
+      ],
+      "commits": [
+        "a2bfd32",
+        "fca039d"
+      ],
+      "pattern_summary": "Coachfio states retention periods in its privacy policy and enforces them in code, with a test holding the policy and the code together."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_retention_jobs.sql (new, pg_cron)",
+      "docs/production/RETENTION.md (new)"
+    ],
+    "description": "Nothing is ever deleted today: expired couple_sessions accumulate, contact_submissions grow forever, guest data persists years after the wedding, and every invitation photo re-upload leaves the old object in the bucket (path includes a timestamp, upsert only overwrites the same path). Define periods (to confirm), implement pg_cron jobs, and sweep orphaned storage objects.",
+    "acceptance_criteria": [
+      "Expired sessions deleted daily.",
+      "Orphaned invitation photos removed.",
+      "Retention periods documented and matching COMP-001's policy text."
+    ],
+    "verification": [
+      "select count(*) from couple_sessions where expires_at < now();  -- 0 after the job",
+      "Storage object count == referenced photo_path count"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "Retention periods for guest data and contact messages are a business/legal decision.",
+    "file": "tasks/DATA-007-retention-and-cleanup-jobs.md"
+  },
+  {
+    "id": "DATA-008",
+    "title": "Tests must never run against a non-local database",
+    "category": "data",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/conftest.py (isolated_settings)",
+        "CLAUDE.md (green local != green CI)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio's test harness strips every settings env var so a test can never reach a real database by accident."
+    },
+    "target_files": [
+      "vitest.setup.ts",
+      "tests/supabase/*.test.ts",
+      "lib/supabase/resolve-client.ts"
+    ],
+    "description": "vitest.setup.ts loads .env.local and the DB tests create and delete venues/users with the service-role key against whatever NEXT_PUBLIC_SUPABASE_URL says. Today it points at local Supabase, but one edited .env.local would run destructive tests against production. Add a guard in the setup that aborts unless the URL host is 127.0.0.1/localhost (or an explicit CI test project), and never allow the production service-role key on a laptop.",
+    "acceptance_criteria": [
+      "Running tests with a non-local Supabase URL aborts before any test executes."
+    ],
+    "verification": [
+      "NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co npx vitest run  # aborts with a clear message"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/DATA-008-tests-must-never-run-against-a-non-local-database.md"
+  },
+  {
+    "id": "REL-001",
+    "title": "Health endpoint with release id",
+    "category": "reliability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/main.py (/health)",
+        "Dockerfile (GIT_SHA)"
+      ],
+      "commits": [
+        "d3d558b",
+        "1d0a8c8"
+      ],
+      "pattern_summary": "Coachfio's /health pings the database and reports the running release, which is what uptime checks and the deployed-code CI job read."
+    },
+    "target_files": [
+      "app/api/health/route.ts (new)"
+    ],
+    "description": "Add GET /api/health: 200 with {ok, release} when a trivial service-role query succeeds, 503 otherwise; no auth, no personal data, never cached. release = the deploy's git SHA (e.g. VERCEL_GIT_COMMIT_SHA).",
+    "acceptance_criteria": [
+      "Returns 200 + release when healthy, 503 when the DB is unreachable."
+    ],
+    "verification": [
+      "curl -s https://<domain>/api/health"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/REL-001-health-endpoint-with-release-id.md"
+  },
+  {
+    "id": "REL-002",
+    "title": "Environment separation and env validation at boot",
+    "category": "reliability",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/config.py",
+        "api/main.py (refuse to boot prod with unsafe config)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio has one typed settings object; production refuses to start with a missing or development-default secret instead of failing on the first request."
+    },
+    "target_files": [
+      "lib/env.ts (new)",
+      "docs/production/ENVIRONMENTS.md (new)"
+    ],
+    "description": "Create separate Supabase projects for staging and production (local stays on `supabase start`), map them to the host's Preview and Production environments, and validate required env vars at startup (typed schema): a missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL must fail the build/boot with a clear message, not a 500 at runtime from a `!` non-null assertion.",
+    "acceptance_criteria": [
+      "Staging and production use different Supabase projects and keys.",
+      "A missing required env var fails build/boot with a named error."
+    ],
+    "verification": [
+      "Unset one var in a preview deploy -> build fails naming the var."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/REL-002-environment-separation-and-env-validation-at-boot.md"
+  },
+  {
+    "id": "REL-003",
+    "title": "Error, not-found and global-error boundaries",
+    "category": "reliability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "OBS-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "web/src/ui/states.tsx (ErrorState)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio never leaves a user on a framework error screen; failures render a product page and are reported."
+    },
+    "target_files": [
+      "app/error.tsx (new)",
+      "app/global-error.tsx (new)",
+      "app/not-found.tsx (new)"
+    ],
+    "description": "The app has no error.tsx, global-error.tsx or not-found.tsx, so an unexpected server error shows Next's default screen and is not reported. Add them using the existing visual styles, and report the error to Sentry (OBS-001).",
+    "acceptance_criteria": [
+      "A thrown error in any page renders the app's error page and reaches Sentry.",
+      "Unknown URLs render the app's 404."
+    ],
+    "verification": [
+      "Throw in a test page on staging; confirm page + Sentry event."
+    ],
+    "out_of_scope": [
+      "New visual design."
+    ],
+    "approval_note": "Adds user-visible error and 404 pages (copy + look need sign-off).",
+    "file": "tasks/REL-003-error-not-found-and-global-error-boundaries.md"
+  },
+  {
+    "id": "REL-004",
+    "title": "Timeouts on server-side Supabase calls",
+    "category": "reliability",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "REL-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/config.py (gemini_http_timeout_s, database_statement_timeout_ms)"
+      ],
+      "commits": [
+        "8007cd3"
+      ],
+      "pattern_summary": "Coachfio bounds every external call with a timeout and a wall-clock deadline so a slow dependency degrades into a clear error instead of a hung request."
+    },
+    "target_files": [
+      "lib/supabase/service-role.ts",
+      "middleware.ts"
+    ],
+    "description": "Middleware awaits a DB lookup on every couple request with no timeout; if Supabase stalls, the whole couple area hangs. Add AbortSignal.timeout to the service-role client's fetch override (it already overrides fetch) and a statement_timeout for the service role.",
+    "acceptance_criteria": [
+      "A stalled DB call fails within the timeout with a handled error."
+    ],
+    "verification": [
+      "Simulate latency (toxiproxy or a paused local DB) and observe bounded failure."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/REL-004-timeouts-on-server-side-supabase-calls.md"
+  },
+  {
+    "id": "REL-005",
+    "title": "Make multi-step writes atomic",
+    "category": "reliability",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/pipeline/outbox.py",
+        "core/affiliate/commissions.py (savepoint)"
+      ],
+      "commits": [
+        "ffa2d6f",
+        "586720f"
+      ],
+      "pattern_summary": "Coachfio puts every multi-row change that must succeed or fail together inside one transaction (and learned the hard way what a crash between two commits does)."
+    },
+    "target_files": [
+      "supabase/migrations/00xx_atomic_rpcs.sql (new)",
+      "lib/venue/provisioning.ts",
+      "lib/couple/seating.ts (confirmSeating)",
+      "lib/couple/agenda.ts (moveAgendaItem)",
+      "lib/couple/menu.ts"
+    ],
+    "description": "Several operations are sequences of separate PostgREST calls: venue provisioning (insert venue, then staff row), seating confirm (delete then insert), agenda reorder (two updates), menu selection (update then delete). A failure halfway leaves partial state. Move each into a Postgres function called via rpc, same inputs and outputs.",
+    "acceptance_criteria": [
+      "Each listed operation is a single transaction.",
+      "Behaviour and return values unchanged; existing tests green."
+    ],
+    "verification": [
+      "npm run test:db",
+      "Kill the connection mid-operation in a test: no partial state."
+    ],
+    "out_of_scope": [
+      "Changing what the operations do.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/REL-005-make-multi-step-writes-atomic.md"
+  },
+  {
+    "id": "OBS-001",
+    "title": "Error tracking (Sentry) for server, edge and browser",
+    "category": "observability",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "REL-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/observability.py",
+        "web/src/lib/errors.ts",
+        "api/routes/client_errors.py"
+      ],
+      "commits": [
+        "03f201e",
+        "4b48fd8"
+      ],
+      "pattern_summary": "Coachfio reports server and browser errors to Sentry with the release attached and nothing personal in the payload; the browser reporter is capped so a render loop cannot flood it."
+    },
+    "target_files": [
+      "sentry.client.config.ts, sentry.server.config.ts, sentry.edge.config.ts (new)",
+      "instrumentation.ts (new)",
+      "next.config.mjs"
+    ],
+    "description": "Nothing reports errors today; a failing route is invisible until a customer complains. Add @sentry/nextjs, tag events with the release SHA and environment, and scrub PII: guest names/phones, couple contact details, request bodies and cookies must not be sent. Source maps uploaded, not served publicly.",
+    "acceptance_criteria": [
+      "A thrown error in a route handler, middleware and a client component each appear in Sentry with release + environment.",
+      "Events contain no request bodies, cookies or guest/couple personal data."
+    ],
+    "verification": [
+      "Trigger a test error in each runtime on staging; inspect the event payload."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-001-error-tracking-sentry-for-server-edge-and-browser.md"
+  },
+  {
+    "id": "OBS-002",
+    "title": "Structured server logging with request ids and PII hygiene",
+    "category": "observability",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "ARCH-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/observability.py",
+        "admin/storage/audit.py (counts only, never contents)"
+      ],
+      "commits": [
+        "935a47d"
+      ],
+      "pattern_summary": "Coachfio logs through one logger, never logs tokens or personal data, and audits sensitive reads/writes by count rather than by copying the data into logs."
+    },
+    "target_files": [
+      "lib/log.ts (new)",
+      "lib/api/handler.ts",
+      "middleware.ts"
+    ],
+    "description": "Add a small JSON logger (level, msg, request_id, route, status, duration_ms) used by the route wrapper; generate/propagate a request id header. Log security-relevant events (login success/failure, lockout, password regenerate, account delete) without passwords, tokens or guest data.",
+    "acceptance_criteria": [
+      "Every API request produces one structured log line with request_id.",
+      "Grep of logs for a known test password/token/guest name finds nothing."
+    ],
+    "verification": [
+      "Run the flows on staging and inspect host logs."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-002-structured-server-logging-with-request-ids-and-pii-hygiene.md"
+  },
+  {
+    "id": "OBS-003",
+    "title": "Uptime checks and alerting",
+    "category": "observability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "REL-001",
+      "DATA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "scripts/alerts.sh",
+        "admin/storage/alerts.py"
+      ],
+      "commits": [
+        "115498e",
+        "eaac529"
+      ],
+      "pattern_summary": "Coachfio probes the host and the app every ten minutes and posts its COMPLETE findings, so a cleared problem resolves itself and a probe that cannot answer is itself an alert."
+    },
+    "target_files": [
+      "docs/production/ALERTS.md (new)",
+      "(uptime service config)"
+    ],
+    "description": "Monitor /api/health and the marketing page from outside (Better Stack, UptimeRobot, or Vercel checks) every 1-5 minutes, alert to email/Slack of named on-call people, and add a backup-freshness alert (DATA-001).",
+    "acceptance_criteria": [
+      "An outage alerts a named person within 5 minutes.",
+      "A stale backup alerts."
+    ],
+    "verification": [
+      "Take staging health down; receive the alert."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-003-uptime-checks-and-alerting.md"
+  },
+  {
+    "id": "OBS-004",
+    "title": "Third-party quota and cost monitoring",
+    "category": "observability",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "admin/storage/capacity.py",
+        "admin/storage/spending.py"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio reads every provider ceiling it can (and reports the ones it cannot as blind spots), so the first limit hit is known before users hit it."
+    },
+    "target_files": [
+      "docs/production/QUOTAS.md (new)"
+    ],
+    "description": "List every limit that can stop the product: Supabase DB size, egress, storage, auth emails/hour, connection count; Vercel function invocations/bandwidth; SMTP provider sends/day. Set usage alerts where the provider supports them.",
+    "acceptance_criteria": [
+      "Each limit has a current value, the ceiling, and an alert threshold documented."
+    ],
+    "verification": [
+      "Review QUOTAS.md against the provider dashboards."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-004-third-party-quota-and-cost-monitoring.md"
+  },
+  {
+    "id": "OBS-005",
+    "title": "Deliver contact-form submissions to the team",
+    "category": "observability",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-006",
+      "SEC-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "core/support/ (new ticket -> ADMIN_EMAILS)"
+      ],
+      "commits": [],
+      "pattern_summary": "In Coachfio a new support ticket notifies the team by email; a message stored where nobody looks is a lost lead."
+    },
+    "target_files": [
+      "lib/venue/contact.ts",
+      "app/api/venue/contact/route.ts"
+    ],
+    "description": "contact_submissions is written and never read by anyone (its migration says so). Send each submission to a configured team address through Resend (INFRA-006) (best-effort: a mail failure must not fail the user's submission, which is already stored).",
+    "acceptance_criteria": [
+      "A contact submission produces an email to the team address; a mail outage still returns ok to the user."
+    ],
+    "verification": [
+      "Submit the contact form on staging; receive the email."
+    ],
+    "out_of_scope": [
+      "Changing the form or its success message.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/OBS-005-deliver-contact-form-submissions-to-the-team.md"
+  },
+  {
+    "id": "TEST-001",
+    "title": "Split unit and database tests; make both runnable from scripts",
+    "category": "testing",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "DATA-008"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "pyproject.toml (addopts -m 'not integration')",
+        ".github/workflows/ci.yml (integration job)"
+      ],
+      "commits": [
+        "f76dc49"
+      ],
+      "pattern_summary": "Coachfio's default test run needs no services; database-backed tests are a separate, explicitly-run suite with their own CI job - and the notes record how a green local run hid a red CI run three times."
+    },
+    "target_files": [
+      "package.json",
+      "vitest.config.ts",
+      "vitest.db.config.ts (new)"
+    ],
+    "description": "`npm test` currently runs everything, including tests/supabase/* and lib tests that need a running local Supabase. Add `test:unit` (no network, no DB - default in CI) and `test:db` (requires `supabase start`, runs tests/supabase and DB-backed lib tests), and `typecheck` (`tsc --noEmit`). Measured baseline 27 Sep 2026 (production build, placeholder env): with no database 20 of 52 files / 91 of 114 tests pass; all tests/supabase/* and every tests/lib/* file need a live database. Put the 20 in test:unit and the 32 in test:db.",
+    "acceptance_criteria": [
+      "`npm run test:unit` passes with Supabase stopped.",
+      "`npm run test:db` passes against a fresh `supabase start && supabase db reset`."
+    ],
+    "verification": [
+      "supabase stop && npm run test:unit",
+      "supabase start && supabase db reset && npm run test:db"
+    ],
+    "out_of_scope": [
+      "Changing test assertions.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-001-split-unit-and-database-tests-make-both-runnable-from-script.md"
+  },
+  {
+    "id": "TEST-002",
+    "title": "Cross-event authorization tests for every couple API route",
+    "category": "testing",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/test_reanalyze_needs_its_footage.py (_owned double)",
+        "api/routes/matches.py (_owned: 404 not 403)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio tests that one user can never read or change another's match, and that the refusal is a 404 so existence is not confirmed."
+    },
+    "target_files": [
+      "tests/api/couple-authz.test.ts (new)"
+    ],
+    "description": "Couple routes use the service-role client (RLS bypassed), so authorization rests entirely on each lib function adding `.eq(\"event_id\", eventId)`. A review found them all scoped today - pin it: for every couple route with an [id] param, create two events and assert that event A's session cannot read, update or delete event B's rows (guests, notes, budget, checklist + subtasks, agenda, locations, seating elements, menu quantities).",
+    "acceptance_criteria": [
+      "Every couple mutation route has a cross-event test.",
+      "A deliberately removed event_id filter makes a test fail."
+    ],
+    "verification": [
+      "npm run test:db -- couple-authz"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-002-cross-event-authorization-tests-for-every-couple-api-route.md"
+  },
+  {
+    "id": "TEST-003",
+    "title": "Venue RLS isolation tests across all venue tables",
+    "category": "testing",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tests/integration/ (real Postgres)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio pins cross-tenant isolation on a real Postgres, not a mock."
+    },
+    "target_files": [
+      "tests/supabase/rls_isolation.test.ts (new)"
+    ],
+    "description": "Only 0004 has an RLS isolation test. Extend to every table staff read/write from the browser (rooms, table_types, menus, menu items, events, reservations, floor-plan layers, showcase, finance): staff of venue A cannot select/insert/update/delete venue B's rows, and anon can do nothing.",
+    "acceptance_criteria": [
+      "For each venue table, cross-venue and anon access is denied by a test."
+    ],
+    "verification": [
+      "npm run test:db -- rls_isolation"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-003-venue-rls-isolation-tests-across-all-venue-tables.md"
+  },
+  {
+    "id": "TEST-004",
+    "title": "Lint and type-check as gates",
+    "category": "testing",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "pyproject.toml ([tool.ruff.lint] select pinned)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio pins its lint rules and runs lint + type checks on every push so a toolchain upgrade cannot silently change the rules."
+    },
+    "target_files": [
+      "package.json",
+      ".eslintrc.json"
+    ],
+    "description": "Add `typecheck` (tsc --noEmit) and `lint` (next lint --max-warnings 0) as CI gates. Measured baseline 27 Sep 2026: `tsc --noEmit` 0 errors; `next lint` 0 errors, 1 warning (no-img-element in components/couple/InvitationClient.tsx:163); `next build` succeeds. The gates can go in as failing-on-error immediately.",
+    "acceptance_criteria": [
+      "CI fails on a type error or lint error."
+    ],
+    "verification": [
+      "npm run typecheck && npm run lint"
+    ],
+    "out_of_scope": [
+      "Fixing lint findings that would change behaviour.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-004-lint-and-type-check-as-gates.md"
+  },
+  {
+    "id": "TEST-005",
+    "title": "End-to-end smoke tests for the critical flows",
+    "category": "testing",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001",
+      "CICD-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "web/ (vitest component tests)",
+        "admin-ui/src/a11y.test.tsx"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio checks the real behaviour of each critical page with component tests in CI, and the shipped bytes with the build."
+    },
+    "target_files": [
+      "e2e/*.spec.ts (new, Playwright)",
+      "playwright.config.ts (new)"
+    ],
+    "description": "Add Playwright smoke tests against a local build + local Supabase: venue signup -> dashboard; venue creates event and couple credentials; couple logs in and adds a guest; public invitation page loads and an RSVP is recorded; password-reset request. Run in CI on main.",
+    "acceptance_criteria": [
+      "The five flows pass in CI.",
+      "A broken login or RSVP fails CI."
+    ],
+    "verification": [
+      "npx playwright test"
+    ],
+    "out_of_scope": [
+      "Visual regression.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-005-end-to-end-smoke-tests-for-the-critical-flows.md"
+  },
+  {
+    "id": "TEST-006",
+    "title": "Coverage reporting with a floor",
+    "category": "testing",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "pyproject.toml (coverage floor)"
+      ],
+      "commits": [
+        "a1d5028"
+      ],
+      "pattern_summary": "Coachfio enforces a coverage floor so coverage cannot quietly erode."
+    },
+    "target_files": [
+      "vitest.config.ts",
+      "package.json"
+    ],
+    "description": "Enable v8 coverage for lib/ and app/api/, publish the report in CI, and set a floor at the measured baseline (ratchet up over time).",
+    "acceptance_criteria": [
+      "CI shows coverage and fails below the floor."
+    ],
+    "verification": [
+      "npm run test:unit -- --coverage"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/TEST-006-coverage-reporting-with-a-floor.md"
+  },
+  {
+    "id": "CICD-001",
+    "title": "CI pipeline: install, lint, typecheck, unit tests, build",
+    "category": "ci-cd",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001",
+      "TEST-004"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        ".github/workflows/ci.yml"
+      ],
+      "commits": [
+        "32bd54c",
+        "ffa2d6f"
+      ],
+      "pattern_summary": "Coachfio runs lint and tests on every push and PR, pins its tool versions, and builds the exact artifact it deploys."
+    },
+    "target_files": [
+      ".github/workflows/ci.yml (new)"
+    ],
+    "description": "There is no CI. Add a GitHub Actions workflow on push/PR: `npm ci` (pinned Node from .nvmrc), lint, typecheck, test:unit, `next build` with dummy public env values. Cache npm.",
+    "acceptance_criteria": [
+      "Every PR shows the workflow; a failing step blocks merge (CICD-006)."
+    ],
+    "verification": [
+      "Open a PR with a type error -> CI red."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-001-ci-pipeline-install-lint-typecheck-unit-tests-build.md"
+  },
+  {
+    "id": "CICD-002",
+    "title": "CI database job: migrations from scratch plus DB tests",
+    "category": "ci-cd",
+    "priority": "P1",
+    "effort": "M",
+    "depends_on": [
+      "CICD-001",
+      "TEST-002",
+      "TEST-003"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        ".github/workflows/ci.yml (integration job with real services)"
+      ],
+      "commits": [
+        "f76dc49"
+      ],
+      "pattern_summary": "Coachfio runs integration tests against real services in their own CI job, because the API-shape and SQL tests are exactly what a mock hides."
+    },
+    "target_files": [
+      ".github/workflows/ci.yml"
+    ],
+    "description": "Add a job that runs `supabase start`, `supabase db reset` (applies all migrations from zero - catches a migration that only works on an existing DB), `supabase db lint`, then `npm run test:db`.",
+    "acceptance_criteria": [
+      "Migrations apply cleanly from scratch in CI.",
+      "DB and authorization tests run on every PR."
+    ],
+    "verification": [
+      "CI job log shows db reset + test:db green."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-002-ci-database-job-migrations-from-scratch-plus-db-tests.md"
+  },
+  {
+    "id": "CICD-003",
+    "title": "Deployment pipeline: previews, gated production, migrations first",
+    "category": "ci-cd",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "CICD-001",
+      "DATA-003",
+      "REL-002"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md",
+        "tools/deploy_binding.py",
+        ".github/workflows/ci.yml (deployed-code job)"
+      ],
+      "commits": [
+        "40c30f7"
+      ],
+      "pattern_summary": "Coachfio deploys from main only, stamps the image with the git SHA, and a scheduled CI job checks the live box is running reviewed code."
+    },
+    "target_files": [
+      "(host project settings)",
+      ".github/workflows/deploy.yml (new)",
+      "docs/production/DEPLOY.md (new)"
+    ],
+    "description": "Connect the repo to the host: preview deploy per PR against the staging Supabase project; production deploy only from main after CI is green; apply pending migrations to the target project (`supabase db push`) before the app version that needs them goes live.",
+    "acceptance_criteria": [
+      "Merging to main deploys to production only when CI passed.",
+      "Migrations run before the app deploy; a failed migration stops the deploy."
+    ],
+    "verification": [
+      "Merge a trivial change; watch CI -> migrations -> deploy."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-003-deployment-pipeline-previews-gated-production-migrations-fir.md"
+  },
+  {
+    "id": "CICD-004",
+    "title": "Rollback runbook",
+    "category": "ci-cd",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "CICD-003"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "DEPLOY.md",
+        "docker images tagged pre-truth-*"
+      ],
+      "commits": [
+        "1792f7b"
+      ],
+      "pattern_summary": "Coachfio keeps the previous images tagged so a bad release can be reverted in minutes, and keeps migrations backward compatible so a rollback is possible."
+    },
+    "target_files": [
+      "docs/production/DEPLOY.md"
+    ],
+    "description": "Document how to roll the app back (host instant rollback), when a rollback is safe given migrations (expand/contract rule from DATA-003), and how to restore data (DATA-002). Rehearse once on staging.",
+    "acceptance_criteria": [
+      "A rollback on staging was performed from the runbook in under 10 minutes."
+    ],
+    "verification": [
+      "Rehearsal notes in the doc."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-004-rollback-runbook.md"
+  },
+  {
+    "id": "CICD-005",
+    "title": "Release traceability",
+    "category": "ci-cd",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "REL-001",
+      "OBS-001",
+      "CICD-003"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "tools/deploy_binding.py",
+        "Dockerfile (GIT_SHA)"
+      ],
+      "commits": [
+        "40c30f7",
+        "1d0a8c8"
+      ],
+      "pattern_summary": "Coachfio can always answer 'which commit is live' from the outside."
+    },
+    "target_files": [
+      "app/api/health/route.ts",
+      ".github/workflows/ci.yml"
+    ],
+    "description": "Expose the release SHA in /api/health and Sentry; add a scheduled check that the live SHA is an ancestor of origin/main (catches hand-deploys of unreviewed code).",
+    "acceptance_criteria": [
+      "/api/health release == deployed commit; the scheduled check alerts on mismatch."
+    ],
+    "verification": [
+      "curl /api/health vs git rev-parse origin/main"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-005-release-traceability.md"
+  },
+  {
+    "id": "CICD-006",
+    "title": "Protect the main branch",
+    "category": "ci-cd",
+    "priority": "P1",
+    "effort": "S",
+    "depends_on": [
+      "CICD-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "CLAUDE.md (no autocommit, reviewed deploys)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio deploys only reviewed code from main."
+    },
+    "target_files": [
+      "(GitHub repository settings)"
+    ],
+    "description": "Require PRs and green CI to merge into main, block force-push and deletion.",
+    "acceptance_criteria": [
+      "Direct push to main is refused; a red CI blocks merge."
+    ],
+    "verification": [
+      "Try a direct push to main."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/CICD-006-protect-the-main-branch.md"
+  },
+  {
+    "id": "PERF-001",
+    "title": "Caching and image delivery config",
+    "category": "performance",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "INFRA-001",
+      "SEC-024"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "api/main.py (Cache-Control immutable vs no-cache)",
+        "tools/make_webp.py"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio caches hashed assets forever, revalidates everything else, and serves images sized for where they are shown."
+    },
+    "target_files": [
+      "next.config.mjs",
+      "supabase/migrations (bucket cache-control)"
+    ],
+    "description": "Set cacheControl on public storage uploads (menu, showcase, invitation photos), confirm Next's static assets are immutable-cached, and allow the Supabase storage host in images.remotePatterns so pages can later use next/image. The 8 raw <img> tags are left as they are (switching them is a frontend change).",
+    "acceptance_criteria": [
+      "Public photos carry long-lived cache headers.",
+      "Static assets are served with immutable caching."
+    ],
+    "verification": [
+      "curl -sI <public photo url> | grep -i cache-control"
+    ],
+    "out_of_scope": [
+      "Replacing <img> with next/image.",
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/PERF-001-caching-and-image-delivery-config.md"
+  },
+  {
+    "id": "PERF-002",
+    "title": "Bounded queries on list endpoints",
+    "category": "performance",
+    "priority": "P2",
+    "effort": "M",
+    "depends_on": [
+      "TEST-001"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "admin/storage/reports.py (bounded lists + has_more)"
+      ],
+      "commits": [],
+      "pattern_summary": "Coachfio bounds every list and says when a list was cut, because a truncated list that does not say so is read as complete."
+    },
+    "target_files": [
+      "lib/couple/guests.ts",
+      "lib/venue/*.ts (list functions)"
+    ],
+    "description": "Only 2 queries in lib/ use limit/range; guest lists and venue lists are unbounded. Measure realistic maxima (a large wedding ~500 guests) and add explicit upper bounds well above them, with a logged warning when hit.",
+    "acceptance_criteria": [
+      "No unbounded select on a user-growable table."
+    ],
+    "verification": [
+      "grep -rn 'from(' lib | review",
+      "Load test with 5,000 guests."
+    ],
+    "out_of_scope": [
+      "Adding pagination UI."
+    ],
+    "approval_note": "If a cap is ever reached, lists shown to users would be truncated; the cap values need sign-off.",
+    "file": "tasks/PERF-002-bounded-queries-on-list-endpoints.md"
+  },
+  {
+    "id": "PERF-003",
+    "title": "Bundle size baseline",
+    "category": "performance",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "CICD-001"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [],
+      "commits": [],
+      "pattern_summary": "Measure before optimising."
+    },
+    "target_files": [
+      "next.config.mjs",
+      "package.json"
+    ],
+    "description": "Add @next/bundle-analyzer behind an env flag and record per-route first-load JS in the PR; no code changes.",
+    "acceptance_criteria": [
+      "A baseline report exists."
+    ],
+    "verification": [
+      "ANALYZE=true npm run build"
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/PERF-003-bundle-size-baseline.md"
+  },
+  {
+    "id": "COMP-001",
+    "title": "Privacy policy and terms of service",
+    "category": "compliance",
+    "priority": "P0",
+    "effort": "M",
+    "depends_on": [
+      "COMP-003"
+    ],
+    "requires_approval": true,
+    "touches_logic_or_frontend": true,
+    "coachfio_reference": {
+      "files": [
+        "web/src/pages/legal/Privacy.tsx",
+        "web/src/pages/legal/Terms.tsx",
+        "tests/test_retention_matches_the_policy.py"
+      ],
+      "commits": [
+        "610a50b",
+        "2e6e9d6"
+      ],
+      "pattern_summary": "Coachfio's privacy policy is written from the code - every processor named is really wired up, every retention figure is really enforced - and tests keep the two in step."
+    },
+    "target_files": [
+      "app/privacy/page.tsx (new)",
+      "app/terms/page.tsx (new)",
+      "components/marketing/* (footer links)",
+      "components/auth/SignupForm.tsx (acceptance line)"
+    ],
+    "description": "The product collects personal data about people who never signed up (wedding guests: names, phones, notes; couples' contact details) and has no privacy policy or terms. Write both from the data map (COMP-003): controller/processor roles (the venue is likely the controller for its guests, the platform a processor - needs legal review), processors, retention (DATA-007), rights and how to exercise them (DATA-006). DECIDED 27 Sep 2026: both documents in Macedonian and English (a language switch or two routes, e.g. /privacy and /en/privacy), reviewed by a dedicated AI legal reviewer before publishing. Record the review (date, model, findings, what changed) in docs/production/LEGAL-REVIEW.md. Link from the footer and signup.",
+    "acceptance_criteria": [
+      "/privacy and /terms exist and are linked from the marketing page and signup.",
+      "Every processor and retention period in the text matches reality."
+    ],
+    "verification": [
+      "docs/production/LEGAL-REVIEW.md records the AI review of both languages and how each finding was resolved.",
+      "The MK and EN versions state the same facts (same processors, periods, rights)."
+    ],
+    "out_of_scope": [
+      "Other marketing copy changes."
+    ],
+    "approval_note": "New public pages (MK + EN) and a signup acceptance line. Reviewer decided: a dedicated AI legal reviewer.",
+    "file": "tasks/COMP-001-privacy-policy-and-terms-of-service.md"
+  },
+  {
+    "id": "COMP-002",
+    "title": "Cookie inventory and consent decision",
+    "category": "compliance",
+    "priority": "P2",
+    "effort": "S",
+    "depends_on": [
+      "COMP-003"
+    ],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "frontend/consent.js"
+      ],
+      "commits": [
+        "849dcee"
+      ],
+      "pattern_summary": "Coachfio loads analytics only after consent and discloses its beacons."
+    },
+    "target_files": [
+      "docs/production/COOKIES.md (new)"
+    ],
+    "description": "Inventory cookies/storage: couple_session and Supabase auth cookies are strictly necessary. No analytics exist today. Record that no banner is needed while only essential cookies are used, and that adding analytics later requires consent first.",
+    "acceptance_criteria": [
+      "COOKIES.md lists every cookie with purpose and lifetime."
+    ],
+    "verification": [
+      "Browser devtools on each area vs the doc."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/COMP-002-cookie-inventory-and-consent-decision.md"
+  },
+  {
+    "id": "COMP-003",
+    "title": "Data map and processor inventory",
+    "category": "compliance",
+    "priority": "P0",
+    "effort": "S",
+    "depends_on": [],
+    "requires_approval": false,
+    "touches_logic_or_frontend": false,
+    "coachfio_reference": {
+      "files": [
+        "docs/vendor-terms-and-content-rules.md",
+        "web/src/pages/legal/Privacy.tsx"
+      ],
+      "commits": [
+        "32bd54c"
+      ],
+      "pattern_summary": "Coachfio keeps a sourced record of every vendor, what data it receives and under which terms."
+    },
+    "target_files": [
+      "docs/production/DATA-MAP.md (new)"
+    ],
+    "description": "List every table/column with personal data (venue staff, couples, guests, contact submissions, photos), where it is stored (Supabase region), which processors touch it (Supabase, host, SMTP, Sentry), and who can access it. This feeds COMP-001, DATA-005 and DATA-007.",
+    "acceptance_criteria": [
+      "Every personal-data column and processor is listed with region and purpose."
+    ],
+    "verification": [
+      "Cross-check against the migrations."
+    ],
+    "out_of_scope": [
+      "Any change to what a user sees or can do in the app, or to domain rules (events, guests, seating, menus, reservations, budgets)."
+    ],
+    "approval_note": "",
+    "file": "tasks/COMP-003-data-map-and-processor-inventory.md"
+  }
+]

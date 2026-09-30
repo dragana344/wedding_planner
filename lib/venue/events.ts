@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
+import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
+import { parseCoupleContacts, type CoupleContactsInput } from "@/lib/venue/event-contacts";
 
 export interface EventSummary {
   id: string;
@@ -13,9 +15,10 @@ export async function listEvents(venueId: string): Promise<EventSummary[]> {
     .from("events")
     .select("id, couple_names, event_date, guest_count_estimate")
     .eq("venue_id", venueId)
-    .order("event_date");
+    .order("event_date")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return data;
+  return checkListBound(data, "events");
 }
 
 /** Lifecycle of an event as tracked by venue staff. Mirrors the DB check constraint. */
@@ -70,8 +73,10 @@ export async function listEventsWithDetails(
     )
     .eq("venue_id", venueId)
     .order("event_date")
-    .order("start_time", { nullsFirst: false });
+    .order("start_time", { nullsFirst: false })
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
+  checkListBound(data, "events (details)");
 
   return (data ?? []).map((event) => {
     const layoutElements = (event.event_layout_elements ?? []) as unknown as {
@@ -150,7 +155,8 @@ export async function listEventsForCalendar(
     .eq("venue_id", venueId)
     .gte("event_date", monthStart)
     .lt("event_date", monthEndExclusive)
-    .order("event_date");
+    .order("event_date")
+    .limit(MAX_LIST_ROWS);
   if (error) throw error;
 
   return (data ?? []).map((event) => ({
@@ -173,9 +179,13 @@ export interface CreateEventInput {
   guest_count_estimate?: number | null;
   room_ids: string[];
   menu_template_id: string | null;
+  /** A21: required, saved with the event. */
+  contacts: CoupleContactsInput;
 }
 
 export async function createEvent(input: CreateEventInput): Promise<{ id: string }> {
+  const contacts = parseCoupleContacts(input.contacts);
+  if (!contacts.ok) throw new Error(contacts.error);
   const supabase = resolveSupabaseClient();
 
   if (input.menu_template_id) {
@@ -215,6 +225,7 @@ export async function createEvent(input: CreateEventInput): Promise<{ id: string
       status: input.status ?? "preparation",
       guest_count_estimate: input.guest_count_estimate ?? null,
       menu_template_id: input.menu_template_id,
+      ...contacts.data,
     })
     .select("id")
     .single();
@@ -287,16 +298,31 @@ export async function updateEvent(
     .eq("id", eventId);
   if (eventError) throw eventError;
 
-  const { error: deleteRoomsError } = await supabase
+  // Only the halls that actually changed: removing a hall frees its seats
+  // (0077), so kept halls must not be deleted and re-added; that also keeps
+  // their layout_initialized_at claim.
+  const { data: current, error: currentError } = await supabase
     .from("event_rooms")
-    .delete()
+    .select("room_id")
     .eq("event_id", eventId);
-  if (deleteRoomsError) throw deleteRoomsError;
+  if (currentError) throw currentError;
+  const had = new Set((current ?? []).map((r) => r.room_id as string));
+  const removed = Array.from(had).filter((id) => !input.room_ids.includes(id));
+  const added = input.room_ids.filter((id) => !had.has(id));
 
-  if (input.room_ids.length > 0) {
+  if (removed.length > 0) {
+    const { error: deleteRoomsError } = await supabase
+      .from("event_rooms")
+      .delete()
+      .eq("event_id", eventId)
+      .in("room_id", removed);
+    if (deleteRoomsError) throw deleteRoomsError;
+  }
+
+  if (added.length > 0) {
     const { error: insertRoomsError } = await supabase
       .from("event_rooms")
-      .insert(input.room_ids.map((room_id) => ({ event_id: eventId, room_id })));
+      .insert(added.map((room_id) => ({ event_id: eventId, room_id })));
     if (insertRoomsError) throw insertRoomsError;
   }
 }
@@ -312,8 +338,11 @@ export interface EventContactInfo {
   contact_phone: string | null;
 }
 
+/** A21: the couple's email and phone stay required when the venue edits them. */
 export async function updateEventContactInfo(eventId: string, input: EventContactInfo): Promise<void> {
-  const { error } = await resolveSupabaseClient().from("events").update(input).eq("id", eventId);
+  const contacts = parseCoupleContacts(input);
+  if (!contacts.ok) throw new Error(contacts.error);
+  const { error } = await resolveSupabaseClient().from("events").update(contacts.data).eq("id", eventId);
   if (error) throw error;
 }
 

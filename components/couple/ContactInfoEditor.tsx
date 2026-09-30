@@ -50,16 +50,16 @@ export function ContactInfoEditor({
       </p>
       <div className="ev-form-grid" style={{ marginBottom: 12 }}>
         <div className="ev-field">
-          <label className="lab-s">Е-пошта за контакт</label>
-          <input type="email" className="fld" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label className="lab-s" htmlFor="contact-email">Е-пошта за контакт</label>
+          <input id="contact-email" type="email" className="fld" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="ev-field">
-          <label className="lab-s">Втора е-пошта за контакт</label>
-          <input type="email" className="fld" value={email2} onChange={(e) => setEmail2(e.target.value)} />
+          <label className="lab-s" htmlFor="contact-email-2">Втора е-пошта за контакт</label>
+          <input id="contact-email-2" type="email" className="fld" value={email2} onChange={(e) => setEmail2(e.target.value)} />
         </div>
         <div className="ev-field">
-          <label className="lab-s">Телефон за контакт</label>
-          <input className="fld" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <label className="lab-s" htmlFor="contact-phone">Телефон за контакт</label>
+          <input id="contact-phone" className="fld" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
       </div>
       {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, marginBottom: 8 }}>{error}</p> : null}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import type { ChecklistItem, ChecklistStats, ChecklistSubtask } from "@/lib/couple/checklist";
+import { todayIn } from "@/lib/date";
 
 function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () => void }) {
   const [newTitle, setNewTitle] = useState("");
@@ -210,7 +211,7 @@ export function ChecklistClient({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {items.map((item) => {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = todayIn();
           const isOverdue = !item.is_done && item.due_date !== null && item.due_date < today;
           return (
           <div key={item.id} className="ev" style={item.is_done ? { opacity: 0.55 } : undefined}>

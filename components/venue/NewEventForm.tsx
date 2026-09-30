@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createEvent, updateEventContactInfo, updateEventFinance, deleteEvent } from "@/lib/venue/events";
+import { createEvent, updateEventFinance, deleteEvent } from "@/lib/venue/events";
+import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { createEventCredentials, generateRandomPassword } from "@/lib/venue/credentials";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import { Icon } from "@/components/venue/shell/Icon";
@@ -14,11 +15,17 @@ export function NewEventForm({
   rooms,
   menuTemplates,
   onCreated,
+  initialRoomIds,
+  roomTotals = {},
 }: {
   venueId: string;
   rooms: Room[];
   menuTemplates: MenuTemplate[];
   onCreated: () => void;
+  /** Halls picked before the form opened (e.g. `?room=` from the dashboard). */
+  initialRoomIds?: string[];
+  /** Per hall: how many tables / seats its standard layout has, for the picker. */
+  roomTotals?: Record<string, { tables: number; seats: number }>;
 }) {
   const [coupleNames, setCoupleNames] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -27,7 +34,12 @@ export function NewEventForm({
   const [eventType, setEventType] = useState<EventType>("wedding");
   const [status, setStatus] = useState<EventStatus>("preparation");
   const [guestCount, setGuestCount] = useState("");
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const presetRoomIds = (initialRoomIds ?? []).filter((id) => rooms.some((r) => r.id === id));
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() =>
+    presetRoomIds.length > 0 ? presetRoomIds : rooms.length === 1 ? [rooms[0].id] : [],
+  );
+  // B6: with several halls, the hall comes first.
+  const [pickingRoom, setPickingRoom] = useState(rooms.length > 1 && presetRoomIds.length === 0);
   const [menuTemplateId, setMenuTemplateId] = useState<string>("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +60,11 @@ export function NewEventForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const contacts = parseCoupleContacts({ contact_email: contactEmail, contact_phone: contactPhone, contact_email_2: contactEmail2 });
+    if (!contacts.ok) {
+      setError(contacts.error);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const event = await createEvent({
@@ -61,15 +78,11 @@ export function NewEventForm({
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
         menu_template_id: menuTemplateId || null,
+        contacts: contacts.data,
       });
 
       try {
         await createEventCredentials(event.id, username, password);
-        await updateEventContactInfo(event.id, {
-          contact_email: contactEmail.trim() || null,
-          contact_email_2: contactEmail2.trim() || null,
-          contact_phone: contactPhone.trim() || null,
-        });
         await updateEventFinance(event.id, {
           total_price: totalPrice === "" ? null : Number(totalPrice),
           deposit_paid: depositPaid === "" ? null : Number(depositPaid),
@@ -93,8 +106,50 @@ export function NewEventForm({
     }
   }
 
+  if (pickingRoom) {
+    return (
+      <div className="ev-form">
+        <h3 className="panel-t" style={{ marginBottom: 12 }}>
+          Во која сала?
+        </h3>
+        <div className="s3-room-picker">
+          {rooms.map((room) => {
+            const picked = selectedRoomIds.includes(room.id);
+            const total = roomTotals[room.id];
+            return (
+              <button
+                key={room.id}
+                type="button"
+                aria-pressed={picked}
+                className={`s3-room-card${picked ? " is-picked" : ""}`}
+                onClick={() => toggleRoom(room.id)}
+              >
+                <strong>{room.name}</strong>
+                <span className="muted">
+                  {total ? `${total.tables} маси · ${total.seats} места` : `${room.width_cm / 100} × ${room.height_cm / 100} м`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="ev-hint">Настанот може да користи и повеќе сали.</p>
+        <button type="button" className="btn btn-gold" disabled={selectedRoomIds.length === 0} onClick={() => setPickingRoom(false)}>
+          Продолжи
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="ev-form">
+      {rooms.length > 1 ? (
+        <p className="ev-hint">
+          Сала: {rooms.filter((r) => selectedRoomIds.includes(r.id)).map((r) => r.name).join(", ") || "—"}{" "}
+          <button type="button" className="btn btn-ghost" onClick={() => setPickingRoom(true)}>
+            Смени сала
+          </button>
+        </p>
+      ) : null}
       <div className="ev-form-grid">
         <div className="ev-field ev-field-wide">
           <label className="lab-s" htmlFor="couple-names">
@@ -266,6 +321,8 @@ export function NewEventForm({
                 className="fld"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                minLength={10}
+                aria-describedby="couple-password-hint"
                 required
               />
               <button
@@ -276,6 +333,9 @@ export function NewEventForm({
                 Генерирај
               </button>
             </div>
+            <p id="couple-password-hint" style={{ color: "var(--muted)", fontSize: 12.5, margin: "4px 0 0" }}>
+              Најмалку 10 знаци.
+            </p>
           </div>
         </div>
       </fieldset>
@@ -315,13 +375,15 @@ export function NewEventForm({
       </fieldset>
 
       <fieldset className="ev-fieldset">
-        <legend className="lab-s">Контакт (опционално)</legend>
+        <legend className="lab-s">Контакт на парот</legend>
         <div className="ev-form-grid">
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Е-пошта за контакт"
+              aria-label="Email на парот"
+              placeholder="Email на парот"
               type="email"
+              required
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
             />
@@ -329,7 +391,8 @@ export function NewEventForm({
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Втора е-пошта"
+              aria-label="Втора е-пошта (по желба)"
+              placeholder="Втора е-пошта (по желба)"
               type="email"
               value={contactEmail2}
               onChange={(e) => setContactEmail2(e.target.value)}
@@ -338,7 +401,10 @@ export function NewEventForm({
           <div className="ev-field">
             <input
               className="fld"
-              placeholder="Телефон за контакт"
+              aria-label="Телефон на парот"
+              placeholder="Телефон на парот"
+              type="tel"
+              required
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
             />
