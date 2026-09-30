@@ -12,10 +12,13 @@ export function InvitationClient({
   initialInvitation,
   coupleNames,
   eventDate,
+  allTemplates = true,
 }: {
   initialInvitation: Invitation | null;
   coupleNames: string;
   eventDate: string;
+  /** The package includes `invitation_all_templates`; else premium designs are locked. */
+  allTemplates?: boolean;
 }) {
   const [invitation, setInvitation] = useState(initialInvitation);
   const [templateId, setTemplateId] = useState(initialInvitation?.template_id ?? INVITATION_TEMPLATES[0].id);
@@ -130,6 +133,7 @@ export function InvitationClient({
               type="button"
               onClick={() => setTemplateId(template.id)}
               aria-pressed={templateId === template.id}
+              disabled={template.premium && !allTemplates}
               className="ev"
               style={{
                 textAlign: "left",
@@ -139,7 +143,11 @@ export function InvitationClient({
               }}
             >
               <p style={{ fontWeight: 700, margin: 0 }}>{template.name}</p>
-              {template.premium ? <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--gold-lo)" }}>Премиум</p> : null}
+              {template.premium ? (
+                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--gold-lo)" }}>
+                  {allTemplates ? "Премиум" : "Премиум · не е во вашиот пакет"}
+                </p>
+              ) : null}
             </button>
           ))}
         </div>

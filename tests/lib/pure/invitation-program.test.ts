@@ -20,10 +20,8 @@ describe("mapsHref (A14)", () => {
 });
 
 describe("invitation templates (A13)", () => {
-  it("marks at most three as premium", () => {
-    const premium = INVITATION_TEMPLATES.filter((t) => t.premium);
-    expect(premium.length).toBeGreaterThan(0);
-    expect(premium.length).toBeLessThanOrEqual(3);
-    expect(INVITATION_TEMPLATES).toHaveLength(6);
+  it("offers three basic and three premium templates (owner decision)", () => {
+    expect(INVITATION_TEMPLATES.filter((t) => t.premium).map((t) => t.id)).toEqual(["modern-watercolor", "rustic", "royal-green"]);
+    expect(INVITATION_TEMPLATES.filter((t) => !t.premium).map((t) => t.id)).toEqual(["romantic-floral", "elegant-gold", "classic-minimal"]);
   });
 });

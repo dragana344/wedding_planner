@@ -4,15 +4,19 @@ export interface InvitationTemplate {
   name: string;
   accentColor: string;
   borderStyle: "floral" | "gold-frame" | "minimal" | "watercolor" | "rustic" | "royal";
-  /** Behind the `invitation_all_templates` package feature (at most three). */
+  /**
+   * Behind the `invitation_all_templates` package feature. Three basic, three
+   * premium (owner, 2026-09-30); the database has the same list (0063
+   * basic_invitation_templates()).
+   */
   premium: boolean;
 }
 
 export const INVITATION_TEMPLATES: InvitationTemplate[] = [
   { id: "romantic-floral", name: "Романтичен цветен", accentColor: "#C97B84", borderStyle: "floral", premium: false },
-  { id: "elegant-gold", name: "Елегантен златен", accentColor: "#B8913A", borderStyle: "gold-frame", premium: true },
+  { id: "elegant-gold", name: "Елегантен златен", accentColor: "#B8913A", borderStyle: "gold-frame", premium: false },
   { id: "classic-minimal", name: "Класичен минималист", accentColor: "#2C2C2C", borderStyle: "minimal", premium: false },
-  { id: "modern-watercolor", name: "Модерен акварел", accentColor: "#6B9AC4", borderStyle: "watercolor", premium: false },
+  { id: "modern-watercolor", name: "Модерен акварел", accentColor: "#6B9AC4", borderStyle: "watercolor", premium: true },
   { id: "rustic", name: "Рустикално", accentColor: "#7C5A3A", borderStyle: "rustic", premium: true },
   { id: "royal-green", name: "Кралско писмо", accentColor: "#5C6B47", borderStyle: "royal", premium: true },
 ];

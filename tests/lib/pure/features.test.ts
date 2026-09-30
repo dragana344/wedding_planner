@@ -19,8 +19,8 @@ describe("feature catalogue (spec §4.1)", () => {
     expect([...listed].sort()).toEqual([...FEATURE_KEYS].sort());
   });
 
-  it("treats the first two invitation templates as basic", () => {
-    expect(BASIC_TEMPLATE_IDS).toEqual(INVITATION_TEMPLATES.slice(0, 2).map((t) => t.id));
+  it("treats the non-premium invitation templates as basic", () => {
+    expect(BASIC_TEMPLATE_IDS).toEqual(INVITATION_TEMPLATES.filter((t) => !t.premium).map((t) => t.id));
   });
 
   it("keeps every feature_key check constraint and unnest key list in 0048 in sync with the catalogue", () => {
@@ -50,9 +50,9 @@ describe("feature catalogue (spec §4.1)", () => {
     for (const list of unnestLists) expect(list).toEqual(allSorted);
   });
 
-  it("the database knows the same basic templates (migration 0049)", () => {
-    const sql = readFileSync("supabase/migrations/0049_entitlement_enforcement.sql", "utf8");
-    const listed = sql.match(/v_basic text\[\] := array\[([^\]]+)\]/)![1].match(/'([^']+)'/g)!.map((s) => s.slice(1, -1));
+  it("the database knows the same basic templates (migration 0063 basic_invitation_templates())", () => {
+    const sql = readFileSync("supabase/migrations/0063_basic_invitation_templates.sql", "utf8");
+    const listed = sql.match(/select array\[([^\]]+)\]/)![1].match(/'([^']+)'/g)!.map((s) => s.slice(1, -1));
     expect(listed).toEqual([...BASIC_TEMPLATE_IDS]);
   });
 });

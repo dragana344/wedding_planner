@@ -25,10 +25,18 @@ function photoFetch(extra: (url: string) => unknown = () => undefined) {
 }
 
 describe("InvitationClient", () => {
+  it("locks the premium templates when the package lacks them", () => {
+    render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" allTemplates={false} />);
+    const premium = screen.getByRole("button", { name: /Кралско писмо/ });
+    expect(premium).toBeDisabled();
+    expect(premium).toHaveTextContent("не е во вашиот пакет");
+    expect(screen.getByRole("button", { name: /Класичен минималист/ })).toBeEnabled();
+  });
+
   it("marks the premium templates (A13)", () => {
     render(<InvitationClient initialInvitation={null} coupleNames="Ана & Марко" eventDate="2027-06-15" />);
-    const gold = screen.getByRole("button", { name: /Елегантен златен/ });
-    expect(gold).toHaveTextContent("Премиум");
+    expect(screen.getByRole("button", { name: /Модерен акварел/ })).toHaveTextContent("Премиум");
+    expect(screen.getByRole("button", { name: /Елегантен златен/ })).not.toHaveTextContent("Премиум");
     expect(screen.getByRole("button", { name: /Класичен минималист/ })).not.toHaveTextContent("Премиум");
   });
 

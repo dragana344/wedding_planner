@@ -74,7 +74,7 @@ describe("locked features (spec §4.4)", () => {
   it("gates invitation templates and photo but keeps a basic invitation", async () => {
     const ok = await admin.from("event_invitations").insert({ event_id: eventId, template_id: "romantic-floral", public_slug: `ent${Date.now()}`.slice(0, 20) });
     expect(ok.error).toBeNull();
-    const premium = await admin.from("event_invitations").update({ template_id: "classic-minimal" }).eq("event_id", eventId);
+    const premium = await admin.from("event_invitations").update({ template_id: "royal-green" }).eq("event_id", eventId);
     expect(premium.error?.message).toBe(LOCKED);
     const photo = await admin.from("event_invitations").update({ photo_path: `${eventId}-1.jpg` }).eq("event_id", eventId);
     expect(photo.error?.message).toBe(LOCKED);

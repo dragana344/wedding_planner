@@ -54,4 +54,5 @@ export type FeatureMap = Record<FeatureKey, ResolvedFeature>;
 
 export const LOCKED_MESSAGE = "Оваа функција не е вклучена во вашиот пакет.";
 
-export const BASIC_TEMPLATE_IDS: readonly string[] = INVITATION_TEMPLATES.slice(0, 2).map((t) => t.id);
+/** Templates open without `invitation_all_templates`; the database checks the same list (0063). */
+export const BASIC_TEMPLATE_IDS: readonly string[] = INVITATION_TEMPLATES.filter((t) => !t.premium).map((t) => t.id);
