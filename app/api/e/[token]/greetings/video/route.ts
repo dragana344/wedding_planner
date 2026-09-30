@@ -8,8 +8,8 @@ import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/ra
 export const POST = withGuestAlbum(
   async ({ request, params, body, album }) => {
     for (const [rule, subject] of [
-      [ALBUM_RATE_LIMITS.upload, `${params.token}:${clientIp(request)}`],
-      [ALBUM_RATE_LIMITS.uploadPerEvent, album.eventId],
+      [ALBUM_RATE_LIMITS.videoUpload, `${params.token}:${clientIp(request)}`],
+      [ALBUM_RATE_LIMITS.videoUploadPerEvent, album.eventId],
     ] as const) {
       const limit = await checkRateLimit(rule, subject);
       if (!limit.ok) return rateLimitedResponse(limit);

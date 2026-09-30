@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { getOrCreateAlbumToken } from "@/lib/media/album";
-import { AlbumQrPrint, parsePrintOptions } from "@/components/couple/AlbumQrPrint";
+import { AlbumQrPrint } from "@/components/couple/AlbumQrPrint";
+import { parsePrintOptions } from "@/lib/media/print-options";
 import "@/components/couple/album-print.css";
 
 export const dynamic = "force-dynamic";

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { formatBytes, storageBreakdown, type StorageUsage } from "@/lib/media/limits";
 
 /** The album's space, shown like a phone plan's data meter (C5). */
@@ -36,9 +35,11 @@ export function StorageMeter({ usage }: { usage: StorageUsage }) {
           Просторот е полн — гостите не можат да прикачуваат нови фотографии.
         </p>
       )}
-      <Link className="s4-meter-cta" href="/couple/packages">
+      {/* A plain link, not next/link: /couple/packages is Session 1's page, and until
+          it exists the router's prefetch of it never settles (seen in e2e). */}
+      <a className="s4-meter-cta" href="/couple/packages">
         Активирајте дополнителен пакет за повеќе простор
-      </Link>
+      </a>
     </section>
   );
 }

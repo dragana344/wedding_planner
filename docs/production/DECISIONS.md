@@ -38,6 +38,8 @@ Decisions taken while working through `production-tasks/`, so nobody has to redi
 | HEIC | No server conversion: iPhone Safari converts on upload; a browser that can't decode the file tells the guest to use JPEG or a screenshot | No image pipeline on Vercel yet | Session 4 (C1) |
 | Video greetings | ≤ 30 s (checked in the browser) and ≤ 100 MB (checked on the server); MP4, MOV or WebM by magic bytes; **no transcoding** — 720p compression later | A transcoding pipeline is a separate service; the size cap bounds storage | Session 4 (C7) |
 | Album quota | 5 GB per event until the package's `storage_gb` entitlement exists; checked when an upload starts and again with the real size at confirm | Declared sizes can lie; the second check is authoritative | Session 4 (C5, C6) |
+| Unconfirmed uploads | Photos wait in their own private bucket `event-media-uploads` capped at 15 MB (0081); video greeting starts are limited to 5/h per guest and 100/h per album; both swept after 24 h | A signed upload URL can't bound its size and an abuser never confirms, so the bucket limit and start budgets bound what a leaked album link can store | Session 4 review |
+| Album download | ZIP parts of ≤ 200 MB / 150 files | The stream lasts as long as the client downloads; ~160 s at 10 Mbit/s stays inside the 300 s function limit | Session 4 review |
 | Album retention | Mechanism built, **off** until `MEDIA_RETENTION_DAYS` is set (owner decision, see RETENTION.md) | Deleting guests' photos is irreversible; the period must match the privacy notice | Session 4 (C6) |
 | Logo watermark on photos (C8) | Later | Needs server-side image processing | Session 4 |
 | "Send to photo studio" (C9) | Later | Partner integration, not in scope | Session 4 |

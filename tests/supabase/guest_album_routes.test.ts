@@ -8,7 +8,6 @@ import { POST as confirmPhoto } from "@/app/api/e/[token]/photos/confirm/route";
 import { POST as startVideo } from "@/app/api/e/[token]/greetings/video/route";
 import { POST as postGreeting } from "@/app/api/e/[token]/greetings/route";
 import { getOrCreateAlbumToken } from "@/lib/media/album";
-import { MEDIA_BUCKET } from "@/lib/media/storage";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 // Session 4 (C1, C2, C7): the guests' QR page talks only to these routes.
@@ -69,8 +68,8 @@ describe("guest album routes", () => {
   it("uploads a photo end to end", async () => {
     const start = await call(startPhoto, token, { bytes: JPEG.length });
     expect(start.status).toBe(200);
-    const { path, token: uploadToken } = await start.json();
-    const { error } = await guest.storage.from(MEDIA_BUCKET).uploadToSignedUrl(path, uploadToken, new Blob([JPEG], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+    const { path, token: uploadToken, bucket } = await start.json();
+    const { error } = await guest.storage.from(bucket).uploadToSignedUrl(path, uploadToken, new Blob([JPEG], { type: "image/jpeg" }), { contentType: "image/jpeg" });
     expect(error).toBeNull();
 
     const confirm = await call(confirmPhoto, token, { path, consent: true, uploader_name: "Вујко", width: 10, height: 10 });
@@ -100,6 +99,14 @@ describe("guest album routes", () => {
     const missing = await call(postGreeting, token, { first_name: "Ана", last_name: " ", message: "Честито!" });
     expect(missing.status).toBe(400);
     expect(await missing.json()).toEqual({ error: "Внесете име и презиме." });
+  });
+
+  it("limits video greeting uploads to 5 an hour per guest", async () => {
+    const ip = `198.51.101.${Math.floor(Math.random() * 250)}`;
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) statuses.push((await call(startVideo, token, { bytes: 1000 }, ip)).status);
+    expect(statuses.slice(0, 5).every((s) => s === 200)).toBe(true);
+    expect(statuses[5]).toBe(429);
   });
 
   it("limits greetings to 10 an hour per guest", async () => {

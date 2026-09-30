@@ -4,6 +4,7 @@ import { VENUE_TIME_ZONE, todayIn } from "@/lib/date";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import { recordAudit } from "@/lib/audit";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
+import { errorFields, log } from "@/lib/log";
 
 // C6: guests' photos and greetings are kept for a number of days after the
 // event, then deleted (rows first; the 0080 triggers queue the files). The
@@ -52,36 +53,73 @@ type AlbumRow = {
   events: { event_date: string; contact_email: string | null; couple_names: string; venue_id: string } | null;
 };
 
+const PAGE = 500;
+
+/**
+ * One pass over the albums whose deletion date is near or past. The couple is
+ * always warned first, and the media go no earlier than NOTICE_DAYS after the
+ * warning — so switching retention on (or shortening it) never deletes an
+ * album without notice. A purged album's row goes too: its guest link stops
+ * working and later passes no longer see it.
+ */
 export async function runMediaRetention(
   opts: { days?: number | null; now?: Date; notify?: RetentionNotify } = {},
 ): Promise<{ skipped: true } | { noticed: number; purgedEvents: number }> {
   const days = opts.days === undefined ? mediaRetentionDaysFromEnv() : opts.days;
   if (!days) return { skipped: true };
   const notify = opts.notify ?? emailNotify;
-  const today = todayIn(VENUE_TIME_ZONE, opts.now ?? new Date());
+  const now = opts.now ?? new Date();
+  const today = todayIn(VENUE_TIME_ZONE, now);
   const client = createServiceRoleClient();
 
-  // Only events whose deletion date is at most NOTICE_DAYS away can need work.
+  // Only events whose own deletion date is at most NOTICE_DAYS away can need work.
   const latestEventDate = addDays(today, NOTICE_DAYS - days);
-  const { data, error } = await client
-    .from("event_albums")
-    .select("event_id, retention_notice_sent_at, events!inner(event_date, contact_email, couple_names, venue_id)")
-    .lte("events.event_date", latestEventDate);
-  if (error) throw error;
-
   let noticed = 0;
   let purgedEvents = 0;
-  for (const album of (data ?? []) as unknown as AlbumRow[]) {
-    const event = album.events;
-    if (!event) continue;
-    const deleteOn = addDays(event.event_date, days);
+  let cursor = "00000000-0000-0000-0000-000000000000";
 
-    if (today >= deleteOn) {
-      const photos = await client.from("event_photos").delete({ count: "exact" }).eq("event_id", album.event_id);
-      if (photos.error) throw photos.error;
-      const greetings = await client.from("event_greetings").delete({ count: "exact" }).eq("event_id", album.event_id);
-      if (greetings.error) throw greetings.error;
-      if ((photos.count ?? 0) + (greetings.count ?? 0) > 0) {
+  for (;;) {
+    const { data, error } = await client
+      .from("event_albums")
+      .select("event_id, retention_notice_sent_at, events!inner(event_date, contact_email, couple_names, venue_id)")
+      .lte("events.event_date", latestEventDate)
+      .gt("event_id", cursor)
+      .order("event_id")
+      .limit(PAGE);
+    if (error) throw error;
+    const albums = (data ?? []) as unknown as AlbumRow[];
+
+    for (const album of albums) {
+      const event = album.events;
+      if (!event) continue;
+      try {
+        const deleteOn = addDays(event.event_date, days);
+
+        if (!album.retention_notice_sent_at) {
+          const { data: usage } = await client.rpc("event_media_usage", { p_event_id: album.event_id });
+          const row = (usage as { photo_count: number; greeting_count: number }[] | null)?.[0];
+          if (!row || row.photo_count + row.greeting_count === 0) continue;
+          const promised = deleteOn > addDays(today, NOTICE_DAYS) ? deleteOn : addDays(today, NOTICE_DAYS);
+          if (event.contact_email) await notify(event.contact_email, event.couple_names, shownDate(promised));
+          const { error: markError } = await client
+            .from("event_albums")
+            .update({ retention_notice_sent_at: now.toISOString() })
+            .eq("event_id", album.event_id);
+          if (markError) throw markError;
+          noticed += 1;
+          continue;
+        }
+
+        const noticeDay = todayIn(VENUE_TIME_ZONE, new Date(album.retention_notice_sent_at));
+        const earliest = addDays(noticeDay, NOTICE_DAYS);
+        if (today < deleteOn || today < earliest) continue;
+
+        const photos = await client.from("event_photos").delete({ count: "exact" }).eq("event_id", album.event_id);
+        if (photos.error) throw photos.error;
+        const greetings = await client.from("event_greetings").delete({ count: "exact" }).eq("event_id", album.event_id);
+        if (greetings.error) throw greetings.error;
+        const closed = await client.from("event_albums").delete().eq("event_id", album.event_id);
+        if (closed.error) throw closed.error;
         purgedEvents += 1;
         await recordAudit({
           action: "event_media_purged",
@@ -91,22 +129,14 @@ export async function runMediaRetention(
           targetId: album.event_id,
           details: { photos: photos.count ?? 0, greetings: greetings.count ?? 0 },
         });
+      } catch (err) {
+        // One album's failure (e.g. the email provider) must not hold up the rest; retried next run.
+        log("error", "media_retention_failed", { event_id: album.event_id, ...errorFields(err) });
       }
-      continue;
     }
 
-    if (!album.retention_notice_sent_at) {
-      const { data: usage } = await client.rpc("event_media_usage", { p_event_id: album.event_id });
-      const row = (usage as { photo_count: number; greeting_count: number }[] | null)?.[0];
-      if (!row || row.photo_count + row.greeting_count === 0) continue;
-      if (event.contact_email) await notify(event.contact_email, event.couple_names, shownDate(deleteOn));
-      const { error: markError } = await client
-        .from("event_albums")
-        .update({ retention_notice_sent_at: new Date().toISOString() })
-        .eq("event_id", album.event_id);
-      if (markError) throw markError;
-      noticed += 1;
-    }
+    if (albums.length < PAGE) break;
+    cursor = albums[albums.length - 1].event_id;
   }
 
   if (purgedEvents > 0) await drainStorageCleanupQueue().catch(() => {}); // the hourly cron retries

@@ -2,20 +2,9 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-
-export type PrintOptions = { format: "a6" | "a4"; count: number; numbered: boolean };
+import { MAX_PRINT_COUNT, type PrintOptions } from "@/lib/media/print-options";
 
 const CTA = "Скенирај и сподели ги твоите фотографии";
-const DEFAULT_COUNT = 8;
-const MAX_COUNT = 60;
-
-/** Reads ?format=a6|a4&count=1..60&numbered=1, falling back to eight A6 cards. */
-export function parsePrintOptions(params: Record<string, string | string[] | undefined>): PrintOptions {
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const raw = Number.parseInt(one(params.count) ?? "", 10);
-  const count = Number.isNaN(raw) ? DEFAULT_COUNT : Math.min(MAX_COUNT, Math.max(1, raw));
-  return { format: one(params.format) === "a4" ? "a4" : "a6", count, numbered: one(params.numbered) === "1" };
-}
 
 function Qr({ svg }: { svg: string | null }) {
   // The SVG is generated here by the qrcode library from our own URL.
@@ -45,7 +34,7 @@ export function AlbumQrPrint({ guestPath, options }: { guestPath: string; option
         </label>
         <label>
           <span>Број на картички</span>
-          <input className="fld" type="number" name="count" min={1} max={MAX_COUNT} defaultValue={options.count} />
+          <input className="fld" type="number" name="count" min={1} max={MAX_PRINT_COUNT} defaultValue={options.count} />
         </label>
         <label className="s4-print-check">
           <input type="checkbox" name="numbered" value="1" defaultChecked={options.numbered} />

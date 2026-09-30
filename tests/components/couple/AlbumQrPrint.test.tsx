@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AlbumQrPrint, parsePrintOptions } from "@/components/couple/AlbumQrPrint";
+import { AlbumQrPrint } from "@/components/couple/AlbumQrPrint";
+import { parsePrintOptions } from "@/lib/media/print-options";
 
 // C4: printable cards (A6, four to an A4 sheet) and a poster pointing guests
 // at the album's QR page.

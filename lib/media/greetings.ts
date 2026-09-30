@@ -29,14 +29,14 @@ export const UNSUPPORTED_VIDEO_ERROR = "Видеото не е поддржан�
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const SIGNED_VIEW_SECONDS = 60 * 60;
 
-export async function createVideoUpload(eventId: string, declaredBytes: number): Promise<{ path: string; token: string }> {
+export async function createVideoUpload(eventId: string, declaredBytes: number): Promise<{ path: string; token: string; bucket: string }> {
   if (declaredBytes > MAX_VIDEO_BYTES) throw new Error(VIDEO_TOO_LARGE_ERROR);
   await assertQuotaFor(eventId, declaredBytes);
   const { data, error } = await createServiceRoleClient()
     .storage.from(MEDIA_BUCKET)
     .createSignedUploadUrl(`${PENDING_PREFIX}/${eventId}/${randomUUID()}`);
   if (error) throw error;
-  return { path: data.path, token: data.token };
+  return { path: data.path, token: data.token, bucket: MEDIA_BUCKET };
 }
 
 /** Checks an uploaded video and moves it to its final name; returns path and size. */

@@ -3,7 +3,7 @@
   --ga-cream: #f5efe4;
   --ga-card: #fffdf8;
   --ga-gold: #b8913a;
-  --ga-gold-dark: #8a6a22;
+  --ga-gold-dark: #7a5d1c; /* ≥ 5.3:1 on cream, and for white text on it */
   --ga-ink: #2b2620;
   --ga-muted: #5e554a;
   --ga-line: #e4d8c3;
@@ -68,7 +68,7 @@
   font-size: 14px;
   font-weight: 600;
 }
-.ga-input {
+.ga-page .ga-input {
   width: 100%;
   box-sizing: border-box;
   min-height: 46px;
@@ -80,8 +80,8 @@
   font: inherit;
   font-size: 16px; /* no iOS zoom on focus */
 }
-.ga-input:focus-visible,
-.ga-button:focus-visible,
+.ga-page .ga-input:focus-visible,
+.ga-page .ga-button:focus-visible,
 .ga-check input:focus-visible {
   outline: 3px solid var(--ga-gold);
   outline-offset: 2px;
@@ -120,7 +120,7 @@
   flex: none;
   accent-color: var(--ga-gold);
 }
-.ga-button {
+.ga-page .ga-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -136,9 +136,13 @@
   font-weight: 700;
   cursor: pointer;
 }
-.ga-button.is-disabled,
-.ga-button:disabled {
-  background: #b9ad99;
+.ga-page .ga-button:hover {
+  background: var(--ga-gold-dark); /* over globals.css button[type="submit"]:hover */
+}
+.ga-page .ga-button.is-disabled,
+.ga-page .ga-button:disabled {
+  background: #e8e1d4;
+  color: var(--ga-muted);
   cursor: not-allowed;
 }
 .ga-file {

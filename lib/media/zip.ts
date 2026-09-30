@@ -2,7 +2,7 @@
 // deflated: photos and videos are already compressed. Each entry's CRC is
 // computed while its bytes stream through and written in a data descriptor
 // after them, so nothing is buffered. No ZIP64: planZipParts keeps every
-// archive well under 4 GB and 65 535 entries.
+// archive far under 4 GB and 65 535 entries.
 import { crc32 } from "zlib";
 
 export type ZipEntry = {
@@ -133,8 +133,12 @@ export function zipStream(entries: ZipEntry[], modified: Date = new Date()): Rea
   });
 }
 
-export const ZIP_PART_MAX_BYTES = 1.5 * 1024 ** 3;
-export const ZIP_PART_MAX_FILES = 400;
+// The response streams only as fast as the client downloads, and Vercel stops
+// the function at 300 s (the route's maxDuration). ~200 MB takes ~160 s at
+// 10 Mbit/s, so an ordinary phone or home connection finishes a part in time;
+// a cut-off stream would leave an archive without its central directory.
+export const ZIP_PART_MAX_BYTES = 200 * 1024 * 1024;
+export const ZIP_PART_MAX_FILES = 150;
 
 /**
  * Splits files, in order, into archives of at most `maxBytes` and `maxFiles`

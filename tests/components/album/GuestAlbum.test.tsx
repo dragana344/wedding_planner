@@ -26,8 +26,9 @@ const photos = (n: number) => Array.from({ length: n }, (_, i) => new File([`pho
 function okFetch(overrides: Record<string, () => Response> = {}) {
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
     for (const [suffix, make] of Object.entries(overrides)) if (url.endsWith(suffix)) return make();
-    if (url.includes("/storage/v1/object/upload/sign/event-media/")) return Response.json({ Key: "event-media/x" });
-    if (url.endsWith("/photos") || url.endsWith("/greetings/video")) return Response.json({ path: `pending/e/${crypto.randomUUID()}`, token: "tok" });
+    if (url.includes("/storage/v1/object/upload/sign/")) return Response.json({ Key: "x" });
+    if (url.endsWith("/photos")) return Response.json({ path: `pending/e/${crypto.randomUUID()}`, token: "tok", bucket: "event-media-uploads" });
+    if (url.endsWith("/greetings/video")) return Response.json({ path: `pending/e/${crypto.randomUUID()}`, token: "tok", bucket: "event-media" });
     if (url.endsWith("/photos/confirm")) return Response.json({ id: crypto.randomUUID() });
     if (url.endsWith("/greetings")) return Response.json({ id: "g1" });
     throw new Error(`unexpected ${url}`);
@@ -64,7 +65,7 @@ describe("photo upload", () => {
     await waitFor(() => expect(screen.getByText("3 / 3 прикачени")).toBeInTheDocument());
     const puts = storagePuts(fetchMock);
     expect(puts).toHaveLength(3);
-    expect(puts[0][0]).toMatch(/\/storage\/v1\/object\/upload\/sign\/event-media\/pending\/e\/[0-9a-f-]+\?token=tok$/);
+    expect(puts[0][0]).toMatch(/\/storage\/v1\/object\/upload\/sign\/event-media-uploads\/pending\/e\/[0-9a-f-]+\?token=tok$/);
     expect(new Headers(puts[0][1]!.headers).get("content-type")).toBe("image/jpeg");
     const confirms = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/photos/confirm"));
     expect(confirms).toHaveLength(3);

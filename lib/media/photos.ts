@@ -4,7 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { sniffImageType } from "@/lib/image-type";
 import { MAX_PHOTO_BYTES } from "@/lib/media/limits";
 import { assertQuotaFor } from "@/lib/media/album";
-import { MEDIA_BUCKET, PENDING_PREFIX, readObjectHead, removeObject } from "@/lib/media/storage";
+import { MEDIA_BUCKET, PENDING_PREFIX, PHOTO_UPLOAD_BUCKET, readObjectHead, removeObject } from "@/lib/media/storage";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 // Guests' album photos (C1, C3, C10). Uploads go browser → Storage through a
@@ -37,14 +37,14 @@ function pendingPattern(eventId: string): RegExp {
 }
 
 /** Step 1: a signed upload for a server-chosen path, if the album has room. */
-export async function createPhotoUpload(eventId: string, declaredBytes: number): Promise<{ path: string; token: string }> {
+export async function createPhotoUpload(eventId: string, declaredBytes: number): Promise<{ path: string; token: string; bucket: string }> {
   if (declaredBytes > MAX_PHOTO_BYTES) throw new Error(PHOTO_TOO_LARGE_ERROR);
   await assertQuotaFor(eventId, declaredBytes);
   const { data, error } = await createServiceRoleClient()
-    .storage.from(MEDIA_BUCKET)
+    .storage.from(PHOTO_UPLOAD_BUCKET)
     .createSignedUploadUrl(`${PENDING_PREFIX}/${eventId}/${randomUUID()}`);
   if (error) throw error;
-  return { path: data.path, token: data.token };
+  return { path: data.path, token: data.token, bucket: PHOTO_UPLOAD_BUCKET };
 }
 
 /**
@@ -57,11 +57,11 @@ export async function confirmPhotoUpload(
   input: { path: string; uploaderName?: string | null; width?: number; height?: number },
 ): Promise<{ id: string }> {
   if (!pendingPattern(eventId).test(input.path)) throw new Error(INVALID_MEDIA_UPLOAD_ERROR);
-  const object = await readObjectHead(input.path);
+  const object = await readObjectHead(input.path, PHOTO_UPLOAD_BUCKET);
   if (!object) throw new Error(INVALID_MEDIA_UPLOAD_ERROR);
 
   const refuse = async (message: string): Promise<never> => {
-    await removeObject(input.path);
+    await removeObject(input.path, PHOTO_UPLOAD_BUCKET);
     throw new Error(message);
   };
   if (object.size > MAX_PHOTO_BYTES) return refuse(PHOTO_TOO_LARGE_ERROR);
@@ -76,7 +76,7 @@ export async function confirmPhotoUpload(
   const client = createServiceRoleClient();
   const id = randomUUID();
   const finalPath = `${eventId}/photos/${id}.${extension}`;
-  const { error: moveError } = await client.storage.from(MEDIA_BUCKET).move(input.path, finalPath);
+  const { error: moveError } = await client.storage.from(PHOTO_UPLOAD_BUCKET).move(input.path, finalPath, { destinationBucket: MEDIA_BUCKET });
   if (moveError) throw moveError;
 
   const uploaderName = input.uploaderName?.trim().slice(0, 120) || null;

@@ -5,7 +5,7 @@ import {
   createPhotoUpload, confirmPhotoUpload, listPhotos, setPhotoHidden, deletePhoto, listPhotoFiles,
   PHOTO_TOO_LARGE_ERROR, UNSUPPORTED_MEDIA_ERROR, INVALID_MEDIA_UPLOAD_ERROR,
 } from "@/lib/media/photos";
-import { MEDIA_BUCKET, sweepStalePendingMedia } from "@/lib/media/storage";
+import { MEDIA_BUCKET, PHOTO_UPLOAD_BUCKET, sweepStalePendingMedia } from "@/lib/media/storage";
 import { QUOTA_FULL_ERROR } from "@/lib/media/album";
 import { DEFAULT_STORAGE_BYTES, MAX_PHOTO_BYTES } from "@/lib/media/limits";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
@@ -22,16 +22,17 @@ const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 
 async function upload(event: string, bytes: Uint8Array<ArrayBuffer>, type = "image/jpeg") {
-  const { path, token } = await createPhotoUpload(event, bytes.length);
-  const { error } = await guest.storage.from(MEDIA_BUCKET).uploadToSignedUrl(path, token, new Blob([bytes], { type }), { contentType: type });
+  const { path, token, bucket } = await createPhotoUpload(event, bytes.length);
+  expect(bucket).toBe(PHOTO_UPLOAD_BUCKET);
+  const { error } = await guest.storage.from(bucket).uploadToSignedUrl(path, token, new Blob([bytes], { type }), { contentType: type });
   expect(error).toBeNull();
   return path;
 }
 
-async function exists(path: string): Promise<boolean> {
+async function exists(path: string, bucket = path.startsWith("pending/") ? PHOTO_UPLOAD_BUCKET : MEDIA_BUCKET): Promise<boolean> {
   const folder = path.slice(0, path.lastIndexOf("/"));
   const name = path.slice(path.lastIndexOf("/") + 1);
-  const { data } = await admin.storage.from(MEDIA_BUCKET).list(folder, { search: name });
+  const { data } = await admin.storage.from(bucket).list(folder, { search: name });
   return (data ?? []).some((f) => f.name === name);
 }
 
@@ -98,6 +99,16 @@ describe("guest photo upload", () => {
     await expect(confirmPhotoUpload(eventId, { path: "../../etc/passwd" })).rejects.toThrow(INVALID_MEDIA_UPLOAD_ERROR);
   });
 
+  it("caps what an unconfirmed photo upload can store at 15 MB, whatever was declared", { timeout: 60_000 }, async () => {
+    // Review: signed uploads are never confirmed by an abuser, so the bucket's own limit is the bound.
+    const { path, token, bucket } = await createPhotoUpload(eventId, 10);
+    const big = new Uint8Array(MAX_PHOTO_BYTES + 1024);
+    big.set(JPEG);
+    const { error } = await guest.storage.from(bucket).uploadToSignedUrl(path, token, new Blob([big], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+    expect(error).not.toBeNull();
+    expect(await exists(path)).toBe(false);
+  });
+
   it("refuses to start an upload over 15 MB", async () => {
     await expect(createPhotoUpload(eventId, MAX_PHOTO_BYTES + 1)).rejects.toThrow(PHOTO_TOO_LARGE_ERROR);
   });
@@ -110,7 +121,7 @@ describe("guest photo upload", () => {
     const big = new Uint8Array(2000);
     big.set(JPEG);
     const { path, token } = await createPhotoUpload(fullEventId, 10); // the browser under-declares
-    await guest.storage.from(MEDIA_BUCKET).uploadToSignedUrl(path, token, new Blob([big], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+    await guest.storage.from(PHOTO_UPLOAD_BUCKET).uploadToSignedUrl(path, token, new Blob([big], { type: "image/jpeg" }), { contentType: "image/jpeg" });
     const { count: before } = await admin.from("event_photos").select("*", { count: "exact", head: true }).eq("event_id", fullEventId);
     await expect(confirmPhotoUpload(fullEventId, { path })).rejects.toThrow(QUOTA_FULL_ERROR);
     const { count: after } = await admin.from("event_photos").select("*", { count: "exact", head: true }).eq("event_id", fullEventId);

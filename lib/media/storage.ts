@@ -4,6 +4,12 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 /** Private bucket for guests' album photos and video greetings (0080). */
 export const MEDIA_BUCKET = "event-media";
 
+/**
+ * Unconfirmed photo uploads (0081): capped at 15 MB by the bucket itself, since
+ * a signed URL can't bound what is PUT through it. Videos wait in MEDIA_BUCKET.
+ */
+export const PHOTO_UPLOAD_BUCKET = "event-media-uploads";
+
 /** Where signed uploads land until confirmed: pending/<event>/<uuid>. */
 export const PENDING_PREFIX = "pending";
 
@@ -15,8 +21,8 @@ const HEAD_BYTES = 32;
  * Content-Range ("bytes 0-31/12345"), so it is what Storage holds, not what
  * the browser declared.
  */
-export async function readObjectHead(path: string): Promise<{ head: Uint8Array; size: number } | null> {
-  const { data, error } = await createServiceRoleClient().storage.from(MEDIA_BUCKET).createSignedUrl(path, 60);
+export async function readObjectHead(path: string, bucket = MEDIA_BUCKET): Promise<{ head: Uint8Array; size: number } | null> {
+  const { data, error } = await createServiceRoleClient().storage.from(bucket).createSignedUrl(path, 60);
   if (error || !data) return null;
   const response = await fetch(data.signedUrl, { headers: { Range: `bytes=0-${HEAD_BYTES - 1}` }, cache: "no-store" });
   if (!response.ok || !response.body) return null;
@@ -44,8 +50,8 @@ export async function readObjectHead(path: string): Promise<{ head: Uint8Array; 
   return { head: head.subarray(0, offset), size };
 }
 
-export async function removeObject(path: string): Promise<void> {
-  await createServiceRoleClient().storage.from(MEDIA_BUCKET).remove([path]);
+export async function removeObject(path: string, bucket = MEDIA_BUCKET): Promise<void> {
+  await createServiceRoleClient().storage.from(bucket).remove([path]);
 }
 
 /**
@@ -53,10 +59,15 @@ export async function removeObject(path: string): Promise<void> {
  * older than `maxAgeMs` (default a day). Run by the hourly storage cron.
  */
 export async function sweepStalePendingMedia(maxAgeMs = 24 * 60 * 60 * 1000): Promise<{ removed: number }> {
-  const storage = createServiceRoleClient().storage.from(MEDIA_BUCKET);
+  let removed = 0;
+  for (const bucket of [PHOTO_UPLOAD_BUCKET, MEDIA_BUCKET]) removed += await sweepBucket(bucket, Date.now() - maxAgeMs);
+  return { removed };
+}
+
+async function sweepBucket(bucket: string, cutoff: number): Promise<number> {
+  const storage = createServiceRoleClient().storage.from(bucket);
   const { data: folders, error } = await storage.list(PENDING_PREFIX, { limit: 1000 });
   if (error) throw error;
-  const cutoff = Date.now() - maxAgeMs;
   let removed = 0;
   for (const folder of folders ?? []) {
     const { data: files, error: listError } = await storage.list(`${PENDING_PREFIX}/${folder.name}`, { limit: 1000 });
@@ -70,7 +81,7 @@ export async function sweepStalePendingMedia(maxAgeMs = 24 * 60 * 60 * 1000): Pr
       removed += stale.length;
     }
   }
-  return { removed };
+  return removed;
 }
 
 /** The object's bytes as a stream (for "download all"); nothing is buffered. */

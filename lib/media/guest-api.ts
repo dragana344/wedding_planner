@@ -17,10 +17,16 @@ export const GREETING_ERROR = "Не успеа испраќањето на че�
 
 /** SEC-002 budgets for the public album: generous for a wedding, tight for abuse. */
 export const ALBUM_RATE_LIMITS = {
-  /** Photo and video uploads per guest (IP) per album. */
+  /** Photo uploads per guest (IP) per album. */
   upload: { bucket: "album-upload", limit: 120, windowSeconds: 3600, failClosed: false },
-  /** All uploads to one album, whoever sends them. */
+  /** All photo uploads to one album, whoever sends them. */
   uploadPerEvent: { bucket: "album-upload-event", limit: 3000, windowSeconds: 3600, failClosed: false },
+  /**
+   * Video greetings wait unconfirmed in a 100 MB-per-file bucket, so their
+   * starts are budgeted far tighter than photos' (15 MB, own bucket).
+   */
+  videoUpload: { bucket: "album-video", limit: 5, windowSeconds: 3600, failClosed: false },
+  videoUploadPerEvent: { bucket: "album-video-event", limit: 100, windowSeconds: 3600, failClosed: false },
   /** Greetings per guest (IP) per album. */
   greeting: { bucket: "greeting", limit: 10, windowSeconds: 3600, failClosed: false },
 } satisfies Record<string, RateLimitRule>;

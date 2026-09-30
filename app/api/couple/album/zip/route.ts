@@ -7,10 +7,10 @@ import { planZipParts, zipStream } from "@/lib/media/zip";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // C3: "download all" — the visible photos as a stored (uncompressed) ZIP,
-// streamed from Storage through this function without buffering. Large
-// albums come in parts (planZipParts) so no archive needs ZIP64 and each
-// download finishes well inside the function's time limit. The 4.5 MB limit
-// applies to request bodies, not to streamed responses.
+// streamed from Storage through this function without buffering. Albums come
+// in parts of ~200 MB (planZipParts) so a part finishes inside maxDuration on
+// an ordinary connection. The 4.5 MB limit applies to request bodies, not to
+// streamed responses.
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

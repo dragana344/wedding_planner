@@ -8,7 +8,6 @@ import os from "os";
 import path from "path";
 import { GET as zipRoute } from "@/app/api/couple/album/zip/route";
 import { confirmPhotoUpload, createPhotoUpload, setPhotoHidden } from "@/lib/media/photos";
-import { MEDIA_BUCKET } from "@/lib/media/storage";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 // C3: "download all" streams the visible photos as a ZIP, in parts.
@@ -41,7 +40,7 @@ beforeAll(async () => {
     const bytes = jpeg(i + 1);
     contents.push(bytes);
     const upload = await createPhotoUpload(eventId, bytes.length);
-    await guest.storage.from(MEDIA_BUCKET).uploadToSignedUrl(upload.path, upload.token, new Blob([bytes], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+    await guest.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, new Blob([bytes], { type: "image/jpeg" }), { contentType: "image/jpeg" });
     ids.push((await confirmPhotoUpload(eventId, { path: upload.path, uploaderName: name })).id);
   }
   await setPhotoHidden(eventId, ids[2], true);

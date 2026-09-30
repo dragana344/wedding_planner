@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "@/lib/media/limits";
 import { PhotoProcessError, compressImage, putSignedUpload, videoDuration } from "@/components/album/media-client";
 
-const BUCKET = "event-media";
 const PARALLEL_UPLOADS = 3;
 const NAME_KEY = "album-uploader-name";
 const MESSAGE_MAX = 1000;
@@ -41,9 +40,9 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 
 /** Upload a blob through a signed URL from `startUrl`; returns the pending path. */
 async function signedUpload(startUrl: string, blob: Blob): Promise<string> {
-  const { path, token } = await post<{ path: string; token: string }>(startUrl, { bytes: blob.size });
+  const { path, token, bucket } = await post<{ path: string; token: string; bucket: string }>(startUrl, { bytes: blob.size });
   try {
-    await putSignedUpload(BUCKET, path, token, blob);
+    await putSignedUpload(bucket, path, token, blob);
   } catch {
     throw new Error(UPLOAD_FAILED);
   }
