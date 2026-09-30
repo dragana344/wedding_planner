@@ -71,7 +71,7 @@ export type ExportActor = { actorId?: string | null; requestId?: string | null }
 const EVENT_COLUMNS =
   "id, venue_id, couple_names, event_date, start_time, end_time, event_type, status, guest_count_estimate, " +
   "contact_email, contact_email_2, contact_phone, total_price, deposit_paid, menu_template_id, created_at, personal_data_erased_at";
-const VENUE_COLUMNS = "id, name, created_at";
+const VENUE_COLUMNS = "id, name, address, phone, logo_path, created_at";
 
 /** Every row of `table` whose `column` is in `ids`, paged past PostgREST's row cap. */
 async function selectIn(

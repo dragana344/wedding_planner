@@ -12,6 +12,9 @@ export const PATCH = withCoupleEvent(
     if (body.type === "size") {
       return NextResponse.json(await actions.resizeElement(params.id, body.width_cm, body.length_cm));
     }
+    if (body.type === "label") {
+      return NextResponse.json(await actions.relabelElement!(params.id, body.label ?? null));
+    }
     // Any other `type` is rejected by the schema ("Непознат тип на ажурирање.").
     return NextResponse.json(await actions.rotateElement(params.id, body.rotation_deg));
   },

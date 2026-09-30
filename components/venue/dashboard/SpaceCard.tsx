@@ -10,6 +10,7 @@ import {
   updateRoomName,
   deleteRoom,
   deleteTableType,
+  seatsAffectedByTableType,
   type RoomWithSeatTotal,
   type TableType,
 } from "@/lib/venue/rooms";
@@ -95,6 +96,8 @@ function RoomDetailModal({
   async function handleDeleteTableType(tableTypeId: string) {
     setDeleteTableTypeError(null);
     try {
+      const affected = await seatsAffectedByTableType(tableTypeId, null);
+      if (affected > 0 && !window.confirm(`${affected} седнати гости се на маси од овој вид и ќе го изгубат местото. Продолжи?`)) return;
       await deleteTableType(tableTypeId);
       setConfirmingDeleteTableTypeId(null);
       await refresh();

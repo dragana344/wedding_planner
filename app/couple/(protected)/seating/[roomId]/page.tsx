@@ -5,6 +5,7 @@ import { coupleSeatingActionsFor } from "@/lib/couple/seating";
 import { coupleSeatingClientActions } from "@/lib/couple/seating-client-actions";
 import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
 import { listTableTypes } from "@/lib/venue/rooms";
+import { getRoomSeating } from "@/lib/seating/seats";
 
 export default async function CoupleSeatingPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await params;
@@ -32,6 +33,7 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
   const initialLayoutElements = await serverActions.initializeFromStandard(eventId, room.id);
   await serverActions.captureSnapshot(eventId, room.id);
   const tableTypes = await listTableTypes(room.id, client);
+  const seating = await getRoomSeating(eventId, room.id);
 
   return (
     <EventSeatingPage
@@ -41,6 +43,8 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
       initialFixedElements={fixedElements}
       initialLayoutElements={initialLayoutElements}
       initialTableTypes={tableTypes}
+      initialSeating={seating}
+      printLinks={{ plan: "/couple/seating/print", qr: "/couple/seating/print?view=qr" }}
       actions={coupleSeatingClientActions}
       skipInitialization
       backHref="/couple"

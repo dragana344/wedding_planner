@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { upsertTableType, updateTableType, type TableType, type TableTypeInput } from "@/lib/venue/rooms";
+import { seatsAffectedByTableType, upsertTableType, updateTableType, type TableType, type TableTypeInput } from "@/lib/venue/rooms";
 
 export function TableTypeForm({
   roomId,
@@ -38,6 +38,13 @@ export function TableTypeForm({
         quantity,
       };
       if (editingType) {
+        // Fewer seats frees the seats above the new number (0076): say so first.
+        if (seats < editingType.seats) {
+          const affected = await seatsAffectedByTableType(editingType.id, seats);
+          if (affected > 0 && !window.confirm(`${affected} седнати гости се на столчиња над ${seats} и ќе го изгубат местото. Продолжи?`)) {
+            return;
+          }
+        }
         await updateTableType(editingType.id, input);
       } else {
         await upsertTableType(input);

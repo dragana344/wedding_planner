@@ -16,10 +16,12 @@ if (!url || !key) {
 const shouldDelete = process.argv.includes("--delete");
 const admin = createClient(url, key, { auth: { persistSession: false } });
 
+// Per bucket: every [table, column] whose values are object paths in it.
 const BUCKETS = {
-  "menu-item-photos": { table: "menu_items" },
-  "event-showcase-photos": { table: "event_showcase_photos" },
-  "invitation-photos": { table: "event_invitations" },
+  "menu-item-photos": [["menu_items", "photo_path"]],
+  // Venue logos (0074) share the showcase bucket.
+  "event-showcase-photos": [["event_showcase_photos", "photo_path"], ["venues", "logo_path"]],
+  "invitation-photos": [["event_invitations", "photo_path"]],
 };
 
 async function listAll(bucket, prefix = "") {
@@ -36,19 +38,22 @@ async function listAll(bucket, prefix = "") {
   }
 }
 
-async function referencedPaths(table) {
+async function referencedPaths(sources) {
   const paths = new Set();
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await admin.from(table).select("photo_path").not("photo_path", "is", null).range(from, from + 999);
-    if (error) throw error;
-    data.forEach((r) => paths.add(r.photo_path));
-    if (data.length < 1000) return paths;
+  for (const [table, column] of sources) {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from(table).select(column).not(column, "is", null).range(from, from + 999);
+      if (error) throw error;
+      data.forEach((r) => paths.add(r[column]));
+      if (data.length < 1000) break;
+    }
   }
+  return paths;
 }
 
 let total = 0;
-for (const [bucket, { table }] of Object.entries(BUCKETS)) {
-  const [objects, referenced] = await Promise.all([listAll(bucket), referencedPaths(table)]);
+for (const [bucket, sources] of Object.entries(BUCKETS)) {
+  const [objects, referenced] = await Promise.all([listAll(bucket), referencedPaths(sources)]);
   const orphans = objects.filter((p) => !referenced.has(p));
   total += orphans.length;
   console.log(`${bucket}: ${objects.length} objects, ${referenced.size} referenced, ${orphans.length} orphaned`);

@@ -23,7 +23,7 @@ export const POST = withCoupleEvent(
   async ({ eventId, body }) => {
     // Only the schema's whitelisted fields are passed on; event_id always
     // comes from the session, never from the client.
-    const { room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, label } = body;
+    const { room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, label, table_role } = body;
     const created = await coupleSeatingActionsFor(eventId).addElement({
       event_id: eventId,
       room_id,
@@ -34,6 +34,7 @@ export const POST = withCoupleEvent(
       width_cm,
       length_cm,
       label,
+      table_role,
     });
     return NextResponse.json(created);
   },

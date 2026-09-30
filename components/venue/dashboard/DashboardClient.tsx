@@ -93,6 +93,13 @@ export function DashboardClient({
   };
 }) {
   const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id ?? "");
+  // B6: "" = every hall. Picking a hall filters the lists and shows its plan.
+  const [roomFilter, setRoomFilter] = useState("");
+  const inRoom = <T extends { room_ids?: string[]; room_id?: string | null }>(item: T) =>
+    !roomFilter || (item.room_ids ? item.room_ids.includes(roomFilter) : item.room_id === roomFilter);
+  const shownTodayEvents = todayEvents.filter(inRoom);
+  const shownUpcomingEvents = upcomingEvents.filter(inRoom);
+  const shownReservations = todayReservations.filter(inRoom);
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const selectedLayout = roomLayouts[selectedRoomId];
 
@@ -214,6 +221,39 @@ export function DashboardClient({
         ))}
       </section>
 
+      {rooms.length > 1 ? (
+        <section className="s3-room-bar">
+          <div className="seg s3-room-filter" role="group" aria-label="Сала">
+            <button type="button" aria-pressed={roomFilter === ""} onClick={() => setRoomFilter("")}>
+              Сите сали
+            </button>
+            {rooms.map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                aria-pressed={roomFilter === room.id}
+                onClick={() => {
+                  setRoomFilter(room.id);
+                  setSelectedRoomId(room.id);
+                }}
+              >
+                {room.name}
+              </button>
+            ))}
+          </div>
+          {roomFilter ? (
+            <div className="s3-room-links">
+              <Link className="btn btn-ghost" href={`/venue/rooms/${roomFilter}/floor-plan`}>
+                Детали за салата
+              </Link>
+              <Link className="btn btn-gold" href={`/venue/events/new?room=${roomFilter}`}>
+                Нов настан во оваа сала
+              </Link>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="day-head">
         <span className="day-dot" />
         ДЕНЕС — {formatDateLong(today).toUpperCase()}
@@ -275,16 +315,16 @@ export function DashboardClient({
             <h2 className="panel-t">
               <Icon name="book" size="sm" /> Резервации за денес
             </h2>
-            <span className="count">{todayReservations.length} резервации</span>
+            <span className="count">{shownReservations.length} резервации</span>
           </div>
-          {todayReservations.length === 0 ? (
+          {shownReservations.length === 0 ? (
             <EmptyNote>
               <b>Нема резервации денес</b>
               Нема закажани резервации за {formatDateLong(today)}.
             </EmptyNote>
           ) : (
             <div style={{ padding: "6px 8px" }}>
-              {todayReservations.map((r) => {
+              {shownReservations.map((r) => {
                 const status = RESERVATION_STATUS_META[r.status];
                 const room = rooms.find((room) => room.id === r.room_id);
                 return (
@@ -388,16 +428,16 @@ export function DashboardClient({
             <h2 className="panel-t">
               <Icon name="note" size="sm" /> Дневен план
             </h2>
-            <span className="count">{todayEvents.length} закажани</span>
+            <span className="count">{shownTodayEvents.length} закажани</span>
           </div>
-          {todayEvents.length === 0 ? (
+          {shownTodayEvents.length === 0 ? (
             <EmptyNote>
               <b>Нема настани денес</b>
               Слободен ден — нема закажани настани за {formatDateLong(today)}.
             </EmptyNote>
           ) : (
             <div style={{ padding: "6px 8px" }}>
-              {todayEvents.map((ev) => {
+              {shownTodayEvents.map((ev) => {
                 const type = TYPE_META[ev.event_type];
                 const status = STATUS_META[ev.status];
                 const range = formatTimeRange(ev.start_time, ev.end_time);
@@ -459,11 +499,11 @@ export function DashboardClient({
           <div className="panel-h">
             <h2 className="panel-t">Претстојни настани</h2>
           </div>
-          {upcomingEvents.length === 0 ? (
+          {shownUpcomingEvents.length === 0 ? (
             <EmptyNote>Нема претстојни настани.</EmptyNote>
           ) : (
             <div style={{ padding: "8px 14px 14px" }}>
-              {upcomingEvents.map((ev) => {
+              {shownUpcomingEvents.map((ev) => {
                 const type = TYPE_META[ev.event_type];
                 return (
                   <div className="up-row" key={ev.id}>

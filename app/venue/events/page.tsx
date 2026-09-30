@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; event?: string }>;
 }) {
-  const { filter } = await searchParams;
+  const { filter, event } = await searchParams;
   const initialFilter =
     filter === "upcoming" || filter === "today" || filter === "week" ||
     filter === "month" || filter === "done"
@@ -36,6 +36,7 @@ export default async function EventsPage({
       rooms={rooms}
       menuTemplates={menuTemplates}
       initialFilter={initialFilter}
+      initialEventId={event}
     />
   );
 }

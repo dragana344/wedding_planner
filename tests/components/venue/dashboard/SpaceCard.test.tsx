@@ -12,6 +12,7 @@ vi.mock("@/lib/venue/rooms", async () => {
     updateRoomName: vi.fn(),
     deleteRoom: vi.fn(),
     deleteTableType: vi.fn(),
+    seatsAffectedByTableType: vi.fn().mockResolvedValue(0),
     upsertTableType: vi.fn(),
     updateTableType: vi.fn(),
   };

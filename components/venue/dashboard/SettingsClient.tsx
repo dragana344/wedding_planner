@@ -8,15 +8,19 @@ import { updateVenueName } from "@/lib/venue/venue-profile";
 import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { MfaSettings } from "@/components/venue/dashboard/MfaSettings";
+import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
 
 export function SettingsClient({
   venueId,
   venueName: initialVenueName,
   email: initialEmail,
+  profile,
 }: {
   venueId: string;
   venueName: string;
   email: string;
+  /** Venue profile (B10); absent in older callers. */
+  profile?: { address: string | null; phone: string | null; logoUrl: string | null };
 }) {
   const router = useRouter();
 
@@ -190,6 +194,17 @@ export function SettingsClient({
           </button>
         </form>
       </section>
+
+      {profile ? (
+        <section className="panel">
+          <div className="panel-h">
+            <h2 className="panel-t">Профил на локалот</h2>
+          </div>
+          <div style={{ padding: 20 }}>
+            <VenueProfileForm venueId={venueId} address={profile.address} phone={profile.phone} logoUrl={profile.logoUrl} />
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel-h">

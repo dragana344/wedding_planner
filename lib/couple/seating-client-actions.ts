@@ -42,6 +42,12 @@ export const coupleSeatingClientActions: SeatingActions = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "rotation", rotation_deg: rotationDeg }),
     }).then(jsonOrThrow),
+  relabelElement: (id, label) =>
+    fetch(`/api/couple/seating/elements/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "label", label }),
+    }).then(jsonOrThrow),
   deleteElement: (id) => fetch(`/api/couple/seating/elements/${id}`, { method: "DELETE" }).then(jsonOrThrow),
   revertToStandard: (_eventId, roomId) =>
     fetch("/api/couple/seating/revert", {
@@ -72,4 +78,31 @@ export const coupleSeatingClientActions: SeatingActions = {
     }).then(jsonOrThrow),
   unconfirm: (_eventId, roomId) =>
     fetch(`/api/couple/seating/confirm?room_id=${roomId}`, { method: "DELETE" }).then(jsonOrThrow),
+  redo: (_eventId, roomId) =>
+    fetch("/api/couple/seating/redo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: roomId }),
+    }).then(jsonOrThrow),
+  getHistoryState: async (_eventId, roomId) => jsonOrThrow(await fetch(`/api/couple/seating/history?room_id=${roomId}`)),
+  group: (_eventId, roomId, elementIds) =>
+    fetch("/api/couple/seating/group", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: roomId, element_ids: elementIds }),
+    }).then(jsonOrThrow),
+  ungroup: (_eventId, roomId, groupId) =>
+    fetch(`/api/couple/seating/group?room_id=${roomId}&group_id=${groupId}`, { method: "DELETE" }).then(jsonOrThrow),
+  getRoomSeating: async (_eventId, roomId) => jsonOrThrow(await fetch(`/api/couple/seating/seats?room_id=${roomId}`)),
+  saveTableSeats: (roomId, elementId, seats, expected) =>
+    fetch("/api/couple/seating/seats", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room_id: roomId,
+        layout_element_id: elementId,
+        seats: seats.map((s) => ({ seat_number: s.seatNumber, guest_id: s.guestId ?? null, guest_name: s.guestName ?? null })),
+        expected: expected.map((s) => ({ seat_number: s.seatNumber, guest_id: s.guestId ?? null, guest_name: s.guestName ?? null })),
+      }),
+    }).then(jsonOrThrow),
 };

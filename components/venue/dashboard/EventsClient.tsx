@@ -69,17 +69,22 @@ export function EventsClient({
   rooms,
   menuTemplates,
   initialFilter,
+  initialEventId,
 }: {
   venueId: string;
   initialEvents: EventDetail[];
   rooms: Room[];
   menuTemplates: (MenuTemplate & { items: MenuItem[] })[];
   initialFilter: Filter;
+  /** `?event=<id>` (e.g. from Известувања) opens that event. */
+  initialEventId?: string;
 }) {
   const [events, setEvents] = useState(initialEvents);
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<EventDetail | null>(null);
+  const [editing, setEditing] = useState<EventDetail | null>(
+    () => initialEvents.find((e) => e.id === initialEventId) ?? null,
+  );
   const [viewingMenuFor, setViewingMenuFor] = useState<EventDetail | null>(null);
 
   const today = useMemo(() => todayIn(), []);

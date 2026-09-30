@@ -270,7 +270,8 @@ export const noteBody = z.object({
 // ---------------------------------------------------------------------------
 // Couple: seating
 
-export const LAYOUT_ELEMENT_TYPES = ["table", "stage", "dance_floor", "bar_movable", "other"] as const;
+export const LAYOUT_ELEMENT_TYPES = ["table", "stage", "dance_floor", "bar_movable", "music", "photo_stage", "other"] as const;
+export const TABLE_ROLES = ["guest", "couple", "head"] as const;
 
 /**
  * The only fields a new layout element may carry. `event_id` (sent by the
@@ -285,6 +286,7 @@ export const seatingElementCreateBody = z.object({
   width_cm: positiveCm,
   length_cm: positiveCm,
   label: optionalText(NAME_MAX),
+  table_role: z.enum(TABLE_ROLES).optional(),
 });
 
 export const SEATING_UPDATE_TYPE_ERROR = "Непознат тип на ажурирање.";
@@ -294,11 +296,32 @@ export const seatingElementUpdateBody = z.discriminatedUnion(
     z.object({ type: z.literal("position"), x_cm: cm, y_cm: cm }),
     z.object({ type: z.literal("size"), width_cm: positiveCm, length_cm: positiveCm }),
     z.object({ type: z.literal("rotation"), rotation_deg: finite.min(-3600).max(3600) }),
+    z.object({ type: z.literal("label"), label: optionalText(NAME_MAX) }),
   ],
   { error: SEATING_UPDATE_TYPE_ERROR },
 );
 
 export const roomIdBody = z.object({ room_id: uuid });
+
+export const seatingGroupBody = z.object({ room_id: uuid, element_ids: z.array(uuid).min(2).max(ID_LIST_MAX) });
+export const groupDeleteQuery = z.object({ room_id: uuid, group_id: uuid });
+
+export const SEAT_DUPLICATE_ERROR = "Две лица не можат да седат на исто столче.";
+export const SEATS_MAX = 1000;
+const seatRow = z.object({
+  seat_number: z.number().int().min(1).max(SEATS_MAX),
+  guest_id: uuid.nullable().optional(),
+  guest_name: z.string().max(NAME_MAX).nullable().optional(),
+});
+export const seatsPutBody = z
+  .object({
+    room_id: uuid,
+    layout_element_id: uuid,
+    seats: z.array(seatRow).max(SEATS_MAX),
+    /** The table's list as the client loaded it; a different list on the server → 409. */
+    expected: z.array(seatRow).max(SEATS_MAX).optional(),
+  })
+  .refine((b) => new Set(b.seats.map((s) => s.seat_number)).size === b.seats.length, { error: SEAT_DUPLICATE_ERROR });
 
 // ---------------------------------------------------------------------------
 // Couple: login

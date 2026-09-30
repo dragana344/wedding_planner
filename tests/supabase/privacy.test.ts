@@ -87,6 +87,7 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
         contact_phone: `070-${tag}`,
         total_price: 1000,
         seating_draft: { [v.roomId]: [{ label: `Draft ${tag}` }] },
+        seating_history: { [v.roomId]: { past: [{ elements: [], seats: [{ guest_name: `History ${tag}` }] }], future: [] } },
       })
       .select("id")
       .single(),
@@ -115,6 +116,12 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
       event_id: eventId, room_id: v.roomId, element_type: "table", table_type_id: tableType.id, x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100,
       label: `Table ${tag}`,
     }).select("id").single(),
+  );
+  // The couple's draft names this table, so it is seatable (0072: draft wins).
+  await must(
+    admin.from("events")
+      .update({ seating_draft: { [v.roomId]: [{ id: table.id, element_type: "table", table_type_id: tableType.id, label: `Draft ${tag}` }] } })
+      .eq("id", eventId),
   );
   await must(
     admin.from("event_seat_assignments").insert({
@@ -162,7 +169,7 @@ async function remainingPersonalData(eventId: string, checklistId: string): Prom
     const notEmpty = sensitive
       .map((c) => {
         if (table === "events" && c === "couple_names") return `couple_names <> '${ERASED_COUPLE_NAMES}'`;
-        if (table === "events" && c.startsWith("seating_draft")) return `${c} <> '{}'::jsonb`;
+        if (table === "events" && (c.startsWith("seating_draft") || c.endsWith("_history"))) return `${c} <> '{}'::jsonb`;
         return `${c} is not null`;
       })
       .join(" or ");

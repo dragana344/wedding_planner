@@ -268,7 +268,7 @@ describe("event_seat_assignments (0070)", () => {
     const anon = createClient(url, anonKey, { auth: { persistSession: false } });
     expect((await anon.rpc("guest_seat", { p_guest_id: A.guestId })).error?.code).toBe("42501");
     expect((await staffA.rpc("guest_seat", { p_guest_id: A.guestId })).error?.code).toBe("42501");
-    expect((await staffA.rpc("prune_event_seat_assignments", { p_event_id: A.eventId })).error?.code).toBe("42501");
+    expect((await anon.rpc("prune_event_seat_assignments", { p_event_id: A.eventId })).error?.code).toBe("42501");
   });
 
   it("staff read and write their own venue's seats only", async () => {
@@ -291,6 +291,16 @@ describe("event_seat_assignments (0070)", () => {
       .eq("event_id", B.eventId)
       .select();
     expect(moved ?? []).toEqual([]);
+  });
+
+  it("staff pruning never reaches another venue's seats", async () => {
+    await clearSeats(B);
+    await must(admin.from("event_seat_assignments").insert(seat(B, { seat_number: 1, guest_name: "Туѓ" })));
+    // Make B's seat an orphan, then let staff A try to prune B.
+    await must(admin.from("event_layout_elements").update({ table_type_id: null }).eq("id", B.liveTableId));
+    expect((await staffA.rpc("prune_event_seat_assignments", { p_event_id: B.eventId })).error?.code).toBe("42501");
+    expect(await must(admin.from("event_seat_assignments").select("id").eq("event_id", B.eventId))).toHaveLength(1);
+    await must(admin.from("event_layout_elements").update({ table_type_id: B.tableTypeId }).eq("id", B.liveTableId));
   });
 
   it("erasing the event's personal data removes its seats", async () => {

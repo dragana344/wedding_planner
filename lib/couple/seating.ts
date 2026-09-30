@@ -10,6 +10,8 @@ import {
   type EventLayoutElementInput,
 } from "@/lib/venue/floorplan";
 import type { SeatingActions } from "@/components/venue/dashboard/EventSeatingPage";
+import { recordStep, redoStep, roomHistory, stepState, undoStep, type HistoryStore } from "@/lib/seating/history-store";
+import type { History, SnapshotSeat } from "@/lib/seating/history";
 
 async function assertRoomBelongsToEvent(
   client: SupabaseClient,
@@ -71,11 +73,6 @@ async function writeDraft(client: SupabaseClient, eventId: string, draft: DraftM
   if (error) throw error;
 }
 
-async function writeDraftUndo(client: SupabaseClient, eventId: string, draftUndo: DraftMap): Promise<void> {
-  const { error } = await client.from("events").update({ seating_draft_undo: draftUndo }).eq("id", eventId);
-  if (error) throw error;
-}
-
 async function copyRoomStandardToDraft(
   eventId: string,
   roomId: string,
@@ -94,6 +91,8 @@ async function copyRoomStandardToDraft(
     length_cm: el.length_cm,
     rotation_deg: el.rotation_deg,
     label: el.label,
+    group_id: el.group_id ?? null,
+    table_role: el.table_role ?? "guest",
   }));
 }
 
@@ -140,12 +139,14 @@ async function mutateDraftElement(
   eventId: string,
   elementId: string,
   client: SupabaseClient,
-  mutate: (el: EventLayoutElement) => EventLayoutElement | null
+  mutate: (el: EventLayoutElement) => EventLayoutElement | null,
+  reseeded = false
 ): Promise<EventLayoutElement> {
   const { draft } = await readEventJsonColumns(client, eventId);
   for (const roomId of Object.keys(draft)) {
     const idx = draft[roomId].findIndex((el) => el.id === elementId);
     if (idx === -1) continue;
+    await recordStep(coupleHistoryStore(eventId, roomId, client));
     const result = mutate(draft[roomId][idx]);
     const nextRoomElements =
       result === null
@@ -153,6 +154,22 @@ async function mutateDraftElement(
         : draft[roomId].map((el) => (el.id === elementId ? result : el));
     await writeDraft(client, eventId, { ...draft, [roomId]: nextRoomElements });
     return result ?? draft[roomId][idx];
+  }
+  // Confirming hands a room back to the live layout and drops its draft
+  // (review I4); the next edit re-seeds the draft from those rows, whose ids
+  // the page is still showing.
+  if (!reseeded) {
+    const { data: live, error } = await client
+      .from("event_layout_elements")
+      .select("room_id")
+      .eq("event_id", eventId)
+      .eq("id", elementId)
+      .maybeSingle();
+    if (error) throw error;
+    if (live) {
+      await getOrInitDraft(eventId, live.room_id, client);
+      return mutateDraftElement(eventId, elementId, client, mutate, true);
+    }
   }
   throw new Error("Element not found in draft.");
 }
@@ -176,9 +193,13 @@ async function addDraftElement(
     length_cm: input.length_cm,
     rotation_deg: 0,
     label: input.label ?? null,
+    group_id: null,
+    table_role: input.table_role ?? "guest",
   };
   const existing = roomId in draft ? draft[roomId] : await getOrInitDraft(eventId, roomId, client);
-  await writeDraft(client, eventId, { ...draft, [roomId]: [...existing, created] });
+  await recordStep(coupleHistoryStore(eventId, roomId, client));
+  const { draft: latest } = await readEventJsonColumns(client, eventId);
+  await writeDraft(client, eventId, { ...latest, [roomId]: [...existing, created] });
   return created;
 }
 
@@ -203,10 +224,21 @@ async function confirmSeating(eventId: string, roomId: string, client: SupabaseC
       length_cm: el.length_cm,
       rotation_deg: el.rotation_deg,
       label: el.label,
+      group_id: el.group_id ?? null,
+      table_role: el.table_role ?? "guest",
     })),
     p_confirmed_at: new Date().toISOString(),
   });
   if (error) throw error;
+
+  // Hand the room back to the confirmed layout (review I4): with the draft
+  // gone, staff's later changes count for seating, numbering and print. The
+  // next edit re-seeds the draft from the live rows with the same ids, so no
+  // seat detaches.
+  const { draft } = await readEventJsonColumns(client, eventId);
+  const rest = { ...draft };
+  delete rest[roomId];
+  await writeDraft(client, eventId, rest);
 }
 
 /** Clears the confirmed stamp only — the organizer keeps editing their
@@ -224,6 +256,74 @@ async function unconfirmSeating(eventId: string, roomId: string, client: Supabas
 async function getConfirmedAt(eventId: string, roomId: string, client: SupabaseClient): Promise<string | null> {
   const { confirmedAt } = await readEventJsonColumns(client, eventId);
   return confirmedAt[roomId] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Undo/redo (0072): events.seating_history[room] holds { past, future } of
+// { elements (the draft room), seats (the room's seat rows) }.
+
+async function roomSeats(client: SupabaseClient, eventId: string, roomId: string): Promise<SnapshotSeat[]> {
+  const { data, error } = await client
+    .from("event_seat_assignments")
+    .select("layout_element_id, seat_number, guest_id, guest_name")
+    .eq("event_id", eventId)
+    .eq("room_id", roomId)
+    .order("layout_element_id")
+    .order("seat_number");
+  if (error) throw error;
+  return data as SnapshotSeat[];
+}
+
+function coupleHistoryStore(eventId: string, roomId: string, client: SupabaseClient): HistoryStore {
+  return {
+    async read() {
+      const { data, error } = await client.from("events").select("seating_history").eq("id", eventId).single();
+      if (error) throw error;
+      return roomHistory(data.seating_history, roomId);
+    },
+    async write(history: History) {
+      const { data, error } = await client.from("events").select("seating_history").eq("id", eventId).single();
+      if (error) throw error;
+      const map = { ...((data.seating_history as Record<string, History>) ?? {}), [roomId]: history };
+      const { error: writeError } = await client.from("events").update({ seating_history: map }).eq("id", eventId);
+      if (writeError) throw writeError;
+    },
+    async snapshot() {
+      const [elements, seats] = await Promise.all([getOrInitDraft(eventId, roomId, client), roomSeats(client, eventId, roomId)]);
+      return { elements, seats };
+    },
+    async restore(snapshot) {
+      // Tables first: restore_room_seats only seats people on tables that exist.
+      const elements = await replaceDraftRoom(eventId, roomId, snapshot.elements, client);
+      const { error } = await client.rpc("restore_room_seats", { p_event_id: eventId, p_room_id: roomId, p_seats: snapshot.seats });
+      if (error) throw error;
+      return elements;
+    },
+  };
+}
+
+/** Records the room's current state as an undo step (e.g. before a seat-list save). */
+export async function recordCoupleHistory(eventId: string, roomId: string, client: SupabaseClient = createServiceRoleClient()): Promise<void> {
+  await recordStep(coupleHistoryStore(eventId, roomId, client));
+}
+
+async function setGroup(
+  eventId: string,
+  roomId: string,
+  client: SupabaseClient,
+  pick: (el: EventLayoutElement) => boolean,
+  groupId: string | null,
+): Promise<EventLayoutElement[]> {
+  const current = await getOrInitDraft(eventId, roomId, client);
+  await recordStep(coupleHistoryStore(eventId, roomId, client));
+  const next = current.map((el) => (pick(el) ? { ...el, group_id: groupId } : el));
+  return replaceDraftRoom(eventId, roomId, next, client);
+}
+
+/** Drops seats whose table left the layout or shrank below the seat number (0070). */
+async function pruneSeats(eventId: string, client: SupabaseClient): Promise<void> {
+  const { error } = await client.rpc("prune_event_seat_assignments", { p_event_id: eventId });
+  if (error) throw error;
 }
 
 export function coupleSeatingActionsFor(eventId: string): SeatingActions {
@@ -254,26 +354,46 @@ export function coupleSeatingActionsFor(eventId: string): SeatingActions {
       mutateDraftElement(eventId, id, client, (el) => ({ ...el, width_cm: widthCm, length_cm: lengthCm })),
     rotateElement: async (id, rotationDeg) =>
       mutateDraftElement(eventId, id, client, (el) => ({ ...el, rotation_deg: rotationDeg })),
+    relabelElement: async (id, label) =>
+      mutateDraftElement(eventId, id, client, (el) => ({ ...el, label: label?.trim() || null })),
     deleteElement: async (id) => {
       await mutateDraftElement(eventId, id, client, () => null);
+      await pruneSeats(eventId, client);
     },
     revertToStandard: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
+      await recordStep(coupleHistoryStore(eventId, roomId, client));
       const fresh = await copyRoomStandardToDraft(eventId, roomId, client);
-      return replaceDraftRoom(eventId, roomId, fresh, client);
+      const replaced = await replaceDraftRoom(eventId, roomId, fresh, client);
+      await pruneSeats(eventId, client);
+      return replaced;
     },
+    // The multi-step history (0072) replaced the single page-load snapshot.
     captureSnapshot: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
-      const current = await getOrInitDraft(eventId, roomId, client);
-      const { draftUndo } = await readEventJsonColumns(client, eventId);
-      await writeDraftUndo(client, eventId, { ...draftUndo, [roomId]: current });
     },
     undo: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
-      const { draftUndo } = await readEventJsonColumns(client, eventId);
-      const snapshot = draftUndo[roomId];
-      if (!snapshot) throw new Error("No undo snapshot available for this event.");
-      return replaceDraftRoom(eventId, roomId, snapshot, client);
+      return undoStep(coupleHistoryStore(eventId, roomId, client));
+    },
+    redo: async (_eventId, roomId) => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      return redoStep(coupleHistoryStore(eventId, roomId, client));
+    },
+    getHistoryState: async (_eventId, roomId) => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      return stepState(coupleHistoryStore(eventId, roomId, client));
+    },
+    group: async (_eventId, roomId, elementIds) => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      const ids = new Set(elementIds);
+      const tables = (await getOrInitDraft(eventId, roomId, client)).filter((el) => ids.has(el.id) && el.element_type === "table");
+      if (tables.length < 2) throw new Error("Изберете најмалку две маси за групирање.");
+      return setGroup(eventId, roomId, client, (el) => ids.has(el.id) && el.element_type === "table", randomUUID());
+    },
+    ungroup: async (_eventId, roomId, groupId) => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      return setGroup(eventId, roomId, client, (el) => el.group_id === groupId, null);
     },
     getConfirmedAt: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
@@ -282,6 +402,7 @@ export function coupleSeatingActionsFor(eventId: string): SeatingActions {
     confirm: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
       await confirmSeating(eventId, roomId, client);
+      await pruneSeats(eventId, client);
     },
     unconfirm: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
