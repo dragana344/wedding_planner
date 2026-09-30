@@ -50,6 +50,7 @@ export default async function GuestsPage() {
         share={share}
         organizerSide={organizerSide}
         sendingEnabled={sendingEnabled}
+        greetingsEnabled={features.guest_greetings.enabled}
       />
       {remindersEnabled ? <ReminderPanel initial={reminder} guests={guests} share={share} organizerSide={organizerSide} /> : null}
       {coOrganizers ? <CoOrganizersPanel initial={coOrganizers} /> : null}

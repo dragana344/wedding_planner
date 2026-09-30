@@ -52,6 +52,7 @@ export function GuestsClient({
   share,
   organizerSide = null,
   sendingEnabled = true,
+  greetingsEnabled = false,
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
@@ -62,6 +63,8 @@ export function GuestsClient({
   organizerSide?: GuestSide | null;
   /** The package includes `personal_invite_links` (A9). */
   sendingEnabled?: boolean;
+  /** The package includes `guest_greetings`: show each guest's greeting in the details. */
+  greetingsEnabled?: boolean;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -482,6 +485,7 @@ export function GuestsClient({
           actions={sendActions}
           sendBlockedBy={canSend(openGuest) || !sendingEnabled ? null : openGuest.side}
           sendingEnabled={sendingEnabled}
+          greetingsEnabled={greetingsEnabled}
           onClose={closeDetail}
         />
       ) : null}

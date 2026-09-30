@@ -5,6 +5,13 @@ import type { Guest, GuestSeat, GuestSide } from "@/lib/couple/guests";
 import { CHANNEL_LABELS, MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { GuestSendButtons, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 
+/** Mirrors lib/media/greetings `Greeting` (a server-only module). */
+interface GuestGreeting {
+  id: string;
+  message: string;
+  videoUrl: string | null;
+}
+
 function formatSent(iso: string): string {
   return new Intl.DateTimeFormat("mk-MK", { timeZone: "Europe/Skopje", day: "numeric", month: "numeric", year: "numeric" }).format(new Date(iso));
 }
@@ -27,6 +34,7 @@ export function GuestDetail({
   actions,
   sendBlockedBy = null,
   sendingEnabled = true,
+  greetingsEnabled = false,
   onClose,
 }: {
   guest: Guest;
@@ -37,9 +45,24 @@ export function GuestDetail({
   sendBlockedBy?: GuestSide | null;
   /** The package includes `personal_invite_links`. */
   sendingEnabled?: boolean;
+  /** The package includes `guest_greetings` (Session 4's greetings). */
+  greetingsEnabled?: boolean;
   onClose: () => void;
 }) {
   const [seat, setSeat] = useState<GuestSeat | null | undefined>(undefined);
+  const [greetings, setGreetings] = useState<GuestGreeting[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (!greetingsEnabled) return;
+    let live = true;
+    fetch(`/api/couple/guests/${guest.id}/greetings`)
+      .then((res) => (res.ok ? res.json() : { greetings: [] }))
+      .then((data) => live && setGreetings(data.greetings ?? []))
+      .catch(() => live && setGreetings([]));
+    return () => {
+      live = false;
+    };
+  }, [guest.id, greetingsEnabled]);
 
   useEffect(() => {
     let live = true;
@@ -116,6 +139,27 @@ export function GuestDetail({
           <dt style={{ color: "var(--muted)" }}>Маса</dt>
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
+        {greetingsEnabled ? (
+          <>
+            <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Честитка</h3>
+            {greetings === undefined ? (
+              <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>…</p>
+            ) : greetings.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>Сè уште нема честитка</p>
+            ) : (
+              greetings.map((g) => (
+                <div key={g.id} style={{ fontSize: 14, margin: "0 0 8px" }}>
+                  <p style={{ margin: 0, whiteSpace: "pre-line", overflowWrap: "anywhere" }}>{g.message}</p>
+                  {g.videoUrl ? (
+                    <a href={g.videoUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5 }}>
+                      Видео честитка
+                    </a>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </>
+        ) : null}
         <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>{guest.invitation_sent_at ? "Прати повторно" : "Прати покана"}</h3>
         {!sendingEnabled ? (
           <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>Праќањето персонални покани не е вклучено во вашиот пакет.</p>

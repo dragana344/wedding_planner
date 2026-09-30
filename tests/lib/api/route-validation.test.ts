@@ -68,6 +68,9 @@ const guestPage = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/guest-page", () => guestPage);
 
+const guestGreetings = vi.hoisted(() => ({ listGreetingsForGuest: vi.fn(async () => []) }));
+vi.mock("@/lib/couple/guest-greetings", () => guestGreetings);
+
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 
@@ -91,6 +94,7 @@ import * as confirmRoute from "@/app/api/couple/seating/confirm/route";
 import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestRoute from "@/app/api/couple/guests/[id]/route";
 import * as guestSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
+import * as guestGreetingsRoute from "@/app/api/couple/guests/[id]/greetings/route";
 import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
@@ -318,6 +322,12 @@ describe("couple guest list tools (A6, A7, A20)", () => {
       error: "Датотеката нема гости.",
     });
     expect(guests.importGuests).not.toHaveBeenCalled();
+  });
+
+  it("reads a guest's greetings by id only", async () => {
+    expect((await call(guestGreetingsRoute.GET, req("GET"), { id: "1 or 1=1" })).status).toBe(400);
+    expect(await call(guestGreetingsRoute.GET, req("GET"), { id: ID })).toEqual({ status: 200, body: { greetings: [] } });
+    expect(guestGreetings.listGreetingsForGuest).toHaveBeenCalledWith(EVENT, ID);
   });
 
   it("reads a guest's seat by id only", async () => {

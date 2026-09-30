@@ -357,3 +357,39 @@ describe("GuestsClient without personal invite links in the package", () => {
   });
 });
 
+
+describe("GuestsClient greetings in the details (A7)", () => {
+  function routeFetch(greetings: unknown[]) {
+    return vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (String(url).endsWith("/greetings") ? { greetings } : { seat: null }),
+    }));
+  }
+
+  it("shows what the guest wrote, with their video", async () => {
+    global.fetch = routeFetch([
+      { id: "gr1", firstName: "Ана", lastName: "Петровска", message: "Честито, мили наши!", videoUrl: "https://cdn.example/v.mp4", hidden: false, createdAt: "2027-06-12T20:00:00Z" },
+    ]) as never;
+    render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" greetingsEnabled />);
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Ана Петровска" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ана Петровска" });
+    expect(await within(dialog).findByText("Честито, мили наши!")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Видео честитка" })).toHaveAttribute("href", "https://cdn.example/v.mp4");
+    expect(global.fetch).toHaveBeenCalledWith("/api/couple/guests/g1/greetings");
+  });
+
+  it("says when there is none, and asks nothing when the package has no greetings", async () => {
+    global.fetch = routeFetch([]) as never;
+    const { unmount } = render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" greetingsEnabled />);
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Ана Петровска" }));
+    expect(await screen.findByText("Сè уште нема честитка")).toBeInTheDocument();
+    unmount();
+
+    global.fetch = routeFetch([]) as never;
+    render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Ана Петровска" }));
+    await screen.findByRole("dialog", { name: "Ана Петровска" });
+    expect(screen.queryByText("Честитка")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/couple/guests/g1/greetings");
+  });
+});

@@ -40,6 +40,7 @@ import * as guestCountRoute from "@/app/api/couple/guest-count/route";
 import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestsIdRoute from "@/app/api/couple/guests/[id]/route";
 import * as guestsSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
+import * as guestsGreetingsRoute from "@/app/api/couple/guests/[id]/greetings/route";
 import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
@@ -601,6 +602,15 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       DELETE: async () => {
         await call(guestsIdRoute.DELETE, { id: B.guestId }, "DELETE");
         expect(await adminRow("event_guests", B.guestId)).not.toBeNull();
+      },
+    },
+  },
+  "guests/[id]/greetings/route.ts": {
+    module: guestsGreetingsRoute,
+    methods: {
+      GET: async () => {
+        expect((await call(guestsGreetingsRoute.GET, { id: B.guestId }, "GET")).json).toEqual({ greetings: [] });
+        expect((await call(guestsGreetingsRoute.GET, { id: A.guestId }, "GET")).status).toBe(200);
       },
     },
   },
