@@ -40,9 +40,8 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[]): Coup
     { href: "/couple/checklist", icon: "check", label: "Чеклиста", title: "ЧЕКЛИСТА", subtitle: "Задачи за планирање на свадбата", ready: true, feature: "checklist" as const },
     { href: "/couple/notes", icon: "note", label: "Белешки", title: "БЕЛЕШКИ", subtitle: "Запишете било што, било кога", ready: true, feature: "notes" as const },
     { href: "/couple/invitation", icon: "heart", label: "Покана", title: "ПОКАНА", subtitle: "Создадете и споделете ја вашата покана", ready: true, feature: "invitation" as const },
-    { href: "/couple/greetings", icon: "gift", label: "Честитки", title: "ЧЕСТИТКИ", subtitle: "Честитки од вашите гости", ready: false },
-    { href: "/couple/messages", icon: "msg", label: "Пораки", title: "ПОРАКИ", subtitle: "Пораки од гостите и локалот", ready: false },
-    { href: "/couple/album", icon: "photo", label: "Албум", title: "АЛБУМ", subtitle: "Фотографии од вашето славење", ready: false },
+    { href: "/couple/album", icon: "photo", label: "Албум", title: "АЛБУМ", subtitle: "Фотографии од вашите гости", ready: true, feature: "photo_album" as const },
+    { href: "/couple/greetings", icon: "gift", label: "Честитки", title: "ЧЕСТИТКИ", subtitle: "Честитки од вашите гости", ready: true, feature: "guest_greetings" as const },
   ];
 }
 

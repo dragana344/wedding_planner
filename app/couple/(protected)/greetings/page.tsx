@@ -1,11 +1,15 @@
-import { ComingSoon } from "@/components/venue/shell/ComingSoon";
+import { headers } from "next/headers";
+import { listGreetings } from "@/lib/media/greetings";
+import { GreetingsClient } from "@/components/couple/GreetingsClient";
 
-export default function Page() {
+export const dynamic = "force-dynamic";
+
+export default async function GreetingsPage() {
+  const eventId = (await headers()).get("x-couple-event-id")!;
+  const greetings = await listGreetings(eventId, { includeHidden: true });
   return (
-    <ComingSoon
-      icon="gift"
-      title="Честитки"
-      note="Тука ќе се појават честитките и пораките за добра желба од вашите гости."
-    />
+    <main style={{ padding: "18px 22px 28px" }}>
+      <GreetingsClient initialGreetings={greetings} />
+    </main>
   );
 }

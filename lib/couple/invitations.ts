@@ -94,7 +94,9 @@ async function readObjectHead(path: string): Promise<Uint8Array | null> {
     chunks.push(value);
     length += value.length;
   }
-  await reader.cancel().catch(() => {});
+  // Not awaited: under Next.js's patched fetch, cancelling a body that already
+  // delivered what was asked for never settles, which hung the confirm request.
+  void reader.cancel().catch(() => {});
   const head = new Uint8Array(Math.min(length, IMAGE_SNIFF_BYTES));
   let offset = 0;
   for (const chunk of chunks) {

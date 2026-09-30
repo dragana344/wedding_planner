@@ -9,6 +9,8 @@ import { NAV_ITEMS, matchNavItem } from "./nav";
 import { OnboardingTour } from "./OnboardingTour";
 import { LockedBanner } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
+import { DrawerButton } from "./DrawerButton";
+import { useDrawer } from "./useDrawer";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -46,6 +48,7 @@ export function PanelShell({
 }) {
   const pathname = usePathname();
   const [mini, setMini] = useState(false);
+  const { open: drawerOpen, toggle: toggleDrawer, close: closeDrawer, drawerRef, buttonRef } = useDrawer();
   const now = useNow();
   const active = matchNavItem(pathname);
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
@@ -54,7 +57,7 @@ export function PanelShell({
     <div className={`vp app${mini ? " mini" : ""}`}>
       <IconSprite />
 
-      <aside className="side">
+      <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
         <button
           className="side-toggle"
           type="button"
@@ -143,9 +146,12 @@ export function PanelShell({
         </div>
       </aside>
 
+      {drawerOpen && <div className="scrim" onClick={closeDrawer} aria-hidden />}
+
       <div className="main">
         <header className="top">
           <div className="title-wrap">
+            <DrawerButton open={drawerOpen} onClick={toggleDrawer} buttonRef={buttonRef} />
             <div>
               <h1 className="page-title">{active.title}</h1>
               <p className="page-sub">{active.subtitle}</p>

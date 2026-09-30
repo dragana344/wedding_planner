@@ -23,6 +23,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N },
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
+  event_albums: { event_id: N, public_token: S, retention_notice_sent_at: N, created_at: N },
   event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, sort_order: N, created_at: N },
   event_budget_items: { id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N },
   event_checklist_items: { id: N, event_id: N, title: P, due_date: C, is_done: N, created_at: N },
@@ -41,6 +42,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, menu_choice: P, allergies: P,
     children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C, reminder_sent_at: C,
   },
+  event_greetings: {
+    id: N, event_id: N, first_name: P, last_name: P, message: P, video_path: P, video_bytes: N, hidden_at: N, created_at: N,
+  },
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {
     id: N, event_id: N, room_id: N, element_type: N, table_type_id: N, x_cm: N, y_cm: N, width_cm: N, length_cm: N,
@@ -50,6 +54,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_menu_item_quantities: { event_id: N, menu_item_id: C, guest_count: C },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },
   event_rooms: { event_id: N, room_id: N, layout_initialized_at: N },
+  event_photos: {
+    id: N, event_id: N, storage_path: P, bytes: N, mime: N, width: N, height: N, uploader_name: P, consent_at: N, hidden_at: N,
+    created_at: N,
+  },
   event_seat_assignments: {
     id: N, event_id: N, room_id: N, layout_element_id: N, seat_number: N, guest_id: N, guest_name: P, updated_at: N,
   },

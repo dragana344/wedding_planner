@@ -33,6 +33,8 @@ export const EXPORTED_TABLES = [
   "event_showcase_photos",
   "event_layout_elements",
   "event_seat_assignments",
+  "event_photos",
+  "event_greetings",
 ] as const;
 
 const PAGE = 1000;
@@ -57,6 +59,10 @@ export type EventExport = {
   showcase_photos: (Row & { photo_url: string })[];
   seating_labels: Row[];
   seat_assignments: Row[];
+  /** Guests' album photos (Session 4); `photo_url` is a signed link valid for 7 days. */
+  album_photos: (Row & { photo_url: string | null })[];
+  /** Guests' greetings; `video_url` is a signed link valid for 7 days. */
+  greetings: (Row & { video_url: string | null })[];
 };
 
 export type VenueExport = {
@@ -119,6 +125,19 @@ function groupBy(rows: Row[], key: string): Map<string, Row[]> {
   return map;
 }
 
+const SIGNED_EXPORT_SECONDS = 7 * 24 * 60 * 60;
+
+/** Signed links for private event-media objects, keyed by path. */
+async function signedUrls(client: SupabaseClient, paths: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  for (let i = 0; i < paths.length; i += PAGE) {
+    const { data, error } = await client.storage.from("event-media").createSignedUrls(paths.slice(i, i + PAGE), SIGNED_EXPORT_SECONDS);
+    if (error) throw error;
+    for (const item of data ?? []) if (item.path && item.signedUrl) map.set(item.path, item.signedUrl);
+  }
+  return map;
+}
+
 function publicUrl(client: SupabaseClient, bucket: string, path: unknown): string | null {
   if (typeof path !== "string" || !path) return null;
   return client.storage.from(bucket).getPublicUrl(path).data.publicUrl;
@@ -129,7 +148,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout, seats] =
+  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout, seats, photos, greetings] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
       selectIn(client, "event_co_organizers", "event_id, side, username, created_at", byEvent, ids, [byEvent, "side"]),
@@ -145,7 +164,13 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       selectIn(client, "event_showcase_photos", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_layout_elements", "id, event_id, room_id, element_type, label", byEvent, ids, ["id"]),
       selectIn(client, "event_seat_assignments", "event_id, room_id, layout_element_id, seat_number, guest_id, guest_name", byEvent, ids, ["layout_element_id", "seat_number"]),
+      selectIn(client, "event_photos", "*", byEvent, ids, ["created_at", "id"]),
+      selectIn(client, "event_greetings", "*", byEvent, ids, ["created_at", "id"]),
     ]);
+  const mediaUrls = await signedUrls(client, [
+    ...photos.map((p) => String(p.storage_path)),
+    ...greetings.filter((gr) => gr.video_path).map((gr) => String(gr.video_path)),
+  ]);
 
   const subtasks = await selectIn(
     client,
@@ -172,6 +197,8 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     showcase: groupBy(showcase, byEvent),
     labels: groupBy(layout.filter((r) => r.label), byEvent),
     seats: groupBy(seats, byEvent),
+    photos: groupBy(photos, byEvent),
+    greetings: groupBy(greetings, byEvent),
   };
 
   return events.map((event) => {
@@ -197,6 +224,11 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       })),
       seating_labels: g.labels.get(id) ?? [],
       seat_assignments: g.seats.get(id) ?? [],
+      album_photos: (g.photos.get(id) ?? []).map((p) => ({ ...p, photo_url: mediaUrls.get(String(p.storage_path)) ?? null })),
+      greetings: (g.greetings.get(id) ?? []).map((gr) => ({
+        ...gr,
+        video_url: gr.video_path ? (mediaUrls.get(String(gr.video_path)) ?? null) : null,
+      })),
     };
   });
 }

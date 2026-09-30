@@ -72,7 +72,9 @@ async function newStaff(venueIds: string[]): Promise<{ userId: string; email: st
   return { userId: data.user.id, email, client };
 }
 
-type SeededEvent = { eventId: string; tag: string; invitationPath: string; oldInvitationPath: string; showcasePath: string; checklistId: string };
+type SeededEvent = {
+  eventId: string; tag: string; invitationPath: string; oldInvitationPath: string; showcasePath: string; albumPath: string; checklistId: string;
+};
 
 /** One event with a row in every personal-data table, each carrying `tag`. */
 async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promise<SeededEvent> {
@@ -141,7 +143,18 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
     }),
   );
   await must(admin.from("event_showcase_photos").insert({ event_id: eventId, photo_path: showcasePath }));
-  return { eventId, tag, invitationPath, oldInvitationPath, showcasePath, checklistId: checklist.id };
+
+  // Guests' album (Session 4): token, one photo with its file, one greeting.
+  const albumPath = `${eventId}/photos/1.png`;
+  await put("event-media", albumPath);
+  await must(admin.from("event_albums").insert({ event_id: eventId, public_token: `album-${tag}-${stamp}`.padEnd(24, "x") }));
+  await must(
+    admin.from("event_photos").insert({
+      event_id: eventId, storage_path: albumPath, bytes: 8, mime: "image/png", uploader_name: `Uploader ${tag}`, consent_at: new Date().toISOString(),
+    }),
+  );
+  await must(admin.from("event_greetings").insert({ event_id: eventId, first_name: "Greeter", last_name: tag, message: `Greeting ${tag}` }));
+  return { eventId, tag, invitationPath, oldInvitationPath, showcasePath, albumPath, checklistId: checklist.id };
 }
 
 async function auditRows(filter: Record<string, string>) {
@@ -217,10 +230,12 @@ describe("export (DATA-005)", () => {
       `Content ${eventA.tag}`, `Agenda ${eventA.tag}`, `Street ${eventA.tag}`, `Vendor ${eventA.tag}`, `Subtask ${eventA.tag}`,
       `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, `Seated ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
       `Booker ${stamp}`, staff.email, a.name, `co-${eventA.tag}`,
+      eventA.albumPath, `Uploader ${eventA.tag}`, `Greeting ${eventA.tag}`,
     ]) {
       expect(json, text).toContain(text);
     }
     expect(data!.events[0].invitation?.photo_url).toContain(`/invitation-photos/${eventA.invitationPath}`);
+    expect(data!.events[0].album_photos[0].photo_url).toContain(`/event-media/${eventA.albumPath}`);
     expect(json).not.toContain(`eb${stamp}`);
     expect(json).not.toContain(b.name);
     expect(json).not.toContain("password_hash");
@@ -270,10 +285,12 @@ describe("event erasure (DATA-005)", () => {
     expect(await objectExists("invitation-photos", target.invitationPath)).toBe(false);
     expect(await objectExists("invitation-photos", target.oldInvitationPath)).toBe(false);
     expect(await objectExists("event-showcase-photos", target.showcasePath)).toBe(false);
+    expect(await objectExists("event-media", target.albumPath)).toBe(false);
 
     // The other event is untouched.
     expect(await remainingPersonalData(other.eventId, other.checklistId)).toContain("event_guests");
     expect(await objectExists("invitation-photos", other.invitationPath)).toBe(true);
+    expect(await objectExists("event-media", other.albumPath)).toBe(true);
 
     const rows = await auditRows({ event_id: target.eventId, action: "event_personal_data_erased" });
     expect(rows).toHaveLength(1);

@@ -65,6 +65,10 @@ import * as seatingRedoRoute from "@/app/api/couple/seating/redo/route";
 import * as seatingHistoryRoute from "@/app/api/couple/seating/history/route";
 import * as seatingGroupRoute from "@/app/api/couple/seating/group/route";
 import * as seatingUndoRoute from "@/app/api/couple/seating/undo/route";
+import * as albumPhotosRoute from "@/app/api/couple/album/photos/route";
+import * as albumPhotoIdRoute from "@/app/api/couple/album/photos/[id]/route";
+import * as albumZipRoute from "@/app/api/couple/album/zip/route";
+import * as greetingIdRoute from "@/app/api/couple/greetings/[id]/route";
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -88,6 +92,9 @@ interface EventFixture {
   noteId: string;
   draftElementId: string;
   layoutElementId: string;
+  /** Guests' album (Session 4): two photos and a greeting. */
+  photoIds: [string, string];
+  greetingId: string;
 }
 
 let venueId: string;
@@ -97,6 +104,7 @@ let A: EventFixture;
 let B: EventFixture;
 let bSnapshot: Record<string, Row[]>;
 const uploadedPhotoPaths: string[] = [];
+const uploadedMediaPaths: string[] = [];
 
 async function insert<T extends Row>(table: string, values: Row | Row[]): Promise<T[]> {
   const { data, error } = await admin.from(table).insert(values).select();
@@ -218,9 +226,31 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     await insert("event_menu_item_quantities", { event_id: event.id, menu_item_id: menuItemIds[0], guest_count: 42 });
   }
 
+  // Guests' album. A's photos have real files (the zip streams them); B's
+  // rows carry the secret and need none.
+  const photoPaths = [0, 1].map((i) => `${event.id}/photos/${RUN}-${tag}-${i}.jpg`);
+  if (tag === "A") {
+    for (const p of photoPaths) {
+      const { error } = await admin.storage
+        .from("event-media")
+        .upload(p, new Blob([Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2])], { type: "image/jpeg" }));
+      if (error) throw error;
+      uploadedMediaPaths.push(p);
+    }
+  }
+  const photos = await insert<{ id: string }>(
+    "event_photos",
+    photoPaths.map((p) => ({ event_id: event.id, storage_path: p, bytes: 6, mime: "image/jpeg", uploader_name: text("uploader"), consent_at: new Date().toISOString() })),
+  );
+  const [greeting] = await insert<{ id: string }>("event_greetings", {
+    event_id: event.id, first_name: text("first"), last_name: "Guest", message: text("greeting"),
+  });
+
   return {
     eventId: event.id,
     roomId: room.id,
+    photoIds: [photos[0].id, photos[1].id],
+    greetingId: greeting.id,
     guestId: guest.id,
     budgetId: budget.id,
     checklistId: checklist.id,
@@ -262,6 +292,8 @@ async function snapshotEvent(f: EventFixture): Promise<Record<string, Row[]>> {
     event_invitations: await byEvent("event_invitations", "event_id", ""),
     event_custom_menu_items: await byEvent("event_custom_menu_items", "event_id", ""),
     event_menu_item_quantities: await byEvent("event_menu_item_quantities", "event_id", ""),
+    event_photos: await byEvent("event_photos"),
+    event_greetings: await byEvent("event_greetings"),
   };
 }
 
@@ -286,6 +318,8 @@ function bSecrets(): string[] {
     `${RUN}-b-slug`,
     `${RUN}-b-photo.jpg`,
     `${RUN}-b-secret@test.local`,
+    ...B.photoIds,
+    B.greetingId,
   ];
 }
 
@@ -994,6 +1028,56 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         expect(own.status).toBe(200);
       },
     },
+  },  "album/photos/route.ts": {
+    module: albumPhotosRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(albumPhotosRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(((res.json as { photos: Row[] }).photos).map((p) => p.id).sort()).toEqual([...A.photoIds].sort());
+      },
+    },
+  },
+  "album/photos/[id]/route.ts": {
+    module: albumPhotoIdRoute,
+    methods: {
+      PATCH: async () => {
+        for (const id of B.photoIds) await call(albumPhotoIdRoute.PATCH, { id }, "PATCH", { body: { hidden: true } });
+        expect((await call(albumPhotoIdRoute.PATCH, { id: A.photoIds[0] }, "PATCH", { body: { hidden: true } })).status).toBe(200);
+        expect((await adminRow("event_photos", A.photoIds[0]))!.hidden_at).not.toBeNull();
+        await call(albumPhotoIdRoute.PATCH, { id: A.photoIds[0] }, "PATCH", { body: { hidden: false } });
+      },
+      DELETE: async () => {
+        await call(albumPhotoIdRoute.DELETE, { id: B.photoIds[0] }, "DELETE");
+        expect((await call(albumPhotoIdRoute.DELETE, { id: A.photoIds[1] }, "DELETE")).status).toBe(200);
+        expect(await adminRow("event_photos", A.photoIds[1])).toBeNull();
+      },
+    },
+  },
+  "album/zip/route.ts": {
+    module: albumZipRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(albumZipRoute.GET, NONE, "GET", { query: { part: "1" } });
+        expect(res.status).toBe(200);
+        expect(res.text.startsWith("PK")).toBe(true);
+      },
+    },
+  },
+  "greetings/[id]/route.ts": {
+    module: greetingIdRoute,
+    methods: {
+      PATCH: async () => {
+        await call(greetingIdRoute.PATCH, { id: B.greetingId }, "PATCH", { body: { hidden: true } });
+        expect((await call(greetingIdRoute.PATCH, { id: A.greetingId }, "PATCH", { body: { hidden: true } })).status).toBe(200);
+        expect((await adminRow("event_greetings", A.greetingId))!.hidden_at).not.toBeNull();
+      },
+      DELETE: async () => {
+        await call(greetingIdRoute.DELETE, { id: B.greetingId }, "DELETE");
+        expect((await call(greetingIdRoute.DELETE, { id: A.greetingId }, "DELETE")).status).toBe(200);
+        expect(await adminRow("event_greetings", A.greetingId)).toBeNull();
+      },
+    },
   },
 };
 
@@ -1031,6 +1115,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (uploadedPhotoPaths.length) await admin.storage.from("invitation-photos").remove(uploadedPhotoPaths);
+  if (uploadedMediaPaths.length) await admin.storage.from("event-media").remove(uploadedMediaPaths);
   if (venueId) await admin.from("venues").delete().eq("id", venueId);
 });
 
