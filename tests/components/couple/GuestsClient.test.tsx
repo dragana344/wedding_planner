@@ -53,7 +53,7 @@ describe("GuestsClient", () => {
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
     expect(screen.getByText("Ана Петровска")).toBeInTheDocument();
-    expect(screen.getByText("Вкупно")).toBeInTheDocument(); // total stat tile
+    expect(screen.getByText("Покани на листата")).toBeInTheDocument(); // total stat tile
     expect(screen.queryByText("Страна на невестата")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Страна")).not.toBeInTheDocument();
 

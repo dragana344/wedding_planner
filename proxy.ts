@@ -234,6 +234,9 @@ export function maintenanceResponse(request: NextRequest): NextResponse | null {
   if (process.env.MAINTENANCE_MODE !== "1" && !peekMaintenanceMode()) return null;
   const { pathname, searchParams } = request.nextUrl;
   if (pathname === "/api/health") return null;
+  // Scheduled jobs run once a day and guard themselves with CRON_SECRET; a
+  // maintenance window must not make them skip that day's reminders/cleanup.
+  if (pathname.startsWith("/api/cron/")) return null;
 
   const token = process.env.MAINTENANCE_BYPASS_TOKEN;
   if (token) {

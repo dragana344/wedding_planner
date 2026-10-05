@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createEvent, updateEventFinance, deleteEvent } from "@/lib/venue/events";
+import { createEvent, updateEventFinance, deleteEvent, findSameDayRoomEvents } from "@/lib/venue/events";
+import { formatTimeRange } from "@/lib/venue/event-display";
+import { formatMkDate, todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { createEventCredentials, generateRandomPassword } from "@/lib/venue/credentials";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
@@ -43,6 +45,8 @@ export function NewEventForm({
   // B6: with several halls, the hall comes first.
   const [pickingRoom, setPickingRoom] = useState(rooms.length > 1 && presetRoomIds.length === 0);
   const [menuTemplateId, setMenuTemplateId] = useState<string>("");
+  const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -71,8 +75,21 @@ export function NewEventForm({
       setError(contacts.error);
       return;
     }
+    // Two honest mistakes worth one question each before anything is saved:
+    // a date that has already passed, and a hall already booked that day.
+    if (eventDate < todayIn(VENUE_TIME_ZONE) && !window.confirm(`Датумот ${formatMkDate(eventDate)} е во минатото. Да се креира настанот сепак?`)) return;
     setIsSubmitting(true);
     try {
+      let sameDay: Awaited<ReturnType<typeof findSameDayRoomEvents>> = [];
+      try {
+        sameDay = await findSameDayRoomEvents(venueId, eventDate, selectedRoomIds);
+      } catch {
+        // The warning is a courtesy; failing to check must not block the booking.
+      }
+      if (sameDay.length > 0) {
+        const list = sameDay.map((e) => `• ${e.couple_names}${formatTimeRange(e.start_time, e.end_time) ? ` (${formatTimeRange(e.start_time, e.end_time)})` : ""}`).join("\n");
+        if (!window.confirm(`Во избраната сала на ${formatMkDate(eventDate)} веќе има настан:\n${list}\n\nДа се креира и овој?`)) return;
+      }
       const event = await createEvent({
         venue_id: venueId,
         couple_names: coupleNames,
@@ -104,12 +121,50 @@ export function NewEventForm({
         throw setupError;
       }
 
-      onCreated();
+      // The password is only ever visible here; show it before leaving.
+      setCreated({ username, password });
     } catch (err) {
       setError(errorMessage(err, "Не успеа креирањето на настанот. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (created) {
+    const loginUrl = typeof window === "undefined" ? "/couple/login" : `${window.location.origin}/couple/login`;
+    const handover = `Најава: ${loginUrl}\nКорисничко име: ${created.username}\nЛозинка: ${created.password}`;
+    return (
+      <div className="ev-form" role="status">
+        <h3 className="panel-t" style={{ marginBottom: 8 }}>
+          Настанот е креиран
+        </h3>
+        <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 12px" }}>
+          Испратете му ги овие податоци на парот. Лозинката не се прикажува повторно; подоцна може само да се генерира нова.
+        </p>
+        <pre className="fld" style={{ whiteSpace: "pre-wrap", margin: 0, userSelect: "all" }}>
+          {handover}
+        </pre>
+        <div className="actions" style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(handover);
+                setCopied(true);
+              } catch {
+                setCopied(false);
+              }
+            }}
+          >
+            {copied ? "Копирано" : "Копирај"}
+          </button>
+          <button type="button" className="btn btn-gold" onClick={onCreated}>
+            Кон настаните
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (pickingRoom) {

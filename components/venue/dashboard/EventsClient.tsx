@@ -109,10 +109,11 @@ export function EventsClient({
   const stats = useMemo(
     () => ({
       total: events.length,
-      upcoming: events.filter((e) => e.event_date > today).length,
-      today: events.filter((e) => e.event_date === today).length,
-      month: events.filter((e) => e.event_date >= today && e.event_date <= monthEnd).length,
-      guests: events.reduce((sum, e) => sum + (e.guest_count_estimate ?? 0), 0),
+      // A cancelled event is not coming up and brings no guests.
+      upcoming: events.filter((e) => e.status !== "cancelled" && e.event_date > today).length,
+      today: events.filter((e) => e.status !== "cancelled" && e.event_date === today).length,
+      month: events.filter((e) => e.status !== "cancelled" && e.event_date >= today && e.event_date <= monthEnd).length,
+      guests: events.filter((e) => e.status !== "cancelled").reduce((sum, e) => sum + (e.guest_count_estimate ?? 0), 0),
     }),
     [events, today, monthEnd],
   );
@@ -121,7 +122,7 @@ export function EventsClient({
     const byFilter = events.filter((e) => {
       switch (filter) {
         case "upcoming":
-          return e.event_date > today;
+          return e.status !== "cancelled" && e.event_date > today;
         case "today":
           return e.event_date === today;
         case "week":
@@ -129,14 +130,22 @@ export function EventsClient({
         case "month":
           return e.event_date >= today && e.event_date <= monthEnd;
         case "done":
-          return e.event_date < today;
+          // Marked finished, or its day has passed without being cancelled.
+          return e.status === "completed" || (e.status !== "cancelled" && e.event_date < today);
         default:
           return true;
       }
     });
+    // Today and what is coming first (nearest first), then the past, newest
+    // first — the list arrives oldest-first, which buries this month under
+    // every event the venue has ever held.
+    const ordered = [
+      ...byFilter.filter((e) => e.event_date >= today),
+      ...byFilter.filter((e) => e.event_date < today).reverse(),
+    ];
     const q = query.trim().toLowerCase();
-    if (!q) return byFilter;
-    return byFilter.filter((e) => e.couple_names.toLowerCase().includes(q));
+    if (!q) return ordered;
+    return ordered.filter((e) => e.couple_names.toLowerCase().includes(q));
   }, [events, filter, query, today, weekEnd, monthEnd]);
 
   return (

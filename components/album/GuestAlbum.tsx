@@ -106,7 +106,7 @@ function PhotoUpload({ token }: { token: string }) {
 
       <label className="ga-check">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-        <span>Се согласувам фотографијата да биде прикажана во свадбениот албум</span>
+        <span>Се согласувам фотографијата да биде прикажана во албумот</span>
       </label>
 
       <label className={`ga-button${!consent || busy ? " is-disabled" : ""}`} htmlFor="ga-files">

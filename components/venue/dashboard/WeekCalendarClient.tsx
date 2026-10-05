@@ -88,20 +88,30 @@ export function WeekCalendarClient({
 
   const weekStart = startOfWeek(anchor);
   const daysInView = viewMode === "day" ? [anchor] : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const rangeStartIso = isoOf(daysInView[0]);
-  const rangeEndIso = isoOf(daysInView[daysInView.length - 1]);
+  // The month view shows miniCalMonth (the grid and the small calendar's own
+  // arrows both move it), so its header and its counts follow that month.
+  const rangeStartIso =
+    viewMode === "month" ? isoOf(new Date(miniCalMonth.getFullYear(), miniCalMonth.getMonth(), 1)) : isoOf(daysInView[0]);
+  const rangeEndIso =
+    viewMode === "month"
+      ? isoOf(new Date(miniCalMonth.getFullYear(), miniCalMonth.getMonth() + 1, 0))
+      : isoOf(daysInView[daysInView.length - 1]);
 
   const rangeLabel =
     viewMode === "day"
       ? `${MK_DAYS_LONG[(anchor.getDay() + 6) % 7]}, ${anchor.getDate()} ${MK_MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`
       : viewMode === "week"
         ? `${weekStart.getDate()} – ${addDays(weekStart, 6).getDate()} ${MK_MONTHS[addDays(weekStart, 6).getMonth()]} ${weekStart.getFullYear()}`
-        : `${MK_MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+        : `${MK_MONTHS[miniCalMonth.getMonth()]} ${miniCalMonth.getFullYear()}`;
 
   function step(dir: 1 | -1) {
     if (viewMode === "day") setAnchor((d) => addDays(d, dir));
     else if (viewMode === "week") setAnchor((d) => addDays(d, dir * 7));
-    else setAnchor((d) => new Date(d.getFullYear(), d.getMonth() + dir, 1));
+    else {
+      const next = new Date(miniCalMonth.getFullYear(), miniCalMonth.getMonth() + dir, 1);
+      setAnchor(next);
+      setMiniCalMonth(next);
+    }
   }
   function jumpToToday() {
     setAnchor(today);
@@ -168,7 +178,11 @@ export function WeekCalendarClient({
                 key={mode}
                 type="button"
                 aria-pressed={viewMode === mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => {
+                  // Open the month view on the month being looked at.
+                  if (mode === "month") setMiniCalMonth(anchor);
+                  setViewMode(mode);
+                }}
               >
                 {mode === "day" ? "Ден" : mode === "week" ? "Недела" : "Месец"}
               </button>

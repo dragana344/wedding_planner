@@ -20,7 +20,7 @@ export function CountdownTimer({
   target,
   color,
   fontFamily,
-  labels = { days: "денови", hours: "часа", minutes: "минути", seconds: "секунди" },
+  labels = { days: "дена", hours: "часа", minutes: "минути", seconds: "секунди" },
 }: {
   target: Date;
   color: string;

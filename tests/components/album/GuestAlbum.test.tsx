@@ -50,7 +50,7 @@ describe("photo upload", () => {
     render(<GuestAlbum token={TOKEN} />);
     const input = screen.getByLabelText("Изберете фотографии");
     expect(input).toBeDisabled();
-    await userEvent.click(screen.getByLabelText(/Се согласувам фотографијата да биде прикажана во свадбениот албум/));
+    await userEvent.click(screen.getByLabelText(/Се согласувам фотографијата да биде прикажана во албумот/));
     expect(input).toBeEnabled();
   });
 

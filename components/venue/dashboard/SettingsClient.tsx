@@ -269,7 +269,7 @@ export function SettingsClient({
         <form onSubmit={handleSaveLayoutLockPassword} className="ev-form" style={{ padding: "16px 20px" }}>
           <div className="ev-field ev-field-wide">
             <label className="lab-s" htmlFor="settings-layout-password">
-              Нова лозинка
+              Нов код за заклучување на распоредот
             </label>
             <input
               id="settings-layout-password"

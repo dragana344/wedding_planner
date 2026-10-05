@@ -6,6 +6,7 @@ import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { reminderMessage, shareLinks } from "@/lib/couple/invite-share";
 import { isoToSkopjeLocal, skopjeLocalToIso } from "@/lib/skopje-time";
 import { guestLink, useOrigin, type ShareContext } from "@/components/couple/guests/InviteSend";
+import { formatVenueDateTime } from "@/lib/date";
 
 /** Mirrors lib/couple/reminders `Reminder` (a server-only module). */
 export interface ReminderView {
@@ -17,14 +18,7 @@ export interface ReminderView {
 }
 
 function formatSkopje(iso: string): string {
-  return new Intl.DateTimeFormat("mk-MK", {
-    timeZone: "Europe/Skopje",
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  return formatVenueDateTime(iso, { time: true });
 }
 
 /**

@@ -114,6 +114,9 @@ describe("maintenance mode (REL-007)", () => {
     expect(api.status).toBe(503);
     expect((await api.json()).error).toMatch(/одржување/);
     expect((await middleware(req("/api/health"))).status).not.toBe(503);
+    // Daily cron jobs keep running through a maintenance window.
+    expect((await middleware(req("/api/cron/reminders"))).status).not.toBe(503);
+    expect((await middleware(req("/api/cron/storage-cleanup"))).status).not.toBe(503);
   });
 
   it("lets the team through with the bypass link, then via cookie", async () => {

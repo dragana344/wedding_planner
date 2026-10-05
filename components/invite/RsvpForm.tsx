@@ -140,7 +140,29 @@ export function RsvpForm({
               Промени го одговорот
             </button>
           </>
-        ) : null}
+        ) : (
+          // The shared link is often opened by one person for the family:
+          // give them the empty form back for the next name.
+          <button
+            type="button"
+            onClick={() => {
+              setJustSent(false);
+              setSavedStatus(null);
+              setFullName("");
+              setStatus(null);
+              setPartySize("1");
+              setChildrenCount("0");
+              setMenuChoice(null);
+              setAllergies("");
+              setComment("");
+              setEditing(true);
+            }}
+            className="mt-4 min-h-11 rounded-lg border px-4 py-2 text-sm font-semibold"
+            style={{ borderColor: accentColor, color: accentColor }}
+          >
+            Одговори за друго лице
+          </button>
+        )}
       </div>
     );
   }

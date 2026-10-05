@@ -27,3 +27,27 @@ export function formatMkDate(isoDate: string): string {
   const month = MK_MONTHS[Number(match[2]) - 1];
   return month ? `${Number(match[3])} ${month} ${match[1]}` : isoDate;
 }
+
+/**
+ * An instant as people in the venue's time zone read it: "5.10.2026",
+ * "5.10 13:40" or "5.10.2026 13:40". Built from the formatter's numeric
+ * parts rather than its finished string, because Node and browsers print
+ * mk-MK differently ("5.10.2026 г." vs "05.10.2026"), and a client component
+ * rendered on the server must produce the same text in both.
+ */
+export function formatVenueDateTime(iso: string, show: { year?: boolean; time?: boolean } = {}): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: VENUE_TIME_ZONE,
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const day = `${Number(part("day"))}.${Number(part("month"))}${show.year === false ? "" : `.${part("year")}`}`;
+  return show.time ? `${day} ${part("hour")}:${part("minute")}` : day;
+}

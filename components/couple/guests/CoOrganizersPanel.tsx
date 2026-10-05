@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GuestSide } from "@/lib/couple/guests";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { useOrigin } from "@/components/couple/guests/InviteSend";
@@ -32,7 +32,12 @@ export function CoOrganizersPanel({ initial }: { initial: CoOrganizerRow[] }) {
   const freeSides = (Object.keys(SIDE_LABELS) as GuestSide[]).filter((s) => !rows.some((r) => r.side === s));
   const [side, setSide] = useState<GuestSide>(freeSides[0] ?? "bride");
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState(generatePassword);
+  // Filled in after mount: a random value in the first render differs
+  // between the server's HTML and the browser's, which breaks hydration.
+  const [password, setPassword] = useState("");
+  useEffect(() => {
+    setPassword((current) => current || generatePassword());
+  }, []);
   const [shown, setShown] = useState<{ username: string; password: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

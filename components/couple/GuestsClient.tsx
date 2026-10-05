@@ -8,19 +8,14 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { GuestDetail } from "@/components/couple/guests/GuestDetail";
 import { RsvpBreakdown } from "@/components/couple/guests/RsvpBreakdown";
 import { BulkSendDialog, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
+import { formatVenueDateTime } from "@/lib/date";
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RsvpStatus[]).map((value) => ({ value, label: STATUS_LABELS[value] }));
 const MENU_OPTIONS = (Object.keys(MENU_LABELS) as MenuChoice[]).map((value) => ({ value, label: MENU_LABELS[value] }));
 
 /** SEC-021: when the public invitation link last changed a guest's answer, in venue time. */
 function formatLinkChange(iso: string): string {
-  return new Intl.DateTimeFormat("mk-MK", {
-    timeZone: "Europe/Skopje",
-    day: "numeric",
-    month: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  return formatVenueDateTime(iso, { year: false, time: true });
 }
 
 const SIDE_OPTIONS: { value: GuestSide; label: string }[] = [
@@ -348,12 +343,14 @@ export function GuestsClient({
       ) : null}
       <div className="tiles">
         {[
-          { label: "Вкупно", value: stats.total, icon: "users" },
+          { label: "Покани на листата", value: stats.total, icon: "users" },
           { label: "Потврдени", value: stats.confirmed, icon: "tick" },
           { label: "Одбиени", value: stats.declined, icon: "x" },
-          { label: "Во исчекување", value: stats.pending, icon: "clock" },
+          // Same group as "Без одговор" in the breakdown below: not yet invited
+          // and invited-but-silent, so the tiles add up to the total.
+          { label: "Без одговор", value: stats.pending + stats.invited, icon: "clock" },
           { label: "Подоцна", value: stats.later, icon: "clock" },
-          { label: "Присутни", value: stats.totalAttending, icon: "occ" },
+          { label: "Лица што доаѓаат", value: stats.totalAttending, icon: "occ" },
           { label: "Испратени покани", value: `${stats.invitationsSent} / ${stats.total}`, icon: "tick" },
         ].map(({ label, value, icon }) => (
           <div key={label} className="tile">

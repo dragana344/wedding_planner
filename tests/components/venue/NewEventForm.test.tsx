@@ -1,9 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewEventForm } from "@/components/venue/NewEventForm";
 import * as events from "@/lib/venue/events";
 import * as credentials from "@/lib/venue/credentials";
+
+// The fixed test date has passed, and the hall check would hit the network:
+// answer "yes" to the form's questions and report no other event that day.
+let confirmSpy: ReturnType<typeof vi.spyOn>;
+beforeEach(() => {
+  confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  vi.spyOn(events, "findSameDayRoomEvents").mockResolvedValue([]);
+});
 
 describe("NewEventForm", () => {
   it("creates the event and sets the couple's login credentials + contact info on submit", async () => {
@@ -58,6 +66,12 @@ describe("NewEventForm", () => {
       total_price: null,
       deposit_paid: null,
     });
+    // The couple's login is shown once before the form hands back.
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(await screen.findByText("Настанот е креиран")).toBeInTheDocument();
+    expect(screen.getByText(/Корисничко име: ivana-petar/)).toBeInTheDocument();
+    expect(screen.getByText(/Лозинка: a-strong-password/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Кон настаните" }));
     expect(onCreated).toHaveBeenCalled();
   });
 
@@ -144,5 +158,38 @@ describe("NewEventForm", () => {
       expect(screen.queryByRole("heading", { name: "Во која сала?" })).not.toBeInTheDocument();
       expect(screen.getByLabelText("Мала сала")).toBeChecked();
     });
+  });
+});
+
+describe("NewEventForm — questions before saving", () => {
+  async function fill(date: string) {
+    await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ана и Марко");
+    await userEvent.type(screen.getByLabelText(/^датум/i), date);
+    await userEvent.type(screen.getByLabelText(/корисничко име/i), "ana-marko");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.type(screen.getByLabelText(/email на парот/i), "couple@example.com");
+    await userEvent.type(screen.getByLabelText(/телефон на парот/i), "070 123 456");
+  }
+  const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
+
+  it("does not create an event on a past date when the question is declined", async () => {
+    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    confirmSpy.mockReturnValue(false);
+    render(<NewEventForm venueId="v1" rooms={[room]} menuTemplates={[]} onCreated={vi.fn()} />);
+    await fill("2000-02-20");
+    fireEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+    expect(confirmSpy).toHaveBeenCalledWith("Датумот 20 февруари 2000 е во минатото. Да се креира настанот сепак?");
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("names the event already booked in the hall that day", async () => {
+    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    vi.spyOn(events, "findSameDayRoomEvents").mockResolvedValue([{ id: "e0", couple_names: "Ива и Дејан", start_time: "18:00:00", end_time: "23:00:00" }]);
+    confirmSpy.mockImplementation((message?: string) => !String(message).includes("веќе има настан"));
+    render(<NewEventForm venueId="v1" rooms={[room]} menuTemplates={[]} onCreated={vi.fn()} />);
+    await fill("2099-06-12");
+    fireEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+    await vi.waitFor(() => expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("• Ива и Дејан (18:00 – 23:00)")));
+    expect(createSpy).not.toHaveBeenCalled();
   });
 });

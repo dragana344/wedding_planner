@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Guest, GuestSeat, GuestSide } from "@/lib/couple/guests";
 import { CHANNEL_LABELS, MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { GuestSendButtons, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
+import { formatVenueDateTime } from "@/lib/date";
 
 /** Mirrors lib/media/greetings `Greeting` (a server-only module). */
 interface GuestGreeting {
@@ -13,7 +14,7 @@ interface GuestGreeting {
 }
 
 function formatSent(iso: string): string {
-  return new Intl.DateTimeFormat("mk-MK", { timeZone: "Europe/Skopje", day: "numeric", month: "numeric", year: "numeric" }).format(new Date(iso));
+  return formatVenueDateTime(iso);
 }
 
 function seatText(seat: GuestSeat): string {

@@ -95,6 +95,7 @@ export function EventEditForm({
   const [eraseError, setEraseError] = useState<string | null>(null);
   const canErase = confirmationMatches(eraseConfirm, event.couple_names);
 
+  const [menuTemplateId, setMenuTemplateId] = useState(event.menu_template_id ?? "");
   const selectedMenuTemplate = menuTemplates.find((m) => m.id === event.menu_template_id);
   const hasMenu = Boolean(selectedMenuTemplate) || event.customMenuItems.length > 0;
   const menuDisplayName = selectedMenuTemplate?.name ?? (event.customMenuItems.length > 0 ? "Сопствено мени" : "Без мени");
@@ -219,7 +220,7 @@ export function EventEditForm({
         event_type: eventType,
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
-        menu_template_id: event.menu_template_id,
+        menu_template_id: menuTemplateId || null,
       };
       await updateEvent(event.id, venueId, input);
       onChanged();
@@ -441,7 +442,20 @@ export function EventEditForm({
                   Погледни мени
                 </button>
               ) : null}
-              <span style={{ whiteSpace: "nowrap" }}>{menuDisplayName}</span>
+              <select
+                id="edit-menu-template"
+                className="fld"
+                aria-label="Мени"
+                value={menuTemplateId}
+                onChange={(e) => setMenuTemplateId(e.target.value)}
+              >
+                <option value="">{event.customMenuItems.length > 0 && !event.menu_template_id ? "Сопствено мени" : "Без мени"}</option>
+                {menuTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </fieldset>

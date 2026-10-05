@@ -50,7 +50,7 @@ export function AlbumQrPrint({ guestPath, options }: { guestPath: string; option
 
       {options.format === "a4" ? (
         <section className="s4-poster">
-          <p className="s4-card-kicker">Свадбен албум</p>
+          <p className="s4-card-kicker">Албум</p>
           <Qr svg={svg} />
           <p className="s4-card-cta">{CTA}</p>
         </section>

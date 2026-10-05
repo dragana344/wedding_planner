@@ -399,3 +399,36 @@ export const DEPOSIT_OVER_TOTAL_ERROR = "Капарот не може да би�
 export function depositExceedsTotal(totalPrice: string, depositPaid: string): boolean {
   return totalPrice !== "" && depositPaid !== "" && Number(depositPaid) > Number(totalPrice);
 }
+
+export interface SameDayEvent {
+  id: string;
+  couple_names: string;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+/**
+ * Other events (not cancelled) on `date` that use any of `roomIds`, so the
+ * form can warn before a hall is booked twice for the same day. Advisory
+ * only: two events may share a hall on purpose (lunch and dinner).
+ */
+export async function findSameDayRoomEvents(
+  venueId: string,
+  date: string,
+  roomIds: string[],
+  excludeEventId: string | null = null,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<SameDayEvent[]> {
+  if (!date || roomIds.length === 0) return [];
+  const { data, error } = await client
+    .from("events")
+    .select("id, couple_names, start_time, end_time, status, event_rooms(room_id)")
+    .eq("venue_id", venueId)
+    .eq("event_date", date)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  return (data ?? [])
+    .filter((e) => e.id !== excludeEventId)
+    .filter((e) => ((e.event_rooms ?? []) as { room_id: string }[]).some((r) => roomIds.includes(r.room_id)))
+    .map((e) => ({ id: e.id, couple_names: e.couple_names, start_time: e.start_time, end_time: e.end_time }));
+}

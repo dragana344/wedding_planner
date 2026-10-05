@@ -7,7 +7,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/plans", icon: "chart", label: "Нивоа" },
   { href: "/admin/pricing", icon: "gift", label: "Ценовник" },
   { href: "/admin/messages", icon: "msg", label: "Контакт пораки" },
-  { href: "/admin/audit", icon: "book", label: "Audit log" },
+  { href: "/admin/audit", icon: "book", label: "Дневник на акции" },
   { href: "/admin/system", icon: "life", label: "Систем" },
 ];
 

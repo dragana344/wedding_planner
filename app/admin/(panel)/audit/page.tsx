@@ -7,6 +7,7 @@ import { parseAuditFilters, startOfDaySkopjeIso, endOfDaySkopjeIso, type AuditSe
 export const dynamic = "force-dynamic";
 
 const ACTOR_TYPES = ["admin", "staff", "couple", "guest", "system"] as const;
+const ACTOR_LABELS: Record<(typeof ACTOR_TYPES)[number], string> = { admin: "админ", staff: "персонал", couple: "пар", guest: "гостин", system: "систем" };
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("mk-MK", { timeZone: VENUE_TIME_ZONE });
@@ -44,13 +45,13 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       {/* defaultValues come from the *validated* filters, not raw
           searchParams: an invalid/dropped value (a bad UUID, an unknown
           actor, a nonsense date) never gets echoed back into the form. */}
-      <form className="bar" aria-label="Филтер на audit log">
+      <form className="bar" aria-label="Филтер на дневникот">
         <input className="fld" name="action" defaultValue={filters.action} placeholder="Акција" aria-label="Акција" />
         <select className="fld" name="actor" defaultValue={filters.actorType ?? ""} aria-label="Актер">
           <option value="">Сите актери</option>
           {ACTOR_TYPES.map((a) => (
             <option key={a} value={a}>
-              {a}
+              {ACTOR_LABELS[a]}
             </option>
           ))}
         </select>
@@ -76,14 +77,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <th>Локал</th>
                 <th>Настан</th>
                 <th>Детали</th>
-                <th>Request</th>
+                <th>Барање</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td>{formatDateTime(r.occurredAt)}</td>
-                  <td>{r.actorType}</td>
+                  <td>{ACTOR_LABELS[r.actorType as (typeof ACTOR_TYPES)[number]] ?? r.actorType}</td>
                   <td>{r.action}</td>
                   <td>{r.venueId ? <Link href={`/admin/venues/${r.venueId}`}>локал</Link> : "—"}</td>
                   <td>{r.eventId ? <Link href={`/admin/events/${r.eventId}`}>настан</Link> : "—"}</td>
