@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createRoom } from "@/lib/venue/rooms";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function AddRoomForm({ venueId, onSaved }: { venueId: string; onSaved: () => void }) {
   const [name, setName] = useState("");
@@ -17,7 +18,7 @@ export function AddRoomForm({ venueId, onSaved }: { venueId: string; onSaved: ()
       onSaved();
       setName("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на просторијата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа зачувувањето на просторијата. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }

@@ -33,6 +33,8 @@ import {
   type LayoutElementType,
 } from "@/lib/venue/floorplan";
 import { type Room, type TableType } from "@/lib/venue/rooms";
+import { errorMessage } from "@/lib/venue/user-error";
+import { openSpot } from "@/lib/venue/open-spot";
 
 export function RoomFloorPlanPage({
   venueId,
@@ -99,15 +101,19 @@ export function RoomFloorPlanPage({
       const created = await addFixedElement({
         room_id: room.id,
         element_type: type,
-        x_cm: Math.max(0, (widthCm - 100) / 2),
-        y_cm: Math.max(0, (heightCm - 20) / 2),
+        ...openSpot(
+          { x_cm: Math.max(0, (widthCm - 100) / 2), y_cm: Math.max(0, (heightCm - 20) / 2) },
+          { width_cm: 100, length_cm: 20 },
+          { width_cm: widthCm, height_cm: heightCm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: 100,
         height_cm: 20,
       });
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа додавањето на елементот. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа додавањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -117,15 +123,19 @@ export function RoomFloorPlanPage({
       const created = await addRoomLayoutElement({
         room_id: room.id,
         element_type: type,
-        x_cm: Math.max(0, (widthCm - 200) / 2),
-        y_cm: Math.max(0, (heightCm - 150) / 2),
+        ...openSpot(
+          { x_cm: Math.max(0, (widthCm - 200) / 2), y_cm: Math.max(0, (heightCm - 150) / 2) },
+          { width_cm: 200, length_cm: 150 },
+          { width_cm: widthCm, height_cm: heightCm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: 200,
         length_cm: 150,
       });
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа додавањето на елементот. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа додавањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -141,8 +151,12 @@ export function RoomFloorPlanPage({
         element_type: "table",
         table_type_id: specialTableType.id,
         table_role: role,
-        x_cm: Math.max(0, (widthCm - specialTableType.width_cm) / 2),
-        y_cm: 100,
+        ...openSpot(
+          { x_cm: Math.max(0, (widthCm - specialTableType.width_cm) / 2), y_cm: 100 },
+          { width_cm: specialTableType.width_cm, length_cm: specialTableType.length_cm },
+          { width_cm: widthCm, height_cm: heightCm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: specialTableType.width_cm,
         length_cm: specialTableType.length_cm,
         label: null,
@@ -150,7 +164,7 @@ export function RoomFloorPlanPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа додавањето на масата. Обидете се повторно."));
     }
   }
 
@@ -165,8 +179,12 @@ export function RoomFloorPlanPage({
         room_id: room.id,
         element_type: "table",
         table_type_id: tableType.id,
-        x_cm: Math.max(0, (widthCm - tableType.width_cm) / 2),
-        y_cm: Math.max(0, (heightCm - tableType.length_cm) / 2),
+        ...openSpot(
+          { x_cm: Math.max(0, (widthCm - tableType.width_cm) / 2), y_cm: Math.max(0, (heightCm - tableType.length_cm) / 2) },
+          { width_cm: tableType.width_cm, length_cm: tableType.length_cm },
+          { width_cm: widthCm, height_cm: heightCm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: tableType.width_cm,
         length_cm: tableType.length_cm,
         label: null,
@@ -175,7 +193,7 @@ export function RoomFloorPlanPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа додавањето на масата. Обидете се повторно."));
     }
   }
 
@@ -191,7 +209,7 @@ export function RoomFloorPlanPage({
       }
       await refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа поместувањето на елементот. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа поместувањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -207,7 +225,7 @@ export function RoomFloorPlanPage({
       }
       await refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа менувањето на големината. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа менувањето на големината. Обидете се повторно."));
     }
   }
 
@@ -224,7 +242,7 @@ export function RoomFloorPlanPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа бришењето на елементот. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа бришењето на елементот. Обидете се повторно."));
     }
   }
 
@@ -240,7 +258,7 @@ export function RoomFloorPlanPage({
       }
       await refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Не успеа ротирањето на елементот. Обидете се повторно.");
+      setActionError(errorMessage(err, "Не успеа ротирањето на елементот. Обидете се повторно."));
     }
   }
 

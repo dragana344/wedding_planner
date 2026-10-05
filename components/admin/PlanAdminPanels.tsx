@@ -121,8 +121,8 @@ function DefaultPanel({ plan }: { plan: PlanRow }) {
     <div style={{ padding: "0 20px 16px" }}>
       <p>
         {plan.isDefault
-          ? "Ова е стандардното ниво за нови сали."
-          : `Го користат ${plan.venueCount} ${plan.venueCount === 1 ? "сала" : "сали"}.`}
+          ? "Ова е стандардното ниво за нови локали."
+          : `Го користат ${plan.venueCount} ${plan.venueCount === 1 ? "локал" : "локали"}.`}
       </p>
       {!plan.isDefault ? (
         lockedSwitches.length > 0 ? (
@@ -130,7 +130,7 @@ function DefaultPanel({ plan }: { plan: PlanRow }) {
             <p className="auth-error">
               {`Внимание: во ова ниво се заклучени ${lockedSwitches.length} ${lockedSwitches.length === 1 ? "функција" : "функции"} (${lockedSwitches
                 .map((f) => f.label)
-                .join(", ")}). Секоја нова сала ќе почне без нив.`}
+                .join(", ")}). Секој нов локал ќе почне без нив.`}
             </p>
             <ConfirmTyped expected={plan.name} label="Направи стандардно" onConfirm={confirmMakeDefault} pending={pending} />
             {status ? <span className="muted"> {status}</span> : null}
@@ -138,7 +138,7 @@ function DefaultPanel({ plan }: { plan: PlanRow }) {
         ) : (
           <ActionButton
             label="Направи стандардно"
-            confirm="Ова ниво станува стандардно за сите нови сали. Продолжи?"
+            confirm="Ова ниво станува стандардно за сите нови локали. Продолжи?"
             action={() => makeDefaultPlan({ planId: plan.id })}
           />
         )
@@ -169,7 +169,7 @@ function DeletePlanPanel({ planId, planName }: { planId: string; planName: strin
 
   return (
     <div style={{ padding: "0 20px 16px" }}>
-      <p className="muted">Не може да се избрише стандардното ниво или ниво што го користат сали — прво преместете ги.</p>
+      <p className="muted">Не може да се избрише стандардното ниво или ниво што го користат локали — прво преместете ги.</p>
       <ConfirmTyped expected={planName} label="Избриши ниво" onConfirm={confirm} pending={pending} />
       {error ? <p className="auth-error">{error}</p> : null}
     </div>

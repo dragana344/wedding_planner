@@ -17,3 +17,13 @@ export function localIsoDate(date: Date): string {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+const MK_MONTHS = ["јануари", "февруари", "март", "април", "мај", "јуни", "јули", "август", "септември", "октомври", "ноември", "декември"];
+
+/** "2026-11-14" → "14 ноември 2026". Anything that is not an ISO date comes back unchanged. */
+export function formatMkDate(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!match) return isoDate;
+  const month = MK_MONTHS[Number(match[2]) - 1];
+  return month ? `${Number(match[3])} ${month} ${match[1]}` : isoDate;
+}

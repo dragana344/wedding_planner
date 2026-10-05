@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listPlans, listVenues } from "@/lib/admin/queries";
+import { formatMkDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,10 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
   const [venues, plans] = await Promise.all([listVenues({ q, planId: plan }), listPlans()]);
   return (
     <div className="wrap">
-      <form className="bar" aria-label="Филтер на сали">
+      <form className="bar" aria-label="Филтер на локали">
         <div className="search">
           <Icon name="search" size="sm" />
-          <input type="search" name="q" defaultValue={q} placeholder="Пребарај сала" aria-label="Пребарај сала" />
+          <input type="search" name="q" defaultValue={q} placeholder="Пребарај локал" aria-label="Пребарај локал" />
         </div>
         <select className="fld" name="plan" defaultValue={plan ?? ""} aria-label="Ниво">
           <option value="">Сите нивоа</option>
@@ -31,14 +32,14 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
 
       <section className="panel">
         {venues.length === 0 ? (
-          <p className="s1-empty">Нема сали што одговараат на филтерот.</p>
+          <p className="s1-empty">Нема локали што одговараат на филтерот.</p>
         ) : (
           <table className="s1-tbl">
             <thead>
               <tr>
-                <th>Сала</th>
+                <th>Локал</th>
                 <th>Ниво</th>
-                <th>Регистрирана</th>
+                <th>Регистриран</th>
                 <th>Вработени</th>
                 <th>Настани</th>
                 <th>Последна најава</th>
@@ -52,11 +53,11 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
                     <Link href={`/admin/venues/${v.id}`}>{v.name}</Link>
                   </td>
                   <td>{v.planName}</td>
-                  <td>{v.createdAt.slice(0, 10)}</td>
+                  <td>{formatMkDate(v.createdAt)}</td>
                   <td>{v.staffCount}</td>
                   <td>{v.eventCount}</td>
-                  <td>{v.lastSignInAt?.slice(0, 10) ?? "—"}</td>
-                  <td>{v.blockedAt ? "Блокирана" : "Активна"}</td>
+                  <td>{v.lastSignInAt ? formatMkDate(v.lastSignInAt) : "—"}</td>
+                  <td>{v.blockedAt ? "Блокиран" : "Активен"}</td>
                 </tr>
               ))}
             </tbody>

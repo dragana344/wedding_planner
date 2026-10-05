@@ -8,6 +8,7 @@ import { ContactInfoEditor } from "@/components/couple/ContactInfoEditor";
 import { Icon } from "@/components/venue/shell/Icon";
 import { StorageMeter } from "@/components/couple/StorageMeter";
 import { getStorageUsage } from "@/lib/media/album";
+import { formatMkDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function CoupleDashboardPage() {
         </div>
         <div style={{ padding: "8px 14px 14px" }}>
           <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{summary.venue_name}</p>
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{summary.event_date}</p>
+          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{formatMkDate(summary.event_date)}</p>
           <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
             {summary.rooms.map((r) => r.name).join(", ") || "Сè уште нема доделено просторија"}
           </p>
@@ -94,7 +95,7 @@ export default async function CoupleDashboardPage() {
                 <div key={item.id} className="up-row">
                   <span>
                     <b>{item.title}</b>
-                    {item.due_date ? <span>Рок {item.due_date}</span> : null}
+                    {item.due_date ? <span>Рок {formatMkDate(item.due_date)}</span> : null}
                   </span>
                 </div>
               ))}

@@ -2,7 +2,7 @@ export type AdminNavItem = { href: string; icon: string; label: string };
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", icon: "home", label: "Преглед" },
-  { href: "/admin/venues", icon: "tables", label: "Сали" },
+  { href: "/admin/venues", icon: "tables", label: "Локали" },
   { href: "/admin/events", icon: "cal-dot", label: "Настани" },
   { href: "/admin/plans", icon: "chart", label: "Нивоа" },
   { href: "/admin/pricing", icon: "gift", label: "Ценовник" },

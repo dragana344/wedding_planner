@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createMenuTemplate } from "@/lib/venue/menus";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function MenuTemplateForm({ venueId, onSaved }: { venueId: string; onSaved: () => void }) {
   const [name, setName] = useState("");
@@ -19,7 +20,7 @@ export function MenuTemplateForm({ venueId, onSaved }: { venueId: string; onSave
       setName("");
       setDescription("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на менито. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа зачувувањето на менито. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }

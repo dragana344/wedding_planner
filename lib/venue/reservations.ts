@@ -267,10 +267,13 @@ export async function findConflictingTables(
   const conflicting = new Set<string>();
   for (const r of existing) {
     if (excludeReservationId && r.id === excludeReservationId) continue;
-    // A seated party is physically at the table right now, regardless of
-    // what the assumed time window says — always blocks, unconditionally.
+    // A seated party is physically at the table, regardless of what the
+    // assumed time window says — but only on its own day. A reservation
+    // nobody marked as left must not keep its tables blocked on the days
+    // after; from then on only its real time window counts.
     const blocks =
-      r.status === "seated" || reservationsOverlap(date, startTime, endTime, r.date, r.start_time, r.end_time);
+      (r.status === "seated" && r.date === date) ||
+      reservationsOverlap(date, startTime, endTime, r.date, r.start_time, r.end_time);
     if (!blocks) continue;
     for (const tableId of r.table_ids) {
       if (tableIds.includes(tableId)) conflicting.add(tableId);
@@ -320,9 +323,9 @@ export async function getTableAvailability(
     const minutesUntilStart = rSpan.s - candidateStart;
     for (const tableId of r.table_ids) {
       if (!tableIds.includes(tableId)) continue;
-      // A seated party occupies the table unconditionally — no tiering.
+      // A seated party occupies the table on its own day — no tiering.
       if (
-        r.status === "seated" ||
+        (r.status === "seated" && r.date === date) ||
         occupiedNow ||
         (minutesUntilStart >= 0 && minutesUntilStart < PROXIMITY_BLOCK_MINUTES)
       ) {
@@ -336,7 +339,7 @@ export async function getTableAvailability(
   return { reserved: Array.from(reserved), limited: Array.from(limited) };
 }
 
-const TABLE_CONFLICT_MESSAGE = "One or more selected tables are already reserved for that time.";
+const TABLE_CONFLICT_MESSAGE = "Една или повеќе од избраните маси се веќе резервирани за тоа време.";
 
 export async function createReservation(
   input: ReservationInput,

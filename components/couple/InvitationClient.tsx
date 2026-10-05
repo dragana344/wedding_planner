@@ -7,6 +7,7 @@ import { INVITATION_TEMPLATES } from "@/lib/couple/invitation-templates";
 import type { Invitation } from "@/lib/couple/invitations";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { formatMkDate } from "@/lib/date";
 
 export function InvitationClient({
   initialInvitation,
@@ -26,6 +27,7 @@ export function InvitationClient({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   // Set only after mount — window.location.origin doesn't exist during SSR,
@@ -49,6 +51,7 @@ export function InvitationClient({
   async function handleGenerate() {
     setError(null);
     setIsSaving(true);
+    setJustSaved(false);
     try {
       const saved = await jsonOrThrow(
         await fetch("/api/couple/invitation", {
@@ -58,6 +61,7 @@ export function InvitationClient({
         })
       );
       setInvitation(saved);
+      setJustSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа генерирањето на поканата.");
     } finally {
@@ -158,7 +162,7 @@ export function InvitationClient({
         <p className="font-display text-2xl" style={{ color: (INVITATION_TEMPLATES.find((t) => t.id === templateId) ?? INVITATION_TEMPLATES[0]).accentColor, margin: 0 }}>
           {coupleNames}
         </p>
-        <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{eventDate}</p>
+        <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{formatMkDate(eventDate)}</p>
         {message ? <p style={{ marginTop: 8, color: "var(--ink-2)", fontSize: 13.5 }}>{message}</p> : null}
       </div>
 
@@ -174,6 +178,11 @@ export function InvitationClient({
       </div>
 
       {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
+      {justSaved && !error ? (
+        <p role="status" style={{ color: "var(--ok)", fontSize: 13.5, margin: 0 }}>
+          Поканата е зачувана.
+        </p>
+      ) : null}
       <button type="button" onClick={handleGenerate} disabled={isSaving} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
         {isSaving ? "Се зачувува..." : invitation ? "Зачувај промени" : "Генерирај линк"}
       </button>

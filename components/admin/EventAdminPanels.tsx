@@ -28,7 +28,7 @@ export function EventAdminPanels({ event, overrides, features }: { event: EventR
           <h2 className="panel-t">{event.coupleNames}</h2>
         </div>
         <p style={{ padding: "0 20px 16px" }} className="muted">
-          Сала: <Link href={`/admin/venues/${event.venueId}`}>{event.venueName}</Link>
+          Локал: <Link href={`/admin/venues/${event.venueId}`}>{event.venueName}</Link>
         </p>
         <EditForm event={event} />
       </section>

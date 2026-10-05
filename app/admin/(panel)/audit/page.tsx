@@ -54,7 +54,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             </option>
           ))}
         </select>
-        <input className="fld" name="venue" defaultValue={filters.venueId} placeholder="ID на сала" aria-label="ID на сала" />
+        <input className="fld" name="venue" defaultValue={filters.venueId} placeholder="ID на локал" aria-label="ID на локал" />
         <input className="fld" name="event" defaultValue={filters.eventId} placeholder="ID на настан" aria-label="ID на настан" />
         <input type="date" className="fld" name="from" defaultValue={filters.from} aria-label="Од датум" />
         <input type="date" className="fld" name="to" defaultValue={filters.to} aria-label="До датум" />
@@ -73,7 +73,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <th>Време</th>
                 <th>Актер</th>
                 <th>Акција</th>
-                <th>Сала</th>
+                <th>Локал</th>
                 <th>Настан</th>
                 <th>Детали</th>
                 <th>Request</th>
@@ -85,7 +85,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   <td>{formatDateTime(r.occurredAt)}</td>
                   <td>{r.actorType}</td>
                   <td>{r.action}</td>
-                  <td>{r.venueId ? <Link href={`/admin/venues/${r.venueId}`}>сала</Link> : "—"}</td>
+                  <td>{r.venueId ? <Link href={`/admin/venues/${r.venueId}`}>локал</Link> : "—"}</td>
                   <td>{r.eventId ? <Link href={`/admin/events/${r.eventId}`}>настан</Link> : "—"}</td>
                   <td>
                     <code>{JSON.stringify(r.details)}</code>

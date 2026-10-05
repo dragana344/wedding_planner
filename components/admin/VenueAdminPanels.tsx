@@ -143,7 +143,7 @@ function DeleteVenuePanel({ venueId, venueName }: { venueId: string; venueName: 
 
   return (
     <div style={{ padding: "0 20px 16px" }}>
-      <p className="muted">Ова трајно ги брише салата, нејзините простории, настани и сметките на вработените што не работат во друга сала.</p>
+      <p className="muted">Ова трајно ги брише локалот, неговите простории, настани и сметките на вработените што не работат во друг локал.</p>
       <ConfirmTyped expected={venueName} label="Избриши сметка" onConfirm={confirm} pending={pending} />
       {error ? <p className="auth-error">{error}</p> : null}
     </div>
@@ -164,7 +164,7 @@ function RenameForm({ venueId, initialName }: { venueId: string; initialName: st
     <form onSubmit={submit} style={{ display: "flex", gap: 8, alignItems: "end", padding: "0 20px 16px" }}>
       <div>
         <label className="lab-s" htmlFor="venue-name">
-          Име на салата
+          Име на локалот
         </label>
         <input id="venue-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
       </div>
@@ -210,16 +210,16 @@ function StatusPanel({ venue }: { venue: VenueDetail }) {
 
   async function block() {
     const result = await blockVenue({ venueId: venue.id, reason });
-    setStatus(result.ok ? "Салата е блокирана." : result.error);
+    setStatus(result.ok ? "Локалот е блокиран." : result.error);
   }
   async function unblock() {
     const result = await unblockVenue({ venueId: venue.id });
-    setStatus(result.ok ? "Салата е одблокирана." : result.error);
+    setStatus(result.ok ? "Локалот е одблокиран." : result.error);
   }
 
   return (
     <div style={{ padding: "0 20px 16px" }}>
-      <p>Статус: {venue.blockedAt ? `Блокирана${venue.blockedReason ? ` — ${venue.blockedReason}` : ""}` : "Активна"}</p>
+      <p>Статус: {venue.blockedAt ? `Блокиран${venue.blockedReason ? ` — ${venue.blockedReason}` : ""}` : "Активен"}</p>
       {venue.blockedAt ? (
         <button type="button" className="btn btn-ghost" onClick={unblock}>
           Одблокирај

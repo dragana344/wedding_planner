@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listEvents, listVenues } from "@/lib/admin/queries";
+import { formatMkDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,8 @@ export default async function EventsPage({
   return (
     <div className="wrap">
       <form className="bar" aria-label="Филтер на настани">
-        <select className="fld" name="venue" defaultValue={venue ?? ""} aria-label="Сала">
-          <option value="">Сите сали</option>
+        <select className="fld" name="venue" defaultValue={venue ?? ""} aria-label="Локал">
+          <option value="">Сите локали</option>
           {venues.map((v) => (
             <option key={v.id} value={v.id}>
               {v.name}
@@ -56,7 +57,7 @@ export default async function EventsPage({
               <tr>
                 <th>Датум</th>
                 <th>Време</th>
-                <th>Сала</th>
+                <th>Локал</th>
                 <th>Пар</th>
                 <th>Статус</th>
                 <th>Гости (проценка)</th>
@@ -65,7 +66,7 @@ export default async function EventsPage({
             <tbody>
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td>{e.date}</td>
+                  <td>{formatMkDate(e.date)}</td>
                   <td>{e.startTime ? e.startTime.slice(0, 5) : "—"}</td>
                   <td>{e.venueName}</td>
                   <td>

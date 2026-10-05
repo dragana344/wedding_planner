@@ -25,7 +25,7 @@ describe("ContactForm", () => {
   });
 
   it("shows an error message when the request fails", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Failed to send message." }) });
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Пораката не се испрати. Обидете се повторно." }) });
     render(<ContactForm />);
 
     fireEvent.change(screen.getByLabelText(/име/i), { target: { value: "Ана" } });
@@ -33,6 +33,6 @@ describe("ContactForm", () => {
     fireEvent.change(screen.getByLabelText(/порака/i), { target: { value: "Прашање." } });
     fireEvent.click(screen.getByRole("button", { name: /send|испрати/i }));
 
-    expect(await screen.findByText("Failed to send message.")).toBeInTheDocument();
+    expect(await screen.findByText("Пораката не се испрати. Обидете се повторно.")).toBeInTheDocument();
   });
 });

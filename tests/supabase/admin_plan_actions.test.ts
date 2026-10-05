@@ -97,7 +97,7 @@ describe("plan actions (spec §5, task 3.4)", () => {
   it("refuses to delete a plan in use or the default plan", async () => {
     const id = created[0];
     await admin.from("venues").insert({ name: "Plan Action Venue 3.4", plan_id: id });
-    await expect(planActionCore.remove({ planId: id }, ctx)).rejects.toThrow("Нивото го користат сали. Прво преместете ги.");
+    await expect(planActionCore.remove({ planId: id }, ctx)).rejects.toThrow("Нивото го користат локали. Прво преместете ги.");
     const { data: def } = await admin.from("plans").select("id").eq("is_default", true).single();
     await expect(planActionCore.remove({ planId: def!.id }, ctx)).rejects.toThrow("Стандардното ниво не може да се избрише.");
   });

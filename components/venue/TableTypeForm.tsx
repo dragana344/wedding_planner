@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { seatsAffectedByTableType, upsertTableType, updateTableType, type TableType, type TableTypeInput } from "@/lib/venue/rooms";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function TableTypeForm({
   roomId,
@@ -51,7 +52,7 @@ export function TableTypeForm({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на видот маса. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа зачувувањето на видот маса. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }

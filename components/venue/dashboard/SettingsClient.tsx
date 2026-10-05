@@ -9,6 +9,7 @@ import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { MfaSettings } from "@/components/venue/dashboard/MfaSettings";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function SettingsClient({
   venueId,
@@ -59,8 +60,10 @@ export function SettingsClient({
       await updateVenueName(venueId, venueName);
       setSavedVenueName(venueName);
       setVenueNameStatus("Зачувано.");
+      // The sidebar and top bar get the name from the server layout.
+      router.refresh();
     } catch (err) {
-      setVenueNameStatus(err instanceof Error ? err.message : "Не успеа зачувувањето. Обидете се повторно.");
+      setVenueNameStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingVenueName(false);
     }
@@ -76,7 +79,7 @@ export function SettingsClient({
       if (error) throw error;
       setEmailStatus("Проверете го инбоксот за да ја потврдите новата е-пошта.");
     } catch (err) {
-      setEmailStatus(err instanceof Error ? err.message : "Не успеа менувањето на е-поштата. Обидете се повторно.");
+      setEmailStatus(errorMessage(err, "Не успеа менувањето на е-поштата. Обидете се повторно."));
     } finally {
       setIsSavingEmail(false);
     }
@@ -93,7 +96,7 @@ export function SettingsClient({
       setPasswordStatus("Лозинката е сменета.");
       setNewPassword("");
     } catch (err) {
-      setPasswordStatus(err instanceof Error ? err.message : "Не успеа менувањето на лозинката. Обидете се повторно.");
+      setPasswordStatus(errorMessage(err, "Не успеа менувањето на лозинката. Обидете се повторно."));
     } finally {
       setIsSavingPassword(false);
     }
@@ -108,7 +111,7 @@ export function SettingsClient({
       setLayoutPasswordStatus("Зачувано.");
       setNewLayoutPassword("");
     } catch (err) {
-      setLayoutPasswordStatus(err instanceof Error ? err.message : "Не успеа зачувувањето. Обидете се повторно.");
+      setLayoutPasswordStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingLayoutPassword(false);
     }
@@ -139,7 +142,7 @@ export function SettingsClient({
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setExportStatus(err instanceof Error ? err.message : "Не успеа преземањето на податоците.");
+      setExportStatus(errorMessage(err, "Не успеа преземањето на податоците."));
     } finally {
       setIsExporting(false);
     }
@@ -164,7 +167,7 @@ export function SettingsClient({
       await createBrowserSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
       router.push("/login");
     } catch (err) {
-      setDeleteStatus(err instanceof Error ? err.message : "Не успеа бришењето на сметката.");
+      setDeleteStatus(errorMessage(err, "Не успеа бришењето на сметката."));
       setIsDeletingAccount(false);
     }
   }

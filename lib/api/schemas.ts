@@ -418,8 +418,8 @@ export const seatLookupBody = z.object(
 // ---------------------------------------------------------------------------
 // Public: venue contact form and signup
 
-export const CONTACT_REQUIRED_ERROR = "Name, email, and message are required.";
-export const CONTACT_TOO_LONG_ERROR = "Name, email, or message is too long.";
+export const CONTACT_REQUIRED_ERROR = "Внесете име, е-пошта и порака.";
+export const CONTACT_TOO_LONG_ERROR = "Името, е-поштата или пораката се предолги.";
 const requiredContactText = (max: number) =>
   z
     .string({ error: CONTACT_REQUIRED_ERROR })

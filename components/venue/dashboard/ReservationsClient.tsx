@@ -22,6 +22,7 @@ import {
   type Reservation,
   type ReservationStatus,
 } from "@/lib/venue/reservations";
+import { errorMessage } from "@/lib/venue/user-error";
 
 const TIME_PRESETS = ["11:00", "15:00", "17:00", "20:00", "22:00"];
 const ZOOM_MIN = 0.6;
@@ -242,30 +243,45 @@ export function ReservationsClient({
       setNote("");
       setSelectedTableIds([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create reservation. Please try again.");
+      setError(errorMessage(err, "Не успеа резервацијата. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  // Cancelling deletes the reservation for good (there is no resting
+  // "cancelled" record), so it asks first.
   async function handleCancel(id: string) {
-    await deleteReservation(id);
-    setReservations((prev) => prev.filter((r) => r.id !== id));
-    setDayReservations((prev) => prev.filter((r) => r.id !== id));
+    const reservation = dayReservations.find((r) => r.id === id) ?? reservations.find((r) => r.id === id);
+    const who = reservation ? ` на ${reservation.guest_name}` : "";
+    if (!window.confirm(`Да се откаже резервацијата${who}? Ова не може да се врати.`)) return;
+    setError(null);
+    try {
+      await deleteReservation(id);
+      setReservations((prev) => prev.filter((r) => r.id !== id));
+      setDayReservations((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа откажувањето на резервацијата. Обидете се повторно."));
+    }
   }
 
   // reserved -> seated is a real status change (table now occupied).
   // seated -> "guests left" deletes the reservation outright: once the
   // table is freed, there's no resting "completed" record to keep around.
   async function handleToggleOccupied(id: string, currentStatus: ReservationStatus) {
-    if (currentStatus === "reserved") {
-      await updateReservationStatus(id, "seated");
-      setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: "seated" } : r)));
-      setDayReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: "seated" } : r)));
-    } else {
-      await deleteReservation(id);
-      setReservations((prev) => prev.filter((r) => r.id !== id));
-      setDayReservations((prev) => prev.filter((r) => r.id !== id));
+    setError(null);
+    try {
+      if (currentStatus === "reserved") {
+        await updateReservationStatus(id, "seated");
+        setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: "seated" } : r)));
+        setDayReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: "seated" } : r)));
+      } else {
+        await deleteReservation(id);
+        setReservations((prev) => prev.filter((r) => r.id !== id));
+        setDayReservations((prev) => prev.filter((r) => r.id !== id));
+      }
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа промената на резервацијата. Обидете се повторно."));
     }
   }
 

@@ -197,7 +197,7 @@ export async function createEvent(input: CreateEventInput): Promise<{ id: string
       .maybeSingle();
     if (templateError) throw templateError;
     if (!template) {
-      throw new Error("Menu template does not belong to this venue");
+      throw new Error("Менито не припаѓа на овој локал.");
     }
   }
 
@@ -209,7 +209,7 @@ export async function createEvent(input: CreateEventInput): Promise<{ id: string
       .in("id", input.room_ids);
     if (roomsCheckError) throw roomsCheckError;
     if ((rooms ?? []).length !== input.room_ids.length) {
-      throw new Error("One or more rooms do not belong to this venue");
+      throw new Error("Една или повеќе сали не припаѓаат на овој локал.");
     }
   }
 
@@ -267,7 +267,7 @@ export async function updateEvent(
       .maybeSingle();
     if (templateError) throw templateError;
     if (!template) {
-      throw new Error("Menu template does not belong to this venue");
+      throw new Error("Менито не припаѓа на овој локал.");
     }
   }
 
@@ -279,7 +279,7 @@ export async function updateEvent(
       .in("id", input.room_ids);
     if (roomsCheckError) throw roomsCheckError;
     if ((rooms ?? []).length !== input.room_ids.length) {
-      throw new Error("One or more rooms do not belong to this venue");
+      throw new Error("Една или повеќе сали не припаѓаат на овој локал.");
     }
   }
 
@@ -391,4 +391,11 @@ export async function isVenueStaffForEvent(
   if (!event) return false;
 
   return event.venue_id === staff.venue_id;
+}
+
+export const DEPOSIT_OVER_TOTAL_ERROR = "Капарот не може да биде поголем од вкупната цена.";
+
+/** The form's check before saving finance: a deposit above the agreed price is a typing mistake. */
+export function depositExceedsTotal(totalPrice: string, depositPaid: string): boolean {
+  return totalPrice !== "" && depositPaid !== "" && Number(depositPaid) > Number(totalPrice);
 }

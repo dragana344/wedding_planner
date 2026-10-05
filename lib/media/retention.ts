@@ -17,7 +17,8 @@ import { retentionDays } from "@/lib/media/limits";
 
 const NOTICE_DAYS = 5;
 
-export type RetentionNotify = (to: string, coupleNames: string, deleteOn: string) => Promise<void>;
+/** Resolves `false` when the warning could not be sent at all (no email configured). */
+export type RetentionNotify = (to: string, coupleNames: string, deleteOn: string) => Promise<void | boolean>;
 
 function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -49,7 +50,7 @@ export const planRetentionDays: RetentionDaysFor = async (eventId, venueId) => {
 };
 
 const emailNotify: RetentionNotify = async (to, coupleNames, deleteOn) => {
-  if (!emailConfigured()) return;
+  if (!emailConfigured()) return false;
   await sendEmail({
     to,
     subject: `Фотографиите од вашиот албум ќе бидат избришани на ${deleteOn}`,
@@ -98,6 +99,8 @@ export async function runMediaRetention(
   // up to NOTICE_DAYS from now.
   const latestEventDate = addDays(today, NOTICE_DAYS - (fixedDays ?? 0));
   let noticed = 0;
+  /** Albums past their date that are kept because no warning could be sent. */
+  let unwarned = 0;
   let purgedEvents = 0;
   let kept = 0;
   let cursor = "00000000-0000-0000-0000-000000000000";
@@ -130,7 +133,14 @@ export async function runMediaRetention(
           const row = (usage as { photo_count: number; greeting_count: number }[] | null)?.[0];
           if (!row || row.photo_count + row.greeting_count === 0) continue;
           const promised = deleteOn > addDays(today, NOTICE_DAYS) ? deleteOn : addDays(today, NOTICE_DAYS);
-          if (event.contact_email) await notify(event.contact_email, event.couple_names, shownDate(promised));
+          // The couple is always warned first: with no address to write to,
+          // or no way to send, the notice is not stamped and the album stays
+          // until a warning can really go out.
+          const warned = event.contact_email ? (await notify(event.contact_email, event.couple_names, shownDate(promised))) !== false : false;
+          if (!warned) {
+            unwarned += 1;
+            continue;
+          }
           const { error: markError } = await client
             .from("event_albums")
             .update({ retention_notice_sent_at: now.toISOString() })
@@ -171,5 +181,6 @@ export async function runMediaRetention(
 
   if (purgedEvents > 0) await drainStorageCleanupQueue().catch(() => {}); // the hourly cron retries
   if (kept > 0) log("info", "media_retention_kept", { events: kept });
+  if (unwarned > 0) log("warn", "media_retention_unwarned", { events: unwarned });
   return { noticed, purgedEvents, kept };
 }

@@ -10,6 +10,7 @@ import {
   type MenuItem,
   type MenuTemplateWithItemCount,
 } from "@/lib/venue/menus";
+import { errorMessage } from "@/lib/venue/user-error";
 
 /**
  * A standard package menu is just a named, drag-and-drop-curated selection
@@ -67,7 +68,7 @@ export function PackageBuilder({
       setIsEditingName(false);
       onChanged();
     } catch (err) {
-      setNameError(err instanceof Error ? err.message : "Не успеа зачувувањето. Обидете се повторно.");
+      setNameError(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingName(false);
     }
@@ -81,7 +82,7 @@ export function PackageBuilder({
       await setMenuTemplateItems(template.id, Array.from(selectedIds));
       onChanged();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Не успеа зачувувањето на јадењата. Обидете се повторно.");
+      setSaveError(errorMessage(err, "Не успеа зачувувањето на јадењата. Обидете се повторно."));
     } finally {
       setIsSaving(false);
     }
@@ -95,7 +96,7 @@ export function PackageBuilder({
       onChanged();
       onClose();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Не успеа бришењето на менито. Обидете се повторно.");
+      setDeleteError(errorMessage(err, "Не успеа бришењето на менито. Обидете се повторно."));
       setIsDeleting(false);
     }
   }

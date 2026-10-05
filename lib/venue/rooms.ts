@@ -43,10 +43,19 @@ export async function listRooms(
   return data;
 }
 
+export const ROOM_NAME_REQUIRED_ERROR = "Внесете име на просторијата.";
+
+/** A name of only spaces passes the form's `required`, so it is checked here. */
+function cleanRoomName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error(ROOM_NAME_REQUIRED_ERROR);
+  return trimmed;
+}
+
 export async function createRoom(venueId: string, name: string): Promise<Room> {
   const { data, error } = await resolveSupabaseClient()
     .from("rooms")
-    .insert({ venue_id: venueId, name })
+    .insert({ venue_id: venueId, name: cleanRoomName(name) })
     .select("id, venue_id, name, width_cm, height_cm")
     .single();
   if (error) throw error;
@@ -56,7 +65,7 @@ export async function createRoom(venueId: string, name: string): Promise<Room> {
 export async function updateRoomName(roomId: string, name: string): Promise<Room> {
   const { data, error } = await resolveSupabaseClient()
     .from("rooms")
-    .update({ name })
+    .update({ name: cleanRoomName(name) })
     .eq("id", roomId)
     .select("id, venue_id, name, width_cm, height_cm")
     .single();

@@ -32,6 +32,8 @@ import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
+import { errorMessage } from "@/lib/venue/user-error";
+import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
 
 export function EventEditForm({
   event,
@@ -122,7 +124,7 @@ export function EventEditForm({
       setRegeneratedPassword(newPassword);
     } catch (err) {
       setRegenerateError(
-        err instanceof Error ? err.message : "Не успеа генерирањето на нова лозинка. Обидете се повторно."
+        errorMessage(err, "Не успеа генерирањето на нова лозинка. Обидете се повторно.")
       );
     } finally {
       setIsRegenerating(false);
@@ -144,7 +146,7 @@ export function EventEditForm({
       onChanged();
     } catch (err) {
       setContactError(
-        err instanceof Error ? err.message : "Не успеа зачувувањето на контактот. Обидете се повторно."
+        errorMessage(err, "Не успеа зачувувањето на контактот. Обидете се повторно.")
       );
     } finally {
       setIsSavingContact(false);
@@ -154,6 +156,10 @@ export function EventEditForm({
   async function handleSaveFinance(e: React.FormEvent) {
     e.preventDefault();
     setFinanceError(null);
+    if (depositExceedsTotal(totalPrice, depositPaid)) {
+      setFinanceError(DEPOSIT_OVER_TOTAL_ERROR);
+      return;
+    }
     setIsSavingFinance(true);
     try {
       await updateEventFinance(event.id, {
@@ -162,7 +168,7 @@ export function EventEditForm({
       });
       onChanged();
     } catch (err) {
-      setFinanceError(err instanceof Error ? err.message : "Не успеа зачувувањето на финансиите. Обидете се повторно.");
+      setFinanceError(errorMessage(err, "Не успеа зачувувањето на финансиите. Обидете се повторно."));
     } finally {
       setIsSavingFinance(false);
     }
@@ -177,7 +183,7 @@ export function EventEditForm({
       await addShowcasePhoto(venueId, event.id, file);
       await refreshShowcasePhotos();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа прикачувањето на фотографијата. Обидете се повторно."));
     } finally {
       setIsUploadingShowcase(false);
     }
@@ -189,7 +195,7 @@ export function EventEditForm({
       await deleteShowcasePhoto(photoId);
       await refreshShowcasePhotos();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа бришењето на фотографијата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа бришењето на фотографијата. Обидете се повторно."));
     }
   }
 
@@ -219,7 +225,7 @@ export function EventEditForm({
       onChanged();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на промените. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа зачувувањето на промените. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }
@@ -233,7 +239,7 @@ export function EventEditForm({
       onChanged();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа бришењето на настанот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа бришењето на настанот. Обидете се повторно."));
       setIsDeleting(false);
     }
   }
@@ -256,7 +262,7 @@ export function EventEditForm({
       onChanged();
       onClose();
     } catch (err) {
-      setEraseError(err instanceof Error ? err.message : "Не успеа бришењето на личните податоци.");
+      setEraseError(errorMessage(err, "Не успеа бришењето на личните податоци."));
       setIsErasing(false);
     }
   }

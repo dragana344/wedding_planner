@@ -25,7 +25,7 @@ async function assertRoomBelongsToEvent(
     .eq("room_id", roomId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Room is not assigned to this event.");
+  if (!data) throw new Error("Салата не е доделена на овој настан.");
 }
 
 async function assertTableTypeBelongsToRoom(

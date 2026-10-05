@@ -25,12 +25,14 @@ export const ALBUM_RATE_LIMITS = {
   uploadPerEvent: { bucket: "album-upload-event", limit: 3000, windowSeconds: 3600, failClosed: false },
   /**
    * Video greetings wait unconfirmed in a 100 MB-per-file bucket, so their
-   * starts are budgeted far tighter than photos' (15 MB, own bucket).
+   * starts are budgeted tighter than photos' (15 MB, own bucket); the
+   * per-event cap below is what bounds the storage, the per-IP one only has
+   * to survive a hall full of guests behind one Wi-Fi address.
    */
-  videoUpload: { bucket: "album-video", limit: 5, windowSeconds: 3600, failClosed: false },
+  videoUpload: { bucket: "album-video", limit: 40, windowSeconds: 3600, failClosed: false },
   videoUploadPerEvent: { bucket: "album-video-event", limit: 100, windowSeconds: 3600, failClosed: false },
-  /** Greetings per guest (IP) per album. */
-  greeting: { bucket: "greeting", limit: 10, windowSeconds: 3600, failClosed: false },
+  /** Greetings per IP per album. Guests on the venue's Wi-Fi share one IP. */
+  greeting: { bucket: "greeting", limit: 300, windowSeconds: 3600, failClosed: false },
 } satisfies Record<string, RateLimitRule>;
 
 export const albumParams = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{22,64}$/) });

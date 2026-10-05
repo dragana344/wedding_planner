@@ -32,8 +32,8 @@ const plexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "КАДЕ СУМ? — Venue Panel",
-  description: "Venue management panel",
+  title: "Каде си?",
+  description: "Платформа за ресторани и сали за настани: резервации, распоред на маси, покани и гости.",
 };
 
 export default function RootLayout({

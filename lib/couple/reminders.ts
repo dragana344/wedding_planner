@@ -4,6 +4,7 @@ import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
 import { personalInviteUrl, reminderMessage } from "@/lib/couple/invite-share";
 import { eventHasFeature } from "@/lib/entitlements/server";
+import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 
 // A10: one reminder email per event to guests who said yes or "later".
 // Default: 15 days before at 10:00 Skopje (0062 default_reminder_at); the
@@ -139,10 +140,20 @@ async function sendEventReminder(eventId: string, now: Date, origin: string): Pr
     }
   }
 
+  // Guests whose email failed (provider outage, rate limit) keep
+  // reminder_sent_at null, so putting the reminder back to "scheduled" makes
+  // the next run retry exactly those guests. Once the event's day has come
+  // there is nothing left to remind anyone of, so it is closed either way.
+  const retry = failed > 0 && event.event_date > todayIn(VENUE_TIME_ZONE, now);
   const { data: row } = await client.from("event_reminders").select("sent_count").eq("event_id", eventId).single();
   const { error: doneError } = await client
     .from("event_reminders")
-    .update({ status: "sent", sent_at: now.toISOString(), sent_count: (row?.sent_count ?? 0) + sent, updated_at: now.toISOString() })
+    .update({
+      status: retry ? "scheduled" : "sent",
+      ...(retry ? {} : { sent_at: now.toISOString() }),
+      sent_count: (row?.sent_count ?? 0) + sent,
+      updated_at: now.toISOString(),
+    })
     .eq("event_id", eventId);
   if (doneError) throw doneError;
   return { sent, failed };

@@ -204,10 +204,10 @@ describe("public schemas", () => {
   it("contact: keeps the required message and caps lengths", () => {
     expect(contactMessageBody.safeParse({ name: "A", email: "a@b.mk", message: "hi" }).success).toBe(true);
     expect(msg(parseInput(contactMessageBody, { name: " ", email: "a@b.mk", message: "hi" }, "D"))).toBe(
-      "Name, email, and message are required.",
+      "Внесете име, е-пошта и порака.",
     );
     expect(msg(parseInput(contactMessageBody, { name: "A", email: "a@b.mk", message: "x".repeat(5001) }, "D"))).toBe(
-      "Name, email, or message is too long.",
+      "Името, е-поштата или пораката се предолги.",
     );
   });
 

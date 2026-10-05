@@ -203,6 +203,10 @@ export function GuestsClient({
   }
 
   async function handleDelete(guestId: string) {
+    // The button sits next to the status select; one stray tap must not lose
+    // the guest's answer, menu choice and seat.
+    const guest = guests.find((g) => g.id === guestId);
+    if (!window.confirm(`Да се избрише ${guest ? `„${guest.full_name}“` : "гостинот"}? Се бришат и одговорот, изборот на мени и местото на масата.`)) return;
     setError(null);
     try {
       await jsonOrThrow(await fetch(`/api/couple/guests/${guestId}`, { method: "DELETE" }));

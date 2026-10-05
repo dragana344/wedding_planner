@@ -67,7 +67,7 @@ describe("reservation overlap constraint (DATA-012)", () => {
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-    expect(rejected.reason.message).toBe("One or more selected tables are already reserved for that time.");
+    expect(rejected.reason.message).toBe("Една или повеќе од избраните маси се веќе резервирани за тоа време.");
 
     const { data } = await admin.from("reservations").select("id").eq("room_id", roomId).eq("date", "2027-02-01");
     expect(data).toHaveLength(1);

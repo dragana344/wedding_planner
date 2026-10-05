@@ -43,7 +43,7 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
         width_cm: 100,
         length_cm: 100,
       })
-    ).rejects.toThrow("Room is not assigned to this event.");
+    ).rejects.toThrow("Салата не е доделена на овој настан.");
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });
@@ -107,7 +107,7 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     // eventA's couple never had this room assigned to them; venueB's room is
     // foreign to venueA/eventA entirely.
     const actionsForA = coupleSeatingActionsFor(eventA!.id);
-    const expectedError = "Room is not assigned to this event.";
+    const expectedError = "Салата не е доделена на овој настан.";
 
     await expect(actionsForA.listFixedElements(foreignRoom!.id)).rejects.toThrow(expectedError);
     await expect(actionsForA.listLayoutElements(eventA!.id, foreignRoom!.id)).rejects.toThrow(expectedError);
@@ -136,7 +136,7 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     // event.", which would hide a genuine DB failure behind a misleading
     // authorization message.
     await expect(actions.listFixedElements("not-a-valid-uuid")).rejects.not.toThrow(
-      "Room is not assigned to this event."
+      "Салата не е доделена на овој настан."
     );
 
     await admin.from("venues").delete().eq("id", venue!.id);

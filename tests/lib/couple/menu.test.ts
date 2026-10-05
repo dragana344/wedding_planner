@@ -91,7 +91,7 @@ describe("lib/couple/menu", () => {
 
     await expect(
       setEventMenuSelection(event!.id, { mode: "template", menuTemplateId: otherTemplate!.id })
-    ).rejects.toThrow("Menu template does not belong to this venue.");
+    ).rejects.toThrow("Менито не припаѓа на овој локал.");
 
     const { data: eventRow } = await admin.from("events").select("menu_template_id").eq("id", event!.id).single();
     expect(eventRow!.menu_template_id).toBeNull();

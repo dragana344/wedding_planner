@@ -26,7 +26,7 @@ export function PricingCardsEditor({ cards }: { cards: PricingCardRow[] }) {
         </div>
         <p className="s1-empty" style={{ paddingBottom: 0 }}>
           Ова се картичките во делот „Цени“ на почетната страница. Промените се гледаат веднаш по зачувување. Тие се само текст: што смее
-          секоја сала се поставува во „Нивоа“.
+          секој локал се поставува во „Нивоа“.
         </p>
         {cards.length === 0 ? <p className="s1-empty">Нема картички. Додадете ја првата подолу.</p> : null}
         {cards.map((card) => (

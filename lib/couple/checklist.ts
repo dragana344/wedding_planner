@@ -174,7 +174,7 @@ async function assertItemBelongsToEvent(
     .eq("event_id", eventId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Checklist item not found.");
+  if (!data) throw new Error("Задачата не постои.");
 }
 
 export async function addSubtask(eventId: string, itemId: string, title: string): Promise<ChecklistSubtask> {

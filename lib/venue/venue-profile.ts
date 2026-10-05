@@ -53,7 +53,15 @@ export function venueLogoUrl(client: SupabaseClient, logoPath: string | null): s
   return client.storage.from(LOGO_BUCKET).getPublicUrl(logoPath).data.publicUrl;
 }
 
+export const VENUE_PHONE_ERROR = "Внесете важечки телефонски број.";
+
+/** Digits with the usual separators, e.g. "+389 70 123 456" or "(02) 3123-456". */
+export function isPhoneNumber(value: string): boolean {
+  return /^\+?[\d\s()\/-]{6,24}$/.test(value) && value.replace(/\D/g, "").length >= 6;
+}
+
 export async function updateVenueProfile(venueId: string, input: { address: string | null; phone: string | null }): Promise<void> {
+  if (input.phone?.trim() && !isPhoneNumber(input.phone.trim())) throw new Error(VENUE_PHONE_ERROR);
   const { data, error } = await resolveSupabaseClient()
     .from("venues")
     .update({ address: input.address?.trim() || null, phone: input.phone?.trim() || null })

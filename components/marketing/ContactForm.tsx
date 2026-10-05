@@ -22,12 +22,12 @@ export function ContactForm() {
       });
       if (!response.ok) {
         const { error: msg } = await response.json();
-        setError(msg ?? "Failed to send message.");
+        setError(msg ?? "Пораката не се испрати. Обидете се повторно.");
         return;
       }
       setSent(true);
     } catch {
-      setError("Failed to send message.");
+      setError("Пораката не се испрати. Обидете се повторно.");
     } finally {
       setIsSubmitting(false);
     }

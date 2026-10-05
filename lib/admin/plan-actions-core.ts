@@ -35,7 +35,7 @@ async function check<T>(p: PromiseLike<{ error: unknown; data?: T | null }>): Pr
 const NAME_TAKEN = "Веќе постои ниво со тоа име.";
 const NOT_FOUND = "Нивото не постои.";
 const DEFAULT_UNDELETABLE = "Стандардното ниво не може да се избрише.";
-const IN_USE = "Нивото го користат сали. Прво преместете ги.";
+const IN_USE = "Нивото го користат локали. Прво преместете ги.";
 
 // Postgres unique_violation (plans.name is `unique`, 0048).
 function throwIfUniqueViolation(error: { code?: string } | null): void {

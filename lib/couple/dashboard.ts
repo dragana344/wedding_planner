@@ -62,7 +62,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   let menuStatus: CoupleEventSummary["menuStatus"] = { kind: "none" };
   if (event.menu_template_id) {
     const { data: template } = await client.from("menu_templates").select("name").eq("id", event.menu_template_id).single();
-    menuStatus = { kind: "template", name: template?.name ?? "Unknown menu" };
+    menuStatus = { kind: "template", name: template?.name ?? "Непознато мени" };
   } else {
     const { count } = await client
       .from("event_custom_menu_items")
@@ -86,7 +86,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     event_date: event.event_date,
     event_type: event.event_type,
     guest_count_estimate: event.guest_count_estimate,
-    venue_name: venue?.name ?? "Unknown venue",
+    venue_name: venue?.name ?? "Непознат локал",
     rooms,
     seatedCount,
     menuStatus,

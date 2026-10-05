@@ -48,7 +48,7 @@ async function check<T>(p: PromiseLike<{ error: unknown; data?: T | null }>): Pr
 async function requireVenueStaff(venueId: string, userId: string): Promise<void> {
   const { data, error } = await db().from("venue_staff").select("user_id").eq("venue_id", venueId).eq("user_id", userId).maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Корисникот не е вработен во оваа сала.");
+  if (!data) throw new Error("Корисникот не е вработен во овој локал.");
 }
 
 /**
@@ -59,7 +59,7 @@ async function requireVenueStaff(venueId: string, userId: string): Promise<void>
  */
 async function updateVenueOrThrow(venueId: string, patch: Record<string, unknown>): Promise<void> {
   const rows = await check<{ id: string }[]>(db().from("venues").update(patch).eq("id", venueId).select("id"));
-  if (!rows || rows.length === 0) throw new Error("Салата не постои.");
+  if (!rows || rows.length === 0) throw new Error("Локалот не постои.");
 }
 
 export const venueSchemas = {
@@ -98,7 +98,7 @@ export const venueActionCore = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async setPlan(i: z.infer<typeof venueSchemas.setPlan>, _ctx: AdminContext) {
     const before = await check<{ plan_id: string } | null>(db().from("venues").select("plan_id").eq("id", i.venueId).maybeSingle());
-    if (!before) throw new Error("Салата не постои.");
+    if (!before) throw new Error("Локалот не постои.");
     await updateVenueOrThrow(i.venueId, { plan_id: i.planId });
     revalidatePathSafe(`/admin/venues/${i.venueId}`);
     return {
@@ -163,9 +163,9 @@ export const venueActionCore = {
 
   async remove(i: z.infer<typeof venueSchemas.remove>, ctx: AdminContext) {
     const { data: venue } = await db().from("venues").select("name").eq("id", i.venueId).single();
-    if (!venue || venue.name !== i.confirmName) throw new Error("Внесете го точното име на салата.");
+    if (!venue || venue.name !== i.confirmName) throw new Error("Внесете го точното име на локалот.");
     const deleted = await deleteVenueAccount(i.venueId, { actorId: ctx.adminUserId, requestId: ctx.requestId });
-    if (!deleted) throw new Error("Салата не постои.");
+    if (!deleted) throw new Error("Локалот не постои.");
     // No top-level venueId: the row is gone by the time this audit entry is
     // written (audit_log has no FK to venues, so this is only a style
     // choice — deleteVenueAccount already wrote its own audit row for the

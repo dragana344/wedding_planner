@@ -556,7 +556,7 @@ describe("public routes", () => {
       contactRoute.POST,
       req("POST", { name: "A", email: "a@b.mk", message: "x".repeat(5001) }, { couple: false }),
     );
-    expect(res).toEqual({ status: 400, body: { error: "Name, email, or message is too long." } });
+    expect(res).toEqual({ status: 400, body: { error: "Името, е-поштата или пораката се предолги." } });
     expect(contact.submitContactMessage).not.toHaveBeenCalled();
   });
 });

@@ -22,6 +22,8 @@ import { AllTablesView } from "@/components/seating/AllTablesView";
 import { occupancyOf, OCCUPANCY_COLORS, OCCUPANCY_LABELS, type Occupancy } from "@/lib/seating/occupancy";
 import { tableTitle, type RoomSeating, type SeatInput } from "@/lib/seating/types";
 import { venueHistoryActions } from "@/lib/venue/floorplan-history";
+import { errorMessage } from "@/lib/venue/user-error";
+import { openSpot } from "@/lib/venue/open-spot";
 
 const PALETTE_BUTTON_CLASS =
   "rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:text-neutral-700";
@@ -182,7 +184,7 @@ export function EventSeatingPage({
         setConfirmedAt(await actions.getConfirmedAt!(eventId, room.id));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа ажурирањето на потврдата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа ажурирањето на потврдата. Обидете се повторно."));
     } finally {
       setIsTogglingConfirm(false);
     }
@@ -206,15 +208,19 @@ export function EventSeatingPage({
         event_id: eventId,
         room_id: room.id,
         element_type: type,
-        x_cm: Math.max(0, (room.width_cm - 200) / 2),
-        y_cm: Math.max(0, (room.height_cm - 150) / 2),
+        ...openSpot(
+          { x_cm: Math.max(0, (room.width_cm - 200) / 2), y_cm: Math.max(0, (room.height_cm - 150) / 2) },
+          { width_cm: 200, length_cm: 150 },
+          { width_cm: room.width_cm, height_cm: room.height_cm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: 200,
         length_cm: 150,
       });
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа додавањето на елементот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа додавањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -231,8 +237,12 @@ export function EventSeatingPage({
         element_type: "table",
         table_type_id: specialTableType.id,
         table_role: role,
-        x_cm: Math.max(0, (room.width_cm - specialTableType.width_cm) / 2),
-        y_cm: 100,
+        ...openSpot(
+          { x_cm: Math.max(0, (room.width_cm - specialTableType.width_cm) / 2), y_cm: 100 },
+          { width_cm: specialTableType.width_cm, length_cm: specialTableType.length_cm },
+          { width_cm: room.width_cm, height_cm: room.height_cm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: specialTableType.width_cm,
         length_cm: specialTableType.length_cm,
         label: null,
@@ -240,7 +250,7 @@ export function EventSeatingPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа додавањето на масата. Обидете се повторно."));
     }
   }
 
@@ -251,7 +261,7 @@ export function EventSeatingPage({
       await actions.relabelElement(id, label.trim() || null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на ознаката.");
+      setError(errorMessage(err, "Не успеа зачувувањето на ознаката."));
     }
   }
 
@@ -267,8 +277,12 @@ export function EventSeatingPage({
         room_id: room.id,
         element_type: "table",
         table_type_id: tableType.id,
-        x_cm: Math.max(0, (room.width_cm - tableType.width_cm) / 2),
-        y_cm: Math.max(0, (room.height_cm - tableType.length_cm) / 2),
+        ...openSpot(
+          { x_cm: Math.max(0, (room.width_cm - tableType.width_cm) / 2), y_cm: Math.max(0, (room.height_cm - tableType.length_cm) / 2) },
+          { width_cm: tableType.width_cm, length_cm: tableType.length_cm },
+          { width_cm: room.width_cm, height_cm: room.height_cm },
+          [...fixedElements, ...layoutElements],
+        ),
         width_cm: tableType.width_cm,
         length_cm: tableType.length_cm,
         label: null,
@@ -277,7 +291,7 @@ export function EventSeatingPage({
       await refresh();
       setSelectedId(created.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа додавањето на масата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа додавањето на масата. Обидете се повторно."));
     }
   }
 
@@ -288,7 +302,7 @@ export function EventSeatingPage({
       await actions.moveElement(id, xCm, yCm);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа поместувањето на елементот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа поместувањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -299,7 +313,7 @@ export function EventSeatingPage({
       await actions.resizeElement(id, widthCm, heightCm);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа менувањето на големината на елементот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа менувањето на големината на елементот. Обидете се повторно."));
     }
   }
 
@@ -313,7 +327,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа бришењето на елементот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа бришењето на елементот. Обидете се повторно."));
     }
   }
 
@@ -324,7 +338,7 @@ export function EventSeatingPage({
       await actions.rotateElement(id, rotationDeg);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа ротирањето на елементот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа ротирањето на елементот. Обидете се повторно."));
     }
   }
 
@@ -338,7 +352,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа враќањето на стандардниот распоред. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа враќањето на стандардниот распоред. Обидете се повторно."));
     }
   }
 
@@ -352,7 +366,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Нема што да се врати.");
+      setError(errorMessage(err, "Нема што да се врати."));
     } finally {
       setIsUndoing(false);
     }
@@ -367,7 +381,7 @@ export function EventSeatingPage({
       setSelectedId(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Нема што да се повтори.");
+      setError(errorMessage(err, "Нема што да се повтори."));
     } finally {
       setIsRedoing(false);
     }
@@ -409,7 +423,7 @@ export function EventSeatingPage({
       setGroupPick([]);
       await refreshHistory();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа групирањето на масите.");
+      setError(errorMessage(err, "Не успеа групирањето на масите."));
     }
   }
 
@@ -420,7 +434,7 @@ export function EventSeatingPage({
       setLayoutElements(await actions.ungroup(eventId, room.id, groupId));
       await refreshHistory();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа разгрупирањето.");
+      setError(errorMessage(err, "Не успеа разгрупирањето."));
     }
   }
 
@@ -741,7 +755,7 @@ export function EventSeatingPage({
               } catch (err) {
                 if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
                 setSeatVersion((v) => v + 1);
-                setSeatNotice(err instanceof Error ? err.message : "Не успеа зачувувањето на листата.");
+                setSeatNotice(errorMessage(err, "Не успеа зачувувањето на листата."));
               }
             }}
           />

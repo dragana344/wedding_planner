@@ -23,10 +23,12 @@ export const RATE_LIMITS = {
   coupleLogin: { bucket: "couple-login", limit: 10, windowSeconds: 60, failClosed: true },
   venueSignup: { bucket: "venue-signup", limit: 5, windowSeconds: 3600, failClosed: true },
   contactForm: { bucket: "contact-form", limit: 5, windowSeconds: 3600, failClosed: true },
-  rsvp: { bucket: "rsvp", limit: 20, windowSeconds: 3600, failClosed: false },
+  // Keyed per invitation + IP. A whole wedding shares the venue's Wi-Fi (one
+  // public IP), so these two are sized for a few hundred guests in an hour.
+  rsvp: { bucket: "rsvp", limit: 300, windowSeconds: 3600, failClosed: false },
   invitationPhoto: { bucket: "invitation-photo", limit: 20, windowSeconds: 3600, failClosed: false },
-  // A16 "Каде седам?": name guesses per IP per invitation.
-  seatLookup: { bucket: "seat-lookup", limit: 30, windowSeconds: 3600, failClosed: false },
+  // A16 "Каде седам?": name lookups per IP per invitation.
+  seatLookup: { bucket: "seat-lookup", limit: 600, windowSeconds: 3600, failClosed: false },
 } satisfies Record<string, RateLimitRule>;
 
 /** Counts one hit for `key` in the current window and returns the window's total. */

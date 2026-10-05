@@ -22,7 +22,7 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
           <h2 className="panel-t">Настани</h2>
         </div>
         {venue.events.length === 0 ? (
-          <p className="s1-empty">Нема настани за оваа сала.</p>
+          <p className="s1-empty">Нема настани за овој локал.</p>
         ) : (
           <table className="s1-tbl">
             <thead>

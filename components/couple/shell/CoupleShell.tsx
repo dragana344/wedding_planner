@@ -11,6 +11,7 @@ import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
 import { buildCoupleNavItems, matchCoupleNavItem } from "./nav";
+import { formatMkDate } from "@/lib/date";
 
 export function CoupleShell({
   coupleNames,
@@ -114,7 +115,7 @@ export function CoupleShell({
               <Icon name="cal" size="lg" style={{ color: "var(--ink-2)" }} />
               <div>
                 <div className="meta-lab">Датум на настанот</div>
-                <div className="meta-val">{eventDate}</div>
+                <div className="meta-val">{formatMkDate(eventDate)}</div>
               </div>
             </div>
             <div className="meta-item">

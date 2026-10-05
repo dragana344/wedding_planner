@@ -8,6 +8,7 @@ import {
   uploadVenueLogo,
   LOGO_TYPE_ERROR,
 } from "@/lib/venue/venue-profile";
+import { errorMessage } from "@/lib/venue/user-error";
 
 /** Settings → venue profile (B10): address, phone and the logo used on printed plans and invitations. */
 export function VenueProfileForm({
@@ -37,7 +38,7 @@ export function VenueProfileForm({
       await updateVenueProfile(venueId, { address, phone });
       setStatus("Зачувано.");
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Не успеа зачувувањето. Обидете се повторно.");
+      setStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setSaving(false);
     }
@@ -53,7 +54,7 @@ export function VenueProfileForm({
       await checkLogoFile(file);
       setLogoUrl(await uploadVenueLogo(venueId, file));
     } catch (err) {
-      setLogoStatus(err instanceof Error ? err.message : LOGO_TYPE_ERROR);
+      setLogoStatus(errorMessage(err, LOGO_TYPE_ERROR));
     } finally {
       setUploading(false);
     }
@@ -65,7 +66,7 @@ export function VenueProfileForm({
       await removeVenueLogo(venueId);
       setLogoUrl(null);
     } catch (err) {
-      setLogoStatus(err instanceof Error ? err.message : "Не успеа отстранувањето на логото.");
+      setLogoStatus(errorMessage(err, "Не успеа отстранувањето на логото."));
     }
   }
 

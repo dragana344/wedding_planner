@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin/guard";
 import { Icon } from "@/components/venue/shell/Icon";
 import { getOverviewStats, listAudit } from "@/lib/admin/queries";
+import { formatMkDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function OverviewPage() {
   await requireAdmin({ page: true });
   const [stats, audit] = await Promise.all([getOverviewStats(), listAudit({ actorType: "admin" })]);
   const tiles = [
-    { icon: "tables", label: "Сали", value: stats.venues },
+    { icon: "tables", label: "Локали", value: stats.venues },
     { icon: "check", label: "Активни (30 дена)", value: stats.activeVenues },
     { icon: "ban", label: "Блокирани", value: stats.blockedVenues },
     { icon: "cal-dot", label: "Настани (30 дена)", value: stats.upcomingEvents },
@@ -42,13 +43,13 @@ export default async function OverviewPage() {
           <thead>
             <tr>
               <th>Недела од</th>
-              <th>Нови сали</th>
+              <th>Нови локали</th>
             </tr>
           </thead>
           <tbody>
             {stats.signupsByWeek.map((w) => (
               <tr key={w.week}>
-                <td>{w.week}</td>
+                <td>{formatMkDate(w.week)}</td>
                 <td>{w.count}</td>
               </tr>
             ))}

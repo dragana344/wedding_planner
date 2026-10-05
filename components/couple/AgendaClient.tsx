@@ -119,7 +119,7 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
         ) : (
           <div key={item.id} className="ev" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              {item.time ? <span style={{ marginRight: 8, color: "var(--muted)", fontSize: 13.5 }}>{item.time}</span> : null}
+              {item.time ? <span style={{ marginRight: 8, color: "var(--muted)", fontSize: 13.5 }}>{item.time.slice(0, 5)}</span> : null}
               <span style={{ fontWeight: 700 }}>{item.title}</span>
               {item.notes ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{item.notes}</p> : null}
             </div>

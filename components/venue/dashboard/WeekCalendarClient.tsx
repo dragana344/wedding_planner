@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
@@ -456,9 +456,19 @@ function TimeGrid({
   eventsByDate: Map<string, EventDetail[]>;
   rooms: RoomWithSeatTotal[];
 }) {
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const showNowLine = nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60;
+  // Read the clock only in the browser: rendered on the server it is the
+  // server's time zone (UTC), which drew the line two hours early.
+  const [nowMinutes, setNowMinutes] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const showNowLine = nowMinutes !== null && nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60;
 
   return (
     <div className="cal-grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
@@ -492,7 +502,7 @@ function TimeGrid({
             {iso === todayIso && showNowLine ? (
               <div
                 className="cal-now-line"
-                style={{ top: ((nowMinutes - HOUR_START * 60) / 60) * ROW_HEIGHT }}
+                style={{ top: (((nowMinutes ?? 0) - HOUR_START * 60) / 60) * ROW_HEIGHT }}
               />
             ) : null}
             {dayEvents.map((ev) => {
@@ -504,7 +514,7 @@ function TimeGrid({
               const roomNames = ev.room_ids.map((id) => rooms.find((r) => r.id === id)?.name).filter(Boolean).join(", ");
               return (
                 <Link
-                  href={`/venue/events/${ev.id}`}
+                  href={`/venue/events?event=${ev.id}`}
                   key={ev.id}
                   className="cal-event"
                   style={{ top, height, background: `${type.color}22`, borderLeftColor: type.color, color: type.color }}

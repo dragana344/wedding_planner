@@ -40,7 +40,7 @@ describe("admin venue actions", () => {
   });
 
   it("refuses deletion unless the typed name matches", async () => {
-    await expect(venueActionCore.remove({ venueId, confirmName: "погрешно" }, ctx)).rejects.toThrow("Внесете го точното име на салата.");
+    await expect(venueActionCore.remove({ venueId, confirmName: "погрешно" }, ctx)).rejects.toThrow("Внесете го точното име на локалот.");
   });
 
   it("refuses a staff action on a user who is not staff of the venue", async () => {
@@ -55,10 +55,10 @@ describe("admin venue actions", () => {
 
   it("refuses to touch a venue that doesn't exist", async () => {
     const missingId = "22222222-3333-4000-8000-444444444444";
-    await expect(venueActionCore.rename({ venueId: missingId, name: "Нема" }, ctx)).rejects.toThrow("Салата не постои.");
-    await expect(venueActionCore.setPlan({ venueId: missingId, planId }, ctx)).rejects.toThrow("Салата не постои.");
-    await expect(venueActionCore.block({ venueId: missingId, reason: "тест" }, ctx)).rejects.toThrow("Салата не постои.");
-    await expect(venueActionCore.unblock({ venueId: missingId }, ctx)).rejects.toThrow("Салата не постои.");
+    await expect(venueActionCore.rename({ venueId: missingId, name: "Нема" }, ctx)).rejects.toThrow("Локалот не постои.");
+    await expect(venueActionCore.setPlan({ venueId: missingId, planId }, ctx)).rejects.toThrow("Локалот не постои.");
+    await expect(venueActionCore.block({ venueId: missingId, reason: "тест" }, ctx)).rejects.toThrow("Локалот не постои.");
+    await expect(venueActionCore.unblock({ venueId: missingId }, ctx)).rejects.toThrow("Локалот не постои.");
   });
 
   it("ignores a limit override on a switch feature (server-side clamp, not just the client's)", async () => {

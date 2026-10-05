@@ -22,7 +22,7 @@ async function assertRoomBelongsToEvent(client: SupabaseClient, eventId: string,
     .eq("room_id", roomId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Room is not assigned to this event.");
+  if (!data) throw new Error("Салата не е доделена на овој настан.");
 }
 
 /** The couple's view of one room: tables, seats and every guest with how many seats they hold (event-wide). */

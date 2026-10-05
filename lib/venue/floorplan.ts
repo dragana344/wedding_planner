@@ -549,7 +549,7 @@ export async function undoEventLayout(
   const snapshotMap = event.layout_undo_snapshot as Record<string, EventLayoutElement[]> | null;
   const snapshot = snapshotMap?.[roomId];
   if (!snapshot) {
-    throw new Error("No undo snapshot available for this event.");
+    throw new Error("Нема што да се врати за овој настан.");
   }
 
   const { error: deleteError } = await client

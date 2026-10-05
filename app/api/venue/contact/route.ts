@@ -16,7 +16,7 @@ export const POST = withPublic(
       await submitContactMessage({ name: body.name, email: body.email, message: body.message });
       return NextResponse.json({ ok: true });
     } catch (err) {
-      return errorResponse(err, "Failed to send message.", request);
+      return errorResponse(err, "Пораката не се испрати. Обидете се повторно.", request);
     }
   },
   { invalidJsonError: "Invalid JSON body", body: contactMessageBody, invalidBodyError: CONTACT_REQUIRED_ERROR },

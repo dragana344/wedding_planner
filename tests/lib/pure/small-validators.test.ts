@@ -1,0 +1,36 @@
+import { describe, it, expect } from "vitest";
+import { formatMkDate } from "@/lib/date";
+import { depositExceedsTotal } from "@/lib/venue/events";
+import { isPhoneNumber } from "@/lib/venue/venue-profile";
+
+describe("formatMkDate", () => {
+  it("writes an ISO date the way people read it", () => {
+    expect(formatMkDate("2026-11-14")).toBe("14 ноември 2026");
+    expect(formatMkDate("2027-01-05T10:00:00Z")).toBe("5 јануари 2027");
+  });
+  it("leaves anything else untouched", () => {
+    expect(formatMkDate("наскоро")).toBe("наскоро");
+    expect(formatMkDate("2026-13-01")).toBe("2026-13-01");
+  });
+});
+
+describe("depositExceedsTotal", () => {
+  it("flags a deposit above the agreed price", () => {
+    expect(depositExceedsTotal("120000", "200000")).toBe(true);
+  });
+  it("accepts a smaller or equal deposit, and blank fields", () => {
+    expect(depositExceedsTotal("120000", "120000")).toBe(false);
+    expect(depositExceedsTotal("120000", "20000")).toBe(false);
+    expect(depositExceedsTotal("", "20000")).toBe(false);
+    expect(depositExceedsTotal("120000", "")).toBe(false);
+  });
+});
+
+describe("isPhoneNumber", () => {
+  it("accepts the usual ways a number is written", () => {
+    for (const ok of ["070123456", "+389 70 123 456", "(02) 3123-456", "02/3123456"]) expect(isPhoneNumber(ok), ok).toBe(true);
+  });
+  it("refuses text and numbers that are too short", () => {
+    for (const bad of ["abc-not-a-phone", "12345", "+", "070 123 456 ext. 5"]) expect(isPhoneNumber(bad), bad).toBe(false);
+  });
+});

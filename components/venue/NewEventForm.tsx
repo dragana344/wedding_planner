@@ -9,6 +9,8 @@ import { Icon } from "@/components/venue/shell/Icon";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuTemplate } from "@/lib/venue/menus";
 import type { EventStatus, EventType } from "@/lib/venue/events";
+import { errorMessage } from "@/lib/venue/user-error";
+import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
 
 export function NewEventForm({
   venueId,
@@ -60,6 +62,10 @@ export function NewEventForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (depositExceedsTotal(totalPrice, depositPaid)) {
+      setError(DEPOSIT_OVER_TOTAL_ERROR);
+      return;
+    }
     const contacts = parseCoupleContacts({ contact_email: contactEmail, contact_phone: contactPhone, contact_email_2: contactEmail2 });
     if (!contacts.ok) {
       setError(contacts.error);
@@ -100,7 +106,7 @@ export function NewEventForm({
 
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа креирањето на настанот. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа креирањето на настанот. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }

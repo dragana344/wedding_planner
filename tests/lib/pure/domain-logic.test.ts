@@ -45,6 +45,23 @@ describe("matchGuestByName (public RSVP)", () => {
     expect(matchGuestByName(guests, "Марко Илиевски")).toBeNull();
     expect(matchGuestByName(guests, "Непознат Гостин")).toBeNull();
   });
+  it("matches a Latin spelling of a Cyrillic name, and extra spaces", () => {
+    expect(matchGuestByName(guests, "Ana Petrovska")?.id).toBe("1");
+    expect(matchGuestByName(guests, "ANA   PETROVSKA")?.id).toBe("1");
+    const more = [{ id: "7", full_name: "Жаклина Чочова" }, { id: "8", full_name: "Ѓорѓи Шишков" }, { id: "9", full_name: "Petar Petrovski" }];
+    expect(matchGuestByName(more, "Zaklina Cocova")?.id).toBe("7");
+    expect(matchGuestByName(more, "Zhaklina Chochova")?.id).toBe("7");
+    expect(matchGuestByName(more, "Žaklina Čočova")?.id).toBe("7");
+    expect(matchGuestByName(more, "Gjorgji Shishkov")?.id).toBe("8");
+    expect(matchGuestByName(more, "Петар Петровски")?.id).toBe("9");
+  });
+  it("still refuses a Latin spelling that fits two guests", () => {
+    expect(matchGuestByName(guests, "Marko Ilievski")).toBeNull();
+    expect(matchGuestByName([{ id: "1", full_name: "Жана Зорова" }, { id: "2", full_name: "Зана Зорова" }], "Zana Zorova")).toBeNull();
+  });
+  it("prefers the exact spelling over a loose one", () => {
+    expect(matchGuestByName([{ id: "1", full_name: "Жана Зорова" }, { id: "2", full_name: "Зана Зорова" }], "Зана Зорова")?.id).toBe("2");
+  });
 });
 
 describe("computeChecklistStats", () => {

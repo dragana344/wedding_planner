@@ -90,7 +90,7 @@ describe("ReservationsClient", () => {
     mockFloorPlan();
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
     vi.spyOn(reservations, "createReservation").mockRejectedValue(
-      new Error("One or more selected tables are already reserved for that time.")
+      new Error("Една или повеќе од избраните маси се веќе резервирани за тоа време.")
     );
 
     render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
@@ -100,7 +100,7 @@ describe("ReservationsClient", () => {
     fireEvent.change(screen.getByPlaceholderText("Телефон", { exact: true }), { target: { value: "070111222" } });
     fireEvent.click(screen.getByRole("button", { name: /резервирај маса/i }));
 
-    expect(await screen.findByText(/already reserved/i)).toBeInTheDocument();
+    expect(await screen.findByText(/веќе резервирани/i)).toBeInTheDocument();
   });
 
   it("marks a table red when it is genuinely reserved (occupied now / imminent), and yellow when only limited", async () => {
@@ -152,11 +152,27 @@ describe("ReservationsClient", () => {
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
     const deleteSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
 
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
     render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
     await screen.findByText("Ana Ivanova");
     fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
     await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("res1"));
+    expect(confirmSpy).toHaveBeenCalledWith("Да се откаже резервацијата на Ana Ivanova? Ова не може да се врати.");
     expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument();
+  });
+
+  it("keeps the reservation when the cancel question is declined", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
+    const deleteSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
+    await screen.findByText("Ana Ivanova");
+    fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("Ana Ivanova")).toBeInTheDocument();
   });
 
   it("moves reserved -> seated as a status update, then freeing the table deletes the reservation entirely", async () => {

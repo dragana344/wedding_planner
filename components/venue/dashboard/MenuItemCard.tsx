@@ -14,6 +14,7 @@ import {
   type MenuItemTier,
   type MenuItemUpdateInput,
 } from "@/lib/venue/menus";
+import { errorMessage } from "@/lib/venue/user-error";
 
 const COURSE_LABELS: Record<MenuItem["course"], string> = {
   starter: "Предјадење",
@@ -119,7 +120,7 @@ function MenuItemDetailModal({
       const path = await uploadMenuItemPhoto(venueId, item.id, file);
       setPhotoPath(path);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа прикачувањето на фотографијата. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа прикачувањето на фотографијата. Обидете се повторно."));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -154,7 +155,7 @@ function MenuItemDetailModal({
       onChanged();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на промените. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа зачувувањето на промените. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }
@@ -168,7 +169,7 @@ function MenuItemDetailModal({
       onChanged();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа бришењето на јадењето. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа бришењето на јадењето. Обидете се повторно."));
       setIsDeleting(false);
     }
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addMenuItem, updateMenuItem, uploadMenuItemPhoto, type MenuItem, type MenuItemTier } from "@/lib/venue/menus";
 import { AllergenTagEditor } from "@/components/venue/dashboard/AllergenTagEditor";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function MenuItemForm({
   venueId,
@@ -71,7 +72,7 @@ export function MenuItemForm({
       setPrice("");
       setPhotoFile(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не успеа додавањето на јадењето. Обидете се повторно.");
+      setError(errorMessage(err, "Не успеа додавањето на јадењето. Обидете се повторно."));
     } finally {
       setIsSubmitting(false);
     }

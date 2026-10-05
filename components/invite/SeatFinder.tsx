@@ -67,7 +67,7 @@ export function SeatFinder({ slug, color, lineColor }: { slug: string; color: st
       </button>
       {result ? (
         <p role="status" style={{ margin: 0, fontSize: 18, color }}>
-          {result.seat ? `Вашето место: ${seatText(result.seat)}` : "Не најдовме маса за тоа име. Проверете како е напишано или прашајте ги домаќините."}
+          {result.seat ? `Вашето место: ${seatText(result.seat)}` : "Не најдовме маса за тоа име. Можеби распоредот уште не е готов; проверете како е напишано името или прашајте ги домаќините."}
         </p>
       ) : null}
       {error ? (

@@ -87,7 +87,7 @@ export async function setEventMenuSelection(
       .eq("id", selection.menuTemplateId)
       .eq("venue_id", event.venue_id)
       .maybeSingle();
-    if (!template) throw new Error("Menu template does not belong to this venue.");
+    if (!template) throw new Error("Менито не припаѓа на овој локал.");
 
     // REL-005: set template, clear custom picks, prune quantities, atomically.
     const { error } = await client.rpc("set_event_menu_template", {

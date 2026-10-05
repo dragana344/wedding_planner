@@ -14,6 +14,7 @@ import {
   type RoomWithSeatTotal,
   type TableType,
 } from "@/lib/venue/rooms";
+import { errorMessage } from "@/lib/venue/user-error";
 
 export function SpaceCard({ room, onChanged }: { room: RoomWithSeatTotal; onChanged: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -74,7 +75,7 @@ function RoomDetailModal({
       setIsEditingName(false);
       onChanged();
     } catch (err) {
-      setNameError(err instanceof Error ? err.message : "Не успеа преименувањето. Обидете се повторно.");
+      setNameError(errorMessage(err, "Не успеа преименувањето. Обидете се повторно."));
     } finally {
       setIsSavingName(false);
     }
@@ -88,7 +89,7 @@ function RoomDetailModal({
       onChanged();
       onClose();
     } catch (err) {
-      setDeleteSpaceError(err instanceof Error ? err.message : "Не успеа бришењето на просторијата. Обидете се повторно.");
+      setDeleteSpaceError(errorMessage(err, "Не успеа бришењето на просторијата. Обидете се повторно."));
       setIsDeletingSpace(false);
     }
   }
@@ -103,7 +104,7 @@ function RoomDetailModal({
       await refresh();
       onChanged();
     } catch (err) {
-      setDeleteTableTypeError(err instanceof Error ? err.message : "Не успеа бришењето на видот маса. Обидете се повторно.");
+      setDeleteTableTypeError(errorMessage(err, "Не успеа бришењето на видот маса. Обидете се повторно."));
     }
   }
 

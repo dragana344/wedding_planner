@@ -10,7 +10,10 @@ import { ADMIN_NAV, matchAdminNav } from "./nav";
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const active = matchAdminNav(pathname);
+  // On the admin host the address bar shows "/venues" while links and the
+  // nav use "/admin/venues" (proxy.ts rewrites one to the other), so a page
+  // opened directly or refreshed has no "/admin" prefix to match on.
+  const active = matchAdminNav(pathname.startsWith("/admin") ? pathname : `/admin${pathname === "/" ? "" : pathname}`);
 
   async function signOut() {
     await createBrowserSupabaseClient().auth.signOut({ scope: "local" });

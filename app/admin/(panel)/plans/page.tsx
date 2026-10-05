@@ -29,7 +29,7 @@ export default async function PlansPage() {
                 <th>Ниво</th>
                 <th>Стандардно</th>
                 <th>Јавно</th>
-                <th>Сали</th>
+                <th>Локали</th>
               </tr>
             </thead>
             <tbody>

@@ -35,7 +35,7 @@ describe("PlanAdminPanels — make-default confirmation (review finding)", () =>
   it("warns and requires typing the plan name when a switch feature is locked, then calls makeDefaultPlan", async () => {
     render(<PlanAdminPanels plan={planWith(["seating"])} />);
     expect(
-      screen.getByText("Внимание: во ова ниво се заклучени 1 функција (Распоред на седење). Секоја нова сала ќе почне без нив.")
+      screen.getByText("Внимание: во ова ниво се заклучени 1 функција (Распоред на седење). Секој нов локал ќе почне без нив.")
     ).toBeInTheDocument();
 
     const section = screen.getByRole("button", { name: "Направи стандардно" }).closest("div")!;
@@ -49,7 +49,7 @@ describe("PlanAdminPanels — make-default confirmation (review finding)", () =>
   it("lists every locked switch, in feature-catalogue order, with correct plural", () => {
     render(<PlanAdminPanels plan={planWith(["seating", "budget"])} />);
     expect(
-      screen.getByText("Внимание: во ова ниво се заклучени 2 функции (Распоред на седење, Буџет). Секоја нова сала ќе почне без нив.")
+      screen.getByText("Внимание: во ова ниво се заклучени 2 функции (Распоред на седење, Буџет). Секој нов локал ќе почне без нив.")
     ).toBeInTheDocument();
   });
 

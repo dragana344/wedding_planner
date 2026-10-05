@@ -126,7 +126,8 @@ export default async function VenueHomePage() {
       nextMonthLabel={`${MK_MONTHS[nextMonthDate.getMonth()]} ${nextMonthDate.getFullYear()}`}
       stats={{
         todayCount: todayEvents.length,
-        todayGuests: todayEvents.reduce((s, e) => s + (e.guest_count_estimate ?? 0), 0),
+        // Cancelled events bring no guests (the occupancy tile beside it skips them too).
+        todayGuests: todayEvents.filter((e) => e.status !== "cancelled").reduce((s, e) => s + (e.guest_count_estimate ?? 0), 0),
         // Occupancy compares seats against the busiest moment, not the day's
         // total footfall — sequential events reuse the same seats.
         peakGuests: peakConcurrentGuests(todayEvents),

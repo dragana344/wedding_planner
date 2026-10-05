@@ -8,6 +8,7 @@ import { listTableTypes, type Room, type TableType } from "@/lib/venue/rooms";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import type { RoomSeating } from "@/lib/seating/types";
+import { errorMessage } from "@/lib/venue/user-error";
 
 /**
  * Full-size overlay for editing one room's seating for an event, opened from
@@ -49,7 +50,7 @@ export function EventSeatingOverlay({
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Не успеа вчитувањето на распоредот на седење.");
+          setError(errorMessage(err, "Не успеа вчитувањето на распоредот на седење."));
         }
       });
     return () => {
