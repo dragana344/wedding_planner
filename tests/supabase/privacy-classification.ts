@@ -77,6 +77,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   plan_features: { plan_id: N, feature_key: N, enabled: N, limit_value: N },
   plans: { id: N, name: N, description: N, sort_order: N, is_default: N, is_public: N, created_at: N },
   platform_settings: { id: N, maintenance_mode: N, updated_at: N, updated_by: N },
+  pricing_cards: { id: N, name: N, price: N, period: N, features: N, is_featured: N, is_published: N, sort_order: N, created_at: N, updated_at: N },
   rate_limits: { key: N, window_start: N, hits: N },
   reservation_tables: { reservation_id: N, layout_element_id: N, span: N, active: N },
   reservations: {

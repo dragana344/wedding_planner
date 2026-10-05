@@ -50,6 +50,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "venue_feature_overrides",
   "event_feature_overrides",
   "platform_settings",
+  "pricing_cards",
   "event_albums",
   "event_photos",
   "event_greetings",

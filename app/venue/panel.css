@@ -2836,3 +2836,52 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+/* ---------- admin panel: landing-page price cards (Ценовник) ---------- */
+.vp .s1-price-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+}
+.vp .s1-price-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.vp .s1-price-list {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.vp .s1-price-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 640px;
+  color: var(--ok);
+  font-weight: 800;
+}
+.vp .s1-price-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  font-size: 13.5px;
+}
+.vp .s1-price-foot label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.vp .s1-price-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

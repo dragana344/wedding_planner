@@ -464,3 +464,35 @@ export async function listAudit(filter: {
   }));
   return { rows: rows.slice(0, AUDIT_PAGE), hasMore: rows.length > AUDIT_PAGE };
 }
+
+export type PricingCardRow = {
+  id: string;
+  name: string;
+  price: string;
+  period: string | null;
+  features: string[];
+  isFeatured: boolean;
+  isPublished: boolean;
+  sortOrder: number;
+};
+
+/** Every landing-page price card, published or not, in display order (0085). */
+export async function listPricingCards(): Promise<PricingCardRow[]> {
+  await requireAdmin();
+  const { data, error } = await db()
+    .from("pricing_cards")
+    .select("id, name, price, period, features, is_featured, is_published, sort_order")
+    .order("sort_order")
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []).map((c) => ({
+    id: c.id as string,
+    name: c.name as string,
+    price: c.price as string,
+    period: c.period as string | null,
+    features: c.features as string[],
+    isFeatured: c.is_featured as boolean,
+    isPublished: c.is_published as boolean,
+    sortOrder: c.sort_order as number,
+  }));
+}

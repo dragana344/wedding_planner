@@ -1,24 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Montserrat, Nunito } from "next/font/google";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 import { ContactForm } from "@/components/marketing/ContactForm";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { LogoMark, Wordmark } from "@/components/marketing/BrandLogo";
+import { montserrat, nunito } from "@/components/marketing/fonts";
+import { DashboardPreview } from "@/components/marketing/DashboardPreview";
+import { getPricingCards } from "@/lib/marketing/pricing";
 import "./landing.css";
-
-// Cyrillic subsets are required: the whole page is in Macedonian.
-const montserrat = Montserrat({
-  subsets: ["latin", "cyrillic"],
-  weight: ["600", "700", "800"],
-  variable: "--font-montserrat",
-});
-// Rounded face for the Каде си? wordmark.
-const nunito = Nunito({
-  subsets: ["latin", "cyrillic"],
-  weight: ["700", "800", "900"],
-  variable: "--font-nunito",
-});
 
 export const metadata: Metadata = {
   title: "Каде си? — Платформа за организирање настани",
@@ -157,36 +146,6 @@ const STEPS = [
   },
 ];
 
-const PRICING = [
-  {
-    name: "Основен",
-    price: "1.500 ден",
-    period: "/ месечно",
-    features: ["1 локал", "До 2 простории", "Управување со настани", "Резервации", "Распоред на маси"],
-    featured: false,
-  },
-  {
-    name: "Про",
-    price: "3.500 ден",
-    period: "/ месечно",
-    features: [
-      "Сè од Основен",
-      "Менија и пакети",
-      "Буџет и чеклиста за парови",
-      "Дигитални покани со QR код",
-      "Известувања (наскоро)",
-    ],
-    featured: true,
-  },
-  {
-    name: "Премиум",
-    price: "По договор",
-    period: null,
-    features: ["Сè од Про", "Брендирање по мерка на локалот", "Извештаи и аналитика", "Приоритетна поддршка"],
-    featured: false,
-  },
-];
-
 const FAQ = [
   {
     q: "Дали треба картичка за да пробам?",
@@ -223,7 +182,12 @@ function Check() {
   );
 }
 
-export default function Home() {
+// The price cards come from the database (admin → Ценовник), so this page is
+// rendered per request rather than at build time.
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const pricing = await getPricingCards();
   return (
     <div className={`lp ${montserrat.variable} ${nunito.variable}`}>
       <RecoveryRedirect />
@@ -323,54 +287,13 @@ export default function Home() {
           </div>
           <div className="platform-grid">
             <div>
-              <div className="preview" aria-label="Пример од контролната табла">
+              <div className="preview">
                 <div className="preview-bar">
                   <span />
                   <span />
                   <span />
                 </div>
-                <div className="preview-body">
-                  <div className="preview-side">
-                    <div className="on">Контролна табла</div>
-                    <div>Настани</div>
-                    <div>Резервации</div>
-                    <div>Распоред на маси</div>
-                    <div>Мени / Пакети</div>
-                  </div>
-                  <div className="preview-main">
-                    <div className="stats">
-                      <div className="stat">
-                        <b>12</b>
-                        <span>Настани овој месец</span>
-                      </div>
-                      <div className="stat">
-                        <b>184</b>
-                        <span>Покането гости</span>
-                      </div>
-                      <div className="stat">
-                        <b>8</b>
-                        <span>Резервации денес</span>
-                      </div>
-                    </div>
-                    <div className="rows">
-                      <div className="row">
-                        <time>13:00</time>
-                        <span>Крштевка · Сала Лозја · 60 гости</span>
-                        <span className="pill pill-ok">Потврдено</span>
-                      </div>
-                      <div className="row">
-                        <time>19:00</time>
-                        <span>Свадба Ана &amp; Марко · 220 гости</span>
-                        <span className="pill pill-ok">Потврдено</span>
-                      </div>
-                      <div className="row">
-                        <time>20:30</time>
-                        <span>Маса 7 · 6 лица</span>
-                        <span className="pill pill-wait">Чека</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <DashboardPreview />
               </div>
               <p className="caption">Ова е контролната табла што ја добивате веднаш штом ќе се регистрирате. Бројките се пример.</p>
             </div>
@@ -413,37 +336,39 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="pricing" className="band">
-        <div className="wrap">
-          <div className="section-head">
-            <p className="eyebrow">Цени</p>
-            <h2>Планови</h2>
-            <p>Регистрацијата е бесплатна. Надградете кога ќе ви затреба повеќе.</p>
+      {pricing.length > 0 ? (
+        <section id="pricing" className="band">
+          <div className="wrap">
+            <div className="section-head">
+              <p className="eyebrow">Цени</p>
+              <h2>Планови</h2>
+              <p>Регистрацијата е бесплатна. Надградете кога ќе ви затреба повеќе.</p>
+            </div>
+            <div className="plans" data-count={pricing.length}>
+              {pricing.map((tier) => (
+                <article key={tier.id} className={`plan${tier.featured ? " featured" : ""}`}>
+                  {tier.featured ? <span className="badge">Препорачано</span> : null}
+                  <h3>{tier.name}</h3>
+                  <div className="price">
+                    {tier.price} {tier.period ? <small>{tier.period}</small> : null}
+                  </div>
+                  <ul>
+                    {tier.features.map((f, i) => (
+                      <li key={i}>
+                        <Check />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <a href="#contact" className={`btn ${tier.featured ? "btn-red" : "btn-ghost"}`}>
+                    Контактирајте нè
+                  </a>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="plans">
-            {PRICING.map((tier) => (
-              <article key={tier.name} className={`plan${tier.featured ? " featured" : ""}`}>
-                {tier.featured ? <span className="badge">Препорачано</span> : null}
-                <h3>{tier.name}</h3>
-                <div className="price">
-                  {tier.price} {tier.period ? <small>{tier.period}</small> : null}
-                </div>
-                <ul>
-                  {tier.features.map((f) => (
-                    <li key={f}>
-                      <Check />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <a href="#contact" className={`btn ${tier.featured ? "btn-red" : "btn-ghost"}`}>
-                  Контактирајте нè
-                </a>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="band band-tint">
         <div className="wrap">
