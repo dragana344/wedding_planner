@@ -257,6 +257,8 @@ export function GuestsClient({
 
   const openGuest = guests.find((g) => g.id === openGuestId) ?? null;
   const canSend = (g: Guest) => sendingEnabled && (!organizerSide || g.side === organizerSide);
+  // A co-organizer moves and deletes only their own side's guests (the API refuses the rest).
+  const canManage = (g: Guest) => !organizerSide || g.side === organizerSide;
 
   function renderGuestRow(guest: Guest) {
     const unsent = guest.invitation_sent_at === null;
@@ -318,7 +320,7 @@ export function GuestsClient({
               </option>
             ))}
           </select>
-          {isWedding ? (
+          {isWedding && canManage(guest) ? (
             <button
               type="button"
               onClick={() => handleSideChange(guest.id, guest.side === "bride" ? "groom" : "bride")}
@@ -329,9 +331,11 @@ export function GuestsClient({
               Премести на страната на {guest.side === "bride" ? "младоженецот" : "невестата"}
             </button>
           ) : null}
-          <button type="button" onClick={() => handleDelete(guest.id)} aria-label={`Избриши ${guest.full_name}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-            Избриши
-          </button>
+          {canManage(guest) ? (
+            <button type="button" onClick={() => handleDelete(guest.id)} aria-label={`Избриши ${guest.full_name}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+              Избриши
+            </button>
+          ) : null}
         </div>
       </div>
     );

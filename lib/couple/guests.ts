@@ -128,6 +128,20 @@ export async function updateGuestSide(eventId: string, guestId: string, side: Gu
   return data;
 }
 
+export const OTHER_SIDE_ERROR = "Како ко-организатор можете да менувате само гости од вашата страна.";
+
+/**
+ * A12: a co-organizer sees every guest but manages only their own side's.
+ * `organizerSide` is null for the couple's own login, which may do anything.
+ */
+export async function assertGuestOnSide(eventId: string, guestId: string, organizerSide: GuestSide | null): Promise<void> {
+  if (!organizerSide) return;
+  const client = createServiceRoleClient();
+  const { data, error } = await client.from("event_guests").select("side").eq("id", guestId).eq("event_id", eventId).maybeSingle();
+  if (error) throw error;
+  if (data && data.side !== organizerSide) throw new Error(OTHER_SIDE_ERROR);
+}
+
 export async function deleteGuest(eventId: string, guestId: string): Promise<void> {
   const client = createServiceRoleClient();
   const { error } = await client.from("event_guests").delete().eq("id", guestId).eq("event_id", eventId);

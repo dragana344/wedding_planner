@@ -19,7 +19,7 @@ function resendMock(status: number) {
 
 beforeEach(() => {
   process.env.RESEND_API_KEY = "re_test";
-  process.env.EMAIL_FROM = "КАДЕ СУМ? <no-reply@mail.example.com>";
+  process.env.EMAIL_FROM = "Каде си? <no-reply@mail.example.com>";
   process.env.CONTACT_NOTIFY_EMAIL = "team@example.com";
 });
 

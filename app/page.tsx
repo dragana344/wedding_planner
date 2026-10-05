@@ -12,7 +12,7 @@ import "./landing.css";
 
 export const metadata: Metadata = {
   title: "Каде си? — Платформа за организирање настани",
-  description: "Сè на едно место: настани, резервации, гости, музика, менија и повеќе.",
+  description: "Сè на едно место: настани, резервации, гости, покани, менија и повеќе.",
 };
 
 const FEATURES = [
@@ -47,11 +47,11 @@ const FEATURES = [
     ),
   },
   {
-    title: "Музика & Пакети",
-    desc: "најдете музичари, фотографи, услуги и пакети.",
+    title: "Менија & Пакети",
+    desc: "составете менија и пакети за секој настан.",
     icon: (
-      <svg viewBox="0 0 48 48" fill="var(--orange)">
-        <path d="M18 8l24-5v28.5a6.5 6.5 0 1 1-4-6V14l-16 3.4V37.5a6.5 6.5 0 1 1-4-6z" />
+      <svg viewBox="0 0 48 48" fill="none" stroke="var(--orange)" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 30h32M11 30a13 13 0 0 1 26 0M5 37h38M24 17v-4" />
       </svg>
     ),
   },
@@ -201,7 +201,7 @@ export default async function Home() {
             <Wordmark id="hero-word" className="hero-word" />
             <h1>Платформа за организирање на вашите посебни моменти</h1>
             <p className="hero-lead">
-              Сè на едно место: настани, резервации, гости, музика, менија и повеќе. Паметно, брзо и едноставно.
+              Сè на едно место: настани, резервации, гости, покани, менија и повеќе. Паметно, брзо и едноставно.
             </p>
             <div className="hero-ctas">
               <Link href="/signup" className="btn btn-red">

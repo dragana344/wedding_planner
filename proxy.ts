@@ -210,10 +210,10 @@ const MAINTENANCE_COOKIE = "maintenance_bypass";
 
 const MAINTENANCE_PAGE = `<!doctype html>
 <html lang="mk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Одржување — КАДЕ СУМ?</title>
+<title>Одржување — Каде си?</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#faf8f4;color:#1d1a16;font-family:Arial,Helvetica,sans-serif}
 main{max-width:28rem;padding:2rem;text-align:center}p{line-height:1.6;color:#5c554b}small{color:#8a8275}</style></head>
-<body><main><p style="letter-spacing:.2em;color:#a8842c;font-weight:bold">КАДЕ СУМ?</p>
+<body><main><p style="letter-spacing:.2em;color:#a8842c;font-weight:bold">Каде си?</p>
 <h1>Кратко одржување</h1><p>Ја подобруваме платформата. Обидете се повторно за неколку минути — вашите податоци се безбедни.</p>
 <small>We're doing a short maintenance. Please try again in a few minutes.</small></main></body></html>`;
 

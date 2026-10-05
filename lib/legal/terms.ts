@@ -11,13 +11,13 @@ const bi = (mk: string, en: string): Bi => ({ mk, en });
 const termsDocument: BiDocument = {
   title: bi("Услови за користење", "Terms of Service"),
   description: bi(
-    "Условите под кои локалите, нивните клиенти и гостите ја користат платформата КАДЕ СУМ?.",
-    "The terms under which venues, their clients and guests use the КАДЕ СУМ? platform.",
+    "Условите под кои локалите, нивните клиенти и гостите ја користат платформата Каде си?.",
+    "The terms under which venues, their clients and guests use the Каде си? platform.",
   ),
   intro: [
     bi(
-      `Овие услови важат меѓу ${P.company}, ${P.address}, ЕМБС ${P.regNo} („ние“), и локалот (правно лице или трговец) што регистрира сметка на платформата КАДЕ СУМ? на ${P.domain}. Со регистрација на локал ги прифаќате овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
-      `These terms apply between ${P.company}, ${P.address}, registration number ${P.regNo} ("we"), and the venue (a company or trader) that registers an account on the КАДЕ СУМ? platform at ${P.domain}. By registering a venue you accept these terms, including the Data Processing Agreement, on the venue's behalf. For the venue's clients and guests only the section "Clients and guests" applies.`,
+      `Овие услови важат меѓу ${P.company}, ${P.address}, ЕМБС ${P.regNo} („ние“), и локалот (правно лице или трговец) што регистрира сметка на платформата Каде си? на ${P.domain}. Со регистрација на локал ги прифаќате овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
+      `These terms apply between ${P.company}, ${P.address}, registration number ${P.regNo} ("we"), and the venue (a company or trader) that registers an account on the Каде си? platform at ${P.domain}. By registering a venue you accept these terms, including the Data Processing Agreement, on the venue's behalf. For the venue's clients and guests only the section "Clients and guests" applies.`,
     ),
     bi(
       `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува верзијата на: ${P.prevailingLanguage}.`,

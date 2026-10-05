@@ -32,7 +32,7 @@ async function notifyTeam(input: ContactMessageInput): Promise<void> {
       to,
       replyTo: input.email,
       subject: `Нова порака од контакт формата: ${input.name}`,
-      text: `Име: ${input.name}\nЕ-пошта: ${input.email}\n\n${input.message}\n\n— КАДЕ СУМ? контакт форма`,
+      text: `Име: ${input.name}\nЕ-пошта: ${input.email}\n\n${input.message}\n\n— Каде си? контакт форма`,
     });
   } catch (err) {
     log("warn", "contact_notification_failed", errorFields(err));

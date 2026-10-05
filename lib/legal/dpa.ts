@@ -14,8 +14,8 @@ const bi = (mk: string, en: string): Bi => ({ mk, en });
 const dpaDocument: BiDocument = {
   title: bi("Договор за обработка на лични податоци", "Data Processing Agreement"),
   description: bi(
-    "Договор меѓу локалот (контролор) и платформата КАДЕ СУМ? (обработувач) за личните податоци на клиентите и гостите на локалот.",
-    "Agreement between the venue (controller) and the КАДЕ СУМ? platform (processor) on the personal data of the venue's clients and guests.",
+    "Договор меѓу локалот (контролор) и платформата Каде си? (обработувач) за личните податоци на клиентите и гостите на локалот.",
+    "Agreement between the venue (controller) and the Каде си? platform (processor) on the personal data of the venue's clients and guests.",
   ),
   intro: [
     bi(
@@ -54,8 +54,8 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Обработувачот ја дава платформата КАДЕ СУМ? на локалот и при тоа ги обработува личните податоци што ги внесуваат локалот и неговите клиенти, преку алатките што локалот им ги нуди на клиентите како дел од својата услуга (листа на гости, покана, белешки, буџет и други алатки за планирање), како и податоците што гостите ги внесуваат преку линкот од поканата. Вработените во локалот не ги гледаат листата на гости и содржината за планирање на клиентот во панелот, но локалот може да ги извезе или избрише.",
-            "The processor provides the КАДЕ СУМ? platform to the venue and, in doing so, processes the personal data entered by the venue and by its clients through the tools the venue makes available to them as part of its service (guest list, invitation, notes, budget and other planning tools), and the data guests enter through the invitation link. The venue's staff do not see the guest list or the client's planning content in the panel, but the venue can export or erase it.",
+            "Обработувачот ја дава платформата Каде си? на локалот и при тоа ги обработува личните податоци што ги внесуваат локалот и неговите клиенти, преку алатките што локалот им ги нуди на клиентите како дел од својата услуга (листа на гости, покана, белешки, буџет и други алатки за планирање), како и податоците што гостите ги внесуваат преку линкот од поканата. Вработените во локалот не ги гледаат листата на гости и содржината за планирање на клиентот во панелот, но локалот може да ги извезе или избрише.",
+            "The processor provides the Каде си? platform to the venue and, in doing so, processes the personal data entered by the venue and by its clients through the tools the venue makes available to them as part of its service (guest list, invitation, notes, budget and other planning tools), and the data guests enter through the invitation link. The venue's staff do not see the guest list or the client's planning content in the panel, but the venue can export or erase it.",
           ),
         },
         {

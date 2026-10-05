@@ -33,7 +33,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <path d="M21 4 15 15.5 21 38l6-22.5L21 4Z" fill="#F6E3AF" opacity=".55" />
           </svg>
           <div>
-            <div className="brand-name">КАДЕ СУМ?</div>
+            <div className="brand-name">Каде си?</div>
             <div className="brand-sub">АДМИН ПАНЕЛ</div>
           </div>
         </div>

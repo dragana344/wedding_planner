@@ -250,7 +250,7 @@ subject = "Потврдете ја вашата е-пошта | Confirm your ema
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Нова лозинка за КАДЕ СУМ? | Reset your password"
+subject = "Нова лозинка за Каде си? | Reset your password"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.email.template.email_change]

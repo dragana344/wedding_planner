@@ -13,13 +13,13 @@ const bi = (mk: string, en: string): Bi => ({ mk, en });
 const privacyDocument: BiDocument = {
   title: bi("Политика за приватност", "Privacy Policy"),
   description: bi(
-    "Како платформата КАДЕ СУМ? ги обработува личните податоци на локалите, нивните клиенти и гостите.",
-    "How the КАДЕ СУМ? platform processes the personal data of venues, their clients and guests.",
+    "Како платформата Каде си? ги обработува личните податоци на локалите, нивните клиенти и гостите.",
+    "How the Каде си? platform processes the personal data of venues, their clients and guests.",
   ),
   intro: [
     bi(
-      "КАДЕ СУМ? е платформа за угостителски објекти (ресторани, сали) за управување со настани, резервации, распоред на маси и менија. Клиентите на локалот (младенци и други организатори на настани) добиваат своја контролна табла, а нивните гости добиваат дигитална покана.",
-      "КАДЕ СУМ? is a platform for hospitality venues (restaurants, halls) to manage events, reservations, table layouts and menus. The venue's clients (couples and other event organizers) get their own dashboard, and their guests get a digital invitation.",
+      "Каде си? е платформа за угостителски објекти (ресторани, сали) за управување со настани, резервации, распоред на маси и менија. Клиентите на локалот (младенци и други организатори на настани) добиваат своја контролна табла, а нивните гости добиваат дигитална покана.",
+      "Каде си? is a platform for hospitality venues (restaurants, halls) to manage events, reservations, table layouts and menus. The venue's clients (couples and other event organizers) get their own dashboard, and their guests get a digital invitation.",
     ),
     bi(
       "Оваа политика објаснува кои лични податоци се обработуваат, зошто, кој ги гледа, колку долго се чуваат и кои права ги имате. Се применуваат Законот за заштита на личните податоци (Службен весник на Република Северна Македонија бр. 42/2020) и, каде што е применлива, Општата регулатива за заштита на податоците (ЕУ) 2016/679 (GDPR).",

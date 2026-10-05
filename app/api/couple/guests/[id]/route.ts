@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { withCoupleEvent } from "@/lib/api/handler";
 import { guestUpdateBody, idParams } from "@/lib/api/schemas";
-import { updateGuest, updateGuestStatus, updateGuestSide, deleteGuest } from "@/lib/couple/guests";
+import { updateGuest, updateGuestStatus, updateGuestSide, deleteGuest, assertGuestOnSide } from "@/lib/couple/guests";
+import { organizerSide } from "@/lib/couple/organizer-side";
 
 export const PATCH = withCoupleEvent(
-  async ({ eventId, params, body }) => {
+  async ({ request, eventId, params, body }) => {
     if (body.type === "status") {
       return NextResponse.json(await updateGuestStatus(eventId, params.id, body.rsvp_status));
     }
+    // Moving a guest between sides, editing or deleting one: a co-organizer
+    // only for their own side (recording an answer above stays open to both).
+    await assertGuestOnSide(eventId, params.id, organizerSide(request));
     if (body.type === "side") {
       return NextResponse.json(await updateGuestSide(eventId, params.id, body.side));
     }
@@ -25,7 +29,8 @@ export const PATCH = withCoupleEvent(
 );
 
 export const DELETE = withCoupleEvent(
-  async ({ eventId, params }) => {
+  async ({ request, eventId, params }) => {
+    await assertGuestOnSide(eventId, params.id, organizerSide(request));
     await deleteGuest(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
