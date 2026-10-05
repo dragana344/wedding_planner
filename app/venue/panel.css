@@ -132,7 +132,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 22px 20px 24px;
+  /* Right side stays clear of the collapse button (.side-toggle) so a long
+     venue or couple name wraps instead of running under it. */
+  padding: 22px 52px 24px 20px;
   border-bottom: 1px solid var(--side-line);
 }
 .vp .brand svg.mark {

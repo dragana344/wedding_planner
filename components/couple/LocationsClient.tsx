@@ -124,9 +124,9 @@ export function LocationsClient({ initialLocations }: { initialLocations: Locati
       )}
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <input className="fld" placeholder="Назив" value={label} onChange={(e) => setLabel(e.target.value)} required />
-        <input className="fld" placeholder="Адреса (опционално)" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <input className="fld" placeholder="Линк до мапа (опционално)" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} />
+        <input className="fld" placeholder="Назив" aria-label="Назив" value={label} onChange={(e) => setLabel(e.target.value)} required />
+        <input className="fld" placeholder="Адреса (опционално)" aria-label="Адреса (опционално)" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <input className="fld" placeholder="Линк до мапа (опционално)" aria-label="Линк до мапа (опционално)" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
           {isSubmitting ? "Се додава..." : "Додади"}

@@ -77,7 +77,7 @@ export function MenuItemCard({
             <span className="pill p-ok" style={{ marginLeft: 8 }}>вегетаријанско</span>
           ) : null}
         </div>
-        {item.price !== null ? <span style={{ fontFamily: "var(--data)", fontWeight: 700 }}>{item.price.toFixed(2)}</span> : null}
+        {item.price !== null ? <span style={{ fontFamily: "var(--data)", fontWeight: 700 }}>{item.price.toFixed(2).replace(/\.00$/, "")} ден</span> : null}
       </div>
       {isOpen ? <MenuItemDetailModal item={item} venueId={venueId} onClose={() => setIsOpen(false)} onChanged={onChanged} /> : null}
       {isPhotoOpen && photoUrl ? <ImageLightbox src={photoUrl} alt={item.name} onClose={() => setIsPhotoOpen(false)} /> : null}

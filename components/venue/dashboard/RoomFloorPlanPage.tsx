@@ -61,6 +61,7 @@ export function RoomFloorPlanPage({
   const [widthM, setWidthM] = useState(String(room.width_cm / 100));
   const [heightM, setHeightM] = useState(String(room.height_cm / 100));
   const [dimensionsError, setDimensionsError] = useState<string | null>(null);
+  const [dimensionsSaved, setDimensionsSaved] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function refresh() {
@@ -265,15 +266,31 @@ export function RoomFloorPlanPage({
   async function handleSaveDimensions(e: React.FormEvent) {
     e.preventDefault();
     setDimensionsError(null);
+    setDimensionsSaved(false);
     const nextWidthCm = Number(widthM) * 100;
     const nextHeightCm = Number(heightM) * 100;
     if (!Number.isFinite(nextWidthCm) || nextWidthCm <= 0 || !Number.isFinite(nextHeightCm) || nextHeightCm <= 0) {
       setDimensionsError("Внесете важечка ширина и длабочина.");
       return;
     }
-    await updateRoomDimensions(room.id, nextWidthCm, nextHeightCm);
-    setWidthCm(nextWidthCm);
-    setHeightCm(nextHeightCm);
+    // Shrinking the room under what is already placed would leave those
+    // elements outside the plan, where they can no longer be reached.
+    const outside = [
+      ...fixedElements.map((el) => ({ right: el.x_cm + el.width_cm, bottom: el.y_cm + el.height_cm })),
+      ...layoutElements.map((el) => ({ right: el.x_cm + el.width_cm, bottom: el.y_cm + el.length_cm })),
+    ].filter((el) => el.right > nextWidthCm || el.bottom > nextHeightCm).length;
+    if (outside > 0) {
+      setDimensionsError(`${outside} ${outside === 1 ? "елемент би останал" : "елементи би останале"} надвор од просторијата. Прво поместете ги поблиску до горниот лев агол.`);
+      return;
+    }
+    try {
+      await updateRoomDimensions(room.id, nextWidthCm, nextHeightCm);
+      setWidthCm(nextWidthCm);
+      setHeightCm(nextHeightCm);
+      setDimensionsSaved(true);
+    } catch (err) {
+      setDimensionsError(errorMessage(err, "Не успеа зачувувањето на големината. Обидете се повторно."));
+    }
   }
 
   const tableNumbers = useMemo(() => numberTables(layoutElements), [layoutElements]);
@@ -393,6 +410,11 @@ export function RoomFloorPlanPage({
           )}
           {passwordError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{passwordError}</p> : null}
           {dimensionsError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{dimensionsError}</p> : null}
+          {dimensionsSaved && !dimensionsError ? (
+            <p role="status" style={{ color: "var(--ok)", fontSize: 13.5, margin: 0 }}>
+              Големината е зачувана.
+            </p>
+          ) : null}
           {!isUnlocked ? <p className="muted">Големина на просторијата: {widthCm / 100}м × {heightCm / 100}м</p> : null}
 
           <div className="chip-row">

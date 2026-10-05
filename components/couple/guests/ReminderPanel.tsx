@@ -102,6 +102,9 @@ export function ReminderPanel({
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
             Прати потсетник по email
           </label>
+          <p className="ev-hint" style={{ flexBasis: "100%", margin: 0 }}>
+            Потсетниците се праќаат еднаш дневно, претпладне. Ако изберете подоцнежен час, пораката оди следното утро.
+          </p>
           <button type="submit" className="btn btn-ghost">
             Зачувај потсетник
           </button>

@@ -30,7 +30,11 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
           body: JSON.stringify({ time: time || null, title, notes: notes || null }),
         })
       );
-      setItems((prev) => [...prev, created]);
+      // Same place the server gave it: in front of the first item that starts later.
+      setItems((prev) => {
+        const at = created.time ? prev.findIndex((i) => i.time !== null && i.time.slice(0, 5) > created.time.slice(0, 5)) : -1;
+        return at === -1 ? [...prev, created] : [...prev.slice(0, at), created, ...prev.slice(at)];
+      });
       setTime("");
       setTitle("");
       setNotes("");
@@ -143,8 +147,8 @@ export function AgendaClient({ initialItems }: { initialItems: AgendaItem[] }) {
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <input type="time" className="fld" value={time} onChange={(e) => setTime(e.target.value)} />
-        <input className="fld" placeholder="Наслов" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        <input className="fld" placeholder="Белешки (опционално)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <input className="fld" placeholder="Наслов" aria-label="Наслов" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <input className="fld" placeholder="Белешки (опционално)" aria-label="Белешки (опционално)" value={notes} onChange={(e) => setNotes(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
           {isSubmitting ? "Се додава..." : "Додади"}

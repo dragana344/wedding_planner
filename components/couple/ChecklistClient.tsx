@@ -85,7 +85,7 @@ function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () =
       <form onSubmit={handleAdd} style={{ display: "flex", gap: 8 }}>
         <input
           className="fld"
-          placeholder="Додади опција или подзадача..."
+          placeholder="Додади опција или подзадача..." aria-label="Додади опција или подзадача..."
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           style={{ fontSize: 13.5 }}
@@ -264,7 +264,7 @@ export function ChecklistClient({
       </div>
 
       <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <input className="fld" placeholder="Наслов на задачата" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <input className="fld" placeholder="Наслов на задачата" aria-label="Наслов на задачата" value={title} onChange={(e) => setTitle(e.target.value)} required />
         <input className="fld" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
         <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>

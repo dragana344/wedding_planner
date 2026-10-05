@@ -33,16 +33,27 @@ export async function listAgendaItems(eventId: string): Promise<AgendaItem[]> {
 
 export async function addAgendaItem(eventId: string, input: AgendaItemInput): Promise<AgendaItem> {
   const client = createServiceRoleClient();
-  const { data: last } = await client
-    .from("event_agenda_items")
-    .select("sort_order")
-    .eq("event_id", eventId)
-    .order("sort_order", { ascending: false })
-    .limit(1);
-  const nextSortOrder = last && last.length > 0 ? last[0].sort_order + 1 : 0;
+  const existing = await listAgendaItems(eventId);
+  // A timed item goes in front of the first item that starts later, so the
+  // programme guests see reads in order without the couple re-sorting it.
+  // Items without a time, and anything the couple moved by hand, stay put.
+  const later = input.time ? existing.find((item) => item.time !== null && item.time.slice(0, 5) > input.time!.slice(0, 5)) : undefined;
+  const last = existing[existing.length - 1];
+  const sortOrder = later ? later.sort_order : last ? last.sort_order + 1 : 0;
+  if (later) {
+    // Make room from the end backwards, one row at a time.
+    for (const item of existing.filter((i) => i.sort_order >= later.sort_order).reverse()) {
+      const { error: shiftError } = await client
+        .from("event_agenda_items")
+        .update({ sort_order: item.sort_order + 1 })
+        .eq("id", item.id)
+        .eq("event_id", eventId);
+      if (shiftError) throw shiftError;
+    }
+  }
   const { data, error } = await client
     .from("event_agenda_items")
-    .insert({ event_id: eventId, ...input, sort_order: nextSortOrder })
+    .insert({ event_id: eventId, ...input, sort_order: sortOrder })
     .select(COLUMNS)
     .single();
   if (error) throw error;

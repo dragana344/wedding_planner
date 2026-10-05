@@ -34,6 +34,11 @@ export function CoupleShell({
   const { open: drawerOpen, toggle: toggleDrawer, close: closeDrawer, drawerRef, buttonRef } = useDrawer();
   const navItems = buildCoupleNavItems(rooms);
   const active = matchCoupleNavItem(pathname, navItems);
+  // Пакети has no nav entry (it is reached from a locked section), so it
+  // needs its own heading instead of borrowing Почетна's.
+  const heading = pathname.startsWith("/couple/packages")
+    ? { title: "ПАКЕТИ", subtitle: "Што вклучува секој пакет" }
+    : { title: active.title, subtitle: active.subtitle };
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
 
   return (
@@ -105,8 +110,8 @@ export function CoupleShell({
           <div className="title-wrap">
             <DrawerButton open={drawerOpen} onClick={toggleDrawer} buttonRef={buttonRef} />
             <div>
-              <h1 className="page-title">{active.title}</h1>
-              <p className="page-sub">{active.subtitle}</p>
+              <h1 className="page-title">{heading.title}</h1>
+              <p className="page-sub">{heading.subtitle}</p>
             </div>
           </div>
 

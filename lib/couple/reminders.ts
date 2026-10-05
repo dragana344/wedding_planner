@@ -52,9 +52,23 @@ export async function setReminder(eventId: string, input: { sendAt: string; enab
   const current = await getReminder(eventId);
   if (current.status === "sent" || current.status === "sending") throw new Error("Потсетникот е веќе испратен.");
 
+  const client = createServiceRoleClient();
+  // Switching the reminder off needs no valid time: close to the event the
+  // default time has already passed, and the couple must still be able to
+  // say "do not send".
+  if (!input.enabled) {
+    const { error: offError } = await client.from("event_reminders").upsert({
+      event_id: eventId,
+      send_at: current.sendAt,
+      status: "cancelled",
+      updated_at: now.toISOString(),
+    });
+    if (offError) throw offError;
+    return getReminder(eventId);
+  }
+
   const sendAt = new Date(input.sendAt);
   if (Number.isNaN(sendAt.getTime()) || sendAt <= now) throw new Error("Изберете време во иднина.");
-  const client = createServiceRoleClient();
   const { data: event, error: eventError } = await client.from("events").select("event_date").eq("id", eventId).single();
   if (eventError) throw eventError;
   const { data: dayStart, error: dayError } = await client.rpc("default_reminder_at", { p_event_date: event.event_date });

@@ -134,6 +134,15 @@ export function GuestsClient({
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // Two guests under one name cannot be told apart when they answer the
+    // invitation or look up their table, so ask before adding the second.
+    const typed = fullName.trim().toLowerCase().replace(/\s+/g, " ");
+    if (
+      guests.some((g) => g.full_name.trim().toLowerCase().replace(/\s+/g, " ") === typed) &&
+      !window.confirm(`На листата веќе има „${fullName.trim()}“. Да се додаде уште еден гостин со исто име? Подобро е да ги разликувате, на пример со татково име.`)
+    ) {
+      return;
+    }
     setIsSubmitting(true);
     try {
       const created = await jsonOrThrow(

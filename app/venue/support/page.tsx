@@ -32,7 +32,7 @@ export default function SupportPage() {
             настан денес, наведете го тоа во насловот.
           </p>
           {email ? (
-            <a className="btn btn-gold" href={`mailto:${email}?subject=${encodeURIComponent("Поддршка — КАДЕ СУМ?")}`} style={{ marginTop: 18, display: "inline-flex" }}>
+            <a className="btn btn-gold" href={`mailto:${email}?subject=${encodeURIComponent("Поддршка — Каде си?")}`} style={{ marginTop: 18, display: "inline-flex" }}>
               Пишете ни: {email}
             </a>
           ) : (

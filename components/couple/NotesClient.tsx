@@ -211,7 +211,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
         <input
           value={draftTitle}
           onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Наслов"
+          placeholder="Наслов" aria-label="Наслов"
           style={{
             border: 0,
             borderBottom: "1px solid var(--line)",
@@ -226,7 +226,7 @@ export function NotesClient({ initialNotes }: { initialNotes: Note[] }) {
           className="fld"
           value={draftContent}
           onChange={(e) => handleContentChange(e.target.value)}
-          placeholder="Прашања за добавувачи, идеи, работи што треба да ги прашате локалот — запишете било што тука."
+          placeholder="Прашања за добавувачи, идеи, работи што треба да ги прашате локалот — запишете било што тука." aria-label="Прашања за добавувачи, идеи, работи што треба да ги прашате локалот — запишете било што тука."
           rows={10}
           style={{ resize: "vertical", minHeight: 180, lineHeight: 1.6, border: 0, padding: "2px" }}
         />

@@ -177,7 +177,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                 {editForm.category === "other" ? (
                   <input
                     className="fld"
-                    placeholder="Сопствена категорија"
+                    placeholder="Сопствена категорија" aria-label="Сопствена категорија"
                     value={editForm.custom_label}
                     onChange={(e) => setEditForm({ ...editForm, custom_label: e.target.value })}
                   />
@@ -185,14 +185,14 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                 <input className="fld" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                 <input
                   className="fld"
-                  placeholder="Проценет износ"
+                  placeholder="Проценет износ" aria-label="Проценет износ"
                   type="number"
                   value={editForm.estimated_amount}
                   onChange={(e) => setEditForm({ ...editForm, estimated_amount: e.target.value })}
                 />
                 <input
                   className="fld"
-                  placeholder="Платено досега"
+                  placeholder="Платено досега" aria-label="Платено досега"
                   type="number"
                   value={editForm.paid_amount}
                   onChange={(e) => setEditForm({ ...editForm, paid_amount: e.target.value })}
@@ -240,19 +240,19 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
           ))}
         </select>
         {form.category === "other" ? (
-          <input className="fld" placeholder="Сопствена категорија" value={form.custom_label} onChange={(e) => setForm({ ...form, custom_label: e.target.value })} />
+          <input className="fld" placeholder="Сопствена категорија" aria-label="Сопствена категорија" value={form.custom_label} onChange={(e) => setForm({ ...form, custom_label: e.target.value })} />
         ) : null}
-        <input className="fld" placeholder="Име на ставка" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        <input className="fld" placeholder="Име на ставка" aria-label="Име на ставка" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         <input
           className="fld"
-          placeholder="Проценет износ"
+          placeholder="Проценет износ" aria-label="Проценет износ"
           type="number"
           value={form.estimated_amount}
           onChange={(e) => setForm({ ...form, estimated_amount: e.target.value })}
         />
         <input
           className="fld"
-          placeholder="Платено досега"
+          placeholder="Платено досега" aria-label="Платено досега"
           type="number"
           value={form.paid_amount}
           onChange={(e) => setForm({ ...form, paid_amount: e.target.value })}

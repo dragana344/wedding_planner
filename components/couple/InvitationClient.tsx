@@ -166,7 +166,7 @@ export function InvitationClient({
         {message ? <p style={{ marginTop: 8, color: "var(--ink-2)", fontSize: 13.5 }}>{message}</p> : null}
       </div>
 
-      <textarea className="fld" placeholder="Порака (опционално)" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} rows={3} />
+      <textarea className="fld" placeholder="Порака (опционално)" aria-label="Порака (опционално)" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} rows={3} />
 
       <div>
         <label htmlFor="invitation-photo" className="lab-s">
