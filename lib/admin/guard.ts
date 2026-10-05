@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { REQUEST_ID_HEADER } from "@/lib/log";
+import { adminMfaRequired } from "@/lib/admin/mfa-policy";
 
 export type AdminContext = { adminUserId: string; requestId: string | null };
 
@@ -15,7 +16,8 @@ export class AdminAccessError extends Error {
 }
 
 /**
- * Spec §3.3: aal2 in the verified JWT, and the platform_admin role confirmed
+ * Spec §3.3: aal2 in the verified JWT (unless two-factor is switched off,
+ * lib/admin/mfa-policy.ts), and the platform_admin role confirmed
  * by the Auth server (not the cookie). Fails closed on any error. Takes a
  * client rather than resolving one itself so it can be exercised directly
  * from a DB test, without a Next.js request (headers()/redirect stay in
@@ -24,7 +26,7 @@ export class AdminAccessError extends Error {
 export async function checkAdmin(supabase: SupabaseClient): Promise<AdminContext | null> {
   try {
     const { data: claims } = await supabase.auth.getClaims();
-    if (claims?.claims?.aal !== "aal2") return null;
+    if (adminMfaRequired() && claims?.claims?.aal !== "aal2") return null;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
     if (data.user.app_metadata?.role !== "platform_admin") return null;

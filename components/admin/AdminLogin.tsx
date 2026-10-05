@@ -13,7 +13,11 @@ import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm"
 // silent redirect loop) and routes an admin without a verified TOTP factor
 // straight to mandatory enrolment, since two-factor is required for every
 // admin session.
-export function AdminLogin() {
+//
+// `mfaRequired={false}` (ADMIN_MFA_REQUIRED=false, lib/admin/mfa-policy.ts)
+// skips both steps: the password alone opens the panel, even for an admin
+// who has a factor enrolled.
+export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +40,10 @@ export function AdminLogin() {
       if (data.user?.app_metadata?.role !== "platform_admin") {
         await supabase.auth.signOut({ scope: "local" });
         setError("Оваа сметка нема админ пристап.");
+        return;
+      }
+      if (!mfaRequired) {
+        router.push("/admin");
         return;
       }
       const pending = await pendingSecondFactor(supabase);

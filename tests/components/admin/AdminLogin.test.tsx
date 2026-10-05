@@ -45,6 +45,17 @@ describe("AdminLogin", () => {
     expect(await screen.findByLabelText("Код од апликацијата")).toBeInTheDocument();
   });
 
+  it("opens the panel on the password alone when two-factor is switched off", async () => {
+    auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
+    auth.getUser.mockResolvedValue({ data: { user: { app_metadata: { role: "platform_admin" } } }, error: null });
+    auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal2" }, error: null });
+    auth.mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: "f1", status: "verified" }] } });
+    render(<AdminLogin mfaRequired={false} />);
+    signIn();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"));
+    expect(screen.queryByLabelText("Код од апликацијата")).not.toBeInTheDocument();
+  });
+
   it("sends an admin without a factor to mandatory enrolment", async () => {
     auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
     auth.getUser.mockResolvedValue({ data: { user: { app_metadata: { role: "platform_admin" } } }, error: null });
