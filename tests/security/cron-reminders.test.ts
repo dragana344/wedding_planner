@@ -45,7 +45,8 @@ describe("reminders cron (A10)", () => {
     expect(reminders.runDueReminders).toHaveBeenLastCalledWith(expect.any(Date), "https://app.example.mk");
   });
 
-  it("is scheduled hourly in vercel.json", () => {
-    expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/reminders", schedule: expect.stringMatching(/^\d+ \* \* \* \*$/) });
+  // Hourly on Vercel Pro; once a day while the project is on the Hobby plan.
+  it("is scheduled hourly or daily in vercel.json", () => {
+    expect(vercelConfig.crons).toContainEqual({ path: "/api/cron/reminders", schedule: expect.stringMatching(/^\d+ (\*|\d+) \* \* \*$/) });
   });
 });
