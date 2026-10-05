@@ -1,10 +1,15 @@
 import Link from "next/link";
 import type { LegalBlock, LegalDocument } from "@/lib/legal/types";
-import "@/app/venue/panel.css";
+import { LogoMark, Wordmark } from "@/components/marketing/BrandLogo";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { montserrat, nunito } from "@/components/marketing/fonts";
+import "@/app/landing.css";
 
 const LABELS = {
   mk: {
-    home: "Почетна",
+    home: "Каде си? почетна",
+    back: "Кон почетна",
+    eyebrow: "Правни документи",
     updated: "Последна измена",
     version: "Верзија",
     contents: "Содржина",
@@ -12,10 +17,12 @@ const LABELS = {
     privacy: "Политика за приватност",
     terms: "Услови за користење",
     dpa: "Договор за обработка на лични податоци",
-    footer: "Каде сум? Сите права задржани.",
+    footer: "Каде си? Сите права се задржани.",
   },
   en: {
-    home: "Home",
+    home: "Каде си? home",
+    back: "Back to home",
+    eyebrow: "Legal",
     updated: "Last updated",
     version: "Version",
     contents: "Contents",
@@ -23,7 +30,7 @@ const LABELS = {
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     dpa: "Data Processing Agreement",
-    footer: "Каде сум? All rights reserved.",
+    footer: "Каде си? All rights reserved.",
   },
 } as const;
 
@@ -35,10 +42,10 @@ function formatDate(iso: string, lang: LegalDocument["lang"]): string {
 }
 
 function Block({ block }: { block: LegalBlock }) {
-  if (block.type === "p") return <p className="mt-3 leading-relaxed text-[15px]">{block.text}</p>;
+  if (block.type === "p") return <p>{block.text}</p>;
   if (block.type === "ul") {
     return (
-      <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-[15px]">
+      <ul>
         {block.items.map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -46,14 +53,12 @@ function Block({ block }: { block: LegalBlock }) {
     );
   }
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[14px] leading-snug">
+    <div className="legal-table">
+      <table>
         <thead>
           <tr>
             {block.head.map((h) => (
-              <th key={h} className="border-b-2 px-3 py-2 align-bottom font-bold" style={{ borderColor: "var(--gold-tint-2)" }}>
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -61,9 +66,7 @@ function Block({ block }: { block: LegalBlock }) {
           {block.rows.map((row) => (
             <tr key={row.join("|")}>
               {row.map((cell, i) => (
-                <td key={i} className="border-b px-3 py-2 align-top" style={{ borderColor: "var(--line)" }}>
-                  {cell}
-                </td>
+                <td key={i}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -80,78 +83,98 @@ function Block({ block }: { block: LegalBlock }) {
 export function LegalPage({ doc, alternateHref }: { doc: LegalDocument; alternateHref: string }) {
   const t = LABELS[doc.lang];
   const prefix = doc.lang === "en" ? "/en" : "";
+  const docs = [
+    { href: `${prefix}/privacy`, label: t.privacy },
+    { href: `${prefix}/terms`, label: t.terms },
+    { href: `${prefix}/dpa`, label: t.dpa },
+  ];
   return (
-    <div className="vp min-h-screen" lang={doc.lang}>
-      <nav className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-12" style={{ background: "var(--side)" }}>
-        <Link href="/" className="font-extrabold tracking-wide text-white no-underline" aria-label={t.home}>
-          КАДЕ СУМ?
-        </Link>
-        <Link
-          href={alternateHref}
-          hrefLang={doc.lang === "mk" ? "en" : "mk"}
-          className="text-[13.5px] font-semibold no-underline"
-          style={{ color: "var(--gold-hi)" }}
-        >
-          {t.switchLabel}
-        </Link>
+    <div className={`lp legal-lp ${montserrat.variable} ${nunito.variable}`} lang={doc.lang}>
+      <nav className="nav" aria-label={doc.lang === "mk" ? "Главна навигација" : "Main navigation"}>
+        <div className="wrap nav-row">
+          <Link className="brand" href="/" aria-label={t.home}>
+            <LogoMark id="legal-nav-mark" className="brand-mark" />
+            <Wordmark id="legal-nav-word" className="brand-word" />
+          </Link>
+          <div className="legal-nav-actions">
+            <Link href={alternateHref} hrefLang={doc.lang === "mk" ? "en" : "mk"}>
+              {t.switchLabel}
+            </Link>
+            <Link href="/" className="btn btn-outline btn-sm">
+              {t.back}
+            </Link>
+          </div>
+        </div>
       </nav>
 
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-        <p className="text-[11.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--gold-lo)" }}>
-          КАДЕ СУМ?
-        </p>
-        <h1 className="mt-2 text-[28px] font-extrabold leading-tight sm:text-[32px]">{doc.title}</h1>
-        <p className="mt-2 text-[13px]" style={{ color: "var(--muted)" }}>
-          {t.updated}: {formatDate(doc.lastUpdated, doc.lang)} · {t.version} {doc.version}
-        </p>
-
-        {doc.intro.map((p) => (
-          <p key={p} className="mt-4 leading-relaxed text-[15px]">
-            {p}
+      <header className="legal-head">
+        <div className="wrap legal-wrap">
+          <p className="eyebrow">{t.eyebrow}</p>
+          <h1>{doc.title}</h1>
+          <p className="legal-meta">
+            {t.updated}: {formatDate(doc.lastUpdated, doc.lang)} · {t.version} {doc.version}
           </p>
-        ))}
+        </div>
+      </header>
 
-        <nav aria-label={t.contents} className="mt-8 rounded-lg border p-4" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-          <p className="text-[12px] font-bold uppercase tracking-[0.1em]" style={{ color: "var(--muted)" }}>
-            {t.contents}
-          </p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-[14px]">
-            {doc.sections.map((s) => (
-              <li key={s.id}>
-                <a href={`#${s.id}`} style={{ color: "var(--ink-2)" }}>
-                  {s.heading}
-                </a>
-              </li>
+      <main className="legal-main">
+        <div className="wrap legal-wrap">
+          <div className="legal-body">
+            {doc.intro.map((p) => (
+              <p key={p}>{p}</p>
             ))}
-          </ol>
-        </nav>
+          </div>
 
-        {doc.sections.map((s, i) => (
-          <section key={s.id} id={s.id} className="mt-10 scroll-mt-6">
-            <h2 className="text-[20px] font-extrabold">
-              {i + 1}. {s.heading}
-            </h2>
-            {s.blocks.map((b, j) => (
-              <Block key={j} block={b} />
-            ))}
-          </section>
-        ))}
+          <nav aria-label={t.contents} className="legal-toc">
+            <h2>{t.contents}</h2>
+            <ol>
+              {doc.sections.map((s) => (
+                <li key={s.id}>
+                  <a href={`#${s.id}`}>{s.heading}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+
+          {doc.sections.map((s, i) => (
+            <section key={s.id} id={s.id} className="legal-body">
+              <h2>
+                {i + 1}. {s.heading}
+              </h2>
+              {s.blocks.map((b, j) => (
+                <Block key={j} block={b} />
+              ))}
+            </section>
+          ))}
+        </div>
       </main>
 
-      <footer className="mkt-footer">
-        <Link href={`${prefix}/privacy`} style={{ color: "var(--muted)" }}>
-          {t.privacy}
-        </Link>
-        {" · "}
-        <Link href={`${prefix}/terms`} style={{ color: "var(--muted)" }}>
-          {t.terms}
-        </Link>
-        {" · "}
-        <Link href={`${prefix}/dpa`} style={{ color: "var(--muted)" }}>
-          {t.dpa}
-        </Link>
-        <div className="mt-2">© 2026 {t.footer}</div>
-      </footer>
+      {doc.lang === "mk" ? (
+        <MarketingFooter />
+      ) : (
+        <footer className="footer">
+          <div className="wrap">
+            <div className="legal-footer-links">
+              {docs.map((d) => (
+                <Link key={d.href} href={d.href}>
+                  {d.label}
+                </Link>
+              ))}
+            </div>
+            <div className="footer-bar">
+              <span>
+                © {new Date().getFullYear()} {t.footer}
+              </span>
+              <span>
+                Managed by{" "}
+                <a href="https://godevlabagency.com" target="_blank" rel="noopener noreferrer">
+                  GoDevLab Agency
+                </a>
+              </span>
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

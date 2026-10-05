@@ -5,7 +5,7 @@ import { getDpa } from "@/lib/legal/dpa";
 const doc = getDpa("mk");
 
 export const metadata: Metadata = {
-  title: `${doc.title} — КАДЕ СУМ?`,
+  title: `${doc.title} — Каде си?`,
   description: doc.description,
 };
 

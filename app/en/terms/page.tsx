@@ -5,7 +5,7 @@ import { getTerms } from "@/lib/legal/terms";
 const doc = getTerms("en");
 
 export const metadata: Metadata = {
-  title: `${doc.title} — КАДЕ СУМ?`,
+  title: `${doc.title} — Каде си?`,
   description: doc.description,
 };
 

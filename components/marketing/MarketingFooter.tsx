@@ -9,10 +9,10 @@ const COLUMNS = [
   {
     title: "Платформа",
     links: [
-      { href: "#platform", label: "За платформата" },
-      { href: "#how", label: "Како работи" },
-      { href: "#pricing", label: "Планови" },
-      { href: "#faq", label: "Често поставувани прашања" },
+      { href: "/#platform", label: "За платформата" },
+      { href: "/#how", label: "Како работи" },
+      { href: "/#pricing", label: "Планови" },
+      { href: "/#faq", label: "Често поставувани прашања" },
     ],
   },
   {
@@ -20,7 +20,7 @@ const COLUMNS = [
     links: [
       { href: "/login", label: "Најави се" },
       { href: "/signup", label: "Регистрирај се" },
-      { href: "#contact", label: "Контакт" },
+      { href: "/#contact", label: "Контакт" },
     ],
   },
   {
@@ -51,7 +51,7 @@ export function MarketingFooter() {
               <ul>
                 {column.links.map((link) => (
                   <li key={link.href}>
-                    {link.href.startsWith("#") ? <a href={link.href}>{link.label}</a> : <Link href={link.href}>{link.label}</Link>}
+                    {link.href.startsWith("/#") ? <a href={link.href}>{link.label}</a> : <Link href={link.href}>{link.label}</Link>}
                   </li>
                 ))}
               </ul>

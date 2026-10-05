@@ -5,7 +5,7 @@ import { getPrivacyPolicy } from "@/lib/legal/privacy";
 const doc = getPrivacyPolicy("mk");
 
 export const metadata: Metadata = {
-  title: `${doc.title} — КАДЕ СУМ?`,
+  title: `${doc.title} — Каде си?`,
   description: doc.description,
 };
 
