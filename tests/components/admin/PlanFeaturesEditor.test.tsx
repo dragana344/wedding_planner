@@ -17,7 +17,7 @@ describe("PlanFeaturesEditor", () => {
     fireEvent.change(screen.getByLabelText("Лимит за Максимален број гости"), { target: { value: "150" } });
     fireEvent.click(screen.getByRole("button", { name: "Зачувај" }));
     const saved = onSave.mock.calls[0][0];
-    expect(saved).toHaveLength(26);
+    expect(saved).toHaveLength(27);
     expect(saved.find((f) => f.featureKey === "seating")!.enabled).toBe(true);
     expect(saved.find((f) => f.featureKey === "max_guests")).toEqual({ featureKey: "max_guests", enabled: true, limitValue: 150 });
   });

@@ -6,6 +6,7 @@ import { getVenueFeatures } from "@/lib/entitlements/server";
 import { FEATURE_KEYS } from "@/lib/entitlements/features";
 import { BlockedScreen } from "@/components/venue/BlockedScreen";
 import { PanelShell } from "@/components/venue/shell/PanelShell";
+import { getVenueBranding } from "@/lib/venue/branding";
 import "./panel.css";
 
 // Private area: keep out of search engines (COMP-004).
@@ -28,9 +29,10 @@ export default async function VenueLayout({ children }: { children: React.ReactN
   // run in parallel with getVenueAccess above (admin dashboard spec §4.4).
   const features = await getVenueFeatures(access.venue.id);
   const lockedFeatures = FEATURE_KEYS.filter((k) => !features[k].enabled);
+  const brand = await getVenueBranding(access.venue.id, features.venue_branding.enabled);
 
   return (
-    <PanelShell venueName={access.venue.name} lockedFeatures={lockedFeatures}>
+    <PanelShell venueName={access.venue.name} lockedFeatures={lockedFeatures} brand={brand}>
       {children}
     </PanelShell>
   );

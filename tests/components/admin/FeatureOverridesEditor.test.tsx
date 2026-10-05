@@ -16,7 +16,7 @@ describe("FeatureOverridesEditor", () => {
     expect(onSave).toHaveBeenCalledWith({ featureKey: "seating", enabled: true, limitOverride: false, limitValue: null, note: "доплата 3000 ден" });
   });
 
-  it("shows all 26 features for venue scope, including venue-only ones", () => {
+  it("shows all 27 features for venue scope, including venue-only ones", () => {
     const onSave = vi.fn(async () => ({ ok: true as const, data: null }));
     render(<FeatureOverridesEditor scope="venue" features={features} overrides={[]} onSave={onSave} />);
     expect(screen.getByLabelText("Резервации")).toBeInTheDocument();

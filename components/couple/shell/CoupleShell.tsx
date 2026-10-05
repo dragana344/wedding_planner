@@ -12,14 +12,19 @@ import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
 import { buildCoupleNavItems, matchCoupleNavItem } from "./nav";
 import { formatMkDate } from "@/lib/date";
+import { BrandMark } from "@/components/venue/shell/BrandMark";
+import type { BrandVars } from "@/lib/venue/brand-palette";
 
 export function CoupleShell({
   coupleNames,
   eventDate,
   rooms,
   lockedFeatures = [],
+  brand,
   children,
 }: {
+  /** The hosting venue's logo and accent colour (0087), when its plan includes branding. */
+  brand?: { logoUrl: string | null; vars: BrandVars | null };
   coupleNames: string;
   eventDate: string;
   rooms: { id: string; name: string }[];
@@ -42,7 +47,7 @@ export function CoupleShell({
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
 
   return (
-    <div className={`vp app${mini ? " mini" : ""}`}>
+    <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
       <IconSprite />
 
       <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
@@ -57,12 +62,7 @@ export function CoupleShell({
         </button>
 
         <div className="brand">
-          <svg className="mark" width="40" height="40" viewBox="0 0 42 42" aria-hidden>
-            <path d="M21 4 34 15.5 21 38 8 15.5 21 4Z" fill="#E0B44E" />
-            <path d="M21 4 34 15.5H8L21 4Z" fill="#F2D48A" />
-            <path d="M21 38 8 15.5h26L21 38Z" fill="#C9992F" />
-            <path d="M21 4 15 15.5 21 38l6-22.5L21 4Z" fill="#F6E3AF" opacity=".55" />
-          </svg>
+          <BrandMark logoUrl={brand?.logoUrl} />
           <div>
             <div className="brand-name">{coupleNames}</div>
             <div className="brand-sub">ВАШИОТ НАСТАН</div>

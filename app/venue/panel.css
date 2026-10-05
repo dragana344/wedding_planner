@@ -30,6 +30,18 @@
   --gold-hi: #e0b44e;
   --gold-tint: #fbf2df;
   --gold-tint-2: #f6e7c7;
+  /* Text on a gold surface, its quieter variant, and gold used as text on
+     white. Separate tokens because a venue's own accent colour (branding,
+     lib/venue/brand-palette.ts) may need white text where gold needs dark. */
+  --on-gold: #1b1508;
+  --on-gold-soft: #4a3a11;
+  --gold-text: #8a6a22;
+  /* The accent as it appears on the dark sidebar; a venue's dark colour is
+     lightened there so the active item stays visible. */
+  --side-gold: var(--gold);
+  --side-gold-hi: var(--gold-hi);
+  --side-gold-lo: var(--gold-lo);
+  --side-on-gold: var(--on-gold);
   --ok: #0f9d58;
   --ok-bg: #e7f6ee;
   --warn: #b7791f;
@@ -115,6 +127,10 @@
 
 /* ---------- sidebar ---------- */
 .vp .side {
+  --gold: var(--side-gold);
+  --gold-hi: var(--side-gold-hi);
+  --gold-lo: var(--side-gold-lo);
+  --on-gold: var(--side-on-gold);
   background: var(--side);
   color: var(--side-text);
   display: flex;
@@ -136,6 +152,17 @@
      venue or couple name wraps instead of running under it. */
   padding: 22px 52px 24px 20px;
   border-bottom: 1px solid var(--side-line);
+}
+/* A venue's own logo in place of the diamond (branding, 0087): any aspect
+   ratio, on a light chip so a dark or transparent logo reads on the sidebar. */
+.vp .brand img.mark-logo {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px;
 }
 .vp .brand svg.mark {
   flex: none;
@@ -176,19 +203,19 @@
   height: 30px;
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
   border: 0;
-  color: #1b1508;
+  color: var(--on-gold);
   cursor: pointer;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px -2px rgba(201, 153, 47, 0.7);
+  box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--gold) 70%, transparent);
   z-index: 5;
 }
 .vp .side-toggle:hover {
   filter: brightness(1.08);
 }
 .vp .side-toggle .i {
-  color: #1b1508;
+  color: var(--on-gold);
 }
 .vp .nav {
   display: flex;
@@ -231,13 +258,13 @@
 .vp .nav a.on,
 .vp .nav button.on {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
-  color: #1b1508;
+  color: var(--on-gold);
   font-weight: 700;
-  box-shadow: 0 6px 16px -8px rgba(201, 153, 47, 0.9);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--gold) 90%, transparent);
 }
 .vp .nav a.on .i,
 .vp .nav button.on .i {
-  color: #1b1508;
+  color: var(--on-gold);
 }
 .vp .nav a.soon {
   opacity: 0.7; /* D2: 6:1 on the sidebar (0.55 was 4.2:1) */
@@ -247,7 +274,7 @@
   padding: 15px 17px;
   border-radius: 14px;
   background: linear-gradient(150deg, var(--gold-hi), var(--gold-lo));
-  color: #1b1508;
+  color: var(--on-gold);
   text-align: left;
   border: 0;
   width: calc(100% - 24px);
@@ -272,7 +299,7 @@
   font-family: var(--data);
   font-size: 11.5px;
   margin-top: 6px;
-  color: #4a3a11;
+  color: var(--on-gold-soft);
 }
 .vp.app.mini .brand-name,
 .vp.app.mini .brand-sub,
@@ -500,8 +527,8 @@
 .vp .btn-gold {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
   border: 0;
-  color: #1b1508;
-  box-shadow: 0 8px 18px -10px rgba(184, 134, 43, 0.95);
+  color: var(--on-gold);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--gold-lo) 95%, transparent);
 }
 .vp .btn-gold:hover {
   filter: brightness(1.04);
@@ -625,7 +652,7 @@
 .vp .seg.gold button[aria-pressed="true"],
 .vp .seg.gold a[aria-current="page"] {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
-  color: #1b1508;
+  color: var(--on-gold);
 }
 .vp .fld {
   width: 100%;
@@ -743,7 +770,7 @@
 .vp .chip[aria-current="page"] {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
   border-color: transparent;
-  color: #1b1508;
+  color: var(--on-gold);
   font-weight: 700;
 }
 .vp .search {
@@ -947,7 +974,7 @@
 .vp .pg[aria-current="page"] {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
   border-color: transparent;
-  color: #1b1508;
+  color: var(--on-gold);
   font-weight: 800;
 }
 .vp .pg.dots {
@@ -1056,8 +1083,8 @@
 .vp .qa-primary {
   background: linear-gradient(150deg, var(--gold-hi), var(--gold-lo));
   border-color: transparent;
-  color: #1b1508;
-  box-shadow: 0 10px 22px -14px rgba(184, 134, 43, 0.95);
+  color: var(--on-gold);
+  box-shadow: 0 10px 22px -14px color-mix(in srgb, var(--gold-lo) 95%, transparent);
 }
 .vp .qa-primary:hover {
   filter: brightness(1.04);
@@ -1074,8 +1101,8 @@
   color: var(--gold-lo);
 }
 .vp .qa-primary .qa-ic {
-  background: rgba(27, 21, 8, 0.13);
-  color: #1b1508;
+  background: color-mix(in srgb, var(--on-gold) 13%, transparent);
+  color: var(--on-gold);
 }
 .vp .qa-tx {
   min-width: 0;
@@ -1094,7 +1121,7 @@
   margin-top: 3px;
 }
 .vp .qa-primary .qa-tx span {
-  color: #4a3a11;
+  color: var(--on-gold-soft);
 }
 
 .vp .day-head {
@@ -1322,7 +1349,7 @@
 }
 .vp .mini-cal .mc-d.is-today {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
-  color: #1b1508;
+  color: var(--on-gold);
   font-weight: 800;
 }
 .vp .mini-cal .mc-dot {
@@ -1335,7 +1362,7 @@
   box-shadow: 0 0 0 1.5px var(--surface);
 }
 .vp .mini-cal .mc-d.is-today .mc-dot {
-  background: #1b1508;
+  background: var(--on-gold);
   box-shadow: 0 0 0 1.5px var(--gold-hi);
 }
 
@@ -1888,7 +1915,7 @@
 }
 .vp .cal-month-cell.is-today .cal-month-daynum {
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
-  color: #1b1508;
+  color: var(--on-gold);
 }
 .vp .cal-month-daynum {
   font-family: var(--data);
@@ -2246,7 +2273,7 @@
   background: none;
   border: 0;
   padding: 0;
-  color: #8a6a22; /* D2: 5:1 on white */
+  color: var(--gold-text); /* D2: 5:1 on white */
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
@@ -2453,7 +2480,7 @@
 .vp .s4-meter-cta {
   font-size: 13.5px;
   font-weight: 700;
-  color: #8a6a22;
+  color: var(--gold-text);
 }
 .vp .s4-toolbar {
   display: flex;

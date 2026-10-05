@@ -9,6 +9,7 @@ import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { MfaSettings } from "@/components/venue/dashboard/MfaSettings";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
+import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
 import { errorMessage } from "@/lib/venue/user-error";
 
 export function SettingsClient({
@@ -16,12 +17,15 @@ export function SettingsClient({
   venueName: initialVenueName,
   email: initialEmail,
   profile,
+  branding,
 }: {
   venueId: string;
   venueName: string;
   email: string;
   /** Venue profile (B10); absent in older callers. */
   profile?: { address: string | null; phone: string | null; logoUrl: string | null };
+  /** The venue's accent colour and whether its plan includes branding (0087); omitted when unknown. */
+  branding?: { color: string | null; enabled: boolean };
 }) {
   const router = useRouter();
 
@@ -205,6 +209,17 @@ export function SettingsClient({
           </div>
           <div style={{ padding: 20 }}>
             <VenueProfileForm venueId={venueId} address={profile.address} phone={profile.phone} logoUrl={profile.logoUrl} />
+          </div>
+        </section>
+      ) : null}
+
+      {branding ? (
+        <section className="panel">
+          <div className="panel-h">
+            <h2 className="panel-t">Брендирање</h2>
+          </div>
+          <div style={{ padding: 20 }}>
+            <BrandColorForm venueId={venueId} color={branding.color} enabled={branding.enabled} />
           </div>
         </section>
       ) : null}

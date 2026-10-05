@@ -293,6 +293,14 @@ export function FullInvitation({
           {formatMkWeekday(invitation.event_date)}, {formatMkDate(invitation.event_date)}
           {startTime ? ` во ${startTime} часот` : ""}
         </p>
+        {invitation.venue_logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the venue's logo from public storage, any aspect ratio
+          <img
+            src={invitation.venue_logo_url}
+            alt={invitation.venue_name}
+            style={{ display: "block", maxWidth: 140, maxHeight: 64, objectFit: "contain", margin: "16px auto 0" }}
+          />
+        ) : null}
         <p style={{ color: theme.textColor, fontSize: 18, margin: "10px 0 0" }}>
           {invitation.venue_name}
           {invitation.room_names.length > 0 ? `, ${invitation.room_names.join(", ")}` : ""}

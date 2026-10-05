@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { IMAGE_SNIFF_BYTES, sniffImageType } from "@/lib/image-type";
+import { normalizeBrandColor } from "@/lib/venue/brand-palette";
 
 export async function getVenueName(
   venueId: string,
@@ -115,3 +116,19 @@ export async function setVenueLogoPath(
 export async function removeVenueLogo(venueId: string): Promise<void> {
   await setVenueLogoPath(venueId, null);
 }
+
+export const BRAND_COLOR_ERROR = "Изберете боја во облик #rrggbb.";
+
+/**
+ * Sets (or with null, clears) the venue's accent colour (0087). Stored
+ * normalised; whether it is shown depends on the venue's plan
+ * (`venue_branding`), which the pages check when they read it.
+ */
+export async function updateVenueBrandColor(venueId: string, color: string | null): Promise<void> {
+  const value = color === null ? null : normalizeBrandColor(color);
+  if (color !== null && value === null) throw new Error(BRAND_COLOR_ERROR);
+  const { data, error } = await resolveSupabaseClient().from("venues").update({ brand_color: value }).eq("id", venueId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
+}
+

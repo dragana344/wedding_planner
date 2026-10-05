@@ -45,7 +45,7 @@ describe("effective_features (spec §4.3)", () => {
     expect(f.seating).toEqual({ enabled: false, limit: 0 });
     expect(f.max_guests).toEqual({ enabled: true, limit: 150 });
     expect(f.budget).toEqual({ enabled: false, limit: 0 });
-    expect(Object.keys(f)).toHaveLength(26);
+    expect(Object.keys(f)).toHaveLength(27);
   });
 
   it("a disabled limit feature resolves limit 0, even with no explicit limit_value (controller ruling)", async () => {

@@ -11,6 +11,8 @@ import { LockedBanner } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "./DrawerButton";
 import { useDrawer } from "./useDrawer";
+import { BrandMark } from "@/components/venue/shell/BrandMark";
+import type { BrandVars } from "@/lib/venue/brand-palette";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -36,8 +38,11 @@ export function PanelShell({
   venueName,
   userRole = "Менаџер",
   lockedFeatures = [],
+  brand,
   children,
 }: {
+  /** The venue's own logo and accent colour (0087), when its plan includes branding. */
+  brand?: { logoUrl: string | null; vars: BrandVars | null };
   venueName: string;
   userRole?: string;
   /** Feature keys the venue's plan does not include (admin dashboard spec
@@ -54,7 +59,7 @@ export function PanelShell({
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
 
   return (
-    <div className={`vp app${mini ? " mini" : ""}`}>
+    <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
       <IconSprite />
 
       <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
@@ -69,12 +74,7 @@ export function PanelShell({
         </button>
 
         <div className="brand">
-          <svg className="mark" width="40" height="40" viewBox="0 0 42 42" aria-hidden>
-            <path d="M21 4 34 15.5 21 38 8 15.5 21 4Z" fill="#E0B44E" />
-            <path d="M21 4 34 15.5H8L21 4Z" fill="#F2D48A" />
-            <path d="M21 38 8 15.5h26L21 38Z" fill="#C9992F" />
-            <path d="M21 4 15 15.5 21 38l6-22.5L21 4Z" fill="#F6E3AF" opacity=".55" />
-          </svg>
+          <BrandMark logoUrl={brand?.logoUrl} />
           <div>
             <div className="brand-name">{venueName}</div>
             <div className="brand-sub">ПАНЕЛ ЗА УПРАВУВАЊЕ</div>

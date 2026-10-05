@@ -10,7 +10,8 @@ export type FeatureKey =
   | "budget" | "checklist" | "agenda" | "locations" | "notes" | "max_guests"
   | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports"
   | "photo_album" | "guest_greetings" | "video_greetings" | "reminders" | "personal_invite_links" | "print_qr"
-  | "storage_gb" | "photo_retention_days" | "co_organizers";
+  | "storage_gb" | "photo_retention_days" | "co_organizers"
+  | "venue_branding";
 
 export type FeatureDef = { key: FeatureKey; label: string; scope: FeatureScope; kind: FeatureKind };
 
@@ -41,6 +42,8 @@ export const FEATURES: readonly FeatureDef[] = [
   { key: "storage_gb", label: "Простор за фотографии (GB)", scope: "event", kind: "limit" },
   { key: "photo_retention_days", label: "Чување на фотографии (денови)", scope: "event", kind: "limit" },
   { key: "co_organizers", label: "Дополнителни организатори", scope: "event", kind: "limit" },
+  // 0087: the venue's own logo and accent colour on the panels and guest pages.
+  { key: "venue_branding", label: "Брендирање (лого и боја на локалот)", scope: "venue", kind: "switch" },
 ];
 
 export const FEATURE_KEYS: readonly FeatureKey[] = FEATURES.map((f) => f.key);

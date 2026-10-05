@@ -15,7 +15,7 @@ describe("seeded packages (0051)", () => {
     for (const name of ["START", "PREMIUM", "PREMIUM+", "ULTRA"]) {
       const { isDefault, f } = await features(name);
       expect(isDefault, name).toBe(false);
-      expect(Object.keys(f), name).toHaveLength(26);
+      expect(Object.keys(f), name).toHaveLength(27);
     }
   });
   it("sets storage and retention per package", async () => {

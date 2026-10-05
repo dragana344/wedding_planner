@@ -100,7 +100,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   venue_staff: { user_id: P, venue_id: N },
   venues: {
     id: N, name: P, created_at: N, layout_lock_password_hash: S, terms_version: N, terms_accepted_at: N,
-    address: P, phone: P, logo_path: N,
+    address: P, phone: P, logo_path: N, brand_color: N,
     plan_id: N, blocked_at: N, blocked_reason: C,
   },
 };

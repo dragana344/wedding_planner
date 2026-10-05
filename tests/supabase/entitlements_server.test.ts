@@ -28,7 +28,7 @@ afterAll(async () => {
 describe("server feature reads", () => {
   it("returns a complete map", async () => {
     const f = await getEventFeatures(eventId);
-    expect(Object.keys(f)).toHaveLength(26);
+    expect(Object.keys(f)).toHaveLength(27);
     expect(f.budget.enabled).toBe(true);
     expect(f.seating.enabled).toBe(false);
     expect((await getVenueFeatures(venueId)).reservations.enabled).toBe(false);
