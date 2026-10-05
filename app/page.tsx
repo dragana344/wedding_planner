@@ -6,6 +6,7 @@ import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { LogoMark, Wordmark } from "@/components/marketing/BrandLogo";
 import { montserrat, nunito } from "@/components/marketing/fonts";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { getPricingCards } from "@/lib/marketing/pricing";
 import "./landing.css";
 
@@ -370,7 +371,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <section className="band band-tint">
+      <section id="faq" className="band band-tint">
         <div className="wrap">
           <div className="section-head">
             <p className="eyebrow">Прашања</p>
@@ -408,6 +409,7 @@ export default async function Home() {
         </div>
       </section>
 
+      <MarketingFooter />
     </div>
   );
 }

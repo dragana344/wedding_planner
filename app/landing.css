@@ -316,6 +316,24 @@
 .lp .cta h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
 .lp .cta p { margin: 12px auto 28px; max-width: 34em; color: var(--muted); text-wrap: balance; }
 
+/* footer */
+.lp .footer { background: var(--ink); color: #c9cbd6; font-size: 14.5px; padding-block: clamp(40px, 6vw, 60px) 0; }
+.lp .footer a { color: #fff; text-decoration: none; }
+.lp .footer a:hover { text-decoration: underline; }
+.lp .footer :focus-visible { outline-color: #fff; }
+.lp .footer-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 36px clamp(24px, 4vw, 56px); }
+.lp .footer-brand { display: grid; gap: 12px; align-content: start; max-width: 36em; }
+/* The wordmark is drawn for a white ground, so it sits on its own light chip. */
+.lp .footer-word { width: 150px; height: auto; background: #fff; border-radius: 10px; padding: 8px 12px; box-sizing: content-box; }
+.lp .footer h2 { font: 700 13px/1.2 var(--f-display); letter-spacing: 0.08em; text-transform: uppercase; color: #fff; margin-bottom: 14px; }
+.lp .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lp .footer-bar {
+  margin-top: clamp(32px, 5vw, 48px); padding-block: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+  font-size: 13.5px;
+}
+
 /* ---------- auth pages (/login, /signup, /reset-password) ----------
    components/auth/AuthScreen.tsx, "landing" theme. The forms inside are shared
    with the panel-themed admin and couple logins, so they keep the panel's
@@ -413,12 +431,15 @@
   .lp .hero-word, .lp .hero-lead { margin-inline: auto; }
   .lp .hero-ctas { justify-content: center; }
   .lp .platform-grid, .lp .contact-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp .footer-brand { grid-column: 1 / -1; }
   .lp .plans { grid-template-columns: minmax(0, 1fr); max-width: 480px; margin-inline: auto; }
   .lp .eco-row { flex-direction: column; }
   .lp .eco-item + .eco-item { border-left: 0; }
 }
 @media (max-width: 560px) {
   .lp .feat-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp .footer-grid { grid-template-columns: minmax(0, 1fr); }
   /* Phone: no sidebar and a single column of panels, at a narrower design
      width so the text stays readable. */
   .lp .dp-in { --dw: 620; grid-template-columns: minmax(0, 1fr); }
