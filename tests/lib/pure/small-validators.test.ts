@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatMkDate, formatVenueDateTime } from "@/lib/date";
+import { formatDen } from "@/lib/money";
 import { depositExceedsTotal } from "@/lib/venue/events";
 import { isPhoneNumber } from "@/lib/venue/venue-profile";
 
@@ -43,5 +44,15 @@ describe("formatVenueDateTime", () => {
   });
   it("leaves an invalid value untouched", () => {
     expect(formatVenueDateTime("наскоро")).toBe("наскоро");
+  });
+});
+
+describe("formatDen", () => {
+  it("groups thousands with dots and names the currency", () => {
+    expect(formatDen(120000)).toBe("120.000 ден");
+    expect(formatDen(950)).toBe("950 ден");
+    expect(formatDen(1234567.4)).toBe("1.234.567 ден");
+    expect(formatDen(-80000)).toBe("-80.000 ден");
+    expect(formatDen(0)).toBe("0 ден");
   });
 });

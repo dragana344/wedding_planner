@@ -15,6 +15,8 @@ import {
   type TableType,
 } from "@/lib/venue/rooms";
 import { errorMessage } from "@/lib/venue/user-error";
+import { roomUsage } from "@/lib/venue/rooms";
+import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 
 export function SpaceCard({ room, onChanged }: { room: RoomWithSeatTotal; onChanged: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,6 +50,7 @@ function RoomDetailModal({
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [confirmingDeleteSpace, setConfirmingDeleteSpace] = useState(false);
+  const [usage, setUsage] = useState<{ events: number; reservations: number } | null>(null);
   const [isDeletingSpace, setIsDeletingSpace] = useState(false);
   const [deleteSpaceError, setDeleteSpaceError] = useState<string | null>(null);
   const [editingTableTypeId, setEditingTableTypeId] = useState<string | null>(null);
@@ -152,7 +155,9 @@ function RoomDetailModal({
             </button>
             {confirmingDeleteSpace ? (
               <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-                Да се избрише просторијата?
+                {usage && (usage.events > 0 || usage.reservations > 0)
+                  ? `Во оваа просторија има ${usage.events} ${usage.events === 1 ? "настан" : "настани"} и ${usage.reservations} ${usage.reservations === 1 ? "идна резервација" : "идни резервации"}. Со бришење се губат нивниот распоред, седењето и резервациите. Да се избрише?`
+                  : "Да се избрише просторијата?"}
                 <button
                   type="button"
                   onClick={handleDeleteSpace}
@@ -169,7 +174,13 @@ function RoomDetailModal({
             ) : (
               <button
                 type="button"
-                onClick={() => setConfirmingDeleteSpace(true)}
+                onClick={() => {
+                  setConfirmingDeleteSpace(true);
+                  // Best effort: without the counts the plain question is asked.
+                  roomUsage(room.id, todayIn(VENUE_TIME_ZONE))
+                    .then(setUsage)
+                    .catch(() => setUsage(null));
+                }}
                 className="btn btn-ghost"
                 style={{ color: "var(--bad)" }}
               >

@@ -11,6 +11,7 @@ vi.mock("@/lib/venue/rooms", async () => {
     listTableTypes: vi.fn(),
     updateRoomName: vi.fn(),
     deleteRoom: vi.fn(),
+    roomUsage: vi.fn().mockResolvedValue({ events: 0, reservations: 0 }),
     deleteTableType: vi.fn(),
     seatsAffectedByTableType: vi.fn().mockResolvedValue(0),
     upsertTableType: vi.fn(),
@@ -72,6 +73,18 @@ describe("SpaceCard", () => {
 
     await waitFor(() => expect(rooms.deleteRoom).toHaveBeenCalledWith("r1"));
     expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("says what a room in use takes with it before it is deleted", async () => {
+    vi.mocked(rooms.roomUsage).mockResolvedValueOnce({ events: 2, reservations: 1 });
+    render(<SpaceCard room={room} onChanged={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /test room/i }));
+    await screen.findByText(/round-8/i);
+    fireEvent.click(screen.getByRole("button", { name: /избриши просторија/i }));
+
+    expect(await screen.findByText(/има 2 настани и 1 идна резервација/)).toBeInTheDocument();
+    expect(rooms.deleteRoom).not.toHaveBeenCalled();
   });
 
   it("calls onChanged after adding a table type", async () => {

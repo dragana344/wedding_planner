@@ -1033,7 +1033,9 @@
 /* ---------- dashboard ---------- */
 .vp .quick-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  /* 190px lets all five actions share one row at laptop width instead of
+     leaving the fifth alone on a second row. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 .vp .qa {
@@ -2625,6 +2627,21 @@
   }
   .vp .seg {
     flex-wrap: wrap;
+  }
+  /* Top bar on a phone: the title gets the row; today's date and the clock
+     (the phone already shows both) step aside, the account button stays. */
+  .vp .top {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .vp .top .meta-item:not(:last-child) {
+    display: none;
+  }
+  .vp .top .meta-item:last-child {
+    padding-left: 0;
+  }
+  .vp .page-title {
+    font-size: 20px;
   }
   /* Stat tiles: some pages fix 3–4 columns inline; on a phone two per row. */
   .vp .tiles {

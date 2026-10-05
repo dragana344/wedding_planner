@@ -22,7 +22,7 @@ describe("BudgetClient", () => {
 
     expect(screen.getByText(/локал/i)).toBeInTheDocument();
     expect(screen.getByText("Restaurant X")).toBeInTheDocument();
-    expect(screen.getByText("14000")).toBeInTheDocument();
+    expect(screen.getByText("14.000 ден")).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Име на ставка"), { target: { value: "Florist Y" } });
     fireEvent.change(screen.getByPlaceholderText("Проценет износ"), { target: { value: "800" } });

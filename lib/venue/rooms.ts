@@ -155,6 +155,22 @@ export async function deleteTableType(tableTypeId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * What deleting a room takes with it (every table that references rooms
+ * cascades): the events held in it, with their layout and seating there,
+ * and its reservations from today on.
+ */
+export async function roomUsage(roomId: string, today: string): Promise<{ events: number; reservations: number }> {
+  const client = resolveSupabaseClient();
+  const [events, reservations] = await Promise.all([
+    client.from("event_rooms").select("event_id", { count: "exact", head: true }).eq("room_id", roomId),
+    client.from("reservations").select("id", { count: "exact", head: true }).eq("room_id", roomId).gte("date", today),
+  ]);
+  if (events.error) throw events.error;
+  if (reservations.error) throw reservations.error;
+  return { events: events.count ?? 0, reservations: reservations.count ?? 0 };
+}
+
 export async function deleteRoom(roomId: string): Promise<void> {
   const { error } = await resolveSupabaseClient().from("rooms").delete().eq("id", roomId);
   if (error) throw error;

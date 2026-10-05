@@ -5,6 +5,7 @@ import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { BUDGET_CATEGORIES, getBudgetCategoryLabel } from "@/lib/couple/budget-categories";
 import type { BudgetItem, BudgetSummary } from "@/lib/couple/budget";
 import { Icon } from "@/components/venue/shell/Icon";
+import { formatDen } from "@/lib/money";
 
 interface ItemFormState {
   category: string;
@@ -135,21 +136,21 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
         <div className="tile">
           <span className="badge"><Icon name="chart" size="lg" /></span>
           <div>
-            <div className="num">{summary.totalEstimated}</div>
+            <div className="num">{formatDen(summary.totalEstimated)}</div>
             <div className="lab">Проценето</div>
           </div>
         </div>
         <div className="tile">
           <span className="badge"><Icon name="tick" size="lg" /></span>
           <div>
-            <div className="num">{summary.totalPaid}</div>
+            <div className="num">{formatDen(summary.totalPaid)}</div>
             <div className="lab">Платено досега</div>
           </div>
         </div>
         <div className="tile">
           <span className="badge"><Icon name="case" size="lg" /></span>
           <div>
-            <div className="num">{summary.remaining}</div>
+            <div className="num">{formatDen(summary.remaining)}</div>
             <div className="lab">Преостанато</div>
           </div>
         </div>
@@ -158,7 +159,8 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
       <div className="ev">
         <p style={{ fontWeight: 700, margin: 0 }}>Локал</p>
         <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-          Проценето: {summary.venue.estimated_amount ?? "Не е поставено"} · Платено: {summary.venue.paid_amount ?? "Не е поставено"}
+          Проценето: {summary.venue.estimated_amount !== null ? formatDen(summary.venue.estimated_amount) : "Не е поставено"} · Платено:{" "}
+          {summary.venue.paid_amount !== null ? formatDen(summary.venue.paid_amount) : "Не е поставено"}
         </p>
       </div>
 
@@ -214,7 +216,7 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
                   </p>
                   <p style={{ fontWeight: 700, margin: 0 }}>{item.name}</p>
                   <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-                    Проценето: {item.estimated_amount ?? "—"} · Платено: {item.paid_amount}
+                    Проценето: {item.estimated_amount !== null ? formatDen(item.estimated_amount) : "—"} · Платено: {formatDen(item.paid_amount)}
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>

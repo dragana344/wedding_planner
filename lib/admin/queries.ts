@@ -294,7 +294,9 @@ const toEvent = (e: EventDb): EventRow => ({
 
 export async function listEvents(filter: { venueId?: string; from?: string; to?: string; status?: string }): Promise<EventRow[]> {
   await requireAdmin();
-  let query = db().from("events").select(EVENT_COLUMNS).order("event_date").limit(1000);
+  // Newest date first: with the row cap, the oldest history is what falls
+  // off the end, not next month's events.
+  let query = db().from("events").select(EVENT_COLUMNS).order("event_date", { ascending: false }).limit(1000);
   if (filter.venueId) query = query.eq("venue_id", filter.venueId);
   if (filter.from) query = query.gte("event_date", filter.from);
   if (filter.to) query = query.lte("event_date", filter.to);
