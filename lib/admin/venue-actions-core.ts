@@ -37,7 +37,7 @@ async function check<T>(p: PromiseLike<{ error: unknown; data?: T | null }>): Pr
 }
 
 /**
- * Refuses a staff action (password reset, MFA removal, sign-out) unless the
+ * Refuses a staff action (password reset, sign-out) unless the
  * target user id is actually staff of this venue. Without this, an admin
  * form that only carries a raw user id could be pointed at an arbitrary
  * user's id (or the admin's own), acting on an account with no relation to
@@ -182,15 +182,6 @@ export const venueActionCore = {
     await check(db().auth.resetPasswordForEmail(user.email, redirectTo ? { redirectTo } : undefined));
     revalidatePathSafe(`/admin/venues/${i.venueId}`);
     return { data: null, audit: { action: "admin_staff_password_reset_sent", venueId: i.venueId, targetId: i.userId } };
-  },
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async staffRemoveMfa(i: z.infer<typeof venueSchemas.staff>, _ctx: AdminContext) {
-    await requireVenueStaff(i.venueId, i.userId);
-    const { factors } = await check<{ factors: { id: string }[] }>(db().auth.admin.mfa.listFactors({ userId: i.userId }));
-    for (const f of factors ?? []) await check(db().auth.admin.mfa.deleteFactor({ userId: i.userId, id: f.id }));
-    revalidatePathSafe(`/admin/venues/${i.venueId}`);
-    return { data: null, audit: { action: "admin_staff_mfa_removed", venueId: i.venueId, targetId: i.userId } };
   },
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -46,7 +46,7 @@ describe.each(Object.entries(docs))("%s: MK and EN parity", (_name, doc) => {
 
   it("carries the version and date", () => {
     for (const d of [doc.mk, doc.en]) {
-      expect(d.lastUpdated).toBe("2026-09-29");
+      expect(d.lastUpdated).toBe("2026-10-06");
       expect(d.lastUpdated).toBe(LEGAL_LAST_UPDATED);
       expect(d.version).toBe(LEGAL_VERSION);
     }

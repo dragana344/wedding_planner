@@ -5,7 +5,7 @@ import type { ActionResult } from "@/lib/admin/actions";
 
 // One button that calls an admin Server Action and reports its result
 // inline, with an optional browser confirm() for actions that need a second
-// "are you sure" (e.g. removing a staff member's MFA).
+// "are you sure" (e.g. signing a staff member out everywhere).
 export function ActionButton({
   label,
   action,

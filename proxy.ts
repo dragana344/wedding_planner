@@ -114,12 +114,6 @@ async function refreshVenueSession(request: NextRequest, requestId: string): Pro
   // depth. API routes keep answering with their own 401s.
   if (!signedIn) return isPage ? redirectTo("/login") : response;
 
-  // SEC-016 is enforced by the database, not here: is_venue_staff_for and
-  // the venue_staff policy (migration 0044) hide all venue data from an aal1
-  // session of a user with a verified factor, so the panel layout finds no
-  // staff row and sends them to /login, which asks for the code. Checking
-  // here would cost an Auth round trip on every request of every user
-  // without MFA.
   return response;
 }
 

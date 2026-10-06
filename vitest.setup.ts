@@ -1,4 +1,12 @@
 import "@testing-library/jest-dom/vitest";
+import { vi } from "vitest";
+
+// next/font is compiled by Next, not available under jsdom. The auth screens
+// load the landing page's fonts (components/marketing/fonts.ts).
+vi.mock("next/font/google", () => {
+  const font = () => ({ className: "", variable: "" });
+  return { Montserrat: font, Nunito: font };
+});
 
 // Unit tests never talk to Supabase, but some modules build a client at import
 // time and need these to be set. Placeholders only - no env file is loaded

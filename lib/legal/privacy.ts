@@ -26,8 +26,8 @@ const privacyDocument: BiDocument = {
       "This policy explains which personal data is processed, why, who sees it, how long it is kept and what rights you have. It is governed by the Law on Personal Data Protection (Official Gazette of the Republic of North Macedonia No. 42/2020) and, where applicable, the General Data Protection Regulation (EU) 2016/679 (GDPR).",
     ),
     bi(
-      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува верзијата на: ${P.prevailingLanguage}.`,
-      `This document is published in Macedonian and English. In case of a difference, the version that prevails is: ${P.prevailingLanguage}.`,
+      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува македонската верзија.`,
+      `This document is published in Macedonian and English. In case of a difference, the Macedonian version prevails.`,
     ),
   ],
   sections: [
@@ -38,15 +38,15 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Платформата ја управува ${P.company}, со седиште на ${P.address}, ЕМБС ${P.regNo} („ние“). Веб-страница: ${P.domain}.`,
-            `The platform is operated by ${P.company}, registered at ${P.address}, registration number ${P.regNo} ("we"). Website: ${P.domain}.`,
+            `Платформата ја управува ${P.company} („ние“). Правното лице за платформата е во основање; неговиот назив, седиште и ЕМБС ќе бидат објавени тука штом биде запишано. Дотогаш контакт е ${P.supportEmail}. Веб-страница: ${P.domain}.`,
+            `The platform is operated by ${P.company} ("we"). The legal entity for the platform is being incorporated; its name, registered seat and registration number will be published here once it is registered. Until then the contact is ${P.supportEmail}. Website: ${P.domain}.`,
           ),
         },
         {
           type: "p",
           text: bi(
-            `За прашања за приватноста пишете на ${P.privacyEmail}. Офицер за заштита на личните податоци: ${P.dpo}.`,
-            `For privacy questions write to ${P.privacyEmail}. Data protection officer: ${P.dpo}.`,
+            `За прашања за приватноста пишете на ${P.privacyEmail}.`,
+            `For privacy questions write to ${P.privacyEmail}.`,
           ),
         },
       ],
@@ -103,8 +103,8 @@ const privacyDocument: BiDocument = {
             [
               bi("Вработени во локалот", "Venue staff"),
               bi(
-                "Е-пошта, лозинка (зачувана само како хаш), време на регистрација и последна најава, сесии за најава, IP-адреса и прелистувач во безбедносните записи на најавите, фактор за двофакторска автентикација (ако е вклучена), име на локалот, верзија и време на прифаќање на Условите за користење.",
-                "Email, password (stored only as a hash), sign-up and last sign-in time, sign-in sessions, IP address and browser in the sign-in security records, two-factor authentication factor (if enabled), venue name, version and time of acceptance of the Terms of Service.",
+                "Е-пошта, лозинка (зачувана само како хаш), време на регистрација и последна најава, сесии за најава, IP-адреса и прелистувач во безбедносните записи на најавите, име на локалот, верзија и време на прифаќање на Условите за користење.",
+                "Email, password (stored only as a hash), sign-up and last sign-in time, sign-in sessions, IP address and browser in the sign-in security records, venue name, version and time of acceptance of the Terms of Service.",
               ),
               bi(
                 "Самите вие, при регистрација и користење. Е-поштата и лозинката се задолжителни за да се отвори сметка.",
@@ -377,7 +377,7 @@ const privacyDocument: BiDocument = {
                 "Привремено, додека трае задачата: копија од базата на податоци и фотографиите пред шифрирање и прикачување во Cloudflare R2",
                 "Temporarily, while the job runs: a copy of the database and the photos before it is encrypted and uploaded to Cloudflare R2",
               ),
-              bi(P.githubRunnerLocation, P.githubRunnerLocation),
+              bi("Ја определува GitHub", "Determined by GitHub"),
               bi("Планиран", "Planned"),
             ],
           ],
@@ -385,8 +385,8 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Додека Resend не е вклучен, е-поштата за сметките ја испраќа Supabase. Известувањата за пораките од формуларот за контакт стигнуваат и во е-поштенското сандаче на нашиот тим кај ${P.teamMailProvider}. Податоци можеме да дадеме и на надлежни органи кога тоа го бара закон.`,
-            `Until Resend is enabled, account emails are sent by Supabase. Notifications of contact-form messages also arrive in our team's email inbox at ${P.teamMailProvider}. We may also disclose data to competent authorities when the law requires it.`,
+            `Е-поштата за потврда на сметка и за нова лозинка ја испраќа Supabase. Известувањата за пораките од формуларот за контакт стигнуваат и во е-поштенското сандаче на нашиот тим. Податоци можеме да дадеме и на надлежни органи кога тоа го бара закон.`,
+            `Account confirmation and password emails are sent by Supabase. Notifications of contact-form messages also arrive in our team's email inbox. We may also disclose data to competent authorities when the law requires it.`,
           ),
         },
       ],
@@ -429,15 +429,15 @@ const privacyDocument: BiDocument = {
             [
               bi("Резервации", "Reservations"),
               bi(
-                `${P.reservationRetention}. Локалот може во секое време да избрише резервација.`,
-                `${P.reservationRetention}. The venue can delete a reservation at any time.`,
+                "Додека локалот не ги избрише. Локалот може во секое време да избрише резервација.",
+                "Until the venue deletes them. The venue can delete a reservation at any time.",
               ),
             ],
             [
               bi("Сметка на локалот и вработени", "Venue account and staff"),
               bi(
-                `Додека локалот не ја избрише сметката или додека не престане услугата. По престанокот локалот има ${R.exportWindowAfterEndDays} дена да ги извезе податоците, а потоа се бришат. Сметки на поранешни вработени: ${P.formerStaffRetention}.`,
-                `Until the venue deletes its account or the service ends. After the service ends the venue has ${R.exportWindowAfterEndDays} days to export its data, after which it is deleted. Accounts of former staff: ${P.formerStaffRetention}.`,
+                `Додека локалот не ја избрише сметката или додека не престане услугата. По престанокот локалот има ${R.exportWindowAfterEndDays} дена да ги извезе податоците, а потоа се бришат.`,
+                `Until the venue deletes its account or the service ends. After the service ends the venue has ${R.exportWindowAfterEndDays} days to export its data, after which it is deleted.`,
               ),
             ],
             [
@@ -464,11 +464,11 @@ const privacyDocument: BiDocument = {
             ],
             [
               bi("Ревизорски дневник (без имиња и податоци за контакт)", "Audit log (no names or contact details)"),
-              bi(P.auditLogRetention, P.auditLogRetention),
+              bi("Додека трае сметката на локалот; потребен е за безбедност и за решавање спорови", "For as long as the venue's account exists; needed for security and for resolving disputes"),
             ],
             [
               bi("Технички записи кај давателите на хостинг и е-пошта", "Technical records at the hosting and email providers"),
-              bi(P.serverLogRetention, P.serverLogRetention),
+              bi("Според роковите на давателот на услугата", "According to the provider's own retention periods"),
             ],
           ],
         },
@@ -489,10 +489,6 @@ const privacyDocument: BiDocument = {
             bi(
               `Лозинките се чуваат само како хаш и мора да имаат најмалку ${S.minPasswordLength} знаци. Сесиите на клиентите се чуваат само како хаш. По ${S.coupleLoginMaxAttempts} неуспешни обиди за најава, сметката на клиентот се заклучува на ${S.coupleLockoutMinutes} минути.`,
               `Passwords are stored only as a hash and must have at least ${S.minPasswordLength} characters. Client sessions are stored only as a hash. After ${S.coupleLoginMaxAttempts} failed sign-in attempts, a client account is locked for ${S.coupleLockoutMinutes} minutes.`,
-            ),
-            bi(
-              "Вработените може да вклучат двофакторска автентикација со апликација за кодови.",
-              "Staff can turn on two-factor authentication with an authenticator app.",
             ),
             bi(
               "Бројот на барања кон јавните формулари и најавите е ограничен, а безбедносно важните дејства се запишуваат во ревизорски дневник.",
@@ -587,8 +583,8 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Имате право на приговор до Агенцијата за заштита на личните податоци (www.azlp.mk, ${P.azlpAddress}). Ако живеете во ЕУ, можете да поднесете приговор и до органот за заштита на податоците во вашата земја.`,
-            `You have the right to lodge a complaint with the Personal Data Protection Agency (Агенција за заштита на личните податоци, www.azlp.mk, ${P.azlpAddress}). If you live in the EU, you can also complain to the data protection authority in your country.`,
+            `Имате право на приговор до Агенцијата за заштита на личните податоци (www.azlp.mk). Ако живеете во ЕУ, можете да поднесете приговор и до органот за заштита на податоците во вашата земја.`,
+            `You have the right to lodge a complaint with the Personal Data Protection Agency (Агенција за заштита на личните податоци, www.azlp.mk). If you live in the EU, you can also complain to the data protection authority in your country.`,
           ),
         },
       ],

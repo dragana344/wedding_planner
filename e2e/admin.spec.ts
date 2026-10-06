@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { test, expect } from "./fixtures";
 import { ADMIN_BASE, adminClient, createAdminAndSignIn, setUpCouple, uniqueId } from "./helpers";
 
-// End-to-end admin flow (task 4.3): host routing, mandatory-TOTP login, plan
+// End-to-end admin flow (task 4.3): host routing, admin login, plan
 // creation, applying a plan to a venue (locking a feature the venue used to
 // have), and unlocking that feature again for a single event via an
 // event-level override — probing the couple API before/after each change.
@@ -16,8 +16,6 @@ test("admin builds a plan, locks seating for a venue, then unlocks it for one ev
   // The couple lives in its own browser context — a real staff/couple
   // session, separate from the admin's — same pattern as the app's other
   // cross-role E2E flows.
-  // Signing the admin in may wait up to ~40 s for a fresh TOTP window
-  // (e2e/helpers.ts createAdminAndSignIn), on top of the flow itself.
   test.slow();
   const coupleContext = await browser.newContext({ baseURL });
   const couplePage = await coupleContext.newPage();

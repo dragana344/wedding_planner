@@ -71,7 +71,6 @@ Execute top to bottom. Order is a valid topological sort of `depends_on` (checke
 | 57 | [ ] [SEC-011](tasks/SEC-011-dependency-and-secret-scanning-in-ci.md) Dependency and secret scanning in CI | security | S | CICD-001 |  |
 | 58 | [x] [SEC-014](tasks/SEC-014-keep-server-only-code-out-of-client-bundles.md) Keep server-only code out of client bundles | security | S | - |  |
 | 59 | [x] [SEC-015](tasks/SEC-015-csrf-defence-for-cookie-authenticated-mutations.md) CSRF defence for cookie-authenticated mutations | security | S | - |  |
-| 60 | [x] [SEC-016](tasks/SEC-016-mfa-totp-for-venue-staff.md) MFA (TOTP) for venue staff | security | M | SEC-012 | ⚑ |
 | 61 | [x] [SEC-017](tasks/SEC-017-sign-out-everywhere-for-venue-staff.md) Sign out everywhere for venue staff | security | S | AUTH-001 | ⚑ |
 | 62 | [x] [SEC-018](tasks/SEC-018-persistent-audit-log-for-sensitive-actions.md) Persistent audit log for sensitive actions | security | M | OBS-002 |  |
 | 63 | [x] [SEC-021](tasks/SEC-021-protect-guests-rsvp-answers-from-being-changed-by-other-gues.md) Protect guests' RSVP answers from being changed by other guests | security | M | SEC-018 | ⚑ |

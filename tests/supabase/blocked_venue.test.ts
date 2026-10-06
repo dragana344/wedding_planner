@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -18,32 +17,6 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: async () =
 import { GET as exportRoute } from "@/app/api/venue/privacy/export/route";
 import { POST as eraseRoute } from "@/app/api/venue/privacy/erase-event/route";
 import { POST as deleteRoute } from "@/app/api/venue/privacy/delete-account/route";
-
-// RFC 6238 TOTP (SHA-1, 30 s, 6 digits), as an authenticator app computes it.
-// Duplicated rather than imported (see tests/supabase/mfa_staff.test.ts and
-// tests/supabase/admin_guard.test.ts, which each carry their own copy — this
-// codebase's established pattern for this small, self-contained helper).
-function base32Decode(input: string): Buffer {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const ch of input.replace(/=+$/, "").toUpperCase()) {
-    const v = alphabet.indexOf(ch);
-    if (v < 0) throw new Error(`bad base32 char ${ch}`);
-    bits += v.toString(2).padStart(5, "0");
-  }
-  const bytes: number[] = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
-  return Buffer.from(bytes);
-}
-
-function totp(secret: string, now = Date.now()): string {
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(now / 1000 / 30)));
-  const hmac = createHmac("sha1", base32Decode(secret)).update(counter).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
-  return code.toString().padStart(6, "0");
-}
 
 // Admin spec D8: a blocked venue's staff lose access (RLS + BlockedScreen) and
 // its couples lose access (session refused, login answers the blocked
@@ -148,49 +121,5 @@ describe("blocked venue (spec D8)", () => {
     await c.from("venues").update({ blocked_at: null }).eq("id", venueId);
     const { data } = await admin.from("venues").select("blocked_at").eq("id", venueId).single();
     expect(data!.blocked_at).not.toBeNull();
-  });
-});
-
-// SEC-016 regression guard: getVenueAccess must keep resolving an aal1
-// session of an MFA-enrolled staff user to "none" (so proxy.ts and the venue
-// layout still send them to /login's code step), never to "ok" (the venue
-// name would leak before the second factor) or "blocked" — this venue is not
-// blocked at all.
-describe("getVenueAccess and MFA (SEC-016 regression guard)", () => {
-  const mfaStamp = `${Date.now()}-mfa`;
-  const mfaEmail = `mfa-${mfaStamp}@test.local`;
-  const mfaPassword = "mfa-staff-password-123";
-  let mfaVenueId: string;
-  let mfaStaffId: string;
-  let factorId: string;
-  let secret: string;
-
-  beforeAll(async () => {
-    mfaVenueId = (await admin.from("venues").insert({ name: "MFA Venue" }).select("id").single()).data!.id;
-    mfaStaffId = (await admin.auth.admin.createUser({ email: mfaEmail, password: mfaPassword, email_confirm: true })).data.user!.id;
-    await admin.from("venue_staff").insert({ user_id: mfaStaffId, venue_id: mfaVenueId });
-
-    const enrollClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
-    await enrollClient.auth.signInWithPassword({ email: mfaEmail, password: mfaPassword });
-    const { data, error } = await enrollClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "Тест апликација" });
-    if (error) throw error;
-    factorId = data.id;
-    secret = data.totp.secret;
-    const challenge = await enrollClient.auth.mfa.challengeAndVerify({ factorId, code: totp(secret) });
-    if (challenge.error) throw challenge.error;
-  });
-
-  afterAll(async () => {
-    await admin.auth.admin.deleteUser(mfaStaffId);
-    await admin.from("venues").delete().eq("id", mfaVenueId);
-  });
-
-  it("an aal1 session of an MFA-enrolled staff user resolves to status 'none', not 'ok' or 'blocked'", async () => {
-    const c = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
-    await c.auth.signInWithPassword({ email: mfaEmail, password: mfaPassword });
-    const { data: aal } = await c.auth.mfa.getAuthenticatorAssuranceLevel();
-    expect(aal).toMatchObject({ currentLevel: "aal1", nextLevel: "aal2" });
-
-    expect(await getVenueAccess(c)).toEqual({ status: "none" });
   });
 });

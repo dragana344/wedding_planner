@@ -818,46 +818,6 @@
     "file": "tasks/SEC-015-csrf-defence-for-cookie-authenticated-mutations.md"
   },
   {
-    "id": "SEC-016",
-    "title": "MFA (TOTP) for venue staff",
-    "category": "security",
-    "priority": "P1",
-    "effort": "M",
-    "depends_on": [
-      "SEC-012"
-    ],
-    "requires_approval": true,
-    "touches_logic_or_frontend": true,
-    "coachfio_reference": {
-      "files": [
-        "admin/ (mandatory TOTP for staff)",
-        "migration 0023"
-      ],
-      "commits": [],
-      "pattern_summary": "Coachfio requires TOTP for every staff account on the admin host: the account that can see everyone's data gets the stronger control."
-    },
-    "target_files": [
-      "app/login/page.tsx",
-      "app/venue/settings/page.tsx",
-      "middleware.ts",
-      "docs/production/AUTH.md"
-    ],
-    "description": "A venue staff account can read every event, couple and guest of that venue and create couple credentials. Enable Supabase Auth MFA (TOTP): enrolment in venue settings, a second step at login when a factor exists, and require aal2 on /venue and /api/venue once enrolled. Start as opt-in, decide later whether to make it mandatory.",
-    "acceptance_criteria": [
-      "Staff can enrol TOTP in settings and must pass it at login afterwards.",
-      "With a factor enrolled, an aal1 session cannot reach /venue data."
-    ],
-    "verification": [
-      "Enrol on staging, sign out, sign in: the code is required.",
-      "Call a venue API with an aal1 token -> refused."
-    ],
-    "out_of_scope": [
-      "Making MFA mandatory (separate decision)."
-    ],
-    "approval_note": "New screens in login and settings.",
-    "file": "tasks/SEC-016-mfa-totp-for-venue-staff.md"
-  },
-  {
     "id": "SEC-017",
     "title": "Sign out everywhere for venue staff",
     "category": "security",

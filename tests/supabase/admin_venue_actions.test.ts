@@ -50,7 +50,6 @@ describe("admin venue actions", () => {
     const strangerId = "11111111-2222-4000-8000-333333333333";
     await expect(venueActionCore.staffSignOut({ venueId, userId: strangerId }, ctx)).rejects.toThrow("не е вработен");
     await expect(venueActionCore.staffPasswordReset({ venueId, userId: strangerId }, ctx)).rejects.toThrow("не е вработен");
-    await expect(venueActionCore.staffRemoveMfa({ venueId, userId: strangerId }, ctx)).rejects.toThrow("не е вработен");
   });
 
   it("refuses to touch a venue that doesn't exist", async () => {

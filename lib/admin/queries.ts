@@ -38,7 +38,7 @@ export type VenueRow = {
 };
 export type VenueDetail = VenueRow & {
   blockedReason: string | null;
-  staff: { userId: string; email: string; mfa: boolean; lastSignInAt: string | null }[];
+  staff: { userId: string; email: string; lastSignInAt: string | null }[];
   rooms: { id: string; name: string }[];
   events: { id: string; date: string; coupleNames: string; status: string; type: string | null }[];
 };
@@ -280,17 +280,11 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
   if (!data) return null;
   const v = data as unknown as VenueDetailDb;
   const users = await authUsersById(v.venue_staff.map((s) => s.user_id));
-  const staff = await Promise.all(
-    v.venue_staff.map(async (s) => {
-      const { data: factors } = await db().auth.admin.mfa.listFactors({ userId: s.user_id });
-      return {
-        userId: s.user_id,
-        email: users.get(s.user_id)?.email ?? "",
-        mfa: (factors?.factors ?? []).some((f) => f.status === "verified"),
-        lastSignInAt: users.get(s.user_id)?.last_sign_in_at ?? null,
-      };
-    })
-  );
+  const staff = v.venue_staff.map((s) => ({
+    userId: s.user_id,
+    email: users.get(s.user_id)?.email ?? "",
+    lastSignInAt: users.get(s.user_id)?.last_sign_in_at ?? null,
+  }));
   return {
     id: v.id,
     name: v.name,

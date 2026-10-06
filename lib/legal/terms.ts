@@ -16,12 +16,12 @@ const termsDocument: BiDocument = {
   ),
   intro: [
     bi(
-      `Овие услови важат меѓу ${P.company}, ${P.address}, ЕМБС ${P.regNo} („ние“), и локалот (правно лице или трговец) што регистрира сметка на платформата Каде си? на ${P.domain}. Со регистрација на локал ги прифаќате овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
-      `These terms apply between ${P.company}, ${P.address}, registration number ${P.regNo} ("we"), and the venue (a company or trader) that registers an account on the Каде си? platform at ${P.domain}. By registering a venue you accept these terms, including the Data Processing Agreement, on the venue's behalf. For the venue's clients and guests only the section "Clients and guests" applies.`,
+      `Овие услови важат меѓу ${P.company}, кој ја управува платформата („ние“), и локалот (правно лице или трговец) што регистрира сметка на платформата Каде си? на ${P.domain}. Со регистрација на локал ги прифаќате овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
+      `These terms apply between ${P.company}, which operates the platform ("we"), and the venue (a company or trader) that registers an account on the Каде си? platform at ${P.domain}. By registering a venue you accept these terms, including the Data Processing Agreement, on the venue's behalf. For the venue's clients and guests only the section "Clients and guests" applies.`,
     ),
     bi(
-      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува верзијата на: ${P.prevailingLanguage}.`,
-      `This document is published in Macedonian and English. In case of a difference, the version that prevails is: ${P.prevailingLanguage}.`,
+      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува македонската верзија.`,
+      `This document is published in Macedonian and English. In case of a difference, the Macedonian version prevails.`,
     ),
   ],
   sections: [
@@ -64,8 +64,8 @@ const termsDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Локалот е одговорен за точноста на податоците при регистрација и за тоа кој има пристап до неговата сметка. Препорачуваме вработените да вклучат двофакторска автентикација.",
-              "The venue is responsible for accurate sign-up details and for who has access to its account. We recommend that staff turn on two-factor authentication.",
+              "Локалот е одговорен за точноста на податоците при регистрација и за тоа кој има пристап до неговата сметка.",
+              "The venue is responsible for accurate sign-up details and for who has access to its account.",
             ),
             bi(
               "Локалот ги издава корисничкото име и лозинката на клиентот и треба да ги предаде на безбеден начин. Клиентот ги чува во тајност.",
@@ -262,8 +262,8 @@ const termsDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `За суштински измени ги известуваме локалите по е-пошта најмалку ${P.noticePeriod} пред да стапат во сила. Ако продолжите да ја користите платформата по тој датум, ги прифаќате изменетите услови; во спротивно може да ја избришете сметката.`,
-            `We notify venues of material changes by email at least ${P.noticePeriod} before they take effect. If you keep using the platform after that date, you accept the changed terms; otherwise you can delete your account.`,
+            `За суштински измени ги известуваме локалите по е-пошта пред да стапат во сила. Ако продолжите да ја користите платформата по тој датум, ги прифаќате изменетите услови; во спротивно може да ја избришете сметката.`,
+            `We notify venues of material changes by email before they take effect. If you keep using the platform after that date, you accept the changed terms; otherwise you can delete your account.`,
           ),
         },
       ],
@@ -275,8 +275,8 @@ const termsDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `За овие услови се применува правото на Република Северна Македонија. Споровите ги решава ${P.court}, освен ако закон не пропишува поинаку.`,
-            `These terms are governed by the law of the Republic of North Macedonia. Disputes are decided by ${P.court}, unless the law provides otherwise.`,
+            `За овие услови се применува правото на Република Северна Македонија. Споровите ги решава надлежниот суд во Република Северна Македонија, освен ако закон не пропишува поинаку.`,
+            `These terms are governed by the law of the Republic of North Macedonia. Disputes are decided by the competent court in the Republic of North Macedonia, unless the law provides otherwise.`,
           ),
         },
       ],

@@ -7,7 +7,6 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { updateVenueName } from "@/lib/venue/venue-profile";
 import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { confirmationMatches } from "@/lib/privacy/confirm";
-import { MfaSettings } from "@/components/venue/dashboard/MfaSettings";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
 import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
 import { errorMessage } from "@/lib/venue/user-error";
@@ -274,8 +273,6 @@ export function SettingsClient({
           </button>
         </form>
       </section>
-
-      <MfaSettings />
 
       <section className="panel">
         <div className="panel-h">

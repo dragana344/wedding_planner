@@ -12,7 +12,6 @@ import {
   setVenuePlan,
   saveVenueOverride,
   sendStaffPasswordReset,
-  removeStaffMfa,
   signOutStaff,
   blockVenue,
   unblockVenue,
@@ -68,7 +67,6 @@ export function VenueAdminPanels({
             <thead>
               <tr>
                 <th>Е-пошта</th>
-                <th>2FA</th>
                 <th>Последна најава</th>
                 <th />
               </tr>
@@ -77,16 +75,10 @@ export function VenueAdminPanels({
               {venue.staff.map((s) => (
                 <tr key={s.userId}>
                   <td>{s.email}</td>
-                  <td>{s.mfa ? "Да" : "Не"}</td>
                   <td>{s.lastSignInAt?.slice(0, 10) ?? "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <ActionButton label="Ресетирај лозинка" action={() => sendStaffPasswordReset({ venueId: venue.id, userId: s.userId })} />
-                      <ActionButton
-                        label="Отстрани 2FA"
-                        confirm="Отстрани ја двофакторската автентикација?"
-                        action={() => removeStaffMfa({ venueId: venue.id, userId: s.userId })}
-                      />
                       {/* admin_sign_out_user only ends refresh tokens (0047); an
                           access token already issued to the browser keeps working
                           until it expires (≤1h), so the label must not promise an

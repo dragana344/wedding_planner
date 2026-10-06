@@ -45,7 +45,7 @@ describe("admin read models", () => {
 
   it("returns venue detail with staff but no private data", async () => {
     const d = await getVenueDetail(venueId);
-    expect(d!.staff[0]).toMatchObject({ email: `q-${stamp}@test.local`, mfa: false });
+    expect(d!.staff[0]).toMatchObject({ email: `q-${stamp}@test.local` });
     const raw = JSON.stringify(d);
     expect(raw).not.toContain("secret@example.com");
     expect(raw).not.toContain("Тајно Име");

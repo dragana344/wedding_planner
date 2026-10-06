@@ -4,27 +4,17 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 
-// Spec §3.2/§3.3: admin sign-in checks the platform_admin role client-side
-// (the real gate is checkAdmin/requireAdmin, which re-checks the role from
-// the Auth server and requires aal2 — this is just so a non-admin, or an
-// admin who hasn't finished their code, gets a clear message instead of a
-// silent redirect loop) and routes an admin without a verified TOTP factor
-// straight to mandatory enrolment, since two-factor is required for every
-// admin session.
-//
-// `mfaRequired={false}` (ADMIN_MFA_REQUIRED=false, lib/admin/mfa-policy.ts)
-// skips both steps: the password alone opens the panel, even for an admin
-// who has a factor enrolled.
-export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
+// Admin sign-in checks the platform_admin role client-side so a non-admin
+// gets a clear message instead of a silent redirect loop. The real gate is
+// checkAdmin/requireAdmin, which re-checks the role with the Auth server.
+export function AdminLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [factorId, setFactorId] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -44,17 +34,7 @@ export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
         setError("Оваа сметка нема админ пристап.");
         return;
       }
-      if (!mfaRequired) {
-        router.push("/admin");
-        return;
-      }
-      const pending = await pendingSecondFactor(supabase);
-      if (pending) {
-        setFactorId(pending);
-        return;
-      }
-      // No verified factor yet: TOTP enrolment is mandatory for admins.
-      router.push("/admin/login/mfa");
+      router.push("/admin");
     } catch {
       setError("Акцијата не успеа.");
     } finally {
@@ -64,16 +44,6 @@ export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
 
   if (showForgotPassword) {
     return <ForgotPasswordForm eyebrow="Админ" tagline="Управување со платформата." onBack={() => setShowForgotPassword(false)} />;
-  }
-
-  if (factorId) {
-    return (
-      <MfaCodeForm
-        factorId={factorId}
-        onVerified={() => router.push("/admin")}
-        onBack={() => setFactorId(null)}
-      />
-    );
   }
 
   return (

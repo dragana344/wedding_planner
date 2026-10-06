@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
+import { finishPendingSignup } from "@/lib/venue/pending-signup";
 
 const EYEBROW = "Панел за управување";
 const TAGLINE = "Управувајте со вашиот локал, настани и резервации — сè на едно место.";
@@ -18,17 +18,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  // SEC-016: set when the password is right but the account has a TOTP factor.
-  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [venueJustOpened, setVenueJustOpened] = useState(false);
 
-  // An aal1 session of an MFA user lands here (the panel finds no staff row
-  // until the code is given): go straight to the code step if the browser
-  // still holds that session.
+  // A new owner coming back from the "confirm your email" link lands here
+  // already signed in but with no venue yet: open it and continue to the panel.
   useEffect(() => {
     let cancelled = false;
-    pendingSecondFactor(createBrowserSupabaseClient())
-      .then((factorId) => {
-        if (!cancelled && factorId) setMfaFactorId(factorId);
+    const supabase = createBrowserSupabaseClient();
+    supabase.auth
+      .getUser()
+      .then(async ({ data }) => {
+        if ((await finishPendingSignup(supabase, data.user)) && !cancelled) setVenueJustOpened(true);
       })
       .catch(() => undefined);
     return () => {
@@ -36,23 +36,23 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (venueJustOpened) router.push("/venue?tour=1");
+  }, [venueJustOpened, router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
       const supabase = createBrowserSupabaseClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setError(authErrorMessage(signInError));
         return;
       }
-      const factorId = await pendingSecondFactor(supabase);
-      if (factorId) {
-        setMfaFactorId(factorId);
-        return;
-      }
-      router.push("/venue");
+      const venueOpened = await finishPendingSignup(supabase, signInData?.user);
+      router.push(venueOpened ? "/venue?tour=1" : "/venue");
     } catch {
       setError(GENERIC_ERROR);
     } finally {
@@ -62,19 +62,6 @@ export default function LoginPage() {
 
   if (showForgotPassword) {
     return <ForgotPasswordForm eyebrow={EYEBROW} tagline={TAGLINE} onBack={() => setShowForgotPassword(false)} />;
-  }
-
-  if (mfaFactorId) {
-    return (
-      <MfaCodeForm
-        factorId={mfaFactorId}
-        onVerified={() => router.push("/venue")}
-        onBack={() => {
-          setMfaFactorId(null);
-          setPassword("");
-        }}
-      />
-    );
   }
 
   return (
@@ -87,8 +74,9 @@ export default function LoginPage() {
           <input
             id="login-email"
             className="fld"
-            placeholder="Е-пошта"
+            placeholder="ime@primer.mk"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -103,6 +91,7 @@ export default function LoginPage() {
             className="fld"
             placeholder="Лозинка"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Archivo_Black, Manrope, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthLinkHandler } from "@/components/AuthLinkHandler";
+import { HistoryGuard } from "@/components/HistoryGuard";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -47,6 +49,8 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} ${manrope.variable} ${plexSans.variable} antialiased`}
       >
+        <HistoryGuard />
+        <AuthLinkHandler />
         {children}
       </body>
     </html>

@@ -33,7 +33,12 @@ describe("SignupForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
     await waitFor(() =>
-      expect(mockSignUp).toHaveBeenCalledWith({ email: "owner@example.com", password: "strong-password-123" })
+      expect(mockSignUp).toHaveBeenCalledWith({
+        email: "owner@example.com",
+        password: "strong-password-123",
+        // The venue name rides along for the confirm-email path (lib/venue/pending-signup.ts).
+        options: { data: { venue_name: "Демо Локал" }, emailRedirectTo: `${window.location.origin}/login` },
+      })
     );
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
@@ -88,11 +93,30 @@ describe("SignupForm", () => {
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
-    expect(
-      await screen.findByText("Ви испративме email. Потврдете ја сметката преку линкот, па најавете се.")
-    ).toBeInTheDocument();
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent("Ви испративме email на owner@example.com. Потврдете ја сметката преку линкот, па најавете се.");
+    expect(screen.getByRole("link", { name: "Кон најава" })).toHaveAttribute("href", "/login");
+    // The form is replaced, so the same details can't be submitted twice.
+    expect(screen.queryByRole("button", { name: /регистрирај се/i })).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("says the email is taken instead of promising a confirmation email (Supabase returns a user without identities)", async () => {
+    mockSignUp.mockResolvedValue({ data: { session: null, user: { id: "obfuscated", identities: [] } }, error: null });
+    global.fetch = vi.fn();
+
+    render(<SignupForm />);
+
+    fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
+    fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
+
+    expect(await screen.findByText("Веќе постои сметка со овој email. Најавете се.")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /регистрирај се/i })).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
 

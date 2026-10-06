@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function ResetPasswordPage() {
@@ -12,20 +11,12 @@ export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // SEC-025 SR-07: staff with MFA must pass their code before Supabase lets
-  // the recovery session change the password.
-  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
-      const factorId = await pendingSecondFactor(createBrowserSupabaseClient());
-      if (factorId) {
-        setMfaFactorId(factorId);
-        return;
-      }
       await savePassword();
     } catch {
       setError(GENERIC_ERROR);
@@ -48,23 +39,9 @@ export default function ResetPasswordPage() {
     router.push("/venue");
   }
 
-  if (mfaFactorId) {
-    return (
-      <MfaCodeForm
-        factorId={mfaFactorId}
-        onVerified={async () => {
-          await savePassword();
-          setMfaFactorId(null);
-        }}
-        onBack={() => setMfaFactorId(null)}
-        backLabel="Назад"
-        signOutOnBack={false}
-      />
-    );
-  }
-
   return (
     <AuthScreen
+      theme="landing"
       eyebrow="Панел за управување"
       tagline="Управувајте со вашиот локал, настани и резервации — сè на едно место."
       title="Нова лозинка"
@@ -79,6 +56,7 @@ export default function ResetPasswordPage() {
             className="fld"
             placeholder="Нова лозинка"
             type="password"
+            autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             minLength={10}

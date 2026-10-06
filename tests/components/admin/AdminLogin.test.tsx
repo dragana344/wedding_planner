@@ -8,7 +8,6 @@ const auth = {
   signOut: vi.fn(async () => ({ error: null })),
   getUser: vi.fn(),
   resetPasswordForEmail: vi.fn(async () => ({ data: {}, error: null })),
-  mfa: { getAuthenticatorAssuranceLevel: vi.fn(), listFactors: vi.fn(), challengeAndVerify: vi.fn() },
 };
 vi.mock("@/lib/supabase/client", () => ({ createBrowserSupabaseClient: () => ({ auth }) }));
 
@@ -22,7 +21,6 @@ function signIn() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" }, error: null });
 });
 
 describe("AdminLogin", () => {
@@ -36,33 +34,20 @@ describe("AdminLogin", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("asks for the TOTP code when the admin has a factor", async () => {
+  it("opens the panel for an admin on the password alone", async () => {
     auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
     auth.getUser.mockResolvedValue({ data: { user: { app_metadata: { role: "platform_admin" } } }, error: null });
-    auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal2" }, error: null });
-    auth.mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: "f1", status: "verified" }] } });
     render(<AdminLogin />);
-    signIn();
-    expect(await screen.findByLabelText("Код од апликацијата")).toBeInTheDocument();
-  });
-
-  it("opens the panel on the password alone when two-factor is switched off", async () => {
-    auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
-    auth.getUser.mockResolvedValue({ data: { user: { app_metadata: { role: "platform_admin" } } }, error: null });
-    auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal2" }, error: null });
-    auth.mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: "f1", status: "verified" }] } });
-    render(<AdminLogin mfaRequired={false} />);
     signIn();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"));
-    expect(screen.queryByLabelText("Код од апликацијата")).not.toBeInTheDocument();
   });
 
-  it("sends an admin without a factor to mandatory enrolment", async () => {
-    auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
-    auth.getUser.mockResolvedValue({ data: { user: { app_metadata: { role: "platform_admin" } } }, error: null });
+  it("shows an error and stays on the form when the password is wrong", async () => {
+    auth.signInWithPassword.mockResolvedValue({ data: {}, error: { message: "Invalid login credentials" } });
     render(<AdminLogin />);
     signIn();
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login/mfa"));
+    expect(await screen.findByText("Неточна е-пошта или лозинка.")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("offers a forgot-password link that sends a reset email and can be backed out of", async () => {

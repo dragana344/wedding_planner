@@ -71,11 +71,8 @@ export function MenuItemCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <b>{item.name}</b>
           <span className="muted"> — {COURSE_LABELS[item.course]}</span>
-          {item.is_vegan ? (
-            <span className="pill p-ok" style={{ marginLeft: 8 }}>веганско</span>
-          ) : item.is_vegetarian ? (
-            <span className="pill p-ok" style={{ marginLeft: 8 }}>вегетаријанско</span>
-          ) : null}
+          {item.is_vegetarian ? <span className="pill p-ok" style={{ marginLeft: 8 }}>вегетаријанско</span> : null}
+          {item.is_vegan ? <span className="pill p-ok" style={{ marginLeft: 8 }}>веганско</span> : null}
         </div>
         {item.price !== null ? <span style={{ fontFamily: "var(--data)", fontWeight: 700 }}>{item.price.toFixed(2).replace(/\.00$/, "")} ден</span> : null}
       </div>

@@ -23,8 +23,8 @@ const dpaDocument: BiDocument = {
       "This agreement is made under the Law on Personal Data Protection (Official Gazette of the Republic of North Macedonia No. 42/2020) and, where applicable, Article 28 of the General Data Protection Regulation (EU) 2016/679 (GDPR). It forms part of the platform's Terms of Service.",
     ),
     bi(
-      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува верзијата на: ${P.prevailingLanguage}.`,
-      `This document is published in Macedonian and English. In case of a difference, the version that prevails is: ${P.prevailingLanguage}.`,
+      `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува македонската верзија.`,
+      `This document is published in Macedonian and English. In case of a difference, the Macedonian version prevails.`,
     ),
   ],
   sections: [
@@ -40,8 +40,8 @@ const dpaDocument: BiDocument = {
               "Controller: the venue that registered an account on the platform and accepted the Terms of Service, with the details entered in the account (\"the venue\").",
             ),
             bi(
-              `Обработувач: ${P.company}, ${P.address}, ЕМБС ${P.regNo}, контакт за приватност: ${P.privacyEmail} („обработувачот“).`,
-              `Processor: ${P.company}, ${P.address}, registration no. ${P.regNo}, privacy contact: ${P.privacyEmail} ("the processor").`,
+              `Обработувач: ${P.company}, контакт за приватност: ${P.privacyEmail} („обработувачот“).`,
+              `Processor: ${P.company}, privacy contact: ${P.privacyEmail} ("the processor").`,
             ),
           ],
         },
@@ -203,10 +203,6 @@ const dpaDocument: BiDocument = {
               `Passwords and sessions: passwords are stored only as a bcrypt hash, at least ${S.minPasswordLength} characters. Client sessions are stored only as a SHA-256 hash and expire ${R.coupleSessionDays} days after last use. A client sign-in is locked for ${S.coupleLockoutMinutes} minutes after ${S.coupleLoginMaxAttempts} failed attempts.`,
             ),
             bi(
-              "Двофакторска автентикација (TOTP) по избор за вработените; кога е вклучена, базата не дава податоци без втор фактор.",
-              "Two-factor authentication (TOTP), optional for staff; when enabled, the database returns no data without the second factor.",
-            ),
-            bi(
               `Ограничување на барањата за најавите на клиентите, регистрација, формулар за контакт, одговори и прикачување фотографии; бројачите содржат само хаш и се бришат по ${R.rateLimitCounterDays} ден.`,
               `Rate limiting for client sign-ins, sign-up, the contact form, answers and photo uploads; counters contain only a hash and are deleted after ${R.rateLimitCounterDays} day.`,
             ),
@@ -295,7 +291,7 @@ const dpaDocument: BiDocument = {
                 "Привремено, додека трае задачата: копија од базата и фотографиите пред шифрирање",
                 "Temporarily, while the job runs: a copy of the database and the photos before encryption",
               ),
-              bi(P.githubRunnerLocation, P.githubRunnerLocation),
+              bi("Ја определува GitHub", "Determined by GitHub"),
               bi("Планиран", "Planned"),
             ],
           ],
@@ -303,8 +299,8 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Обработувачот со секој подобработувач има договор со обврски за заштита на податоците што не се помали од овие. За додавање или замена на подобработувач го известува локалот најмалку ${P.subprocessorNotice} однапред; локалот може да приговори, а ако не се постигне решение, може да ја избрише сметката. Обработувачот одговара за подобработувачите како за себе.`,
-            `The processor has a contract with each sub-processor with data protection obligations no less protective than these. It informs the venue of any added or replaced sub-processor at least ${P.subprocessorNotice} in advance; the venue may object and, if no solution is found, may delete its account. The processor remains liable for its sub-processors as for itself.`,
+            `Обработувачот со секој подобработувач има договор со обврски за заштита на податоците што не се помали од овие. За додавање или замена на подобработувач го известува локалот однапред; локалот може да приговори, а ако не се постигне решение, може да ја избрише сметката. Обработувачот одговара за подобработувачите како за себе.`,
+            `The processor has a contract with each sub-processor with data protection obligations no less protective than these. It informs the venue of any added or replaced sub-processor in advance; the venue may object and, if no solution is found, may delete its account. The processor remains liable for its sub-processors as for itself.`,
           ),
         },
         {
@@ -394,8 +390,8 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Обработувачот на барање ги дава информациите потребни за да се докаже усогласеноста со овој договор (вклучително опис на мерките). Локалот или ревизор обврзан на доверливост може да изврши ревизија со најава најмалку ${P.auditNotice} однапред, во работно време и без пристап до податоци на други локали. Трошоците за ревизијата ги сноси локалот, освен ако ревизијата открие суштинско прекршување на овој договор.`,
-            `On request, the processor provides the information needed to demonstrate compliance with this agreement (including a description of the measures). The venue, or an auditor bound by confidentiality, may carry out an audit with at least ${P.auditNotice} prior notice, during business hours and without access to other venues' data. The venue bears the cost of the audit unless it reveals a material breach of this agreement.`,
+            `Обработувачот на барање ги дава информациите потребни за да се докаже усогласеноста со овој договор (вклучително опис на мерките). Локалот или ревизор обврзан на доверливост може да изврши ревизија со претходна најава во разумен рок, во работно време и без пристап до податоци на други локали. Трошоците за ревизијата ги сноси локалот, освен ако ревизијата открие суштинско прекршување на овој договор.`,
+            `On request, the processor provides the information needed to demonstrate compliance with this agreement (including a description of the measures). The venue, or an auditor bound by confidentiality, may carry out an audit with reasonable prior notice, during business hours and without access to other venues' data. The venue bears the cost of the audit unless it reveals a material breach of this agreement.`,
           ),
         },
       ],
@@ -407,8 +403,8 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `За одговорноста се применуваат Условите за користење; тие не ги ограничуваат правата на лицата чии податоци се обработуваат. За овој договор се применува правото на Република Северна Македонија, а споровите ги решава ${P.court}. При судир меѓу овој договор и Условите за користење во однос на заштитата на податоците, преовладува овој договор.`,
-            `Liability is governed by the Terms of Service; they do not limit the rights of the data subjects. This agreement is governed by the law of the Republic of North Macedonia, and disputes are decided by ${P.court}. If this agreement and the Terms of Service conflict on data protection, this agreement prevails.`,
+            `За одговорноста се применуваат Условите за користење; тие не ги ограничуваат правата на лицата чии податоци се обработуваат. За овој договор се применува правото на Република Северна Македонија, а споровите ги решава надлежниот суд во Република Северна Македонија. При судир меѓу овој договор и Условите за користење во однос на заштитата на податоците, преовладува овој договор.`,
+            `Liability is governed by the Terms of Service; they do not limit the rights of the data subjects. This agreement is governed by the law of the Republic of North Macedonia, and disputes are decided by the competent court in the Republic of North Macedonia. If this agreement and the Terms of Service conflict on data protection, this agreement prevails.`,
           ),
         },
       ],
@@ -420,17 +416,9 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Договорот се прифаќа електронски заедно со Условите за користење при регистрација; платформата ги запишува верзијата и времето на прифаќањето. На барање, договорот може да се потпише:",
-            "This agreement is accepted electronically together with the Terms of Service at sign-up; the platform records the version and time of acceptance. On request, it can be signed:",
+            "Договорот се прифаќа електронски заедно со Условите за користење при регистрација; платформата ги запишува верзијата и времето на прифаќањето.",
+            "This agreement is accepted electronically together with the Terms of Service at sign-up; the platform records the version and time of acceptance.",
           ),
-        },
-        {
-          type: "table",
-          head: [bi("", ""), bi("Контролор", "Controller"), bi("Обработувач", "Processor")],
-          rows: [
-            [bi("Име и функција", "Name and title"), bi(P.venueSignatory, P.venueSignatory), bi(P.companySignatory, P.companySignatory)],
-            [bi("Датум", "Date"), bi(P.signatureDate, P.signatureDate), bi(P.signatureDate, P.signatureDate)],
-          ],
         },
       ],
     },

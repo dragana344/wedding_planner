@@ -24,7 +24,7 @@ The app enforces the same password minimum in the forms (`minLength={10}` on sig
 
 ## What changes for users when "Confirm email" is on
 
-`/signup` creates the account, then shows "Please check your email to confirm your account before signing in." (`components/auth/SignupForm.tsx` already handles the no-session case). The venue is provisioned on first sign-in after confirming.
+`/signup` creates the account, keeps the venue name in the user's metadata (`venue_name`) and shows "Ви испративме email на …" instead of the form (`components/auth/SignupForm.tsx`). The venue is provisioned on first sign-in after confirming: `/login` calls `finishPendingSignup` (`lib/venue/pending-signup.ts`) both after a password sign-in and when the confirmation link lands there already signed in, then continues to `/venue?tour=1`. The confirmation link asks to return to `<origin>/login`, so that URL must be in the project's Redirect URLs; otherwise Supabase falls back to the Site URL and the owner finishes by opening `/login` themselves.
 
 ## Password reset flow (AUTH-002)
 

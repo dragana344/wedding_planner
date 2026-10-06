@@ -16,5 +16,4 @@ export const blockVenue = adminAction(schemas.block, core.block);
 export const unblockVenue = adminAction(schemas.unblock, core.unblock);
 export const deleteVenue = adminAction(schemas.remove, core.remove);
 export const sendStaffPasswordReset = adminAction(schemas.staff, core.staffPasswordReset);
-export const removeStaffMfa = adminAction(schemas.staff, core.staffRemoveMfa);
 export const signOutStaff = adminAction(schemas.staff, core.staffSignOut);
