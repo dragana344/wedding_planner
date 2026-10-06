@@ -15,14 +15,20 @@ export type PricingCard = {
 
 // Shown when the table can't be read (database down, or a deploy that lands
 // before 0085 is applied) so the landing page never loses its price section.
-// Same three cards 0085 seeds.
+// The three levels a venue can be on (admin → Нивоа), with what each really includes.
 export const DEFAULT_PRICING: PricingCard[] = [
   {
     id: "default-basic",
     name: "Основен",
     price: "1.500 ден",
     period: "/ месечно",
-    features: ["1 локал", "До 2 простории", "Управување со настани", "Резервации", "Распоред на маси"],
+    features: [
+      "До 2 простории со распоред на маси",
+      "Неограничени настани и гости",
+      "Дигитална покана со потврда на доаѓање",
+      "Распоред на седење, буџет и чеклиста за парот",
+      "Албум со фотографии од гостите (5 GB)",
+    ],
     featured: false,
   },
   {
@@ -30,7 +36,7 @@ export const DEFAULT_PRICING: PricingCard[] = [
     name: "Про",
     price: "3.500 ден",
     period: "/ месечно",
-    features: ["Сè од Основен", "Менија и пакети", "Буџет и чеклиста за парови", "Дигитални покани со QR код", "Известувања (наскоро)"],
+    features: ["Сè од Основен", "Неограничен број простории", "Сите дизајни на покана", "Видео честитки од гостите", "Албум од 20 GB, чување 30 дена"],
     featured: true,
   },
   {
@@ -38,7 +44,7 @@ export const DEFAULT_PRICING: PricingCard[] = [
     name: "Премиум",
     price: "По договор",
     period: null,
-    features: ["Сè од Про", "Брендирање по мерка на локалот", "Извештаи и аналитика", "Приоритетна поддршка"],
+    features: ["Сè од Про", "Брендирање по мерка на локалот", "Извештаи и аналитика", "Албум од 100 GB, чување 60 дена", "Приоритетна поддршка"],
     featured: false,
   },
 ];
