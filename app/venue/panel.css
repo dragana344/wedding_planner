@@ -269,6 +269,60 @@
 .vp .nav a.soon {
   opacity: 0.7; /* D2: 6:1 on the sidebar (0.55 was 4.2:1) */
 }
+.vp .locked-wrap {
+  position: relative;
+  min-height: 70vh;
+  overflow: hidden;
+}
+.vp .locked-blur {
+  filter: blur(9px);
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+}
+.vp .locked-card {
+  position: absolute;
+  top: clamp(24px, 14vh, 140px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 32px));
+  padding: 28px 24px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  box-shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.35);
+}
+.vp .locked-card b {
+  font-size: 16px;
+}
+.vp .locked-card p {
+  margin: 0;
+  color: var(--muted);
+}
+.vp .locked-card a {
+  color: var(--gold-text, var(--gold-lo));
+  font-weight: 700;
+  text-decoration: underline;
+}
+.vp .locked-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+.vp .nav .soon-tag {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.vp.mini .nav .soon-tag {
+  display: none;
+}
 .vp .quick {
   margin: 0 12px;
   padding: 15px 17px;

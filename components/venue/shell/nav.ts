@@ -1,4 +1,5 @@
 import type { FeatureKey } from "@/lib/entitlements/features";
+import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 
 /*
  * Venue panel navigation, mirroring the Diamond design prototype's sidebar.
@@ -37,7 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "cal",
     label: "Календар / Планер",
     title: "КАЛЕНДАР / ПЛАНЕР",
-    subtitle: "Преглед и управување со сите настани и резервации",
+    subtitle: TABLE_RESERVATIONS_ENABLED ? "Преглед и управување со сите настани и резервации" : "Преглед и управување со сите настани",
     ready: true,
   },
   {
@@ -45,8 +46,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "book",
     label: "Резервации",
     title: "РЕЗЕРВАЦИИ",
-    subtitle: "Резервирајте маси и управувајте со сите резервации",
-    ready: true,
+    subtitle: TABLE_RESERVATIONS_ENABLED ? "Резервирајте маси и управувајте со сите резервации" : "Секојдневни резервации на маси: наскоро",
+    ready: TABLE_RESERVATIONS_ENABLED,
     feature: "reservations",
   },
   {

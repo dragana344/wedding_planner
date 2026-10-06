@@ -68,9 +68,9 @@ export function DashboardPreview() {
           <div className="dp-quick">
             <b>
               <Icon name="bolt" />
-              НОВА РЕЗЕРВАЦИЈА
+              НОВ НАСТАН
             </b>
-            <span>Резервирај маса / термин</span>
+            <span>Свадба, роденден, прослава</span>
           </div>
         </div>
 

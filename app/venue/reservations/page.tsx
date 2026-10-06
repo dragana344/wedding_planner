@@ -3,6 +3,8 @@ import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { listReservations } from "@/lib/venue/reservations";
 import { listRoomsWithSeatTotals } from "@/lib/venue/rooms";
 import { ReservationsClient } from "@/components/venue/dashboard/ReservationsClient";
+import { ComingSoon } from "@/components/venue/shell/ComingSoon";
+import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 
 // Without this, Next.js's client Router Cache can serve a stale snapshot of
 // this page (e.g. from right after a reset, when the list was empty) when
@@ -11,6 +13,15 @@ import { ReservationsClient } from "@/components/venue/dashboard/ReservationsCli
 export const dynamic = "force-dynamic";
 
 export default async function ReservationsPage() {
+  if (!TABLE_RESERVATIONS_ENABLED) {
+    return (
+      <ComingSoon
+        icon="book"
+        title="Резервации на маси"
+        note="Секојдневните резервации на маси доаѓаат во следната верзија. Засега тука ги водите настаните: свадби, родендени и други прослави."
+      />
+    );
+  }
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);
   // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.

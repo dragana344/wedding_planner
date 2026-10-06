@@ -4,6 +4,7 @@ import { listRoomsWithSeatTotals, listTableTypes } from "@/lib/venue/rooms";
 import { listMenuTemplatesWithItemCounts } from "@/lib/venue/menus";
 import { listEventsWithDetails } from "@/lib/venue/events";
 import { listReservationsForDate } from "@/lib/venue/reservations";
+import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 import { listFixedElements, listRoomLayoutElements } from "@/lib/venue/floorplan";
 import { peakConcurrentGuests } from "@/lib/venue/occupancy";
 import { DashboardClient, type RoomLayout } from "@/components/venue/dashboard/DashboardClient";
@@ -55,7 +56,7 @@ export default async function VenueHomePage() {
     listRoomsWithSeatTotals(venueId, supabase),
     listMenuTemplatesWithItemCounts(venueId, supabase),
     listEventsWithDetails(venueId, supabase),
-    listReservationsForDate(venueId, today, supabase),
+    TABLE_RESERVATIONS_ENABLED ? listReservationsForDate(venueId, today, supabase) : Promise.resolve([]),
   ]);
 
   const todayEvents = allEvents.filter((e) => e.event_date === today);

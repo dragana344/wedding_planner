@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { IconSprite } from "@/components/venue/shell/IconSprite";
 import { LogoutButton } from "@/components/couple/LogoutButton";
-import { LockedBanner } from "@/components/entitlements/LockedBanner";
+import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
@@ -129,8 +129,7 @@ export function CoupleShell({
           </div>
         </header>
 
-        {isLocked(active.feature) ? <LockedBanner audience="couple" /> : null}
-        {children}
+        {isLocked(active.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
       </div>
     </div>
   );

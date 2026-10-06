@@ -22,3 +22,30 @@ export function LockedBanner({ audience }: { audience: "couple" | "venue" }) {
     </div>
   );
 }
+
+/**
+ * A locked section's page: the content sits blurred and unreachable (no
+ * pointer, no keyboard, hidden from screen readers) behind a card that says
+ * the section is not in the package. The blur is cosmetic only — a page whose
+ * data must not reach a locked account checks the feature on the server.
+ */
+export function LockedContent({ audience, children }: { audience: "couple" | "venue"; children: React.ReactNode }) {
+  return (
+    <div className="locked-wrap">
+      <div className="locked-blur" inert aria-hidden="true">
+        {children}
+      </div>
+      <div role="status" className="panel locked-card">
+        <span className="locked-icon" aria-hidden="true">🔒</span>
+        <b>{LOCKED_MESSAGE}</b>
+        {audience === "couple" ? (
+          <p>
+            За надградба контактирајте го вашиот локал. <Link href="/couple/packages">Види пакети</Link>
+          </p>
+        ) : (
+          <p>За надградба контактирајте нè.</p>
+        )}
+      </div>
+    </div>
+  );
+}

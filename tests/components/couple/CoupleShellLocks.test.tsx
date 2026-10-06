@@ -14,7 +14,9 @@ describe("couple lock UI (spec §4.4)", () => {
     );
     expect(screen.getByRole("link", { name: /Буџет/ })).toHaveAttribute("data-locked", "true");
     expect(screen.getByText(/Оваа функција не е вклучена во вашиот пакет/)).toBeInTheDocument();
-    expect(screen.getByText("content")).toBeInTheDocument();
+    const veil = screen.getByText("content").closest(".locked-blur");
+    expect(veil).toHaveAttribute("aria-hidden", "true");
+    expect(veil).toHaveAttribute("inert");
   });
 
   it("gives a locked nav item an accessible name a screen reader announces as locked", () => {

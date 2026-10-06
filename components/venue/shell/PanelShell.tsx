@@ -7,12 +7,13 @@ import { IconSprite } from "./IconSprite";
 import { Icon } from "./Icon";
 import { NAV_ITEMS, matchNavItem } from "./nav";
 import { OnboardingTour } from "./OnboardingTour";
-import { LockedBanner } from "@/components/entitlements/LockedBanner";
+import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "./DrawerButton";
 import { useDrawer } from "./useDrawer";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
+import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -96,7 +97,8 @@ export function PanelShell({
             >
               <Icon name={item.icon} />
               <span>{item.label}</span>
-              {isLocked(item.feature) ? (
+              {item.ready ? null : <span className="soon-tag">Наскоро</span>}
+              {item.ready && isLocked(item.feature) ? (
                 <>
                   <span aria-hidden="true" style={{ marginLeft: 4 }}>
                     🔒
@@ -112,13 +114,13 @@ export function PanelShell({
           ))}
         </nav>
 
-        <Link className="quick" href="/venue/reservations">
+        <Link className="quick" href={TABLE_RESERVATIONS_ENABLED ? "/venue/reservations" : "/venue/events/new"}>
           <b>
             <Icon name="bolt" />
-            <span>НОВА РЕЗЕРВАЦИЈА</span>
+            <span>{TABLE_RESERVATIONS_ENABLED ? "НОВА РЕЗЕРВАЦИЈА" : "НОВ НАСТАН"}</span>
           </b>
           <span>
-            Резервирај маса / термин
+            {TABLE_RESERVATIONS_ENABLED ? "Резервирај маса / термин" : "Свадба, роденден, прослава"}
             <Icon name="right" size="sm" />
           </span>
         </Link>
@@ -193,8 +195,7 @@ export function PanelShell({
           </div>
         </header>
 
-        {isLocked(active.feature) ? <LockedBanner audience="venue" /> : null}
-        {children}
+        {isLocked(active.feature) ? <LockedContent audience="venue">{children}</LockedContent> : children}
       </div>
 
       <Suspense fallback={null}>

@@ -8,6 +8,7 @@ import type { RoomWithSeatTotal, TableType } from "@/lib/venue/rooms";
 import type { MenuTemplateWithItemCount } from "@/lib/venue/menus";
 import type { EventDetail } from "@/lib/venue/events";
 import { RESERVATION_STATUS_META, type Reservation } from "@/lib/venue/reservations";
+import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 import { FloorPlanCanvas, PX_PER_CM, type CanvasElement } from "./FloorPlanCanvas";
 import { FIXED_TYPE_COLORS, numberTables, type FixedElement, type RoomLayoutElement } from "@/lib/venue/floorplan";
 
@@ -315,9 +316,18 @@ export function DashboardClient({
             <h2 className="panel-t">
               <Icon name="book" size="sm" /> Резервации за денес
             </h2>
-            <span className="count">{shownReservations.length} резервации</span>
+            {TABLE_RESERVATIONS_ENABLED ? (
+              <span className="count">{shownReservations.length} резервации</span>
+            ) : (
+              <span className="pill p-warn">Наскоро</span>
+            )}
           </div>
-          {shownReservations.length === 0 ? (
+          {!TABLE_RESERVATIONS_ENABLED ? (
+            <EmptyNote>
+              <b>Резервации на маси: наскоро</b>
+              Секојдневните резервации на маси доаѓаат во следната верзија.
+            </EmptyNote>
+          ) : shownReservations.length === 0 ? (
             <EmptyNote>
               <b>Нема резервации денес</b>
               Нема закажани резервации за {formatDateLong(today)}.
@@ -343,11 +353,13 @@ export function DashboardClient({
               })}
             </div>
           )}
-          <div className="foot">
-            <Link className="btn btn-ghost" href="/venue/reservations">
-              Види ги сите резервации <Icon name="right" size="sm" />
-            </Link>
-          </div>
+          {TABLE_RESERVATIONS_ENABLED ? (
+            <div className="foot">
+              <Link className="btn btn-ghost" href="/venue/reservations">
+                Види ги сите резервации <Icon name="right" size="sm" />
+              </Link>
+            </div>
+          ) : null}
         </section>
 
         {/* ---- floor-plan mini overview ---- */}
@@ -378,10 +390,12 @@ export function DashboardClient({
             </EmptyNote>
           ) : (
             <>
-              <div className="mini-floorplan-legend">
-                <span><i style={{ background: "#16A34A" }} /> Слободна</span>
-                <span><i style={{ background: "#DC2626" }} /> Резервирана</span>
-              </div>
+              {TABLE_RESERVATIONS_ENABLED ? (
+                <div className="mini-floorplan-legend">
+                  <span><i style={{ background: "#16A34A" }} /> Слободна</span>
+                  <span><i style={{ background: "#DC2626" }} /> Резервирана</span>
+                </div>
+              ) : null}
               <div
                 ref={floorplanWrapperRef}
                 className="mini-floorplan"
