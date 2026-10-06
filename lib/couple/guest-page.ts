@@ -53,7 +53,10 @@ export async function findSeatByName(slug: string, name: string): Promise<SeatLo
     // A guest who declined is not coming: no table, even if the couple has
     // not yet taken them off the plan.
     if (guest.rsvp_status === "declined") return NOT_FOUND;
-    return { found: true, seat: await getGuestSeat(eventId, guest.id) };
+    // On the list but not seated through it: the couple may still have
+    // written this very name onto a chair by hand.
+    const seat = (await getGuestSeat(eventId, guest.id)) ?? (await findTypedSeat(eventId, name));
+    return { found: true, seat };
   }
   // Someone the couple wrote straight onto a chair (no guest-list row, e.g.
   // an older relative without a phone) looks up their table the same way.
