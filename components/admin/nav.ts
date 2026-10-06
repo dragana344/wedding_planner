@@ -1,4 +1,10 @@
-export type AdminNavItem = { href: string; icon: string; label: string };
+export type AdminNavItem = {
+  href: string;
+  icon: string;
+  label: string;
+  /** Reachable by address but not listed in the menu. */
+  hidden?: boolean;
+};
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", icon: "home", label: "Преглед" },
@@ -9,7 +15,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/messages", icon: "msg", label: "Контакт пораки" },
   { href: "/admin/support", icon: "help", label: "Тикети за поддршка" },
   { href: "/admin/audit", icon: "book", label: "Дневник на акции" },
-  { href: "/admin/system", icon: "life", label: "Систем" },
+  // The maintenance switch is an operator tool, not something the owner needs
+  // day to day: the page stays at its address, out of the menu.
+  { href: "/admin/system", icon: "life", label: "Систем", hidden: true },
 ];
 
 // Longest-prefix match, mirroring components/venue/shell/nav.ts's

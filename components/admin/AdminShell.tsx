@@ -39,7 +39,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="nav" aria-label="Главна навигација">
-          {ADMIN_NAV.map((item) => (
+          {ADMIN_NAV.filter((item) => !item.hidden).map((item) => (
             <Link
               key={item.href}
               href={item.href}
