@@ -48,3 +48,6 @@ tsconfig.tsbuildinfo
 /blob-report/
 /playwright/.cache/
 productioncheck/
+
+# Storybook
+/storybook-static/
