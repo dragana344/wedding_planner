@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 
+export const USERNAME_TAKEN = "Корисничкото име е веќе зафатено. Изберете друго.";
+
 export async function createEventCredentials(
   eventId: string,
   username: string,
@@ -12,6 +14,10 @@ export async function createEventCredentials(
     p_username: username,
     p_password: password,
   });
+  // A taken username comes back as a bare unique violation (23505), in
+  // English or not at all: say what is wrong so staff can pick another name.
+  if (error?.code === "23505") throw new Error(USERNAME_TAKEN);
+  if (error?.code === "22023" && /[А-Яа-я]/.test(error.message)) throw new Error(error.message);
   if (error) throw error;
 }
 
