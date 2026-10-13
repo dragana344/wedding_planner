@@ -200,7 +200,7 @@ function MenuItemDetailModal({
             <label className="lab-s" htmlFor="edit-item-name">Име</label>
             <input id="edit-item-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="ev-field">
+          <div className="ev-field ev-field-wide">
             <span className="lab-s">Вид мени</span>
             <div style={{ display: "flex", gap: 16, paddingTop: 4 }}>
               <div className="ev-check">
@@ -234,7 +234,7 @@ function MenuItemDetailModal({
           </div>
           <div className="ev-field">
             <label className="lab-s" htmlFor="edit-item-price">Цена</label>
-            <input id="edit-item-price" className="fld" type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+            <input id="edit-item-price" className="fld" type="number" min={0} step="1" value={price} onChange={(e) => setPrice(e.target.value)} />
           </div>
           <div className="ev-field ev-field-wide">
             <label className="lab-s">Алергени</label>

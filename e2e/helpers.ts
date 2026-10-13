@@ -70,6 +70,9 @@ export async function createEventWithCouple(page: Page): Promise<CoupleAccount> 
   await page.getByLabel("Телефон на парот").fill("070 123 456");
   await page.getByRole("button", { name: "Креирај настан" }).click();
 
+  // Submitting shows a one-time credentials handover screen (the couple's
+  // password is only ever visible here) before navigating away.
+  await page.getByRole("button", { name: "Кон настаните" }).click();
   await page.waitForURL((url) => url.pathname === "/venue/events", { timeout: 30_000 });
   await page.getByRole("searchbox", { name: "Пребарај настан" }).fill(couple.coupleNames);
   await expect(page.getByText(couple.coupleNames).first()).toBeVisible();
