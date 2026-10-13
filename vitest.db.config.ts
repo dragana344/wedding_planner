@@ -23,7 +23,27 @@ export default defineConfig({
       include: ["lib/**", "app/api/**", "proxy.ts"],
       reporter: ["text-summary", "html"],
       // Pure/content modules are covered by the unit suite, not this one.
-      exclude: ["lib/legal/**", "lib/image-type.ts", "lib/date.ts", "lib/list-bound.ts", "lib/sentry-scrub.ts"],
+      exclude: [
+        "lib/legal/**",
+        "lib/image-type.ts",
+        "lib/date.ts",
+        "lib/list-bound.ts",
+        "lib/sentry-scrub.ts",
+        "lib/auth-messages.ts",
+        "lib/money.ts",
+        "lib/skopje-time.ts",
+        "lib/admin/audit-filters.ts",
+        "lib/seating/occupancy.ts",
+        "lib/venue/open-spot.ts",
+        "lib/venue/user-error.ts",
+        "lib/venue/event-display.ts",
+        "lib/venue/reports.ts",
+        "lib/seating/csv.ts",
+        "lib/request-origin.ts",
+        // "use client" fetch-wrapper: runs only in the browser, exercised by
+        // the E2E suite, not reachable from a Node-based DB test.
+        "lib/couple/seating-client-actions.ts",
+      ],
       reportsDirectory: "coverage/db",
       // TEST-006: floors at the measured baseline, re-measured at launch
       // (30 Sep 2026, DECISIONS.md "Coverage floors"). Only ever raise them.
