@@ -195,10 +195,19 @@
   letter-spacing: 0.18em;
   margin-top: 4px;
 }
+/* `position: fixed`, and rendered as a sibling of <aside> (not a
+ * descendant) rather than absolutely positioned inside it: browsers clip a
+ * fixed-position element to a scrolling ancestor's bounds in practice even
+ * when that ancestor isn't its containing block (here, .side's own
+ * overflow-y: auto), so the only reliable way to let the collapsed handle
+ * below hang past the rail's edge is to keep it outside that ancestor
+ * altogether. `left` reproduces the original look exactly — 287px rail
+ * width − 14px gap − 30px button width — so this reads as unchanged.
+ */
 .vp .side-toggle {
-  position: absolute;
+  position: fixed;
   top: 26px;
-  right: 14px;
+  left: 243px;
   width: 30px;
   height: 30px;
   background: linear-gradient(180deg, var(--gold-hi), var(--gold));
@@ -213,6 +222,26 @@
 }
 .vp .side-toggle:hover {
   filter: brightness(1.08);
+}
+/* Collapsed: the logo re-centers in the narrow rail (.brand below), which
+ * used to sit right under this button's fixed top:26px/right:14px spot and
+ * overlap it. Instead of nudging it to another overlapping corner, this
+ * turns it into a small handle that hangs off the rail's edge — a
+ * half-circle (flat edge flush with the rail boundary, round edge poking
+ * into the main content) rather than a full circle sitting inside the
+ * logo's space. Kept at the same top offset as the expanded button (not
+ * re-centred vertically) so collapsing and expanding both happen by
+ * clicking the same spot.
+ */
+.vp.app.mini .side-toggle {
+  left: 82px;
+  width: 16px;
+  height: 36px;
+  border-radius: 0 999px 999px 0;
+  /* Above .top (z-index: 30, opaque background): at this left offset the
+   * handle straddles the rail/content boundary, so it spatially overlaps
+   * the sticky content header and would otherwise paint behind it. */
+  z-index: 40;
 }
 .vp .side-toggle .i {
   color: var(--on-gold);
@@ -547,6 +576,48 @@
   font-size: 11.5px;
   color: var(--muted);
 }
+.vp .who-wrap {
+  position: relative;
+}
+.vp .who-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -12px rgba(20, 16, 8, 0.25);
+  padding: 6px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vp .who-menu a,
+.vp .who-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.vp .who-menu a:hover,
+.vp .who-menu button:hover {
+  background: var(--line-soft);
+}
+.vp .who-menu button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
 
 .vp .wrap {
   padding: 24px 30px 38px;
@@ -852,6 +923,21 @@
 /* ---------- record list ---------- */
 .vp .scroll {
   overflow-x: auto;
+  /* The grid below is wider than the panel at normal widths (min-width:
+   * 1010px, so the rightmost "Статус" column scrolls into view) — this is
+   * a working horizontal scroll, not clipped content, but with no visual
+   * hint that there's more to the right it reads as broken. The classic
+   * CSS-only "scroll shadow" trick: a fade where there's more content to
+   * scroll to, gone once you've scrolled all the way. */
+  background:
+    linear-gradient(to right, var(--surface) 30%, rgba(255, 255, 255, 0)),
+    linear-gradient(to left, var(--surface) 30%, rgba(255, 255, 255, 0)) right,
+    linear-gradient(to right, rgba(20, 16, 8, 0.12), rgba(255, 255, 255, 0)),
+    linear-gradient(to left, rgba(20, 16, 8, 0.12), rgba(255, 255, 255, 0)) right;
+  background-repeat: no-repeat;
+  background-color: var(--surface);
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 /* Only the record lists inside .scroll: a bare .grid would also catch
    Tailwind's `grid` utility on the couple pages and force 1010 px on phones. */
@@ -1192,6 +1278,15 @@
   height: 9px;
   border-radius: 50%;
   background: var(--gold);
+}
+/** A couple confirmed a seating change staff hasn't opened yet. */
+.vp .unseen-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad);
+  flex: none;
 }
 
 .vp .dash-grid {
@@ -2395,6 +2490,25 @@
   color: var(--muted);
   margin: 0 0 14px;
 }
+/* A real, working shortcut offered mid-step (e.g. "+ Креирај настан") so a
+   new venue can try the feature immediately, not just read about it. */
+.vp .tour-cta {
+  display: block;
+  width: 100%;
+  background: var(--gold-tint);
+  color: var(--gold-lo);
+  border: 1px solid var(--gold-tint-2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+.vp .tour-cta:hover {
+  background: var(--gold-tint-2);
+}
 .vp .tour-bubble-actions {
   display: flex;
   justify-content: space-between;
@@ -2927,6 +3041,13 @@
   color: var(--muted);
   font-size: 13.5px;
 }
+/* A table row for something already in the past (e.g. the admin events
+ * list): dimmed and desaturated so upcoming rows stay the ones that catch
+ * the eye at a glance. Text/links keep their own colour, just lighter. */
+.vp .s1-tbl tr.row-past {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
 /* Audit log details/request-id cells (Task 4.2): raw JSON/ids can run long
  * and must never force the table wider than the panel. */
 .vp .s1-tbl code {
@@ -2941,8 +3062,23 @@
 .vp .s1-price-card {
   display: grid;
   gap: 16px;
-  padding: 18px 20px;
-  border-top: 1px solid var(--line);
+  padding: 24px 20px;
+  border-top: 8px solid var(--canvas);
+  box-shadow: 0 -1px 0 var(--line);
+}
+.vp .s1-price-card:first-child {
+  border-top: none;
+  box-shadow: none;
+}
+/* Which plan each form below belongs to (PRC-002): without this, one
+ * card's feature list ran straight into the next card's fields with only a
+ * thin divider, and it wasn't clear where one card ended and the next
+ * began. */
+.vp .s1-price-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
 }
 .vp .s1-price-fields {
   display: grid;

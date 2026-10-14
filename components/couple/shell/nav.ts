@@ -42,17 +42,20 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[]): Coup
     { href: "/couple/invitation", icon: "heart", label: "Покана", title: "ПОКАНА", subtitle: "Создадете и споделете ја вашата покана", ready: true, feature: "invitation" as const },
     { href: "/couple/album", icon: "photo", label: "Албум", title: "АЛБУМ", subtitle: "Фотографии од вашите гости", ready: true, feature: "photo_album" as const },
     { href: "/couple/greetings", icon: "gift", label: "Честитки", title: "ЧЕСТИТКИ", subtitle: "Честитки од вашите гости", ready: true, feature: "guest_greetings" as const },
+    { href: "/couple/support", icon: "life", label: "Поддршка", title: "ПОДДРШКА", subtitle: "Пријавете проблем или прашање", ready: true },
   ];
 }
 
 /**
  * Longest-prefix match, so nested routes keep their parent nav item active.
  * "/couple" only matches exactly, otherwise it would win for every route.
+ * Returns undefined for a route with no nav entry at all (e.g. /couple/packages,
+ * reached from a locked section) — callers must not fall back to item[0], or
+ * the sidebar highlights "Почетна" while the user is actually elsewhere.
  */
-export function matchCoupleNavItem(pathname: string, items: CoupleNavItem[]): CoupleNavItem {
+export function matchCoupleNavItem(pathname: string, items: CoupleNavItem[]): CoupleNavItem | undefined {
   const matches = items.filter((item) =>
     item.href === "/couple" ? pathname === "/couple" : pathname.startsWith(item.href)
   );
-  const longest = [...matches].sort((a, b) => b.href.length - a.href.length)[0];
-  return longest ?? items[0];
+  return [...matches].sort((a, b) => b.href.length - a.href.length)[0];
 }

@@ -33,16 +33,18 @@ export default async function PackagesPage() {
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {EVENT_FEATURES.map((feature) => {
                   const resolved = pkg.features[feature.key];
-                  const value =
-                    feature.kind === "switch"
-                      ? resolved.enabled
-                        ? "Вклучено"
-                        : "Заклучено"
-                      : !resolved.enabled
-                        ? "Заклучено"
-                        : resolved.limit === null
-                          ? "Неограничено"
-                          : String(resolved.limit);
+                  // Switch features are plain on/off (green/red). A limit
+                  // feature that's on is further split: an actual numeric
+                  // cap is "limited" (yellow) — distinct from both "off
+                  // entirely" (red) and "on with no cap" (green).
+                  const variant = !resolved.enabled ? "p-bad" : feature.kind === "limit" && resolved.limit !== null ? "p-warn" : "p-ok";
+                  const value = !resolved.enabled
+                    ? "Заклучено"
+                    : feature.kind === "switch"
+                      ? "Вклучено"
+                      : resolved.limit === null
+                        ? "Неограничено"
+                        : String(resolved.limit);
                   return (
                     <li
                       key={feature.key}
@@ -56,7 +58,7 @@ export default async function PackagesPage() {
                       }}
                     >
                       <span>{feature.label}</span>
-                      <b>{value}</b>
+                      <span className={`pill ${variant}`}>{value}</span>
                     </li>
                   );
                 })}

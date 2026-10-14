@@ -77,6 +77,7 @@ const UNGATED: Record<string, string> = {
   "app/api/couple/guest-count/route.ts": "the headcount the venue plans with, core to every event",
   "app/api/couple/menu/route.ts": "choosing a template menu is core; the custom mode checks custom_menu inside the handler",
   "app/api/couple/menu/quantities/route.ts": "per-dish counts for the venue's kitchen, core to every event",
+  "app/api/couple/support/route.ts": "reporting a problem to the team must always work, not gated by plan",
 };
 
 function coupleRoutes(): string[] {

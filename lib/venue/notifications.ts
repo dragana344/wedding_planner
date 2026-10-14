@@ -52,21 +52,25 @@ function detailFor(row: AuditRow): string | null {
   return null;
 }
 
-export async function listVenueNotifications(client: SupabaseClient, venueId: string, limit = 50): Promise<VenueNotification[]> {
+export async function listVenueNotifications(
+  client: SupabaseClient,
+  venueId: string,
+  limit = 50,
+  range?: { from: string; to: string }
+): Promise<VenueNotification[]> {
+  let auditQuery = client
+    .from("audit_log")
+    .select("id, occurred_at, action, event_id, details")
+    .eq("venue_id", venueId)
+    .in("action", Object.keys(ACTIONS));
+  let eventsQuery = client.from("events").select("id, couple_names, event_date, created_at").eq("venue_id", venueId);
+  if (range) {
+    auditQuery = auditQuery.gte("occurred_at", range.from).lte("occurred_at", range.to);
+    eventsQuery = eventsQuery.gte("created_at", range.from).lte("created_at", range.to);
+  }
   const [audit, events] = await Promise.all([
-    client
-      .from("audit_log")
-      .select("id, occurred_at, action, event_id, details")
-      .eq("venue_id", venueId)
-      .in("action", Object.keys(ACTIONS))
-      .order("occurred_at", { ascending: false })
-      .limit(limit),
-    client
-      .from("events")
-      .select("id, couple_names, event_date, created_at")
-      .eq("venue_id", venueId)
-      .order("created_at", { ascending: false })
-      .limit(limit),
+    auditQuery.order("occurred_at", { ascending: false }).limit(limit),
+    eventsQuery.order("created_at", { ascending: false }).limit(limit),
   ]);
   if (audit.error) throw audit.error;
   if (events.error) throw events.error;

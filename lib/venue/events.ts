@@ -60,6 +60,8 @@ export interface EventDetail {
   contact_phone: string | null;
   total_price: number | null;
   deposit_paid: number | null;
+  /** The couple confirmed a seating change staff hasn't opened yet. */
+  hasUnseenSeatingChange: boolean;
 }
 
 export async function listEventsWithDetails(
@@ -69,7 +71,7 @@ export async function listEventsWithDetails(
   const { data, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, menu_template_id, contact_email, contact_email_2, contact_phone, total_price, deposit_paid, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_custom_menu_items(menu_items(id, name, course, photo_path))"
+      "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, menu_template_id, contact_email, contact_email_2, contact_phone, total_price, deposit_paid, seating_unseen_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_custom_menu_items(menu_items(id, name, course, photo_path))"
     )
     .eq("venue_id", venueId)
     .order("event_date")
@@ -113,8 +115,18 @@ export async function listEventsWithDetails(
       contact_phone: event.contact_phone,
       total_price: event.total_price,
       deposit_paid: event.deposit_paid,
+      hasUnseenSeatingChange: event.seating_unseen_at !== null,
     };
   });
+}
+
+/** Clears the "new change" dot for this event — called when staff opens its seating page. */
+export async function markSeatingSeen(
+  eventId: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  const { error } = await client.from("events").update({ seating_unseen_at: null }).eq("id", eventId);
+  if (error) throw error;
 }
 
 export interface EventBasic {

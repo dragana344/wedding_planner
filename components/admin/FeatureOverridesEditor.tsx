@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { FEATURES, type FeatureKey, type FeatureMap } from "@/lib/entitlements/features";
 import type { OverrideRow } from "@/lib/admin/queries";
 import type { ActionResult } from "@/lib/admin/actions";
@@ -59,6 +60,7 @@ function OverrideRowEditor({
   const [limit, setLimit] = useState(current?.limitValue?.toString() ?? "");
   const [note, setNote] = useState(current?.note ?? "");
   const [status, setStatus] = useState<string | null>(null);
+  const router = useRouter();
 
   async function save() {
     const result = await onSave({
@@ -69,14 +71,29 @@ function OverrideRowEditor({
       note: note.trim() || null,
     });
     setStatus(result.ok ? "Зачувано." : result.error);
+    // Without this, "Важи сега" and the resolved limit — both computed
+    // server-side and passed down as props — stay stale until a manual
+    // reload, even though the save itself succeeded.
+    if (result.ok) router.refresh();
   }
+
+  // Switch features are simply on/off (green/red). A limit feature that's
+  // on is further split: an actual numeric cap is "limited" (yellow) —
+  // distinct from both "off entirely" (red) and "on with no cap" (green).
+  const statusVariant = !resolved.enabled ? "p-bad" : def.kind === "limit" && resolved.limit !== null ? "p-warn" : "p-ok";
+  const statusLabel = !resolved.enabled
+    ? "Заклучено"
+    : def.kind === "limit"
+      ? resolved.limit !== null
+        ? `Ограничено · ${resolved.limit}`
+        : "Без лимит"
+      : "Отклучено";
 
   return (
     <tr>
       <td>{def.label}</td>
       <td>
-        {resolved.enabled ? "Отклучено" : "Заклучено"}
-        {def.kind === "limit" ? ` · ${resolved.limit ?? "без лимит"}` : ""}
+        <span className={`pill ${statusVariant}`}>{statusLabel}</span>
       </td>
       <td>
         <select className="fld" aria-label={def.label} value={mode} onChange={(e) => setMode(e.target.value)}>

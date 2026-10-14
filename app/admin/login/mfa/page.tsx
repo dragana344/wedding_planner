@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { MfaSettings } from "@/components/venue/dashboard/MfaSettings";
+import { AdminMfaEnrol } from "@/components/admin/AdminMfaEnrol";
 
 // Mandatory enrolment step (spec §3.2): an admin who just signed in with no
-// verified TOTP factor lands here instead of the panel. MfaSettings is the
-// same start/verify/disable panel the venue dashboard uses; it needs no venue
-// context, only the signed-in aal1 session, so it works standalone here too.
+// verified TOTP factor lands here instead of the panel. AdminMfaEnrol wraps
+// MfaSettings, the same start/verify/disable panel the venue dashboard uses
+// (it needs no venue context, only the signed-in aal1 session, so it works
+// standalone here too), and sends the admin to /admin once their code is
+// confirmed — confirming it already elevates this session to aal2.
 //
 // This is deliberately NOT requireAdmin({ page: true }): that gate demands
 // aal2, which is exactly what an admin without a verified factor can never
@@ -24,7 +26,7 @@ export default async function AdminMfaEnrolPage() {
         <p className="muted">
           Двофакторската автентикација е задолжителна за админ пристап. Вклучете ја, па најавете се повторно.
         </p>
-        <MfaSettings />
+        <AdminMfaEnrol />
         <p style={{ marginTop: 16 }}>
           <a className="btn btn-ghost" href="/admin/login">
             Кон најава

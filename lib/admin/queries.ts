@@ -2,6 +2,7 @@ import "server-only";
 import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
+import { startOfDaySkopjeIso, endOfDaySkopjeIso } from "@/lib/admin/audit-filters";
 
 // Read models for the platform-admin dashboard (spec §3-4). Every query goes
 // through the service-role client: staff never see this data (RLS has no
@@ -65,6 +66,20 @@ export type PlanRow = {
 };
 export type OverrideRow = { featureKey: string; enabled: boolean | null; limitOverride: boolean; limitValue: number | null; note: string | null };
 export type MessageRow = { id: string; name: string; email: string; message: string; status: string; createdAt: string; handledAt: string | null };
+export type SupportTicketRow = {
+  id: string;
+  venueId: string;
+  venueName: string;
+  eventId: string | null;
+  coupleNames: string | null;
+  submittedBy: "venue" | "couple";
+  name: string;
+  problem: string;
+  description: string;
+  status: "pending" | "done";
+  adminComment: string | null;
+  createdAt: string;
+};
 export type MaintenanceState = { maintenanceMode: boolean; updatedAt: string; updatedBy: string | null };
 export type AuditRow = {
   id: number;
@@ -81,6 +96,11 @@ export type AuditRow = {
 
 const db = () => createServiceRoleClient();
 const DAY = 86_400_000;
+const DEFAULT_SIGNUP_WEEKS = 4;
+// A crafted or fat-fingered range (e.g. 10 years) would otherwise build a
+// bucket array that long; 2 years of weekly buckets is already far more
+// than this popup is for, and keeps the loop and the response bounded.
+const MAX_RANGE_WEEKS = 104;
 
 // Postgres `date` columns (events.event_date) are calendar dates with no
 // timezone of their own — comparing them against a UTC-computed "today" can
@@ -140,12 +160,12 @@ export async function getOverviewStats(): Promise<OverviewStats> {
       })
       .map((s) => s.venue_id)
   );
-  const weeks = Array.from({ length: 8 }, (_, i) => {
-    // i=7 (the last/most recent bucket) must be [now-7d, now), not
+  const weeks = Array.from({ length: DEFAULT_SIGNUP_WEEKS }, (_, i) => {
+    // i=last (the most recent bucket) must be [now-7d, now), not
     // [now, now+7d) — a venue can never have a future created_at, so the
     // old `(7 - i)` formula always left the last bucket at 0 and shifted
     // every label a week stale.
-    const start = new Date(Date.now() - (8 - i) * 7 * DAY);
+    const start = new Date(Date.now() - (DEFAULT_SIGNUP_WEEKS - i) * 7 * DAY);
     const end = new Date(start.getTime() + 7 * DAY);
     return {
       week: start.toISOString().slice(0, 10),
@@ -160,6 +180,35 @@ export async function getOverviewStats(): Promise<OverviewStats> {
     upcomingEvents: upcoming ?? 0,
     newMessages: newMessages ?? 0,
   };
+}
+
+/**
+ * Weekly venue-signup counts across a specific date range — backs the
+ * "Регистрации по недела" popup on the overview page, separately from
+ * getOverviewStats's own fixed last-DEFAULT_SIGNUP_WEEKS view. Buckets run
+ * from the range's Skopje-local start of day, 7 days at a time, with the
+ * final bucket clipped to the range's Skopje-local end of day (so a range
+ * that isn't an exact multiple of 7 days doesn't spill a stray extra day
+ * into the next page's worth of buckets).
+ */
+export async function getSignupsByWeek(range: { from: string; to: string }): Promise<{ week: string; count: number }[]> {
+  await requireAdmin();
+  const { data: venues, error } = await db().from("venues").select("created_at").limit(10000);
+  if (error) throw error;
+  const start = new Date(startOfDaySkopjeIso(range.from));
+  const end = new Date(endOfDaySkopjeIso(range.to));
+  const weekCount = Math.min(MAX_RANGE_WEEKS, Math.max(1, Math.ceil((end.getTime() - start.getTime() + 1) / (7 * DAY))));
+  return Array.from({ length: weekCount }, (_, i) => {
+    const bucketStart = new Date(start.getTime() + i * 7 * DAY);
+    const bucketEnd = new Date(Math.min(bucketStart.getTime() + 7 * DAY, end.getTime() + 1));
+    return {
+      week: bucketStart.toISOString().slice(0, 10),
+      count: (venues ?? []).filter((v) => {
+        const t = new Date(v.created_at).getTime();
+        return t >= bucketStart.getTime() && t < bucketEnd.getTime();
+      }).length,
+    };
+  });
 }
 
 type VenueListDb = {
@@ -395,6 +444,56 @@ export async function listMessages(filter: { status?: string }): Promise<Message
   const { data, error } = await query;
   if (error) throw error;
   return ((data ?? []) as unknown as MessageDb[]).map(toMessage);
+}
+
+// Support tickets (0089): venue staff and couples both file these, against
+// the team, not each other — venue_name and (when a couple filed it)
+// coupleNames are shown the same way the admin Events list already shows
+// couple_names, not a privacy exception specific to this table.
+type SupportTicketDb = {
+  id: string;
+  venue_id: string;
+  event_id: string | null;
+  submitted_by: "venue" | "couple";
+  name: string;
+  problem: string;
+  description: string;
+  status: "pending" | "done";
+  admin_comment: string | null;
+  created_at: string;
+  venues: { name: string } | { name: string }[] | null;
+  events: { couple_names: string } | { couple_names: string }[] | null;
+};
+const SUPPORT_TICKET_COLUMNS =
+  "id, venue_id, event_id, submitted_by, name, problem, description, status, admin_comment, created_at, venues(name), events(couple_names)";
+const SUPPORT_TICKET_STATUSES = new Set(["pending", "done"]);
+
+function toSupportTicket(t: SupportTicketDb): SupportTicketRow {
+  const venue = Array.isArray(t.venues) ? t.venues[0] : t.venues;
+  const event = Array.isArray(t.events) ? t.events[0] : t.events;
+  return {
+    id: t.id,
+    venueId: t.venue_id,
+    venueName: venue?.name ?? "—",
+    eventId: t.event_id,
+    coupleNames: event?.couple_names ?? null,
+    submittedBy: t.submitted_by,
+    name: t.name,
+    problem: t.problem,
+    description: t.description,
+    status: t.status,
+    adminComment: t.admin_comment,
+    createdAt: t.created_at,
+  };
+}
+
+export async function listSupportTickets(filter: { status?: string }): Promise<SupportTicketRow[]> {
+  await requireAdmin();
+  let query = db().from("support_tickets").select(SUPPORT_TICKET_COLUMNS).order("created_at", { ascending: false }).limit(500);
+  if (filter.status && SUPPORT_TICKET_STATUSES.has(filter.status)) query = query.eq("status", filter.status);
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data ?? []) as unknown as SupportTicketDb[]).map(toSupportTicket);
 }
 
 /**

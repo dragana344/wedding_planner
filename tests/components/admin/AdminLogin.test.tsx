@@ -7,6 +7,7 @@ const auth = {
   signInWithPassword: vi.fn(),
   signOut: vi.fn(async () => ({ error: null })),
   getUser: vi.fn(),
+  resetPasswordForEmail: vi.fn(async () => ({ data: {}, error: null })),
   mfa: { getAuthenticatorAssuranceLevel: vi.fn(), listFactors: vi.fn(), challengeAndVerify: vi.fn() },
 };
 vi.mock("@/lib/supabase/client", () => ({ createBrowserSupabaseClient: () => ({ auth }) }));
@@ -62,5 +63,18 @@ describe("AdminLogin", () => {
     render(<AdminLogin />);
     signIn();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login/mfa"));
+  });
+
+  it("offers a forgot-password link that sends a reset email and can be backed out of", async () => {
+    render(<AdminLogin />);
+    fireEvent.click(screen.getByRole("button", { name: "Заборавена лозинка?" }));
+    expect(screen.getByRole("heading", { name: "Ресетирај лозинка" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Е-пошта"), { target: { value: "admin@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати линк за ресетирање" }));
+    await waitFor(() => expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("admin@example.com", expect.any(Object)));
+
+    fireEvent.click(screen.getByRole("button", { name: "Назад кон најава" }));
+    expect(screen.getByRole("button", { name: "Најави се" })).toBeInTheDocument();
   });
 });

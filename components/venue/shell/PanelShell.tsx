@@ -14,6 +14,7 @@ import { useDrawer } from "./useDrawer";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
+import { AccountMenu } from "./AccountMenu";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -63,17 +64,17 @@ export function PanelShell({
     <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
       <IconSprite />
 
-      <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
-        <button
-          className="side-toggle"
-          type="button"
-          onClick={() => setMini((v) => !v)}
-          aria-label={mini ? "Прошири мени" : "Собери мени"}
-          aria-expanded={!mini}
-        >
-          <Icon name={mini ? "right" : "left"} size="sm" />
-        </button>
+      <button
+        className="side-toggle"
+        type="button"
+        onClick={() => setMini((v) => !v)}
+        aria-label={mini ? "Прошири мени" : "Собери мени"}
+        aria-expanded={!mini}
+      >
+        <Icon name={mini ? "right" : "left"} size="sm" />
+      </button>
 
+      <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
         <div className="brand">
           <BrandMark logoUrl={brand?.logoUrl} />
           <div>
@@ -182,15 +183,7 @@ export function PanelShell({
               </div>
             </div>
             <div className="meta-item">
-              <button className="who" type="button">
-                <Icon name="user-circle" size="lg" style={{ color: "var(--ink-2)" }} />
-                <span>
-                  <span className="n">{venueName}</span>
-                  <br />
-                  <span className="r">{userRole}</span>
-                </span>
-                <Icon name="down" size="sm" style={{ color: "var(--faint)" }} />
-              </button>
+              <AccountMenu venueName={venueName} userRole={userRole} />
             </div>
           </div>
         </header>

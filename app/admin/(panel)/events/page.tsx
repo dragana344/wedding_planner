@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listEvents, listVenues } from "@/lib/admin/queries";
-import { formatMkDate } from "@/lib/date";
+import { formatMkDate, todayIn } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,7 @@ export default async function EventsPage({
   await requireAdmin({ page: true });
   const { venue, from, to, status } = await searchParams;
   const [events, venues] = await Promise.all([listEvents({ venueId: venue, from, to, status }), listVenues({})]);
+  const today = todayIn();
   return (
     <div className="wrap">
       <form className="bar" aria-label="Филтер на настани">
@@ -65,7 +66,7 @@ export default async function EventsPage({
             </thead>
             <tbody>
               {events.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} className={e.date < today ? "row-past" : undefined}>
                   <td>{formatMkDate(e.date)}</td>
                   <td>{e.startTime ? e.startTime.slice(0, 5) : "—"}</td>
                   <td>{e.venueName}</td>

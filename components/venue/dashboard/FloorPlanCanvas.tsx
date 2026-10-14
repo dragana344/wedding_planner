@@ -64,6 +64,35 @@ interface LiveGeometry {
 }
 
 const MIN_SIZE_CM = 20;
+const LABEL_LINE_HEIGHT_PX = 13;
+
+/**
+ * Splits a table label into at most two lines so a long custom name (e.g.
+ * "Кумови на невестата") stays inside the table's outline instead of
+ * overflowing it, instead of just overflowing as one line. Character-width
+ * is an estimate (SVG text has no layout-time measurement without touching
+ * the DOM) — good enough for a label, not meant to be exact.
+ */
+function wrapLabel(label: string, maxWidthPx: number, fontSize: number): string[] {
+  const avgCharWidthPx = fontSize * 0.58;
+  const maxChars = Math.max(3, Math.floor(maxWidthPx / avgCharWidthPx));
+  if (label.length <= maxChars) return [label];
+
+  const words = label.split(" ");
+  if (words.length === 1) {
+    const mid = Math.ceil(label.length / 2);
+    return [label.slice(0, mid), label.slice(mid)];
+  }
+  let line1 = "";
+  let i = 0;
+  for (; i < words.length; i++) {
+    const candidate = line1 ? `${line1} ${words[i]}` : words[i];
+    if (candidate.length > maxChars && line1) break;
+    line1 = candidate;
+  }
+  const line2 = words.slice(i).join(" ");
+  return line2 ? [line1, line2] : [line1];
+}
 
 function boxesOverlap(a: LiveGeometry, b: LiveGeometry): boolean {
   return (
@@ -352,6 +381,7 @@ export function FloorPlanCanvas({
         const centerX = (geometry.x_cm + geometry.width_cm / 2) * pxPerCm;
         const centerY = (geometry.y_cm + geometry.height_cm / 2) * pxPerCm;
         const rotationDeg = liveRotation && liveRotation.id === el.id ? liveRotation.deg : el.rotationDeg ?? 0;
+        const labelLines = el.label ? wrapLabel(el.label, geometry.width_cm * pxPerCm - 6, 11) : [];
         const shapeProps = {
           "data-testid": `floor-plan-element-${el.id}`,
           onPointerDown: (e: React.PointerEvent) => (mode === "select" ? startSelect(el, e) : startMove(el, e)),
@@ -381,7 +411,7 @@ export function FloorPlanCanvas({
                 {...shapeProps}
               />
             )}
-            {el.label ? (
+            {labelLines.length === 1 ? (
               <text
                 x={centerX}
                 y={centerY}
@@ -391,13 +421,21 @@ export function FloorPlanCanvas({
                 fill="#ffffff"
                 pointerEvents="none"
               >
-                {el.label}
+                {labelLines[0]}
+              </text>
+            ) : labelLines.length > 1 ? (
+              <text x={centerX} y={centerY} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#ffffff" pointerEvents="none">
+                {labelLines.map((line, i) => (
+                  <tspan key={i} x={centerX} dy={i === 0 ? -((labelLines.length - 1) * LABEL_LINE_HEIGHT_PX) / 2 : LABEL_LINE_HEIGHT_PX}>
+                    {line}
+                  </tspan>
+                ))}
               </text>
             ) : null}
             {el.badge ? (
               <text
                 x={centerX}
-                y={centerY + 13}
+                y={centerY + 13 + (labelLines.length > 1 ? LABEL_LINE_HEIGHT_PX : 0)}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={10}

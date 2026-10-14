@@ -67,6 +67,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
     deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
+    seating_unseen_at: N,
   },
   menu_items: {
     id: N, course: N, name: N, allergen_tags: N, is_vegetarian: N, is_vegan: N, created_at: N, price: N, photo_path: N,
@@ -93,6 +94,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N },
   storage_cleanup_queue: { id: N, bucket: N, path: N, queued_at: N },
+  support_tickets: {
+    id: N, venue_id: N, event_id: N, submitted_by: N, name: P, problem: P, description: P, status: N,
+    admin_comment: C, resolved_at: N, created_at: N,
+  },
   table_types: { id: N, room_id: N, name: N, shape: N, seats: N, width_cm: N, length_cm: N, quantity: N, created_at: N },
   venue_feature_overrides: {
     venue_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,

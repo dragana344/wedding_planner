@@ -76,6 +76,13 @@ function CardForm({ cardId, initial }: { cardId: string | null; initial: Draft }
 
   return (
     <form onSubmit={save} className="s1-price-card">
+      {cardId ? (
+        <div className="s1-price-card-head">
+          <b>{draft.name || "Картичка без име"}</b>
+          {draft.isFeatured ? <span className="pill p-ok">Препорачано</span> : null}
+          <span className={`pill ${draft.isPublished ? "p-ok" : "p-bad"}`}>{draft.isPublished ? "Објавено" : "Необјавено"}</span>
+        </div>
+      ) : null}
       <div className="s1-price-fields">
         <div>
           <label className="lab-s" htmlFor={`pc-name-${uid}`}>

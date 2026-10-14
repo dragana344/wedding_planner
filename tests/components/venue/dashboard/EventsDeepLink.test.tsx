@@ -13,7 +13,7 @@ vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.Re
 const event: EventDetail = {
   id: "e1", couple_names: "Ана & Марко", event_date: "2027-06-12", start_time: null, end_time: null, status: "confirmed",
   event_type: "wedding", guest_count_estimate: 100, menu_template_id: null, customMenuItems: [], room_ids: [],
-  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null,
+  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null, hasUnseenSeatingChange: false,
 };
 
 describe("EventsClient deep link (B9 notifications)", () => {

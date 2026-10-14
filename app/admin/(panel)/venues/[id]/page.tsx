@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getVenueDetail, getVenueOverrides, listPlans } from "@/lib/admin/queries";
 import { getVenueFeatures } from "@/lib/entitlements/server";
 import { VenueAdminPanels } from "@/components/admin/VenueAdminPanels";
+import { BackButton } from "@/components/admin/BackButton";
+import { todayIn } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +15,11 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
   const venue = await getVenueDetail(id);
   if (!venue) notFound();
   const [plans, overrides, features] = await Promise.all([listPlans(), getVenueOverrides(id), getVenueFeatures(id)]);
+  const today = todayIn();
   return (
     <div className="wrap">
+      <BackButton label="Назад кон локали" />
+
       <VenueAdminPanels venue={venue} plans={plans.map((p) => ({ id: p.id, name: p.name }))} overrides={overrides} features={features} />
 
       <section className="panel">
@@ -34,7 +39,7 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
             </thead>
             <tbody>
               {venue.events.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} className={e.date < today ? "row-past" : undefined}>
                   <td>{e.date}</td>
                   <td>
                     <Link href={`/admin/events/${e.id}`}>{e.coupleNames}</Link>

@@ -156,8 +156,13 @@ export function BudgetClient({ initialSummary }: { initialSummary: BudgetSummary
         </div>
       </div>
 
-      <div className="ev">
-        <p style={{ fontWeight: 700, margin: 0 }}>Локал</p>
+      {/* Distinguished from the editable items below (background + a "Фиксно"
+          pill): without this it reads as just another, oddly un-editable
+          line item instead of the venue's own fixed fee. */}
+      <div className="ev" style={{ background: "var(--canvas)" }}>
+        <p style={{ fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          Локал <span className="pill p-info">Фиксно</span>
+        </p>
         <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
           Проценето: {summary.venue.estimated_amount !== null ? formatDen(summary.venue.estimated_amount) : "Не е поставено"} · Платено:{" "}
           {summary.venue.paid_amount !== null ? formatDen(summary.venue.paid_amount) : "Не е поставено"}

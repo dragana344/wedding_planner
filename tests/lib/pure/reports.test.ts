@@ -60,4 +60,15 @@ describe("buildReport", () => {
     expect(empty.byMonth).toEqual([]);
     expect(empty.byRoom.every((r) => r.events === 0 && r.avgFill === null)).toBe(true);
   });
+
+  it("with no from/to at all, includes every event regardless of date (the default, unfiltered view)", () => {
+    const all = buildReport(events, rooms, {});
+    expect(all.totals.events).toBe(5);
+    expect(all.byMonth.map((m) => m.month)).toEqual(["2026-12", "2027-01", "2027-03"]);
+  });
+
+  it("an open-ended 'from' with no 'to' only bounds the lower end", () => {
+    const fromOnly = buildReport(events, rooms, { from: "2027-01-01" });
+    expect(fromOnly.totals.events).toBe(4);
+  });
 });

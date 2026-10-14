@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import type { ChecklistItem, ChecklistStats, ChecklistSubtask } from "@/lib/couple/checklist";
-import { todayIn } from "@/lib/date";
+import { formatMkDate, todayIn } from "@/lib/date";
 
 function SubtaskList({ item, onChanged }: { item: ChecklistItem; onChanged: () => void }) {
   const [newTitle, setNewTitle] = useState("");
@@ -241,7 +241,7 @@ export function ChecklistClient({
                     <p style={{ fontWeight: 700, margin: 0 }}>{item.title}</p>
                     {item.due_date ? (
                       <p style={{ margin: 0, fontSize: 13.5, color: isOverdue ? "var(--bad)" : "var(--muted)" }}>
-                        Рок {item.due_date}
+                        Рок {formatMkDate(item.due_date)}
                         {isOverdue ? <span style={{ marginLeft: 8, fontWeight: 700 }}>Задоцнето</span> : null}
                       </p>
                     ) : null}

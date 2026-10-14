@@ -57,6 +57,7 @@ import * as menuRoute from "@/app/api/couple/menu/route";
 import * as menuQuantitiesRoute from "@/app/api/couple/menu/quantities/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as notesIdRoute from "@/app/api/couple/notes/[id]/route";
+import * as supportRoute from "@/app/api/couple/support/route";
 import * as seatingConfirmRoute from "@/app/api/couple/seating/confirm/route";
 import * as seatingElementsRoute from "@/app/api/couple/seating/elements/route";
 import * as seatingElementIdRoute from "@/app/api/couple/seating/elements/[id]/route";
@@ -856,6 +857,23 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       DELETE: async () => {
         await call(notesIdRoute.DELETE, { id: B.noteId }, "DELETE");
         expect(await adminRow("event_notes", B.noteId)).not.toBeNull();
+      },
+    },
+  },
+  "support/route.ts": {
+    module: supportRoute,
+    methods: {
+      GET: async () => {
+        // Scoped by event_id (lib/couple/support.ts), same shape as
+        // notes/route.ts: no [id] route, so the generic bSecrets() check
+        // inside call() is what proves B's tickets never reach A.
+        const res = await call(supportRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+      },
+      POST: async () => {
+        const res = await call(supportRoute.POST, NONE, "POST", { body: { name: "A", problem: "A problem", description: "A description" } });
+        expect(res.status).toBe(200);
+        expect((res.json as { ticket: { eventId: string } }).ticket.eventId).toBe(A.eventId);
       },
     },
   },

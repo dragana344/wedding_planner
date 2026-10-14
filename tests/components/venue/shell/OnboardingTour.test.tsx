@@ -3,10 +3,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { OnboardingTour } from "@/components/venue/shell/OnboardingTour";
 
 const mockReplace = vi.fn();
+const mockPush = vi.fn();
 let mockSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush }),
   usePathname: () => "/venue",
   useSearchParams: () => mockSearchParams,
 }));
@@ -27,6 +28,7 @@ function renderWithTargets() {
 
 beforeEach(() => {
   mockReplace.mockReset();
+  mockPush.mockReset();
   mockSearchParams = new URLSearchParams();
 });
 
@@ -68,5 +70,34 @@ describe("OnboardingTour", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /прескокни/i }));
     expect(screen.queryByText(/креирате нов настан/i)).not.toBeInTheDocument();
+  });
+
+  it("step 1 offers a working '+ Креирај настан' shortcut that ends the tour and navigates", () => {
+    mockSearchParams = new URLSearchParams("tour=1");
+    renderWithTargets();
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ Креирај настан/i }));
+    expect(mockPush).toHaveBeenCalledWith("/venue/events/new");
+    expect(screen.queryByText(/креирате нов настан/i)).not.toBeInTheDocument();
+  });
+
+  it("step 2 offers a working '+ Додади просторија' shortcut", () => {
+    mockSearchParams = new URLSearchParams("tour=1");
+    renderWithTargets();
+    fireEvent.click(screen.getByRole("button", { name: /следно/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ Додади просторија/i }));
+    expect(mockPush).toHaveBeenCalledWith("/venue/tables?addRoom=1");
+    expect(screen.queryByText(/простории и типови маси/i)).not.toBeInTheDocument();
+  });
+
+  it("step 3 has no shortcut button", () => {
+    mockSearchParams = new URLSearchParams("tour=1");
+    renderWithTargets();
+    fireEvent.click(screen.getByRole("button", { name: /следно/i }));
+    fireEvent.click(screen.getByRole("button", { name: /следно/i }));
+
+    expect(screen.getByText(/менијата и пакетите/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^\+/ })).not.toBeInTheDocument();
   });
 });

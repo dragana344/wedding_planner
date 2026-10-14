@@ -18,11 +18,23 @@ const MK_DAYS_LONG = ["Понеделник", "Вторник", "Среда", "�
 
 // The grid only renders this hour range — venue events never start before 8am
 // or run past midnight in practice, and a full 24-row grid would mostly be
-// empty, unscrollable dead space on a dashboard-style page.
-const HOUR_START = 8;
-const HOUR_END = 24;
+// empty, unscrollable dead space on a dashboard-style page. The window
+// deliberately runs past midnight (HOUR_END > 24): an event that starts in
+// the evening and ends after midnight (e.g. 19:00–02:00) still belongs
+// entirely to the day it started on, not a continuation into the next
+// day's own column — see toGridMinutes below.
+const HOUR_START = 7;
+const HOUR_END = 27; // 03:00 the next calendar day, still this column
 const ROW_HEIGHT = 44;
 const GRID_HEIGHT = (HOUR_END - HOUR_START) * ROW_HEIGHT;
+
+/** Maps a time-of-day (minutes since 00:00) onto this grid's continuous
+ * HOUR_START–HOUR_END scale: anything before HOUR_START is the small-hours
+ * tail of *this* column (+24h), not literally tomorrow. Shared by event
+ * blocks and the "now" line so both use the same day-boundary convention. */
+function toGridMinutes(minutesOfDay: number): number {
+  return minutesOfDay < HOUR_START * 60 ? minutesOfDay + 24 * 60 : minutesOfDay;
+}
 
 function isoOf(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -350,11 +362,12 @@ export function WeekCalendarClient({
                 upcomingEvents.map((ev) => {
                   const type = TYPE_META[ev.event_type];
                   const d = new Date(`${ev.event_date}T00:00:00`);
+                  const range = formatTimeRange(ev.start_time, ev.end_time);
                   return (
                     <div className="up-row" key={ev.id}>
                       <span className="up-dot" style={{ background: type.color }} />
                       <span>
-                        <b>{formatTimeRange(ev.start_time, ev.end_time) ?? "—"}</b>
+                        {range ? <b>{range}</b> : null}
                         <span>
                           {type.label} — {ev.couple_names}
                           <br />
@@ -482,7 +495,13 @@ function TimeGrid({
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
-  const showNowLine = nowMinutes !== null && nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60;
+  // Before HOUR_START (e.g. 01:00), "now" is the small-hours tail of
+  // *yesterday's* business day, not the start of today's — same convention
+  // as toGridMinutes applies to events.
+  const nowIsTail = nowMinutes !== null && nowMinutes < HOUR_START * 60;
+  const nowGridMinutes = nowMinutes === null ? null : toGridMinutes(nowMinutes);
+  const nowLineIso = nowIsTail ? isoOf(addDays(new Date(), -1)) : todayIso;
+  const showNowLine = nowGridMinutes !== null && nowGridMinutes >= HOUR_START * 60 && nowGridMinutes <= HOUR_END * 60;
 
   return (
     <div className="cal-grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
@@ -500,7 +519,7 @@ function TimeGrid({
       <div className="cal-gutter" style={{ height: GRID_HEIGHT }}>
         {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
           <div className="cal-hour-label" key={i} style={{ top: i * ROW_HEIGHT }}>
-            {String(HOUR_START + i).padStart(2, "0")}:00
+            {String((HOUR_START + i) % 24).padStart(2, "0")}:00
           </div>
         ))}
       </div>
@@ -513,16 +532,16 @@ function TimeGrid({
             {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
               <div className="cal-hour-line" key={i} style={{ top: i * ROW_HEIGHT }} />
             ))}
-            {iso === todayIso && showNowLine ? (
+            {iso === nowLineIso && showNowLine ? (
               <div
                 className="cal-now-line"
-                style={{ top: (((nowMinutes ?? 0) - HOUR_START * 60) / 60) * ROW_HEIGHT }}
+                style={{ top: (((nowGridMinutes ?? 0) - HOUR_START * 60) / 60) * ROW_HEIGHT }}
               />
             ) : null}
             {dayEvents.map((ev) => {
               const type = TYPE_META[ev.event_type];
-              const startMin = ev.start_time ? timeToMinutes(ev.start_time) : HOUR_START * 60;
-              const endMin = ev.end_time ? timeToMinutes(ev.end_time) : startMin + 60;
+              const startMin = ev.start_time ? toGridMinutes(timeToMinutes(ev.start_time)) : HOUR_START * 60;
+              const endMin = ev.end_time ? toGridMinutes(timeToMinutes(ev.end_time)) : startMin + 60;
               const top = Math.max(0, ((startMin - HOUR_START * 60) / 60) * ROW_HEIGHT);
               const height = Math.max(24, ((endMin - startMin) / 60) * ROW_HEIGHT);
               const roomNames = ev.room_ids.map((id) => rooms.find((r) => r.id === id)?.name).filter(Boolean).join(", ");

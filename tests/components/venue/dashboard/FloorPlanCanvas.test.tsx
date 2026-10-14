@@ -54,6 +54,28 @@ describe("FloorPlanCanvas", () => {
     expect(screen.getByText("Table 1")).toBeInTheDocument();
   });
 
+  it("wraps a label too wide for the table into two lines instead of overflowing it", () => {
+    const longLabel: CanvasElement = { ...table, label: "Кумови на невестата" };
+    renderCanvas({ elements: [longLabel] });
+
+    const textEl = screen.getByTestId("floor-plan-element-t1").closest("g")!.querySelector("text")!;
+    const tspans = textEl.querySelectorAll("tspan");
+    expect(tspans.length).toBe(2);
+    // Split on a word boundary; the two lines rejoin into the original label.
+    expect(`${tspans[0].textContent} ${tspans[1].textContent}`.trim()).toBe("Кумови на невестата");
+    // Both lines stay horizontally centered on the table.
+    for (const tspan of tspans) {
+      expect(tspan.getAttribute("x")).toBe(textEl.getAttribute("x"));
+    }
+  });
+
+  it("keeps a short label on one line with no tspan wrapper", () => {
+    renderCanvas();
+    const textEl = screen.getByTestId("floor-plan-element-t1").closest("g")!.querySelector("text")!;
+    expect(textEl.querySelectorAll("tspan").length).toBe(0);
+    expect(textEl.textContent).toBe("Table 1");
+  });
+
   it("selects an element on pointer down, and deselects on empty canvas pointer down", () => {
     const { onSelect } = renderCanvas();
     fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"));

@@ -42,21 +42,20 @@ export const NAV_ITEMS: NavItem[] = [
     ready: true,
   },
   {
-    href: "/venue/reservations",
-    icon: "book",
-    label: "Резервации",
-    title: "РЕЗЕРВАЦИИ",
-    subtitle: TABLE_RESERVATIONS_ENABLED ? "Резервирајте маси и управувајте со сите резервации" : "Секојдневни резервации на маси: наскоро",
-    ready: TABLE_RESERVATIONS_ENABLED,
-    feature: "reservations",
-  },
-  {
     href: "/venue/tables",
     matchPrefixes: ["/venue/rooms"],
     icon: "tables",
     label: "Распоред на маси",
     title: "РАСПОРЕД НА МАСИ",
     subtitle: "Простории, инвентар на маси и планови на сала",
+    ready: true,
+  },
+  {
+    href: "/venue/menus",
+    icon: "menu",
+    label: "Мени / Пакети",
+    title: "МЕНИ / ПАКЕТИ",
+    subtitle: "Менија, јадења и пакети што ги нудите",
     ready: true,
   },
   {
@@ -76,22 +75,6 @@ export const NAV_ITEMS: NavItem[] = [
     ready: true,
   },
   {
-    href: "/venue/notifications",
-    icon: "mega",
-    label: "Известувања",
-    title: "ИЗВЕСТУВАЊА",
-    subtitle: "Известувања и потсетници",
-    ready: true,
-  },
-  {
-    href: "/venue/menus",
-    icon: "menu",
-    label: "Мени / Пакети",
-    title: "МЕНИ / ПАКЕТИ",
-    subtitle: "Менија, јадења и пакети што ги нудите",
-    ready: true,
-  },
-  {
     href: "/venue/reports",
     icon: "chart",
     label: "Извештаи",
@@ -99,6 +82,14 @@ export const NAV_ITEMS: NavItem[] = [
     subtitle: "Аналитика и извештаи за работењето",
     ready: true,
     feature: "reports",
+  },
+  {
+    href: "/venue/notifications",
+    icon: "mega",
+    label: "Известувања",
+    title: "ИЗВЕСТУВАЊА",
+    subtitle: "Известувања и потсетници",
+    ready: true,
   },
   {
     href: "/venue/settings",
@@ -115,6 +106,15 @@ export const NAV_ITEMS: NavItem[] = [
     title: "ПОДДРШКА",
     subtitle: "Помош и контакт со поддршка",
     ready: true,
+  },
+  {
+    href: "/venue/reservations",
+    icon: "book",
+    label: "Резервации",
+    title: "РЕЗЕРВАЦИИ",
+    subtitle: TABLE_RESERVATIONS_ENABLED ? "Резервирајте маси и управувајте со сите резервации" : "Секојдневни резервации на маси: наскоро",
+    ready: TABLE_RESERVATIONS_ENABLED,
+    feature: "reservations",
   },
 ];
 

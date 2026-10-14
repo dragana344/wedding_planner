@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
+import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 
 // Spec §3.2/§3.3: admin sign-in checks the platform_admin role client-side
 // (the real gate is checkAdmin/requireAdmin, which re-checks the role from
@@ -24,6 +25,7 @@ export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [factorId, setFactorId] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +60,10 @@ export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (showForgotPassword) {
+    return <ForgotPasswordForm eyebrow="Админ" tagline="Управување со платформата." onBack={() => setShowForgotPassword(false)} />;
   }
 
   if (factorId) {
@@ -104,6 +110,9 @@ export function AdminLogin({ mfaRequired = true }: { mfaRequired?: boolean }) {
           {isSubmitting ? "Се најавува..." : "Најави се"}
         </button>
       </form>
+      <button type="button" onClick={() => setShowForgotPassword(true)} className="auth-link">
+        Заборавена лозинка?
+      </button>
     </AuthScreen>
   );
 }

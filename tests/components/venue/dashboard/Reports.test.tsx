@@ -36,6 +36,21 @@ describe("ReportsClient (B9)", () => {
     expect(screen.getByLabelText("Сала")).toHaveValue("");
   });
 
+  it("sizes each status/type bar by its share of the total, not relative to the biggest category", () => {
+    // 2 events, 1 confirmed / 1 in preparation: both bars must read 50%,
+    // not both 100% just because they're tied for "most".
+    const twoEvents: ReportData = {
+      ...report,
+      byType: [{ type: "wedding", count: 2 }],
+      byStatus: [{ status: "confirmed", count: 1 }, { status: "preparation", count: 1 }],
+      totals: { ...report.totals, events: 2 },
+    };
+    const { container } = render(<ReportsClient report={twoEvents} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />);
+    const fills = container.querySelectorAll(".s3-bar-fill");
+    // byType has a single row (100% of itself) then byStatus's two 50% rows.
+    expect(Array.from(fills).map((el) => (el as HTMLElement).style.width)).toEqual(["100%", "50%", "50%"]);
+  });
+
   it("says so when the period has no events", () => {
     const empty = { ...report, byMonth: [], byType: [], byStatus: [], totals: { events: 0, guests: 0, revenue: 0, deposits: 0 } };
     render(<ReportsClient report={empty} rooms={rooms} filters={{ from: "2027-01-01", to: "2027-12-31" }} />);

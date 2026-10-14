@@ -24,6 +24,11 @@ export function NotificationsList({ items, today }: { items: VenueNotification[]
           <ul>
             {list.map((n) => (
               <li key={n.id} className="plan-row">
+                {/* .plan-row is a 4-column grid (dot/time/name/status, see
+                    DashboardClient's "Дневен план"); without this spacer the
+                    time and name get auto-placed into the grid's narrow
+                    first two columns instead, overlapping each other. */}
+                <span className="plan-dot" style={{ background: "transparent" }} />
                 <span className="plan-time">{TIME.format(new Date(n.at))}</span>
                 <span className="plan-name">
                   {n.eventId ? <Link href={`/venue/events?event=${n.eventId}`}>{n.title}</Link> : <b>{n.title}</b>}

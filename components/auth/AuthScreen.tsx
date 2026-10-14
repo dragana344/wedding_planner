@@ -26,7 +26,7 @@ export function AuthScreen({
           <path d="M21 38 8 15.5h26L21 38Z" fill="#C9992F" />
           <path d="M21 4 15 15.5 21 38l6-22.5L21 4Z" fill="#F6E3AF" opacity=".55" />
         </svg>
-        <div className="auth-brand-name">КАДЕ СУМ?</div>
+        <div className="auth-brand-name">КАДЕ СИ?</div>
         <div className="auth-eyebrow">{eyebrow}</div>
         <p className="auth-tagline">{tagline}</p>
       </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCoupleNavItems } from "@/components/couple/shell/nav";
+import { buildCoupleNavItems, matchCoupleNavItem } from "@/components/couple/shell/nav";
 
 // D3: no "coming soon" placeholders in the couple's navigation.
 describe("couple navigation", () => {
@@ -12,5 +12,18 @@ describe("couple navigation", () => {
     const hrefs = buildCoupleNavItems([]).map((i) => i.href);
     expect(hrefs).not.toContain("/couple/messages");
     expect(hrefs).toEqual(expect.arrayContaining(["/couple/album", "/couple/greetings"]));
+  });
+});
+
+describe("matchCoupleNavItem", () => {
+  const items = buildCoupleNavItems([]);
+
+  it("matches the exact and prefixed routes", () => {
+    expect(matchCoupleNavItem("/couple", items)?.href).toBe("/couple");
+    expect(matchCoupleNavItem("/couple/budget", items)?.href).toBe("/couple/budget");
+  });
+
+  it("returns undefined for a route with no nav entry (e.g. /couple/packages), instead of falling back to the first item", () => {
+    expect(matchCoupleNavItem("/couple/packages", items)).toBeUndefined();
   });
 });

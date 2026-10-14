@@ -7,8 +7,10 @@ import { listRoomsWithSeatTotals } from "./rooms";
 // "guests" is each event's estimate. Cancelled events count by status only.
 
 export interface ReportFilters {
-  from: string; // YYYY-MM-DD, inclusive
-  to: string;
+  /** YYYY-MM-DD, inclusive. Omitted means "no lower/upper bound" — the
+   * default view is every event, not just the current year. */
+  from?: string;
+  to?: string;
   roomId?: string;
 }
 
@@ -45,7 +47,10 @@ function countBy<K extends string>(items: K[]): { key: K; count: number }[] {
 
 export function buildReport(events: ReportEvent[], rooms: ReportRoom[], f: ReportFilters): ReportData {
   const inRange = events.filter(
-    (e) => e.event_date >= f.from && e.event_date <= f.to && (!f.roomId || e.room_ids.includes(f.roomId)),
+    (e) =>
+      (!f.from || e.event_date >= f.from) &&
+      (!f.to || e.event_date <= f.to) &&
+      (!f.roomId || e.room_ids.includes(f.roomId)),
   );
   const live = inRange.filter((e) => e.status !== "cancelled");
   const seatsOf = new Map(rooms.map((r) => [r.id, r.seatTotal]));
@@ -98,13 +103,14 @@ export function buildReport(events: ReportEvent[], rooms: ReportRoom[], f: Repor
 }
 
 export async function getReport(client: SupabaseClient, venueId: string, f: ReportFilters): Promise<ReportData> {
+  let query = client
+    .from("events")
+    .select("id, event_date, event_type, status, guest_count_estimate, total_price, deposit_paid, event_rooms(room_id)")
+    .eq("venue_id", venueId);
+  if (f.from) query = query.gte("event_date", f.from);
+  if (f.to) query = query.lte("event_date", f.to);
   const [{ data, error }, rooms] = await Promise.all([
-    client
-      .from("events")
-      .select("id, event_date, event_type, status, guest_count_estimate, total_price, deposit_paid, event_rooms(room_id)")
-      .eq("venue_id", venueId)
-      .gte("event_date", f.from)
-      .lte("event_date", f.to)
+    query
       .order("event_date")
       .limit(5000),
     listRoomsWithSeatTotals(venueId, client),

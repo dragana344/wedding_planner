@@ -446,6 +446,25 @@ export const venueSignupBody = z.object(
 );
 
 // ---------------------------------------------------------------------------
+// Support tickets (venue + couple dashboards): one submission shape shared
+// by both routes.
+
+export const SUPPORT_TICKET_REQUIRED_ERROR = "Внесете име, проблем и опис.";
+const requiredSupportText = (max: number) =>
+  z
+    .string({ error: SUPPORT_TICKET_REQUIRED_ERROR })
+    .refine((v) => v.trim().length > 0, { error: SUPPORT_TICKET_REQUIRED_ERROR })
+    .refine((v) => v.length <= max, { error: CONTACT_TOO_LONG_ERROR });
+export const supportTicketBody = z.object(
+  {
+    name: requiredSupportText(NAME_MAX),
+    problem: requiredSupportText(NAME_MAX),
+    description: requiredSupportText(TEXT_MAX),
+  },
+  { error: SUPPORT_TICKET_REQUIRED_ERROR },
+);
+
+// ---------------------------------------------------------------------------
 // Venue privacy (DATA-006). `confirm` is what the staff member typed; the
 // route compares it with the couple's names / the venue name.
 

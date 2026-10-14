@@ -263,7 +263,12 @@ export function EventsClient({
                   <div className="ev-name">
                     <div className="thumb"><EventThumb /></div>
                     <div style={{ minWidth: 0 }}>
-                      <div className="ttl">{event.couple_names}</div>
+                      <div className="ttl" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        {event.couple_names}
+                        {event.hasUnseenSeatingChange ? (
+                          <span className="unseen-dot" title="Нова промена во распоредот на маси" aria-label="Нова промена во распоредот на маси" />
+                        ) : null}
+                      </div>
                       <div className="kind">{type.label}</div>
                       {event.guest_count_estimate != null ? (
                         <div className="guests">

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
-import { getEventById } from "@/lib/venue/events";
+import { getEventById, markSeatingSeen } from "@/lib/venue/events";
 import { getRoomById, listTableTypes } from "@/lib/venue/rooms";
 import { listFixedElements, listEventLayoutElements } from "@/lib/venue/floorplan";
 import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
@@ -38,6 +38,7 @@ export default async function EventSeatingRoute({
     getRoomSeatingForStaff(supabase, event.id, room.id),
   ]);
   const canPrintQr = await eventHasFeature(event.id, "print_qr");
+  await markSeatingSeen(event.id, supabase);
 
   return (
     <EventSeatingPage

@@ -25,7 +25,7 @@ function message(err: unknown): string {
   return GENERIC_ERROR;
 }
 
-export function MfaSettings() {
+export function MfaSettings({ onEnabled }: { onEnabled?: () => void } = {}) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -109,6 +109,13 @@ export function MfaSettings() {
       setCode("");
       setState({ kind: "on", factorId: enrolment.factorId });
       setStatus("Двофакторската автентикација е вклучена. Следниот пат при најава ќе ви биде побаран код.");
+      // First-time enrolment also elevates the current session to aal2
+      // (Supabase verifies the factor either way) — callers that were
+      // waiting specifically for that (the admin enrolment page) can move
+      // on immediately instead of leaving the admin looking at this panel's
+      // "on" state, whose own code field is for *disabling* 2FA and easily
+      // mistaken for a second required step.
+      onEnabled?.();
     } catch (err) {
       setError(message(err));
     } finally {

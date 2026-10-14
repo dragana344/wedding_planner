@@ -19,6 +19,7 @@ import {
   seatingElementCreateBody,
   seatingElementUpdateBody,
   slugParams,
+  supportTicketBody,
   venueSignupBody,
   INVALID_INPUT_ERROR,
 } from "@/lib/api/schemas";
@@ -215,6 +216,15 @@ describe("public schemas", () => {
     expect(venueSignupBody.safeParse({ venue_name: "Ресторан" }).success).toBe(true);
     expect(msg(parseInput(venueSignupBody, { venue_name: "  " }, "D"))).toBe("Внесете име на локалот.");
     expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201) }).success).toBe(false);
+  });
+
+  it("support ticket: requires name, problem and description, and caps lengths", () => {
+    expect(supportTicketBody.safeParse({ name: "А", problem: "Не работи", description: "детали" }).success).toBe(true);
+    expect(msg(parseInput(supportTicketBody, { name: " ", problem: "x", description: "x" }, "D"))).toBe(
+      "Внесете име, проблем и опис.",
+    );
+    expect(supportTicketBody.safeParse({ name: "А", problem: "x".repeat(201), description: "x" }).success).toBe(false);
+    expect(supportTicketBody.safeParse({ name: "А", problem: "x", description: "x".repeat(5001) }).success).toBe(false);
   });
 });
 

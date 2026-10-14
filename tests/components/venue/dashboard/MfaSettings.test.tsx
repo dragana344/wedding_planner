@@ -67,6 +67,23 @@ describe("MfaSettings", () => {
     expect(screen.getByText(/Двофакторската автентикација е вклучена/)).toBeInTheDocument();
   });
 
+  it("calls onEnabled once enrolment succeeds, so a caller (the admin enrolment page) can move on", async () => {
+    mfa.listFactors.mockResolvedValue(noFactors);
+    mfa.enroll.mockResolvedValue({
+      data: { id: "f-new", type: "totp", totp: { qr_code: "data:image/svg+xml;utf-8,<svg/>", secret: "S", uri: "" } },
+      error: null,
+    });
+    mfa.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
+    const onEnabled = vi.fn();
+
+    render(<MfaSettings onEnabled={onEnabled} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Вклучи двофакторска автентикација" }));
+    fireEvent.change(await screen.findByLabelText("Код од апликацијата"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Потврди и вклучи" }));
+
+    await waitFor(() => expect(onEnabled).toHaveBeenCalledTimes(1));
+  });
+
   it("keeps the enrolment open with an error when the code is wrong", async () => {
     mfa.listFactors.mockResolvedValue(noFactors);
     mfa.enroll.mockResolvedValue({

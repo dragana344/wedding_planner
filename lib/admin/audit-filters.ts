@@ -59,7 +59,7 @@ function isUuid(v: string): boolean {
 // Rejects both malformed strings ("2028-2-3") and impossible calendar
 // dates ("2028-02-30") — Date.UTC silently rolls the latter over into March,
 // so the round-trip through getUTC*() catches it.
-function isValidCalendarDate(v: string): boolean {
+export function isValidCalendarDate(v: string): boolean {
   if (!DATE_RE.test(v)) return false;
   const [y, m, d] = v.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));

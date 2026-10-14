@@ -1,11 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "./Modal";
 import { SpaceCard } from "./SpaceCard";
 import { AddRoomForm } from "./AddRoomForm";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listRoomsWithSeatTotals, type RoomWithSeatTotal } from "@/lib/venue/rooms";
+
+/** Reads ?addRoom=1 (e.g. from the onboarding tour's CTA) and opens the add-
+ * room modal once, then strips the param. Isolated behind Suspense per
+ * Next.js's useSearchParams rule, same as OnboardingTour. */
+function AutoOpenAddRoom({ onOpen }: { onOpen: () => void }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("addRoom") === "1") {
+      onOpen();
+      router.replace("/venue/tables");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
 
 export function TablesClient({
   venueId,
@@ -26,6 +43,9 @@ export function TablesClient({
 
   return (
     <div className="wrap">
+      <Suspense fallback={null}>
+        <AutoOpenAddRoom onOpen={() => setShowAdd(true)} />
+      </Suspense>
       <div className="actions">
         <button className="btn btn-gold" type="button" onClick={() => setShowAdd(true)}>
           <Icon name="plus" />

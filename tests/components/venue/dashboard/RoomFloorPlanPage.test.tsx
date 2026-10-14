@@ -75,7 +75,13 @@ describe("RoomFloorPlanPage palette (B4)", () => {
 
   it("numbers guest tables only and names the couple's table", () => {
     renderPage([el("t1", { table_role: "couple", table_type_id: "tt2" }), el("t2", {}), el("t3", {})]);
-    expect(screen.getByText("Маса на младенците")).toBeInTheDocument();
+    // The label is long enough to wrap onto two lines inside the table (one
+    // <tspan> per line) rather than overflowing it, so it's no longer one
+    // plain text node — rejoin the lines before comparing.
+    const coupleLabelText = screen.getByTestId("floor-plan-element-t1").closest("g")!.querySelector("text")!;
+    const tspans = coupleLabelText.querySelectorAll("tspan");
+    const coupleLabel = tspans.length > 0 ? Array.from(tspans).map((t) => t.textContent).join(" ") : coupleLabelText.textContent;
+    expect(coupleLabel).toBe("Маса на младенците");
     expect(screen.getByText("1 (10)")).toBeInTheDocument();
     expect(screen.getByText("2 (10)")).toBeInTheDocument();
     expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#8B6CC9");

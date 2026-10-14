@@ -276,6 +276,16 @@ async function confirmSeating(eventId: string, roomId: string, client: SupabaseC
   });
   if (error) throw error;
 
+  // Flags this event for the venue's "new change" dot in their events list —
+  // set on every confirm, including a re-confirm after editing, and cleared
+  // when staff opens this event's seating page (app/venue/events/[eventId]/
+  // seating/[roomId]/page.tsx).
+  const { error: unseenError } = await client
+    .from("events")
+    .update({ seating_unseen_at: new Date().toISOString() })
+    .eq("id", eventId);
+  if (unseenError) throw unseenError;
+
   // Hand the room back to the confirmed layout (review I4): with the draft
   // gone, staff's later changes count for seating, numbering and print. The
   // next edit re-seeds the draft from the live rows with the same ids, so no

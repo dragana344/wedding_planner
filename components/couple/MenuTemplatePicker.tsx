@@ -64,14 +64,33 @@ export function MenuTemplatePicker({
     return items.filter((item) => item.course === course && quantities[quantityKey(templateId, item.id)] == null).length;
   }
 
-  async function handleSelect(templateId: string, items: MenuItem[]) {
-    setError(null);
-
+  function validateQuantities(templateId: string, items: MenuItem[]): boolean {
     const coursesWithMultiple = new Set(items.map((item) => item.course).filter((c) => courseHasMultipleItems(items, c)));
     if (Array.from(coursesWithMultiple).some((course) => blankCountForCourse(templateId, items, course) > 1)) {
       setError("Само едно јадење по категорија може да остане без бројка.");
-      return;
+      return false;
     }
+    return true;
+  }
+
+  async function saveQuantities(templateId: string, items: MenuItem[]): Promise<void> {
+    await jsonOrThrow(
+      await fetch("/api/couple/menu/quantities", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantities: items.map((item) => ({
+            menu_item_id: item.id,
+            guest_count: quantities[quantityKey(templateId, item.id)] ?? null,
+          })),
+        }),
+      })
+    );
+  }
+
+  async function handleSelect(templateId: string, items: MenuItem[]) {
+    setError(null);
+    if (!validateQuantities(templateId, items)) return;
 
     setIsSaving(true);
     try {
@@ -81,21 +100,28 @@ export function MenuTemplatePicker({
         body: JSON.stringify({ mode: "template", menu_template_id: templateId }),
       });
       if (!response.ok) throw new Error("Не успеа изборот на ова мени.");
-      await jsonOrThrow(
-        await fetch("/api/couple/menu/quantities", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            quantities: items.map((item) => ({
-              menu_item_id: item.id,
-              guest_count: quantities[quantityKey(templateId, item.id)] ?? null,
-            })),
-          }),
-        })
-      );
+      await saveQuantities(templateId, items);
       setSelectedId(templateId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа изборот на ова мени.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // The "select" button above is disabled once a template is already
+  // selected, so editing per-dish counts on an *already-chosen* menu needs
+  // its own save path — otherwise those edits only ever update local state
+  // and never reach the server.
+  async function handleSaveQuantities(templateId: string, items: MenuItem[]) {
+    setError(null);
+    if (!validateQuantities(templateId, items)) return;
+
+    setIsSaving(true);
+    try {
+      await saveQuantities(templateId, items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на бројките.");
     } finally {
       setIsSaving(false);
     }
@@ -189,6 +215,18 @@ export function MenuTemplatePicker({
                   ) : null}
                 </div>
               ))}
+            {selectedId === template.id &&
+            Array.from(new Set(template.items.map((item) => item.course))).some((course) => courseHasMultipleItems(template.items, course)) ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ marginTop: 12 }}
+                disabled={isSaving}
+                onClick={() => handleSaveQuantities(template.id, template.items)}
+              >
+                Зачувај бројки
+              </button>
+            ) : null}
           </div>
         ))}
       </div>

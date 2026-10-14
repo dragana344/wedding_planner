@@ -44,9 +44,11 @@ describe("packages page (couple, read-only)", () => {
     // switch-kind feature: locked on START, unlocked on PREMIUM.
     expect(screen.getAllByText("Заклучено").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Вклучено").length).toBeGreaterThan(0);
-    // limit-kind feature: a numeric limit and "unlimited" both render.
-    expect(screen.getByText("150")).toBeInTheDocument();
-    expect(screen.getAllByText("Неограничено").length).toBeGreaterThan(0);
+    // limit-kind feature: a numeric limit and "unlimited" both render, the
+    // capped one marked yellow (p-warn) rather than green — it's reachable
+    // but restricted, not a plain "on".
+    expect(screen.getByText("150")).toHaveClass("p-warn");
+    expect(screen.getAllByText("Неограничено")[0]).toHaveClass("p-ok");
 
     expect(screen.queryByRole("button", { name: /плати|купи/i })).toBeNull();
     expect(screen.getByText("За активирање контактирајте го вашиот ресторан.")).toBeInTheDocument();

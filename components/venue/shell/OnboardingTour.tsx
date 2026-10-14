@@ -7,6 +7,10 @@ type TourStep = {
   href: string;
   title: string;
   body: string;
+  /** A real, working shortcut shown right in the bubble — lets a new venue
+   * try the feature immediately instead of just reading about it. Optional:
+   * not every step needs one. */
+  cta?: { label: string; href: string };
 };
 
 const STEPS: TourStep[] = [
@@ -14,11 +18,13 @@ const STEPS: TourStep[] = [
     href: "/venue/events",
     title: "Настани",
     body: "Тука креирате нов настан за клиент.",
+    cta: { label: "+ Креирај настан", href: "/venue/events/new" },
   },
   {
     href: "/venue/tables",
     title: "Распоред на маси",
     body: "Тука додавате простории и типови маси.",
+    cta: { label: "+ Додади просторија", href: "/venue/tables?addRoom=1" },
   },
   {
     href: "/venue/menus",
@@ -75,6 +81,11 @@ export function OnboardingTour() {
     }
   }
 
+  function followCta(href: string) {
+    end();
+    router.push(href);
+  }
+
   return (
     <div className="tour-layer">
       {rect ? (
@@ -98,6 +109,11 @@ export function OnboardingTour() {
       >
         <div className="tour-bubble-title">{step.title}</div>
         <p className="tour-bubble-body">{step.body}</p>
+        {step.cta ? (
+          <button type="button" className="tour-cta" onClick={() => followCta(step.cta!.href)}>
+            {step.cta.label}
+          </button>
+        ) : null}
         <div className="tour-bubble-actions">
           <button type="button" className="tour-skip" onClick={end}>
             Прескокни

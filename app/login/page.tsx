@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { MfaCodeForm, pendingSecondFactor } from "@/components/auth/MfaCodeForm";
+import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
+
+const EYEBROW = "Панел за управување";
+const TAGLINE = "Управувајте со вашиот локал, настани и резервации — сè на едно место.";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,7 +61,7 @@ export default function LoginPage() {
   }
 
   if (showForgotPassword) {
-    return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;
+    return <ForgotPasswordForm eyebrow={EYEBROW} tagline={TAGLINE} onBack={() => setShowForgotPassword(false)} />;
   }
 
   if (mfaFactorId) {
@@ -74,11 +78,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthScreen
-      eyebrow="Панел за управување"
-      tagline="Управувајте со вашиот локал, настани и резервации — сè на едно место."
-      title="Најава"
-    >
+    <AuthScreen eyebrow={EYEBROW} tagline={TAGLINE} title="Најава">
       <form onSubmit={handleSubmit}>
         <div className="auth-field">
           <label className="lab-s" htmlFor="login-email">
@@ -115,68 +115,6 @@ export default function LoginPage() {
       </form>
       <button type="button" onClick={() => setShowForgotPassword(true)} className="auth-link">
         Заборавена лозинка?
-      </button>
-    </AuthScreen>
-  );
-}
-
-function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setStatus(null);
-    setIsSubmitting(true);
-    try {
-      const supabase = createBrowserSupabaseClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (resetError) {
-        setError(authErrorMessage(resetError));
-        return;
-      }
-      setStatus("If an account exists for that email, a reset link has been sent.");
-    } catch {
-      setError(GENERIC_ERROR);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <AuthScreen
-      eyebrow="Панел за управување"
-      tagline="Управувајте со вашиот локал, настани и резервации — сè на едно место."
-      title="Ресетирај лозинка"
-    >
-      <form onSubmit={handleSubmit}>
-        <div className="auth-field">
-          <label className="lab-s" htmlFor="reset-email">
-            Е-пошта
-          </label>
-          <input
-            id="reset-email"
-            className="fld"
-            placeholder="Е-пошта"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        {status ? <p className="auth-status">{status}</p> : null}
-        {error ? <p className="auth-error">{error}</p> : null}
-        <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ width: "100%", justifyContent: "center" }}>
-          {isSubmitting ? "Се испраќа..." : "Испрати линк за ресетирање"}
-        </button>
-      </form>
-      <button type="button" onClick={onBack} className="auth-link">
-        Назад кон најава
       </button>
     </AuthScreen>
   );

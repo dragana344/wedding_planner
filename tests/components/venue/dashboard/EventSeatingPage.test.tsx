@@ -137,10 +137,10 @@ describe("EventSeatingPage seat lists", () => {
       redo: vi.fn().mockResolvedValue([table]),
     });
     renderPage(a);
-    const undo = await screen.findByRole("button", { name: "↶ Врати" });
+    const undo = await screen.findByRole("button", { name: "← Врати" });
     await waitFor(() => expect(a.getHistoryState).toHaveBeenCalled());
     expect(undo).toBeDisabled();
-    expect(screen.getByRole("button", { name: "↷ Повтори" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Повтори →" })).toBeDisabled();
 
     fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"), { clientX: 10, clientY: 10 });
     fireEvent.pointerMove(window, { clientX: 60, clientY: 10 });
@@ -149,7 +149,7 @@ describe("EventSeatingPage seat lists", () => {
 
     fireEvent.click(undo);
     await waitFor(() => expect(a.undo).toHaveBeenCalledWith("e1", "r1"));
-    fireEvent.click(screen.getByRole("button", { name: "↷ Повтори" }));
+    fireEvent.click(screen.getByRole("button", { name: "Повтори →" }));
     await waitFor(() => expect(a.redo).toHaveBeenCalledWith("e1", "r1"));
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
@@ -252,7 +252,7 @@ describe("EventSeatingPage seat lists", () => {
     renderPage(a);
     fireEvent.click(screen.getByRole("button", { name: "Врати на стандарден распоред" }));
     expect(confirm).toHaveBeenCalledWith(
-      "Стандардниот распоред ги ослободува сите места во салата (1 седнати гости). Можете да ги вратите со „↶ Врати“.",
+      "Стандардниот распоред ги ослободува сите места во салата (1 седнати гости). Можете да ги вратите со „← Врати“.",
     );
     expect(a.revertToStandard).not.toHaveBeenCalled();
   });

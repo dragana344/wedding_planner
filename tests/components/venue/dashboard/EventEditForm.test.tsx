@@ -25,6 +25,7 @@ const baseEvent: EventDetail = {
   contact_phone: null,
   total_price: null,
   deposit_paid: null,
+  hasUnseenSeatingChange: false,
 };
 
 function mockSupportingCalls() {

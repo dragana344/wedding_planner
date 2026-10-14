@@ -43,23 +43,24 @@ export function CoupleShell({
   // needs its own heading instead of borrowing Почетна's.
   const heading = pathname.startsWith("/couple/packages")
     ? { title: "ПАКЕТИ", subtitle: "Што вклучува секој пакет" }
-    : { title: active.title, subtitle: active.subtitle };
+    : { title: active?.title ?? "", subtitle: active?.subtitle ?? "" };
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
 
   return (
     <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
       <IconSprite />
 
+      <button
+        className="side-toggle"
+        type="button"
+        onClick={() => setMini((v) => !v)}
+        aria-label={mini ? "Прошири мени" : "Собери мени"}
+        aria-expanded={!mini}
+      >
+        <Icon name={mini ? "right" : "left"} size="sm" />
+      </button>
+
       <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
-        <button
-          className="side-toggle"
-          type="button"
-          onClick={() => setMini((v) => !v)}
-          aria-label={mini ? "Прошири мени" : "Собери мени"}
-          aria-expanded={!mini}
-        >
-          <Icon name={mini ? "right" : "left"} size="sm" />
-        </button>
 
         <div className="brand">
           <BrandMark logoUrl={brand?.logoUrl} />
@@ -75,10 +76,10 @@ export function CoupleShell({
               key={item.href}
               href={item.href}
               className={[
-                item.href === active.href ? "on" : "",
+                item.href === active?.href ? "on" : "",
                 item.ready ? "" : "soon",
               ].filter(Boolean).join(" ")}
-              aria-current={item.href === active.href ? "page" : undefined}
+              aria-current={item.href === active?.href ? "page" : undefined}
               data-locked={isLocked(item.feature) ? "true" : undefined}
             >
               <Icon name={item.icon} />
@@ -129,7 +130,7 @@ export function CoupleShell({
           </div>
         </header>
 
-        {isLocked(active.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
+        {isLocked(active?.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
       </div>
     </div>
   );

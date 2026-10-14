@@ -63,4 +63,29 @@ describe("venue notifications", () => {
   it("respects the limit", async () => {
     expect(await listVenueNotifications(staff, venueA, 2)).toHaveLength(2);
   });
+
+  it("an explicit range narrows results to just that window", async () => {
+    const old = await must(
+      admin
+        .from("audit_log")
+        .insert({
+          actor_type: "guest",
+          action: "public_rsvp",
+          venue_id: venueA,
+          event_id: eventA,
+          target_id: eventA,
+          occurred_at: "2020-03-15T10:00:00Z",
+          details: {},
+        })
+        .select("id")
+        .single()
+    );
+    const ranged = await listVenueNotifications(staff, venueA, 50, { from: "2020-03-01T00:00:00Z", to: "2020-03-31T23:59:59Z" });
+    expect(ranged).toHaveLength(1);
+    expect(ranged[0].id).toBe(`a${old.id}`);
+
+    // A range that doesn't cover it excludes it, same as any other filter.
+    const outsideRange = await listVenueNotifications(staff, venueA, 50, { from: "2021-01-01T00:00:00Z", to: "2021-01-31T23:59:59Z" });
+    expect(outsideRange.map((n) => n.id)).not.toContain(`a${old.id}`);
+  });
 });

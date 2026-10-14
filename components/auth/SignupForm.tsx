@@ -72,6 +72,7 @@ export function SignupForm() {
           placeholder="Име на локалот"
           value={venueName}
           onChange={(e) => setVenueName(e.target.value)}
+          autoComplete="organization"
           required
         />
       </div>
@@ -102,6 +103,7 @@ export function SignupForm() {
           onChange={(e) => setPassword(e.target.value)}
           minLength={10}
           aria-describedby="signup-password-hint"
+          autoComplete="new-password"
           required
         />
         <p id="signup-password-hint" className="ev-hint" style={{ margin: "4px 0 0" }}>

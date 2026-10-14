@@ -171,18 +171,33 @@ export function EventSeatingPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, room.id]);
 
-  async function handleToggleConfirm() {
-    if (!actions.confirm || !actions.unconfirm) return;
+  // Confirming always pushes the current draft to the venue, whether this is
+  // the first confirm or a re-confirm after editing an already-confirmed
+  // layout — the couple needs a direct way to push a change, not an
+  // unconfirm-then-confirm dance (confirmedAt used to stay stale and stuck
+  // showing "confirmed" after an edit, with no re-confirm action at all).
+  async function handleConfirm() {
+    if (!actions.confirm) return;
     setError(null);
     setIsTogglingConfirm(true);
     try {
-      if (confirmedAt) {
-        await actions.unconfirm(eventId, room.id);
-        setConfirmedAt(null);
-      } else {
-        await actions.confirm(eventId, room.id);
-        setConfirmedAt(await actions.getConfirmedAt!(eventId, room.id));
-      }
+      await actions.confirm(eventId, room.id);
+      setConfirmedAt(await actions.getConfirmedAt!(eventId, room.id));
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа потврдувањето на распоредот. Обидете се повторно."));
+    } finally {
+      setIsTogglingConfirm(false);
+    }
+  }
+
+  // Hides the layout from the venue again (keeps editing the same draft).
+  async function handleUnconfirm() {
+    if (!actions.unconfirm) return;
+    setError(null);
+    setIsTogglingConfirm(true);
+    try {
+      await actions.unconfirm(eventId, room.id);
+      setConfirmedAt(null);
     } catch (err) {
       setError(errorMessage(err, "Не успеа ажурирањето на потврдата. Обидете се повторно."));
     } finally {
@@ -345,7 +360,7 @@ export function EventSeatingPage({
   async function handleRevert() {
     const seated = seating?.seats.length ?? 0;
     // Standard tables get fresh ids, so every seat in the hall is freed (undo restores them).
-    if (seated > 0 && !window.confirm(`Стандардниот распоред ги ослободува сите места во салата (${seated} седнати гости). Можете да ги вратите со „↶ Врати“.`)) return;
+    if (seated > 0 && !window.confirm(`Стандардниот распоред ги ослободува сите места во салата (${seated} седнати гости). Можете да ги вратите со „← Врати“.`)) return;
     setError(null);
     try {
       await actions.revertToStandard(eventId, room.id);
@@ -568,20 +583,6 @@ export function EventSeatingPage({
         <button type="button" onClick={handleRevert} className={PALETTE_BUTTON_CLASS}>
           Врати на стандарден распоред
         </button>
-        {actions.getHistoryState ? (
-          <>
-            <button type="button" onClick={handleUndo} disabled={!history.canUndo || isUndoing} className={PALETTE_BUTTON_CLASS} title="Ctrl+Z">
-              ↶ Врати
-            </button>
-            <button type="button" onClick={handleRedo} disabled={!history.canRedo || isRedoing} className={PALETTE_BUTTON_CLASS} title="Shift+Ctrl+Z">
-              ↷ Повтори
-            </button>
-          </>
-        ) : (
-          <button type="button" onClick={handleUndo} disabled={!canUndo || isUndoing} className={PALETTE_BUTTON_CLASS}>
-            {isUndoing ? "Се враќа..." : "Врати"}
-          </button>
-        )}
         {actions.group ? (
           groupMode ? (
             <>
@@ -646,10 +647,10 @@ export function EventSeatingPage({
       ) : null}
 
       {actions.confirm ? (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleToggleConfirm}
+            onClick={handleConfirm}
             disabled={isTogglingConfirm}
             className={
               confirmedAt
@@ -657,14 +658,20 @@ export function EventSeatingPage({
                 : "rounded-full bg-lilac-dark px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             }
           >
-            {isTogglingConfirm
-              ? "Се зачувува..."
-              : confirmedAt
-                ? "✓ Распоредот е потврден — кликни за промени"
-                : "Потврди распоред"}
+            {isTogglingConfirm ? "Се зачувува..." : confirmedAt ? "✓ Потврди ги промените" : "Потврди распоред"}
           </button>
+          {confirmedAt && actions.unconfirm ? (
+            <button
+              type="button"
+              onClick={handleUnconfirm}
+              disabled={isTogglingConfirm}
+              className="text-sm text-neutral-500 underline hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Сокриј го распоредот од локалот
+            </button>
+          ) : null}
           {confirmedAt ? (
-            <span className="text-sm text-neutral-500">Локалот го гледа овој распоред.</span>
+            <span className="text-sm text-neutral-500">Локалот го гледа овој распоред. Направивте промени? Потврдете повторно.</span>
           ) : (
             <span className="text-sm text-neutral-500">Локалот сѐ уште не го гледа овој распоред.</span>
           )}
@@ -673,17 +680,33 @@ export function EventSeatingPage({
 
       {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
 
-      <div className="mb-2 flex items-center gap-1" role="group" aria-label="Зум">
-        <button type="button" aria-label="Одзумирај" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className={PALETTE_BUTTON_CLASS}>
-          −
-        </button>
-        <button type="button" onClick={() => setZoom(1)} className={PALETTE_BUTTON_CLASS}>
-          100%
-        </button>
-        <button type="button" aria-label="Зумирај" onClick={() => setZoom((z) => Math.min(2, +(z + 0.25).toFixed(2)))} className={PALETTE_BUTTON_CLASS}>
-          +
-        </button>
-        <span className="ml-1 text-xs text-neutral-500">{Math.round(zoom * 100)}%</span>
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        <div className="flex items-center gap-1" role="group" aria-label="Зум">
+          <button type="button" aria-label="Одзумирај" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className={PALETTE_BUTTON_CLASS}>
+            −
+          </button>
+          <button type="button" onClick={() => setZoom(1)} className={PALETTE_BUTTON_CLASS}>
+            100%
+          </button>
+          <button type="button" aria-label="Зумирај" onClick={() => setZoom((z) => Math.min(2, +(z + 0.25).toFixed(2)))} className={PALETTE_BUTTON_CLASS}>
+            +
+          </button>
+          <span className="ml-1 text-xs text-neutral-500">{Math.round(zoom * 100)}%</span>
+        </div>
+        {actions.getHistoryState ? (
+          <>
+            <button type="button" onClick={handleUndo} disabled={!history.canUndo || isUndoing} className={`${PALETTE_BUTTON_CLASS} ml-2`} title="Ctrl+Z">
+              ← Врати
+            </button>
+            <button type="button" onClick={handleRedo} disabled={!history.canRedo || isRedoing} className={PALETTE_BUTTON_CLASS} title="Shift+Ctrl+Z">
+              Повтори →
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={handleUndo} disabled={!canUndo || isUndoing} className={`${PALETTE_BUTTON_CLASS} ml-2`}>
+            {isUndoing ? "Се враќа..." : "← Врати"}
+          </button>
+        )}
       </div>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1 overflow-x-auto">

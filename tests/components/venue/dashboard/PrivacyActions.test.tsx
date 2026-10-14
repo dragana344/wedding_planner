@@ -58,6 +58,7 @@ const event: EventDetail = {
   contact_phone: null,
   total_price: null,
   deposit_paid: null,
+  hasUnseenSeatingChange: false,
 };
 
 describe("Settings: delete account (DATA-006)", () => {

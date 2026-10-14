@@ -3,7 +3,6 @@ import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { getVenueFeatures } from "@/lib/entitlements/server";
 import { getReport, type ReportData } from "@/lib/venue/reports";
 import { listRooms } from "@/lib/venue/rooms";
-import { todayIn } from "@/lib/date";
 import { ReportsClient } from "@/components/venue/dashboard/ReportsClient";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +36,12 @@ export default async function ReportsPage({
   searchParams: Promise<{ from?: string; to?: string; room?: string }>;
 }) {
   const params = await searchParams;
-  const year = todayIn().slice(0, 4);
-  const from = params.from && ISO.test(params.from) ? params.from : `${year}-01-01`;
-  const to = params.to && ISO.test(params.to) ? params.to : `${year}-12-31`;
+  // No date filter by default — every event, not just the current year
+  // (which silently hid events outside it, e.g. ones dated next year, with
+  // no indication why the report looked empty). The filter form below still
+  // lets a venue narrow it down to a specific range.
+  const from = params.from && ISO.test(params.from) ? params.from : undefined;
+  const to = params.to && ISO.test(params.to) ? params.to : undefined;
 
   const supabase = await createServerSupabaseClient();
   const venueId = await getCurrentVenueId(supabase);

@@ -12,16 +12,20 @@ function money(n: number): string {
   return `${NUMBER.format(Math.round(n))} ден`;
 }
 
-/** One series (count per category), so one hue; every bar carries its label and value. */
+/** One series (count per category), so one hue; every bar carries its label
+ * and value. Each bar's width is its share of the whole (count / total
+ * across every row), not relative to the largest single category — with 2
+ * events split 1 confirmed / 1 in preparation, both bars show half-full,
+ * not both full just because they're tied for "most." */
 function Bars({ rows }: { rows: { label: string; count: number }[] }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
+  const total = Math.max(1, rows.reduce((sum, r) => sum + r.count, 0));
   return (
     <ul className="s3-bars">
       {rows.map((r) => (
         <li key={r.label} title={`${r.label}: ${r.count}`}>
           <span className="s3-bar-label">{r.label}</span>
           <span className="s3-bar-track">
-            <span className="s3-bar-fill" style={{ width: `${(r.count / max) * 100}%` }} />
+            <span className="s3-bar-fill" style={{ width: `${(r.count / total) * 100}%` }} />
           </span>
           <span className="s3-bar-num">{r.count}</span>
         </li>

@@ -13,7 +13,7 @@ const { requireAdmin } = vi.hoisted(() => ({
 vi.mock("@/lib/admin/guard", () => ({ requireAdmin }));
 
 import {
-  getOverviewStats, listVenues, getVenueDetail, getEventDetail, listEvents, listPlans,
+  getOverviewStats, getSignupsByWeek, listVenues, getVenueDetail, getEventDetail, listEvents, listPlans,
   getVenueOverrides, getEventOverrides, listMessages, getMaintenanceState, listAudit,
 } from "@/lib/admin/queries";
 
@@ -62,14 +62,15 @@ describe("admin read models", () => {
     const s = await getOverviewStats();
     expect(s.venues).toBeGreaterThan(0);
     expect(s.upcomingEvents).toBeGreaterThan(0);
-    expect(s.signupsByWeek).toHaveLength(8);
+    expect(s.signupsByWeek).toHaveLength(4);
     const plans = await listPlans();
     expect(plans.find((p) => p.isDefault)!.venueCount).toBeGreaterThan(0);
   });
 
   it("buckets a venue created ~1 day ago into the last signup week", async () => {
-    // The last bucket (index 7) must be [now-7d, now) — a venue created
-    // yesterday belongs there, not in a bucket that always reads 0.
+    // The last bucket (index 3, DEFAULT_SIGNUP_WEEKS=4) must be
+    // [now-7d, now) — a venue created yesterday belongs there, not in a
+    // bucket that always reads 0.
     const recent = (
       await admin
         .from("venues")
@@ -79,9 +80,28 @@ describe("admin read models", () => {
     ).data!.id;
     try {
       const s = await getOverviewStats();
-      const lastBucket = s.signupsByWeek[7];
+      const lastBucket = s.signupsByWeek[3];
       expect(lastBucket.count).toBeGreaterThanOrEqual(1);
       expect(lastBucket.week).toBe(new Date(Date.now() - 7 * DAY).toISOString().slice(0, 10));
+    } finally {
+      await admin.from("venues").delete().eq("id", recent);
+    }
+  });
+
+  it("getSignupsByWeek buckets venues across a chosen date range", async () => {
+    const recent = (
+      await admin
+        .from("venues")
+        .insert({ name: `Ranged Venue ${stamp}`, created_at: new Date(Date.now() - 1 * DAY).toISOString() })
+        .select("id")
+        .single()
+    ).data!.id;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const weekAgo = new Date(Date.now() - 7 * DAY).toISOString().slice(0, 10);
+      const weeks = await getSignupsByWeek({ from: weekAgo, to: today });
+      expect(weeks.length).toBeGreaterThanOrEqual(1);
+      expect(weeks.reduce((sum, w) => sum + w.count, 0)).toBeGreaterThanOrEqual(1);
     } finally {
       await admin.from("venues").delete().eq("id", recent);
     }
@@ -95,7 +115,7 @@ describe("admin read models", () => {
   it("refuses every query when the admin guard refuses", async () => {
     const refusal = new Error("Admin access required.");
     const queries: (() => Promise<unknown>)[] = [
-      () => getOverviewStats(), () => listVenues({}), () => getVenueDetail(venueId), () => listEvents({}),
+      () => getOverviewStats(), () => getSignupsByWeek({ from: "2028-01-01", to: "2028-01-07" }), () => listVenues({}), () => getVenueDetail(venueId), () => listEvents({}),
       () => getEventDetail(venueId), () => listPlans(), () => getVenueOverrides(venueId), () => getEventOverrides(venueId),
       () => listMessages({}), () => getMaintenanceState(), () => listAudit({}),
     ];

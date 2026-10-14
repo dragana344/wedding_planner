@@ -54,6 +54,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "event_albums",
   "event_photos",
   "event_greetings",
+  "support_tickets",
 ];
 
 let db: Client;
