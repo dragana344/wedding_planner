@@ -3,7 +3,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SignupForm } from "@/components/auth/SignupForm";
 
 const mockSignUp = vi.fn();
-const mockPush = vi.fn();
 
 vi.mock("@/lib/supabase/client", () => ({
   createBrowserSupabaseClient: () => ({
@@ -11,13 +10,25 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
-
+// SignupForm navigates with a hard `window.location.href` assignment rather
+// than router.push (see the comment in components/auth/SignupForm.tsx) —
+// jsdom's window.location can't be reassigned directly, so it's replaced
+// with a stand-in that records the assignment.
+let locationHref = "";
 beforeEach(() => {
   mockSignUp.mockReset();
-  mockPush.mockReset();
+  locationHref = "";
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: {
+      get href() {
+        return locationHref;
+      },
+      set href(value: string) {
+        locationHref = value;
+      },
+    },
+  });
 });
 
 describe("SignupForm", () => {
@@ -28,6 +39,8 @@ describe("SignupForm", () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
     fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
@@ -43,10 +56,10 @@ describe("SignupForm", () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/venue/signup",
-        expect.objectContaining({ method: "POST", body: JSON.stringify({ venue_name: "Демо Локал" }) })
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123" }) })
       )
     );
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/venue?tour=1"));
+    await waitFor(() => expect(locationHref).toBe("/venue?tour=1"));
   });
 
   it("shows the Supabase error inline when signUp fails, without calling the provisioning route", async () => {
@@ -56,13 +69,15 @@ describe("SignupForm", () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
     fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
     expect(await screen.findByText("Веќе постои сметка со овој email. Најавете се.")).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(locationHref).toBe("");
   });
 
   it("retries provisioning once automatically before showing an error", async () => {
@@ -74,12 +89,14 @@ describe("SignupForm", () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
     fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/venue?tour=1"));
+    await waitFor(() => expect(locationHref).toBe("/venue?tour=1"));
   });
 
   it("shows a confirmation message and never calls the provisioning endpoint when signUp succeeds without a session", async () => {
@@ -89,6 +106,8 @@ describe("SignupForm", () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
     fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
@@ -99,7 +118,7 @@ describe("SignupForm", () => {
     // The form is replaced, so the same details can't be submitted twice.
     expect(screen.queryByRole("button", { name: /регистрирај се/i })).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(locationHref).toBe("");
   });
 
   it("says the email is taken instead of promising a confirmation email (Supabase returns a user without identities)", async () => {

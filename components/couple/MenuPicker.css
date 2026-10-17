@@ -1,0 +1,105 @@
+/* Same ivory/gold tokens as EventHeroCard.css, duplicated rather than
+ * shared across files (see that file's own note) — small, low-risk. */
+
+.menu-template-card {
+  text-align: left;
+  cursor: pointer;
+  padding: 18px 20px;
+  font: inherit;
+}
+.menu-template-card:hover {
+  border-color: #c9a24a;
+}
+.menu-template-card-name {
+  margin: 0 0 6px;
+  font-size: 20px;
+  color: #2e2617;
+}
+.menu-template-card-sub {
+  margin: 0;
+  color: #8a7d64;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-filter-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid #eaddbf;
+  background: #fff;
+  color: #3a2f1c;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.menu-filter-pill.on {
+  background: #2e2617;
+  border-color: #2e2617;
+  color: #fff;
+}
+
+.menu-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid #efe4cb;
+}
+.menu-item-row:first-child {
+  border-top: 0;
+}
+.menu-item-row-name {
+  display: block;
+  font-weight: 600;
+  color: #2e2617;
+  font-size: 14.5px;
+}
+.menu-item-row-course {
+  display: block;
+  color: #8a7d64;
+  font-size: 12.5px;
+}
+
+.btn-gold-outline {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #c9a24a;
+  background: #fff;
+  color: #8a6a22;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn-gold-outline:hover {
+  background: #fbf2df;
+}
+.menu-item-added {
+  border-radius: 999px !important;
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  color: #a08850 !important;
+  cursor: pointer;
+}
+
+/* .invite-card/.invite-frame etc. (components/couple/InvitationCard.css)
+ * give this its ivory/gold frame — the preview sits in its own
+ * content-sized card (align-items: start on the grid, page.tsx), never
+ * stretched to match the dish-list column's height. */
+.menu-preview-course {
+  margin: 0 0 4px;
+  text-align: center;
+  color: #b0924f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.menu-preview-item {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 19px;
+  color: #2e2617;
+}

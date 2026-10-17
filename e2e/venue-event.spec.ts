@@ -1,10 +1,10 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, signUpVenue } from "./helpers";
+import { adminClient, createEventWithCouple, elevateAsOwner, signUpVenue } from "./helpers";
 
 // Flow 2: the venue creates an event together with the couple's login.
 test("venue creates an event with couple credentials", async ({ page }) => {
-  await signUpVenue(page);
-  const couple = await createEventWithCouple(page);
+  const account = await signUpVenue(page);
+  const couple = await createEventWithCouple(page, account);
 
   // The event and its credentials exist server-side, under the new venue.
   const { data: event, error } = await adminClient()
@@ -37,6 +37,7 @@ test("new event in a two-hall venue starts with picking the hall", async ({ page
   ]);
 
   await page.goto("/venue/events/new");
+  await elevateAsOwner(page, venue);
   await expect(page.getByRole("heading", { name: "Во која сала?" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Продолжи" })).toBeDisabled();
   await page.getByRole("button", { name: /Мала сала/ }).click();

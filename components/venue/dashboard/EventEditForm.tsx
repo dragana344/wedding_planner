@@ -6,26 +6,28 @@ import { ImageLightbox } from "./ImageLightbox";
 import { MenuDetailModal } from "./MenuDetailModal";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
 import {
-  deleteEvent,
-  updateEvent,
-  updateEventContactInfo,
-  updateEventFinance,
   type EventDetail,
   type UpdateEventInput,
   type EventStatus,
   type EventType,
 } from "@/lib/venue/events";
+import {
+  deleteEventViaApi,
+  updateEventViaApi,
+  updateEventContactInfoViaApi,
+  updateEventFinanceViaApi,
+  regenerateEventPasswordViaApi,
+} from "@/lib/venue/events-client";
+import { reportElevationRejected, useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import {
-  addShowcasePhoto,
-  deleteShowcasePhoto,
   getShowcasePhotoUrl,
   listShowcasePhotos,
   type ShowcasePhoto,
 } from "@/lib/venue/showcase";
+import { addShowcasePhotoViaApi, deleteShowcasePhotoViaApi } from "@/lib/venue/showcase-client";
 import {
   getEventUsername,
-  regenerateEventPassword,
   generateRandomPassword,
 } from "@/lib/venue/credentials";
 import type { Room } from "@/lib/venue/rooms";
@@ -37,7 +39,6 @@ import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/event
 
 export function EventEditForm({
   event,
-  venueId,
   rooms,
   menuTemplates,
   onClose,
@@ -45,7 +46,6 @@ export function EventEditForm({
   readOnly = false,
 }: {
   event: EventDetail;
-  venueId: string;
   rooms: Room[];
   menuTemplates: (MenuTemplate & { items: MenuItem[] })[];
   onClose: () => void;
@@ -77,6 +77,14 @@ export function EventEditForm({
   const [isLoadingUsername, setIsLoadingUsername] = useState(true);
   const [regeneratedPassword, setRegeneratedPassword] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const { managerName, token: managerToken } = useManagerElevation();
+  // Final review finding (venue-manager-staff-login Plan 2): this form let
+  // unelevated staff fill out every field and only learned they lacked
+  // permission from a 403 at submit time — every write action here now
+  // disables the same way the existing readOnly (past-event) gate already
+  // does, instead of surfacing that only after the fact.
+  const canEdit = Boolean(managerName);
+  const locked = readOnly || !canEdit;
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState(event.contact_email ?? "");
   const [contactEmail2, setContactEmail2] = useState(event.contact_email_2 ?? "");
@@ -121,7 +129,7 @@ export function EventEditForm({
     setIsRegenerating(true);
     try {
       const newPassword = generateRandomPassword();
-      await regenerateEventPassword(event.id, newPassword);
+      await regenerateEventPasswordViaApi(event.id, newPassword, managerToken);
       setRegeneratedPassword(newPassword);
     } catch (err) {
       setRegenerateError(
@@ -143,7 +151,7 @@ export function EventEditForm({
     }
     setIsSavingContact(true);
     try {
-      await updateEventContactInfo(event.id, contacts.data);
+      await updateEventContactInfoViaApi(event.id, contacts.data, managerToken);
       onChanged();
     } catch (err) {
       setContactError(
@@ -163,10 +171,10 @@ export function EventEditForm({
     }
     setIsSavingFinance(true);
     try {
-      await updateEventFinance(event.id, {
+      await updateEventFinanceViaApi(event.id, {
         total_price: totalPrice === "" ? null : Number(totalPrice),
         deposit_paid: depositPaid === "" ? null : Number(depositPaid),
-      });
+      }, managerToken);
       onChanged();
     } catch (err) {
       setFinanceError(errorMessage(err, "Не успеа зачувувањето на финансиите. Обидете се повторно."));
@@ -181,7 +189,7 @@ export function EventEditForm({
     setError(null);
     setIsUploadingShowcase(true);
     try {
-      await addShowcasePhoto(venueId, event.id, file);
+      await addShowcasePhotoViaApi(event.id, file, managerToken);
       await refreshShowcasePhotos();
     } catch (err) {
       setError(errorMessage(err, "Не успеа прикачувањето на фотографијата. Обидете се повторно."));
@@ -193,7 +201,7 @@ export function EventEditForm({
   async function handleShowcaseDelete(photoId: string) {
     setError(null);
     try {
-      await deleteShowcasePhoto(photoId);
+      await deleteShowcasePhotoViaApi(event.id, photoId, managerToken);
       await refreshShowcasePhotos();
     } catch (err) {
       setError(errorMessage(err, "Не успеа бришењето на фотографијата. Обидете се повторно."));
@@ -222,7 +230,7 @@ export function EventEditForm({
         room_ids: selectedRoomIds,
         menu_template_id: menuTemplateId || null,
       };
-      await updateEvent(event.id, venueId, input);
+      await updateEventViaApi(event.id, input, managerToken);
       onChanged();
       onClose();
     } catch (err) {
@@ -236,7 +244,7 @@ export function EventEditForm({
     setError(null);
     setIsDeleting(true);
     try {
-      await deleteEvent(event.id);
+      await deleteEventViaApi(event.id, managerToken);
       onChanged();
       onClose();
     } catch (err) {
@@ -253,10 +261,15 @@ export function EventEditForm({
     try {
       const res = await fetch("/api/venue/privacy/erase-event", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(managerToken ? { "x-venue-manager-token": managerToken } : {}),
+        },
         body: JSON.stringify({ event_id: event.id, confirm: eraseConfirm }),
       });
       if (!res.ok) {
+        // A 403: the manager login is no longer valid — drop it everywhere.
+        if (res.status === 403) reportElevationRejected();
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Не успеа бришењето на личните податоци.");
       }
@@ -275,6 +288,8 @@ export function EventEditForm({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {readOnly ? (
             <span className="ev-hint">Само за преглед</span>
+          ) : !canEdit ? (
+            <span className="ev-hint">Потребна е најава како менаџер за уредување</span>
           ) : (
             <button
               className="btn btn-gold"
@@ -307,7 +322,7 @@ export function EventEditForm({
                 Откажи
               </button>
             </span>
-          ) : (
+          ) : canEdit ? (
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
@@ -316,7 +331,7 @@ export function EventEditForm({
             >
               <Icon name="trash" size="sm" /> Избриши настан
             </button>
-          )}
+          ) : null}
 
           <button onClick={onClose} aria-label="Затвори" className="modal-close">
             <Icon name="x" size="sm" />
@@ -325,7 +340,7 @@ export function EventEditForm({
       </div>
 
       <form id="event-edit-form" onSubmit={handleSave} className="ev-form">
-        <fieldset className="ev-form-grid" disabled={readOnly} style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset className="ev-form-grid" disabled={locked} style={{ border: 0, padding: 0, margin: 0 }}>
           <div className="ev-field ev-field-wide">
             <label className="lab-s" htmlFor="edit-couple-names">
               Имиња на славениците <span className="req">*</span>
@@ -460,7 +475,10 @@ export function EventEditForm({
           </div>
         </fieldset>
 
-        <fieldset className="ev-fieldset" disabled={readOnly}>
+        {/* Not disabled as a whole: the room checkboxes lock like every other
+            field, but "Отвори седење" stays open to everyone — staff and past
+            events get the plan look-only (VenueEventSeating). */}
+        <fieldset className="ev-fieldset">
           <legend className="lab-s">Простории</legend>
           <div className="ev-room-list">
             {rooms.length === 0 ? (
@@ -479,6 +497,7 @@ export function EventEditForm({
                         id={`edit-room-${room.id}`}
                         type="checkbox"
                         checked={isChecked}
+                        disabled={locked}
                         onChange={() => toggleRoom(room.id)}
                       />
                       {room.name}
@@ -506,7 +525,7 @@ export function EventEditForm({
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Финансии</legend>
         <form onSubmit={handleSaveFinance}>
-          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
+          <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
             <div className="ev-form-grid">
               <div className="ev-field">
                 <label className="lab-s" htmlFor="edit-total-price">
@@ -539,7 +558,7 @@ export function EventEditForm({
             </div>
           </fieldset>
           {financeError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{financeError}</p> : null}
-          {readOnly ? null : (
+          {locked ? null : (
             <button type="submit" className="btn btn-ghost" disabled={isSavingFinance}>
               {isSavingFinance ? "Се зачувува..." : "Зачувај финансии"}
             </button>
@@ -550,7 +569,7 @@ export function EventEditForm({
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Контакт на парот</legend>
         <form onSubmit={handleSaveContactInfo}>
-          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
+          <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
           <div className="ev-form-grid">
             <div className="ev-field">
               <input
@@ -587,7 +606,7 @@ export function EventEditForm({
           </div>
           </fieldset>
           {contactError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{contactError}</p> : null}
-          {readOnly ? null : (
+          {locked ? null : (
             <button type="submit" className="btn btn-ghost" disabled={isSavingContact}>
               {isSavingContact ? "Се зачувува..." : "Зачувај контакт"}
             </button>
@@ -611,7 +630,7 @@ export function EventEditForm({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover" }} />
                   </button>
-                  {readOnly ? null : (
+                  {locked ? null : (
                     <button
                       type="button"
                       onClick={() => handleShowcaseDelete(photo.id)}
@@ -635,7 +654,7 @@ export function EventEditForm({
             })}
           </div>
         )}
-        {readOnly ? null : (
+        {locked ? null : (
           <label className="btn btn-ghost" style={{ display: "inline-flex", cursor: "pointer" }}>
             <Icon name="plus" size="sm" />
             {isUploadingShowcase ? "Се прикачува..." : "Додади фотографија"}
@@ -661,7 +680,7 @@ export function EventEditForm({
           </p>
         ) : null}
         {regenerateError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 8px" }}>{regenerateError}</p> : null}
-        {readOnly ? null : (
+        {locked ? null : (
           <button type="button" onClick={handleRegeneratePassword} disabled={isRegenerating} className="btn btn-ghost">
             {isRegenerating ? "Се генерира..." : "Генерирај нова лозинка"}
           </button>
@@ -670,7 +689,19 @@ export function EventEditForm({
 
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Лични податоци</legend>
-        {confirmingErase ? (
+        {!canEdit ? (
+          // Gated on !canEdit specifically, not the combined `locked` (which
+          // also folds in readOnly/past-event) — erase is deliberately still
+          // available on past events, same as deleting the whole event
+          // above ("staff choice, never automatic"). The server already
+          // requires manager elevation for this endpoint
+          // (requireManagerElevation in app/api/venue/privacy/erase-event);
+          // this is purely a UI-consistency fix (security review minor
+          // finding) so unelevated staff don't get to fill out a destructive
+          // confirmation form only to have it rejected at submit, unlike
+          // every other mutating section on this page.
+          <p className="ev-hint">Само менаџер или сопственик може да ги избрише личните податоци.</p>
+        ) : confirmingErase ? (
           <form onSubmit={handleErasePersonalData}>
             <p className="ev-hint" style={{ margin: "0 0 8px" }}>
               Трајно се бришат гостите, белешките, буџетот, агендата, локациите, поканата, фотографиите и пристапот
@@ -741,6 +772,7 @@ export function EventEditForm({
           eventId={event.id}
           eventName={event.couple_names}
           room={seatingRoom}
+          pastEvent={readOnly}
           onClose={() => setSeatingRoom(null)}
         />
       ) : null}

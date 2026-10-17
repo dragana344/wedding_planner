@@ -24,8 +24,8 @@ describe("BudgetClient", () => {
     expect(screen.getByText("Restaurant X")).toBeInTheDocument();
     expect(screen.getByText("14.000 ден")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Име на ставка"), { target: { value: "Florist Y" } });
-    fireEvent.change(screen.getByPlaceholderText("Проценет износ"), { target: { value: "800" } });
+    fireEvent.change(screen.getByLabelText("Име на ставка"), { target: { value: "Florist Y" } });
+    fireEvent.change(screen.getByLabelText("Проценет износ"), { target: { value: "800" } });
     fireEvent.click(screen.getByRole("button", { name: /додади ставка/i }));
 
     await waitFor(() => expect(screen.getByText("Florist Y")).toBeInTheDocument());
@@ -60,5 +60,24 @@ describe("BudgetClient", () => {
     fireEvent.click(screen.getByRole("button", { name: /избриши restaurant x/i }));
 
     await waitFor(() => expect(screen.queryByText("Restaurant X")).not.toBeInTheDocument());
+  });
+
+  it("shows the paid/remaining split as one bar with a percentage legend, and marks the venue line as fixed", () => {
+    render(<BudgetClient initialSummary={baseSummary} />);
+    // totalPaid 3000 / totalEstimated 14000 ≈ 21%, remaining ≈ 79%.
+    const bar = screen.getByRole("img", { name: /Буџет:/ });
+    expect(bar).toHaveAccessibleName("Буџет: платено 21%, преостанато 79%");
+    expect(screen.getByText("Платено 21%")).toBeInTheDocument();
+    expect(screen.getByText("Преостанато 79%")).toBeInTheDocument();
+    expect(screen.getByText("Фиксно")).toBeInTheDocument();
+  });
+
+  it("shows an empty message when there is no venue line and no items", () => {
+    render(
+      <BudgetClient
+        initialSummary={{ venue: { estimated_amount: null, paid_amount: null }, items: [], totalEstimated: 0, totalPaid: 0, remaining: 0 }}
+      />,
+    );
+    expect(screen.getByText("Сè уште нема додадени ставки.")).toBeInTheDocument();
   });
 });

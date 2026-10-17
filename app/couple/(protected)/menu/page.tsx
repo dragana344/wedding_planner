@@ -1,12 +1,11 @@
 import { headers } from "next/headers";
 import { getVenueMenuOptions, getMenuItemQuantities } from "@/lib/couple/menu";
 import { getEventSummary } from "@/lib/couple/dashboard";
-import { MenuTemplatePicker } from "@/components/couple/MenuTemplatePicker";
-import { CustomMenuBuilder } from "@/components/couple/CustomMenuBuilder";
+import { MenuPicker } from "@/components/couple/MenuPicker";
 
 export default async function CoupleMenuPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [{ templates, specialItems, currentSelection }, quantities, { guest_count_estimate }] = await Promise.all([
+  const [{ templates, specialItems, currentSelection }, quantities, summary] = await Promise.all([
     getVenueMenuOptions(eventId),
     getMenuItemQuantities(eventId),
     getEventSummary(eventId),
@@ -14,18 +13,14 @@ export default async function CoupleMenuPage() {
 
   return (
     <main style={{ padding: "18px 22px 28px" }}>
-      <MenuTemplatePicker
+      <MenuPicker
         templates={templates}
+        specialItems={specialItems}
         currentSelection={currentSelection}
         initialQuantities={quantities}
-        guestCountEstimate={guest_count_estimate}
-      />
-      <div className="my-8 border-t border-neutral-100" />
-      <CustomMenuBuilder
-        items={specialItems}
-        currentSelection={currentSelection}
-        initialQuantities={quantities}
-        guestCountEstimate={guest_count_estimate}
+        guestCountEstimate={summary.guest_count_estimate}
+        coupleNames={summary.couple_names}
+        eventDate={summary.event_date}
       />
     </main>
   );

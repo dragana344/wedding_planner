@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { EventsClient } from "@/components/venue/dashboard/EventsClient";
+import { ManagerElevationProvider } from "@/components/venue/shell/ManagerElevationContext";
 import type { EventDetail } from "@/lib/venue/events";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }) }));
@@ -18,12 +19,12 @@ const event: EventDetail = {
 
 describe("EventsClient deep link (B9 notifications)", () => {
   it("opens the event named in ?event=", () => {
-    const { container } = render(<EventsClient venueId="v1" initialEvents={[event]} rooms={[]} menuTemplates={[]} initialFilter="all" initialEventId="e1" />);
+    const { container } = render(<ManagerElevationProvider><EventsClient venueId="v1" initialEvents={[event]} rooms={[]} menuTemplates={[]} initialFilter="all" initialEventId="e1" /></ManagerElevationProvider>);
     expect(container.ownerDocument.querySelector(".modal-panel")).not.toBeNull();
   });
 
   it("ignores an unknown id", () => {
-    const { container } = render(<EventsClient venueId="v1" initialEvents={[event]} rooms={[]} menuTemplates={[]} initialFilter="all" initialEventId="nope" />);
+    const { container } = render(<ManagerElevationProvider><EventsClient venueId="v1" initialEvents={[event]} rooms={[]} menuTemplates={[]} initialFilter="all" initialEventId="nope" /></ManagerElevationProvider>);
     expect(container.ownerDocument.querySelector(".modal-panel")).toBeNull();
   });
 });

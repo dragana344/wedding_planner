@@ -5,6 +5,7 @@ import { REQUEST_ID_HEADER } from "@/lib/log";
 import { deleteVenueAccount } from "@/lib/privacy/erase";
 import { confirmationMatches, currentStaff } from "@/lib/privacy/staff";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { requireOwnerElevation } from "@/lib/venue/manager-guard";
 
 // DATA-006: staff close their venue account. Everything is deleted (venue,
 // events, guests, reservations, photos, staff logins); the body must carry
@@ -13,6 +14,8 @@ export const POST = withPublic(
   async ({ request, body }) => {
     const staff = await currentStaff();
     if (!staff) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
+    const owner = await requireOwnerElevation(request, staff.venueId);
+    if (!owner) return NextResponse.json({ error: "Потребна е најава како сопственик." }, { status: 403 });
 
     const { data: venue, error } = await createServiceRoleClient()
       .from("venues")

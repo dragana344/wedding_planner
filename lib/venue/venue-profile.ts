@@ -12,15 +12,23 @@ export async function getVenueName(
   return data.name;
 }
 
-export async function updateVenueName(venueId: string, name: string): Promise<void> {
-  const { data, error } = await resolveSupabaseClient()
+// The writes below run server-side in /api/venue/settings (owner-only,
+// spec D4) with a service-role client — staff have no UPDATE on venues
+// since 0106 — so each one is scoped by its explicit venueId.
+
+export async function updateVenueName(
+  venueId: string,
+  name: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  const { data, error } = await client
     .from("venues")
     .update({ name })
     .eq("id", venueId)
     .select("id");
   if (error) throw error;
   if (!data || data.length === 0) {
-    throw new Error("Venue name was not updated. Please try again.");
+    throw new Error("Името не е зачувано. Обидете се повторно.");
   }
 }
 
@@ -38,7 +46,8 @@ export interface VenueProfile {
 export const LOGO_BUCKET = "event-showcase-photos";
 export const LOGO_MAX_BYTES = 5 * 1024 * 1024;
 export const LOGO_TYPE_ERROR = "Дозволени се PNG, JPG, WEBP до 5 MB.";
-const LOGO_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+/** The logo formats (by sniffed type) and their content types. */
+export const LOGO_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
 
 export async function getVenueProfile(
   venueId: string,
@@ -61,9 +70,13 @@ export function isPhoneNumber(value: string): boolean {
   return /^\+?[\d\s()\/-]{6,24}$/.test(value) && value.replace(/\D/g, "").length >= 6;
 }
 
-export async function updateVenueProfile(venueId: string, input: { address: string | null; phone: string | null }): Promise<void> {
+export async function updateVenueProfile(
+  venueId: string,
+  input: { address: string | null; phone: string | null },
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
   if (input.phone?.trim() && !isPhoneNumber(input.phone.trim())) throw new Error(VENUE_PHONE_ERROR);
-  const { data, error } = await resolveSupabaseClient()
+  const { data, error } = await client
     .from("venues")
     .update({ address: input.address?.trim() || null, phone: input.phone?.trim() || null })
     .eq("id", venueId)
@@ -89,19 +102,6 @@ export async function checkLogoFile(file: File): Promise<string> {
   return ext;
 }
 
-/** Uploads a new logo, points the venue at it (the old one is queued for deletion by 0074) and returns its URL. */
-export async function uploadVenueLogo(venueId: string, file: File): Promise<string> {
-  const ext = await checkLogoFile(file);
-  const client = resolveSupabaseClient();
-  const path = `${venueId}/logo-${Date.now()}.${ext}`;
-  const { error: uploadError } = await client.storage
-    .from(LOGO_BUCKET)
-    .upload(path, file, { contentType: LOGO_TYPES[ext], cacheControl: "31536000" });
-  if (uploadError) throw uploadError;
-  await setVenueLogoPath(venueId, path, client);
-  return venueLogoUrl(client, path)!;
-}
-
 /** Points the venue at a logo (or none). Throws when no row changed — e.g. RLS refused — instead of reporting success. */
 export async function setVenueLogoPath(
   venueId: string,
@@ -113,8 +113,8 @@ export async function setVenueLogoPath(
   if (!data || data.length === 0) throw new Error("Логото не е зачувано. Обидете се повторно.");
 }
 
-export async function removeVenueLogo(venueId: string): Promise<void> {
-  await setVenueLogoPath(venueId, null);
+export async function removeVenueLogo(venueId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<void> {
+  await setVenueLogoPath(venueId, null, client);
 }
 
 export const BRAND_COLOR_ERROR = "Изберете боја во облик #rrggbb.";
@@ -124,10 +124,14 @@ export const BRAND_COLOR_ERROR = "Изберете боја во облик #rrg
  * normalised; whether it is shown depends on the venue's plan
  * (`venue_branding`), which the pages check when they read it.
  */
-export async function updateVenueBrandColor(venueId: string, color: string | null): Promise<void> {
+export async function updateVenueBrandColor(
+  venueId: string,
+  color: string | null,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
   const value = color === null ? null : normalizeBrandColor(color);
   if (color !== null && value === null) throw new Error(BRAND_COLOR_ERROR);
-  const { data, error } = await resolveSupabaseClient().from("venues").update({ brand_color: value }).eq("id", venueId).select("id");
+  const { data, error } = await client.from("venues").update({ brand_color: value }).eq("id", venueId).select("id");
   if (error) throw error;
   if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
 }

@@ -2,8 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewEventForm } from "@/components/venue/NewEventForm";
+import { ManagerElevationProvider } from "@/components/venue/shell/ManagerElevationContext";
 import * as events from "@/lib/venue/events";
-import * as credentials from "@/lib/venue/credentials";
+import * as eventsClient from "@/lib/venue/events-client";
+
+function renderForm(props: Partial<React.ComponentProps<typeof NewEventForm>> & Pick<React.ComponentProps<typeof NewEventForm>, "rooms" | "menuTemplates" | "onCreated">) {
+  return render(
+    <ManagerElevationProvider>
+      <NewEventForm venueId="v1" {...props} />
+    </ManagerElevationProvider>
+  );
+}
 
 // The fixed test date has passed, and the hall check would hit the network:
 // answer "yes" to the form's questions and report no other event that day.
@@ -15,20 +24,15 @@ beforeEach(() => {
 
 describe("NewEventForm", () => {
   it("creates the event and sets the couple's login credentials + contact info on submit", async () => {
-    const createSpy = vi.spyOn(events, "createEvent").mockResolvedValue({ id: "e1" });
-    const contactSpy = vi.spyOn(events, "updateEventContactInfo").mockResolvedValue();
-    const financeSpy = vi.spyOn(events, "updateEventFinance").mockResolvedValue();
-    const credentialsSpy = vi.spyOn(credentials, "createEventCredentials").mockResolvedValue();
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockResolvedValue({ id: "e1" });
+    const contactSpy = vi.spyOn(eventsClient, "updateEventContactInfoViaApi").mockResolvedValue();
     const onCreated = vi.fn();
 
-    render(
-      <NewEventForm
-        venueId="v1"
-        rooms={[{ id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 }]}
-        menuTemplates={[{ id: "m1", venue_id: "v1", name: "Standard Menu", description: null }]}
-        onCreated={onCreated}
-      />
-    );
+    renderForm({
+      rooms: [{ id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 }],
+      menuTemplates: [{ id: "m1", venue_id: "v1", name: "Standard Menu", description: null }],
+      onCreated,
+    });
 
     await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
     await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
@@ -46,26 +50,34 @@ describe("NewEventForm", () => {
     await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
-    expect(createSpy).toHaveBeenCalledWith({
-      venue_id: "v1",
-      couple_names: "Ivana & Petar",
-      event_date: "2026-10-01",
-      start_time: "18:00",
-      end_time: "22:00",
-      event_type: "birthday",
-      status: "confirmed",
-      guest_count_estimate: 80,
-      room_ids: ["r1"],
-      menu_template_id: "m1",
-      contacts: { contact_email: "couple@example.com", contact_email_2: null, contact_phone: "070 123 456" },
-    });
-    expect(credentialsSpy).toHaveBeenCalledWith("e1", "ivana-petar", "a-strong-password");
+    expect(createSpy).toHaveBeenCalledWith(
+      {
+        venue_id: "v1",
+        couple_names: "Ivana & Petar",
+        event_date: "2026-10-01",
+        start_time: "18:00",
+        end_time: "22:00",
+        event_type: "birthday",
+        status: "confirmed",
+        guest_count_estimate: 80,
+        room_ids: ["r1"],
+        menu_template_id: "m1",
+        contacts: { contact_email: "couple@example.com", contact_email_2: null, contact_phone: "070 123 456" },
+        // Security review fix: credentials and finance now travel with the
+        // event itself and are set server-side, atomically — not separate
+        // client calls anymore (create_event_credentials' direct
+        // authenticated grant was revoked, 0110; folding finance into the
+        // same insert also keeps a deliberately backdated event's finance
+        // fields from tripping the new past-event write lock a follow-up
+        // PATCH would have hit).
+        credentials: { username: "ivana-petar", password: "a-strong-password" },
+        total_price: null,
+        deposit_paid: null,
+      },
+      null,
+    );
     // A21: saved with the event itself, not as a second step.
     expect(contactSpy).not.toHaveBeenCalled();
-    expect(financeSpy).toHaveBeenCalledWith("e1", {
-      total_price: null,
-      deposit_paid: null,
-    });
     // The couple's login is shown once before the form hands back.
     expect(onCreated).not.toHaveBeenCalled();
     expect(await screen.findByText("Настанот е креиран")).toBeInTheDocument();
@@ -76,19 +88,23 @@ describe("NewEventForm", () => {
   });
 
   it("fills the password field with a random value when Generate is clicked", async () => {
-    render(<NewEventForm venueId="v1" rooms={[]} menuTemplates={[]} onCreated={vi.fn()} />);
+    renderForm({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     const passwordInput = screen.getByLabelText(/^лозинка/i) as HTMLInputElement;
     expect(passwordInput.value).toBe("");
     await userEvent.click(screen.getByRole("button", { name: /генерирај/i }));
     expect(passwordInput.value.length).toBeGreaterThan(0);
   });
 
-  it("deletes the event if setting up credentials fails, so the user can retry", async () => {
-    vi.spyOn(events, "createEvent").mockResolvedValue({ id: "e1" });
-    vi.spyOn(credentials, "createEventCredentials").mockRejectedValue(new Error("username taken"));
-    const deleteSpy = vi.spyOn(events, "deleteEvent").mockResolvedValue();
+  it("surfaces a username collision without a client-side cleanup step — the server already rolled back the event (security review fix)", async () => {
+    // Credentials are now created server-side, inside the same request as
+    // the event row, which rolls itself back on failure (lib/venue/events.ts
+    // createEvent). So a username collision shows up as createEventViaApi
+    // itself rejecting — there is no longer a separate client-side
+    // "delete the orphaned event" step for this failure mode.
+    vi.spyOn(eventsClient, "createEventViaApi").mockRejectedValue(new Error("username taken"));
+    const deleteSpy = vi.spyOn(eventsClient, "deleteEventViaApi").mockResolvedValue();
 
-    render(<NewEventForm venueId="v1" rooms={[]} menuTemplates={[]} onCreated={vi.fn()} />);
+    renderForm({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
     await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "taken-username");
@@ -97,13 +113,32 @@ describe("NewEventForm", () => {
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
-    expect(deleteSpy).toHaveBeenCalledWith("e1");
     expect(await screen.findByText(/username taken/i)).toBeInTheDocument();
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it("sends the typed finance figures in the same create call", async () => {
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockResolvedValue({ id: "e1" });
+    renderForm({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
+    await userEvent.type(screen.getByLabelText(/имиња на славениците/i), "Ivana & Petar");
+    await userEvent.type(screen.getByLabelText(/^датум/i), "2026-10-01");
+    await userEvent.type(screen.getByLabelText(/корисничко име/i), "ivana-petar");
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.type(screen.getByLabelText(/вкупна цена/i), "1000");
+    await userEvent.type(screen.getByLabelText(/платен капар/i), "200");
+    await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ total_price: 1000, deposit_paid: 200 }),
+      null,
+    );
   });
 
   it("does not create an event without the couple's email and phone (A21)", async () => {
-    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
-    render(<NewEventForm venueId="v1" rooms={[]} menuTemplates={[]} onCreated={vi.fn()} />);
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e1" });
+    renderForm({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     expect(screen.getByLabelText("Email на парот")).toBeRequired();
     expect(screen.getByLabelText("Телефон на парот")).toBeRequired();
 
@@ -126,7 +161,7 @@ describe("NewEventForm", () => {
     const totals = { r1: { tables: 41, seats: 404 }, r2: { tables: 8, seats: 80 } };
 
     it("starts with picking the hall when the venue has several", async () => {
-      render(<NewEventForm venueId="v1" rooms={rooms} roomTotals={totals} menuTemplates={[]} onCreated={() => {}} />);
+      renderForm({ rooms, roomTotals: totals, menuTemplates: [], onCreated: () => {} });
       expect(screen.getByRole("heading", { name: "Во која сала?" })).toBeInTheDocument();
       expect(screen.queryByLabelText(/имиња на славениците/i)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Голема сала/ })).toHaveTextContent("41 маси · 404 места");
@@ -145,7 +180,7 @@ describe("NewEventForm", () => {
     });
 
     it("an event can use both halls", async () => {
-      render(<NewEventForm venueId="v1" rooms={rooms} menuTemplates={[]} onCreated={() => {}} />);
+      renderForm({ rooms, menuTemplates: [], onCreated: () => {} });
       await userEvent.click(screen.getByRole("button", { name: /Голема сала/ }));
       await userEvent.click(screen.getByRole("button", { name: /Мала сала/ }));
       await userEvent.click(screen.getByRole("button", { name: "Продолжи" }));
@@ -154,7 +189,7 @@ describe("NewEventForm", () => {
     });
 
     it("skips the step when a hall was already chosen (?room=)", () => {
-      render(<NewEventForm venueId="v1" rooms={rooms} initialRoomIds={["r2"]} menuTemplates={[]} onCreated={() => {}} />);
+      renderForm({ rooms, initialRoomIds: ["r2"], menuTemplates: [], onCreated: () => {} });
       expect(screen.queryByRole("heading", { name: "Во која сала?" })).not.toBeInTheDocument();
       expect(screen.getByLabelText("Мала сала")).toBeChecked();
     });
@@ -173,9 +208,9 @@ describe("NewEventForm — questions before saving", () => {
   const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
 
   it("does not create an event on a past date when the question is declined", async () => {
-    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e1" });
     confirmSpy.mockReturnValue(false);
-    render(<NewEventForm venueId="v1" rooms={[room]} menuTemplates={[]} onCreated={vi.fn()} />);
+    renderForm({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
     await fill("2000-02-20");
     fireEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
     expect(confirmSpy).toHaveBeenCalledWith("Датумот 20 февруари 2000 е во минатото. Да се креира настанот сепак?");
@@ -183,10 +218,10 @@ describe("NewEventForm — questions before saving", () => {
   });
 
   it("names the event already booked in the hall that day", async () => {
-    const createSpy = vi.spyOn(events, "createEvent").mockClear().mockResolvedValue({ id: "e1" });
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e1" });
     vi.spyOn(events, "findSameDayRoomEvents").mockResolvedValue([{ id: "e0", couple_names: "Ива и Дејан", start_time: "18:00:00", end_time: "23:00:00" }]);
     confirmSpy.mockImplementation((message?: string) => !String(message).includes("веќе има настан"));
-    render(<NewEventForm venueId="v1" rooms={[room]} menuTemplates={[]} onCreated={vi.fn()} />);
+    renderForm({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
     await fill("2099-06-12");
     fireEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
     await vi.waitFor(() => expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("• Ива и Дејан (18:00 – 23:00)")));

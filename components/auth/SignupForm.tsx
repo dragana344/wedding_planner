@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 import { provisionVenue } from "@/lib/venue/pending-signup";
 
 export function SignupForm() {
-  const router = useRouter();
   const [venueName, setVenueName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Set when the account was created but the email still has to be confirmed.
@@ -23,13 +23,16 @@ export function SignupForm() {
     setIsSubmitting(true);
     try {
       const supabase = createBrowserSupabaseClient();
-      // The venue name travels in the user's metadata so the venue can be
-      // opened on the first sign-in when the email has to be confirmed first
-      // (lib/venue/pending-signup.ts).
+      // The venue name and the owner's manager-login details travel in the
+      // user's metadata so the venue can be opened on the first sign-in
+      // when the email has to be confirmed first (lib/venue/pending-signup.ts).
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { venue_name: venueName.trim() }, emailRedirectTo: `${window.location.origin}/login` },
+        options: {
+          data: { venue_name: venueName.trim(), owner_name: ownerName.trim(), owner_password: ownerPassword },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       });
       if (signUpError) {
         setError(authErrorMessage(signUpError));
@@ -47,13 +50,13 @@ export function SignupForm() {
         return;
       }
 
-      let response = await provisionVenue(venueName);
+      let response = await provisionVenue(venueName, ownerName, ownerPassword);
       if (!response.ok && response.status !== 401) {
         // A transient failure right after signUp shouldn't strand a
         // freshly-created account — retry once before giving up.
         // (A 401 is not transient — the session is missing/invalid both
         // times — so retrying it would just waste a round-trip.)
-        response = await provisionVenue(venueName);
+        response = await provisionVenue(venueName, ownerName, ownerPassword);
       }
       if (!response.ok) {
         const { error: message } = await response.json();
@@ -61,7 +64,10 @@ export function SignupForm() {
         return;
       }
 
-      router.push("/venue?tour=1");
+      // A hard navigation, not router.push: the venue layout's server-side
+      // check reads the session from cookies, and a client-side transition
+      // right after signUp() can race ahead of the auth SDK's cookie write.
+      window.location.href = "/venue?tour=1";
     } catch {
       setError(GENERIC_ERROR);
     } finally {
@@ -98,6 +104,37 @@ export function SignupForm() {
           onChange={(e) => setVenueName(e.target.value)}
           required
         />
+      </div>
+      <div className="auth-field">
+        <label className="lab-s" htmlFor="signup-owner-name">
+          Име (за менаџерска најава)
+        </label>
+        <input
+          id="signup-owner-name"
+          className="fld"
+          placeholder="На пр. Име Презиме"
+          value={ownerName}
+          onChange={(e) => setOwnerName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="auth-field">
+        <label className="lab-s" htmlFor="signup-owner-password">
+          Менаџерска лозинка
+        </label>
+        <input
+          id="signup-owner-password"
+          className="fld"
+          placeholder="Менаџерска лозинка"
+          type="password"
+          value={ownerPassword}
+          onChange={(e) => setOwnerPassword(e.target.value)}
+          minLength={8}
+          required
+        />
+        <p className="ev-hint" style={{ margin: "4px 0 0" }}>
+          Оваа лозинка е одделна од лозинката за најава подолу — ќе ја користите за да се најавите како менаџер на споделениот компјутер на локалот.
+        </p>
       </div>
       <div className="auth-field">
         <label className="lab-s" htmlFor="signup-email">

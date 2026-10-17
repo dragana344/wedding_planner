@@ -53,7 +53,7 @@ describe("GuestsClient", () => {
     render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
 
     expect(screen.getByText("Ана Петровска")).toBeInTheDocument();
-    expect(screen.getByText("Покани на листата")).toBeInTheDocument(); // total stat tile
+    expect(screen.getByText("покани на листата")).toBeInTheDocument(); // guests summary headline
     expect(screen.queryByText("Страна на невестата")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Страна")).not.toBeInTheDocument();
 
@@ -114,7 +114,7 @@ describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
     const select = screen.getByLabelText(/статус за ана петровска/i);
     expect(within(select).getByRole("option", { name: "Ќе одговори подоцна" })).toBeInTheDocument();
     expect(select).toHaveValue("later");
-    expect(screen.getByText("Подоцна")).toBeInTheDocument();
+    expect(screen.getByText("Подоцна 1")).toBeInTheDocument();
   });
 });
 
@@ -156,14 +156,14 @@ describe("GuestsClient final list (A7, A8, A17)", () => {
     expect(unsent).toHaveAttribute("data-unsent", "true");
     expect(within(unsent as HTMLElement).getByText("Неиспратена покана")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Детали за Ана Петровска" }).closest("[data-unsent]")).toHaveAttribute("data-unsent", "false");
-    expect(screen.getByText("2 / 3")).toBeInTheDocument(); // invitations sent tile
+    expect(screen.getByText("2 / 3")).toBeInTheDocument(); // invitations sent headline
   });
 
-  it("shows the RSVP split as a labelled bar with percentages", () => {
+  it("shows the RSVP split as a labelled bar with a count legend", () => {
     render(<GuestsClient initialGuests={list} initialStats={listStats} eventType="birthday" />);
     const chart = screen.getByRole("img", { name: /Одговори:/ });
-    expect(chart).toHaveAccessibleName("Одговори: Потврдени 33%, Подоцна 33%, Без одговор 0%, Одбиени 33%");
-    expect(screen.getByText("Потврдени · 1 (33%)")).toBeInTheDocument();
+    expect(chart).toHaveAccessibleName("Одговори: Потврдено 1, Подоцна 1, Одбиено 1, Без одговор 0");
+    expect(screen.getByText("Потврдено 1")).toBeInTheDocument();
   });
 
   it("opens everything about a guest, including their table when seated", async () => {

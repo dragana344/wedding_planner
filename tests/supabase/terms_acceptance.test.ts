@@ -25,7 +25,7 @@ describe("terms acceptance (0046)", () => {
   it("records version and time once; a retried signup keeps the first timestamp", async () => {
     const { data } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
     userId = data!.user!.id;
-    venueId = (await provisionVenueForUser(userId, `Terms venue ${stamp}`)).venue_id;
+    venueId = (await provisionVenueForUser(userId, `Terms venue ${stamp}`, "owner", "owner-pass-123")).venue_id;
 
     const before = await admin.from("venues").select("terms_version, terms_accepted_at").eq("id", venueId).single();
     expect(before.data).toEqual({ terms_version: null, terms_accepted_at: null });
@@ -45,15 +45,15 @@ describe("terms acceptance (0046)", () => {
     expect(error?.message).toMatch(/venues_terms_acceptance_complete/);
   });
 
-  it("staff can still rename their venue but cannot write the acceptance record", async () => {
+  it("staff cannot write the acceptance record (nor, since 0106, any venue column)", async () => {
     const staff = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       auth: { persistSession: false },
     });
     await staff.auth.signInWithPassword({ email, password });
 
+    // Renaming is owner-only through /api/venue/settings since 0106.
     const renamed = await staff.from("venues").update({ name: `Renamed ${stamp}` }).eq("id", venueId).select("name");
-    expect(renamed.error).toBeNull();
-    expect(renamed.data).toEqual([{ name: `Renamed ${stamp}` }]);
+    expect(renamed.error?.code).toBe("42501");
 
     const forged = await staff
       .from("venues")

@@ -5,6 +5,7 @@ import { REQUEST_ID_HEADER } from "@/lib/log";
 import { eraseEventPersonalData } from "@/lib/privacy/erase";
 import { confirmationMatches, currentStaff } from "@/lib/privacy/staff";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { requireManagerElevation } from "@/lib/venue/manager-guard";
 
 // DATA-006: staff erase one event's couple and guest data. The body must
 // carry the couple's names exactly as shown, typed by the staff member.
@@ -12,6 +13,8 @@ export const POST = withPublic(
   async ({ request, body }) => {
     const staff = await currentStaff();
     if (!staff) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
+    const manager = await requireManagerElevation(request, staff.venueId);
+    if (!manager) return NextResponse.json({ error: "Потребна е најава како менаџер." }, { status: 403 });
 
     const { data: event, error } = await createServiceRoleClient()
       .from("events")

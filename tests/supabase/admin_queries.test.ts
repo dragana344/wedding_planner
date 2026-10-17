@@ -52,6 +52,12 @@ describe("admin read models", () => {
     expect(raw).not.toContain("070111");
   });
 
+  it("returns venue detail with its managers", async () => {
+    const managerId = (await admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Власник", p_password: "owner-pass-123", p_is_owner: true })).data as string;
+    const d = await getVenueDetail(venueId);
+    expect(d!.managers).toContainEqual({ id: managerId, name: "Власник", isOwner: true });
+  });
+
   it("lists events across venues without contact details", async () => {
     const rows = await listEvents({ venueId });
     expect(rows[0]).toMatchObject({ coupleNames: "Q & A", venueName: `Query Venue ${stamp}` });

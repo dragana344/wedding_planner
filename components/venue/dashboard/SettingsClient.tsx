@@ -4,21 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { updateVenueName } from "@/lib/venue/venue-profile";
-import { setLayoutLockPassword } from "@/lib/venue/floorplan";
+import { saveAccountEmail, saveAccountPassword, saveLayoutLockPassword, saveVenueName } from "@/lib/venue/settings-client";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
 import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
 import { errorMessage } from "@/lib/venue/user-error";
+import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
+import { ManagersSection } from "./ManagersSection";
 
 export function SettingsClient({
-  venueId,
   venueName: initialVenueName,
   email: initialEmail,
   profile,
   branding,
 }: {
-  venueId: string;
   venueName: string;
   email: string;
   /** Venue profile (B10); absent in older callers. */
@@ -27,6 +26,7 @@ export function SettingsClient({
   branding?: { color: string | null; enabled: boolean };
 }) {
   const router = useRouter();
+  const { isOwner, token: managerToken } = useManagerElevation();
 
   const [venueName, setVenueName] = useState(initialVenueName);
   const [venueNameStatus, setVenueNameStatus] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export function SettingsClient({
     setVenueNameStatus(null);
     setIsSavingVenueName(true);
     try {
-      await updateVenueName(venueId, venueName);
+      await saveVenueName(venueName, managerToken);
       setSavedVenueName(venueName);
       setVenueNameStatus("Зачувано.");
       // The sidebar and top bar get the name from the server layout.
@@ -77,9 +77,7 @@ export function SettingsClient({
     setEmailStatus(null);
     setIsSavingEmail(true);
     try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.updateUser({ email });
-      if (error) throw error;
+      await saveAccountEmail(email, managerToken);
       setEmailStatus("Проверете го инбоксот за да ја потврдите новата е-пошта.");
     } catch (err) {
       setEmailStatus(errorMessage(err, "Не успеа менувањето на е-поштата. Обидете се повторно."));
@@ -93,9 +91,7 @@ export function SettingsClient({
     setPasswordStatus(null);
     setIsSavingPassword(true);
     try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      await saveAccountPassword(newPassword, managerToken);
       setPasswordStatus("Лозинката е сменета.");
       setNewPassword("");
     } catch (err) {
@@ -110,7 +106,7 @@ export function SettingsClient({
     setLayoutPasswordStatus(null);
     setIsSavingLayoutPassword(true);
     try {
-      await setLayoutLockPassword(venueId, newLayoutPassword);
+      await saveLayoutLockPassword(newLayoutPassword, managerToken);
       setLayoutPasswordStatus("Зачувано.");
       setNewLayoutPassword("");
     } catch (err) {
@@ -126,15 +122,21 @@ export function SettingsClient({
     setIsSigningOut(true);
     const supabase = createBrowserSupabaseClient();
     await supabase.auth.signOut({ scope });
-    router.push("/login");
+    // A hard navigation, not router.push: same reasoning as the other
+    // sign-outs — a client-side transition right after signOut() can race
+    // ahead of the auth SDK's cookie clear.
+    window.location.href = "/login";
   }
 
   async function handleExport() {
     setExportStatus(null);
     setIsExporting(true);
     try {
-      const res = await fetch("/api/venue/privacy/export");
+      const res = await fetch("/api/venue/privacy/export", {
+        headers: managerToken ? { "x-venue-manager-token": managerToken } : undefined,
+      });
       if (!res.ok) {
+        if (res.status === 403) reportElevationRejected();
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Не успеа преземањето на податоците.");
       }
@@ -159,20 +161,35 @@ export function SettingsClient({
     try {
       const res = await fetch("/api/venue/privacy/delete-account", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(managerToken ? { "x-venue-manager-token": managerToken } : {}),
+        },
         body: JSON.stringify({ confirm: deleteConfirm }),
       });
       if (!res.ok) {
+        if (res.status === 403) reportElevationRejected();
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? "Не успеа бришењето на сметката.");
       }
       // The auth user is gone; clear the local session cookie too.
       await createBrowserSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
-      router.push("/login");
+      // A hard navigation, not router.push: same reasoning as the other
+      // sign-outs — a client-side transition right after signOut() can race
+      // ahead of the auth SDK's cookie clear.
+      window.location.href = "/login";
     } catch (err) {
       setDeleteStatus(errorMessage(err, "Не успеа бришењето на сметката."));
       setIsDeletingAccount(false);
     }
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="wrap">
+        <p className="muted" style={{ padding: 24 }}>Оваа страница е достапна само за сопственикот.</p>
+      </div>
+    );
   }
 
   return (
@@ -207,7 +224,7 @@ export function SettingsClient({
             <h2 className="panel-t">Профил на локалот</h2>
           </div>
           <div style={{ padding: 20 }}>
-            <VenueProfileForm venueId={venueId} address={profile.address} phone={profile.phone} logoUrl={profile.logoUrl} />
+            <VenueProfileForm managerToken={managerToken} address={profile.address} phone={profile.phone} logoUrl={profile.logoUrl} />
           </div>
         </section>
       ) : null}
@@ -218,7 +235,7 @@ export function SettingsClient({
             <h2 className="panel-t">Брендирање</h2>
           </div>
           <div style={{ padding: 20 }}>
-            <BrandColorForm venueId={venueId} color={branding.color} enabled={branding.enabled} />
+            <BrandColorForm managerToken={managerToken} color={branding.color} enabled={branding.enabled} />
           </div>
         </section>
       ) : null}
@@ -273,6 +290,8 @@ export function SettingsClient({
           </button>
         </form>
       </section>
+
+      <ManagersSection />
 
       <section className="panel">
         <div className="panel-h">

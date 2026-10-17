@@ -3,6 +3,7 @@ import { NOT_AUTHENTICATED_ERROR, errorResponse, withRequestLog } from "@/lib/ap
 import { REQUEST_ID_HEADER } from "@/lib/log";
 import { exportVenueData } from "@/lib/privacy/export";
 import { currentStaff } from "@/lib/privacy/staff";
+import { requireOwnerElevation } from "@/lib/venue/manager-guard";
 
 // DATA-006: venue staff download everything the platform holds for their
 // venue as one JSON file.
@@ -12,6 +13,8 @@ export async function GET(request: NextRequest) {
   return withRequestLog(request, async () => {
     const staff = await currentStaff();
     if (!staff) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
+    const owner = await requireOwnerElevation(request, staff.venueId);
+    if (!owner) return NextResponse.json({ error: "Потребна е најава како сопственик." }, { status: 403 });
     try {
       const data = await exportVenueData(staff.venueId, {
         actorId: staff.userId,

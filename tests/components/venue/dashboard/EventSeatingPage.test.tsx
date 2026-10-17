@@ -263,3 +263,33 @@ describe("EventSeatingPage seat lists", () => {
     expect(screen.queryByText("QR по маса")).not.toBeInTheDocument();
   });
 });
+
+describe("EventSeatingPage view-only (staff without a manager login, past events)", () => {
+  it("hides every editing tool, keeps tables in place, and says why", async () => {
+    const a = actions({ getHistoryState: vi.fn().mockResolvedValue({ canUndo: true, canRedo: false }), group: vi.fn(), relabelElement: vi.fn() });
+    renderPage(a, { viewOnly: true, viewOnlyNotice: "Само преглед", printLinks: { plan: "/venue/events/e1/print/plan" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Само преглед");
+    for (const name of ["+ Бина", "Врати на стандарден распоред", "+ Групирај маси", "← Врати", "Повтори →"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/\+ Round 4/)).not.toBeInTheDocument();
+    // Looking around still works.
+    expect(screen.getByRole("button", { name: "Сите маси" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Печати план" })).toBeInTheDocument();
+
+    // A table can be selected to see who sits there, but not dragged,
+    // rotated or relabelled, and its seat list is read-only.
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"), { clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { clientX: 300, clientY: 300 });
+    fireEvent.pointerUp(window, { clientX: 300, clientY: 300 });
+    expect(await screen.findByText("Ана Петровска")).toBeInTheDocument();
+    expect(a.moveElement).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("floor-plan-rotate-t1")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Ознака на масата")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /зачувај/i })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(a.undo).not.toHaveBeenCalled();
+  });
+});

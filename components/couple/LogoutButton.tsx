@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 export function LogoutButton() {
-  const router = useRouter();
   async function handleLogout() {
     await fetch("/api/couple/logout", { method: "POST" });
-    router.push("/couple/login");
+    // A hard navigation, not router.push: same reasoning as the other
+    // sign-outs — a client-side transition right after the session cookie
+    // is cleared can race ahead of it.
+    window.location.href = "/couple/login";
   }
   return (
     <button type="button" onClick={handleLogout} className="btn btn-ghost">

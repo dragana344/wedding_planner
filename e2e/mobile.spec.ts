@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { setUpCouple, signUpVenue } from "./helpers";
+import { elevateAsOwner, setUpCouple, signUpVenue, type VenueAccount } from "./helpers";
 
 // D1: every panel page is usable on a 390 px phone — no sideways scrolling of
 // the page itself — and the navigation lives in a drawer behind "Мени".
@@ -9,8 +9,14 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true
 // Many pages per test, each prefetching the whole nav: more than the default minute on a busy machine.
 test.setTimeout(180_000);
 
-async function expectNoHorizontalScroll(page: Page, path: string) {
+async function expectNoHorizontalScroll(page: Page, path: string, account?: VenueAccount) {
   await page.goto(path);
+  // Elevate after landing (page.goto is a real navigation, so elevation
+  // from any earlier page is already gone) so /venue/events/new and
+  // /venue/settings are checked with their real, usually-wider content —
+  // not just the short "managers only" message, which was never going to
+  // scroll sideways either way (final review finding).
+  if (account && (path === "/venue/events/new" || path === "/venue/settings")) await elevateAsOwner(page, account);
   await page.waitForLoadState("load");
   await page.locator("header.top, main").first().waitFor();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -18,12 +24,12 @@ async function expectNoHorizontalScroll(page: Page, path: string) {
 }
 
 test("venue panel fits a phone and opens its menu as a drawer", async ({ page }) => {
-  await signUpVenue(page);
+  const account = await signUpVenue(page);
   for (const path of [
     "/venue", "/venue/calendar", "/venue/reservations", "/venue/events", "/venue/events/new",
     "/venue/tables", "/venue/clients", "/venue/menus", "/venue/settings", "/venue/support",
   ]) {
-    await expectNoHorizontalScroll(page, path);
+    await expectNoHorizontalScroll(page, path, account);
   }
 
   await page.goto("/venue");

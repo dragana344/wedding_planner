@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { errorResponse, withPublic } from "@/lib/api/handler";
-import { CONTACT_REQUIRED_ERROR, contactMessageBody } from "@/lib/api/schemas";
+import { INVALID_JSON_ERROR, CONTACT_REQUIRED_ERROR, contactMessageBody } from "@/lib/api/schemas";
 import { submitContactMessage } from "@/lib/venue/contact";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
@@ -19,5 +19,5 @@ export const POST = withPublic(
       return errorResponse(err, "Пораката не се испрати. Обидете се повторно.", request);
     }
   },
-  { invalidJsonError: "Invalid JSON body", body: contactMessageBody, invalidBodyError: CONTACT_REQUIRED_ERROR },
+  { invalidJsonError: INVALID_JSON_ERROR, body: contactMessageBody, invalidBodyError: CONTACT_REQUIRED_ERROR },
 );

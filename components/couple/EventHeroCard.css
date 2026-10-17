@@ -1,0 +1,210 @@
+/* Theme tokens, scoped to the card rather than :root, so they don't collide
+ * with the app's own --gold/--ink/--muted (different hex values, same names). */
+.event-hero {
+  --hero-bg: #ffffff;
+  --hero-border: #eaddbf;
+  --hero-divider: #efe4cb;
+  --hero-gold: #c9a24a;
+  --hero-gold-label: #b0924f;
+  --hero-gold-unit: #a08850;
+  --hero-ink: #2e2617;
+  --hero-ink-soft: #3a2f1c;
+  --hero-muted: #8a7d64;
+  --hero-muted-2: #b5a888;
+
+  background: var(--hero-bg);
+  border: 1px solid var(--hero-border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-bottom: 16px;
+}
+
+.event-hero__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.event-hero__label {
+  margin: 0;
+  color: var(--hero-gold-label);
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.event-hero__names {
+  margin: 6px 0 0;
+  font-weight: 400;
+  font-size: 54px;
+  line-height: 1.05;
+  color: var(--hero-ink);
+}
+
+.event-hero__amp {
+  color: var(--hero-gold);
+  font-style: italic;
+}
+
+.event-hero__date {
+  margin: 6px 0 0;
+  color: var(--hero-muted);
+  font-size: 16px;
+}
+
+.countdown {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.countdown__unit {
+  text-align: center;
+  min-width: 48px;
+}
+
+.countdown__num {
+  font-size: 54px;
+  line-height: 1;
+  color: var(--hero-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown__label {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--hero-gold-unit);
+}
+
+.countdown__sep {
+  width: 1px;
+  height: 44px;
+  background: var(--hero-border);
+}
+
+.countdown__message {
+  font-style: italic;
+  font-size: 24px;
+  color: var(--hero-ink-soft);
+}
+
+.event-hero__divider {
+  height: 1px;
+  background: var(--hero-divider);
+  margin: 22px 0 14px;
+}
+
+.event-hero__details {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  color: var(--hero-muted);
+  font-size: 16px;
+}
+
+.event-hero__details li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.event-hero__icon {
+  color: var(--hero-gold);
+}
+
+.guests-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.guests-edit:hover {
+  background: var(--hero-divider);
+}
+
+.guests-edit__pencil {
+  color: var(--hero-muted-2);
+}
+
+.guests-input {
+  width: 72px;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--hero-ink);
+  border: 1px solid var(--hero-gold);
+  border-radius: 6px;
+  background: #fff;
+  outline: none;
+}
+
+.saved-tick {
+  font-size: 13px;
+  color: var(--hero-gold-label);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.saved-tick.is-visible {
+  opacity: 1;
+}
+
+.event-hero__error {
+  font-size: 13px;
+  color: var(--bad, #b3261e);
+}
+
+@media (max-width: 640px) {
+  .event-hero {
+    padding: 22px 20px;
+  }
+  .event-hero__names {
+    font-size: 40px;
+  }
+  .event-hero__top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .countdown {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .countdown__num {
+    font-size: 32px;
+  }
+}
+
+/* Same ivory/gold look, applied to the dashboard's other panels (Агенда,
+ * Чеклиста, Контакт информации): the existing .panel/.panel-h/.panel-t
+ * markup and its icons stay exactly as they are — only the surface, border
+ * and title colour change. `.couple-card` added alongside `.panel` so this
+ * never touches the venue staff dashboard, which only ever renders `.panel`
+ * on its own. */
+.vp .panel.couple-card {
+  background: #ffffff;
+  border: 1px solid #eaddbf;
+  border-radius: 16px;
+}
+.vp .panel.couple-card .panel-h {
+  border-bottom-color: #efe4cb;
+}
+.vp .panel.couple-card .panel-t {
+  color: #b0924f;
+  letter-spacing: 0.1em;
+}
+.vp .panel.couple-card .panel-t .i {
+  color: #c9a24a;
+}

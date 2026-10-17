@@ -75,7 +75,7 @@ describe("atomic multi-step writes (REL-005)", () => {
 
   it("venue provisioning: a failing staff insert leaves no orphan venue", async () => {
     const name = `Orphan check ${randomUUID()}`;
-    const { error } = await admin.rpc("provision_venue", { p_user_id: randomUUID(), p_venue_name: name });
+    const { error } = await admin.rpc("provision_venue", { p_user_id: randomUUID(), p_venue_name: name, p_owner_name: "owner", p_owner_password: "owner-pass-123" });
     expect(error).not.toBeNull();
     const { data } = await admin.from("venues").select("id").eq("name", name);
     expect(data).toEqual([]);

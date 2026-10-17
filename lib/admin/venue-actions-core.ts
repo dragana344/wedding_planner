@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { passwordResetRedirectTo } from "@/lib/admin/reset-redirect";
 import { deleteVenueAccount } from "@/lib/privacy/erase";
 import { FEATURE_KEYS, featureDef, type FeatureKey } from "@/lib/entitlements/features";
+import { changeManagerPassword, markAdminPasswordReset } from "@/lib/venue/managers";
 
 // Core logic for every venue Server Action (task 3.3). Kept apart from
 // app/admin/(panel)/venues/actions.ts so it can be exercised directly from a
@@ -51,6 +52,13 @@ async function requireVenueStaff(venueId: string, userId: string): Promise<void>
   if (!data) throw new Error("Корисникот не е вработен во овој локал.");
 }
 
+/** Same reasoning as requireVenueStaff, for a manager id instead of a user id. */
+async function requireVenueManager(venueId: string, managerId: string): Promise<void> {
+  const { data, error } = await db().from("venue_managers").select("id").eq("venue_id", venueId).eq("id", managerId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Менаџерот не припаѓа на овој локал.");
+}
+
 /**
  * Updates the venue row and throws a user-facing error if the id matches no
  * row — `.select("id")` reads back what the update actually touched, so a
@@ -79,6 +87,17 @@ export const venueSchemas = {
     note: z.string().max(1000, "Белешката е предолга.").nullable(),
   }),
   staff: z.object({ venueId: uuid, userId: uuid }),
+  // The admin types in whatever password the caller dictates over the
+  // phone, rather than generating one — reading out a random string
+  // character by character isn't practical (app owner's call).
+  manager: z.object({
+    venueId: uuid,
+    managerId: uuid,
+    newPassword: z
+      .string({ error: "Лозинката мора да има најмалку 8 знаци." })
+      .min(8, "Лозинката мора да има најмалку 8 знаци.")
+      .max(200, "Лозинката може да има најмногу 200 знаци."),
+  }),
   block: z.object({ venueId: uuid, reason: z.string().trim().min(1, "Внесете причина.").max(1000) }),
   unblock: z.object({ venueId: uuid }),
   remove: z.object({ venueId: uuid, confirmName: z.string() }),
@@ -190,5 +209,27 @@ export const venueActionCore = {
     await check(db().rpc("admin_sign_out_user", { p_user_id: i.userId }));
     revalidatePathSafe(`/admin/venues/${i.venueId}`);
     return { data: null, audit: { action: "admin_staff_signed_out", venueId: i.venueId, targetId: i.userId } };
+  },
+
+  // The app owner wants manager/owner password recovery to go through a
+  // phone call to support rather than a self-service email link (no email
+  // is stored per manager, only one per venue; the earlier email-link
+  // flow was removed in 0103). The admin sets whatever password the caller
+  // dictates; the value itself never goes in the audit row.
+  //
+  // Security review #4: the caller's identity is only as good as support's
+  // own judgment (no typed confirmation here, unlike venue deletion) — an
+  // accepted tradeoff at the current scale, where admins personally know
+  // every owner. What this *does* add is an owner-facing signal: the manager
+  // sees a one-time "your password was reset by support on [date]" notice
+  // on next elevation, so a reset the owner didn't expect is at least
+  // visible to them, not just buried in an audit row nobody reads day to day.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async managerPasswordReset(i: z.infer<typeof venueSchemas.manager>, _ctx: AdminContext) {
+    await requireVenueManager(i.venueId, i.managerId);
+    await changeManagerPassword(i.managerId, i.newPassword);
+    await markAdminPasswordReset(i.managerId);
+    revalidatePathSafe(`/admin/venues/${i.venueId}`);
+    return { data: null, audit: { action: "admin_manager_password_reset", venueId: i.venueId, targetId: i.managerId } };
   },
 };

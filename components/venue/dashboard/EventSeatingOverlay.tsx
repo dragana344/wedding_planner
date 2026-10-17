@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
-import { EventSeatingPage } from "./EventSeatingPage";
+import { VenueEventSeating } from "./VenueEventSeating";
 import { listFixedElements, listEventLayoutElements, type FixedElement, type EventLayoutElement } from "@/lib/venue/floorplan";
 import { listTableTypes, type Room, type TableType } from "@/lib/venue/rooms";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
@@ -16,17 +16,20 @@ import { errorMessage } from "@/lib/venue/user-error";
  * Stacks above the (smaller) event-edit modal so staff can return to it after
  * closing this, and gives the floor plan the space it actually needs — the
  * event modal is capped at 640px, nowhere near enough to work a real room
- * layout at scale.
+ * layout at scale. Staff without a manager login (and anyone, for a past
+ * event) get it look-only — see VenueEventSeating.
  */
 export function EventSeatingOverlay({
   eventId,
   eventName,
   room,
+  pastEvent = false,
   onClose,
 }: {
   eventId: string;
   eventName: string;
   room: Room;
+  pastEvent?: boolean;
   onClose: () => void;
 }) {
   const [data, setData] = useState<{
@@ -85,7 +88,7 @@ export function EventSeatingOverlay({
               Се вчитува распоредот...
             </p>
           ) : (
-            <EventSeatingPage
+            <VenueEventSeating
               eventId={eventId}
               eventName={eventName}
               room={room}
@@ -93,7 +96,7 @@ export function EventSeatingOverlay({
               initialLayoutElements={data.layoutElements}
               initialTableTypes={data.tableTypes}
               initialSeating={data.seating}
-              seatingReadOnly
+              pastEvent={pastEvent}
               printLinks={{ plan: `/venue/events/${eventId}/print/plan`, qr: `/venue/events/${eventId}/print/qr` }}
               onBack={onClose}
               backLabel="← Затвори"

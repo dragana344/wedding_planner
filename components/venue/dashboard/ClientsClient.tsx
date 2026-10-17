@@ -260,7 +260,6 @@ export function ClientsClient({
         <Modal title={openEvent.couple_names} onClose={() => setOpenEventId(null)} hideHeader>
           <EventEditForm
             event={openEvent}
-            venueId={venueId}
             rooms={rooms}
             menuTemplates={menuTemplates}
             onClose={() => setOpenEventId(null)}

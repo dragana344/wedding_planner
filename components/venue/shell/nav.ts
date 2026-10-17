@@ -22,6 +22,10 @@ export type NavItem = {
   /** The entitlements feature this section is gated on, if any (admin
    * dashboard spec §4.4). Undefined means the section is never locked. */
   feature?: FeatureKey;
+  /** Hides this item from the sidebar entirely unless the current session
+   * is elevated: "manager" needs any elevated manager or the owner,
+   * "owner" needs the owner specifically. Undefined means always shown. */
+  requiresElevation?: "manager" | "owner";
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -75,28 +79,11 @@ export const NAV_ITEMS: NavItem[] = [
     ready: true,
   },
   {
-    href: "/venue/reports",
-    icon: "chart",
-    label: "Извештаи",
-    title: "ИЗВЕШТАИ",
-    subtitle: "Аналитика и извештаи за работењето",
-    ready: true,
-    feature: "reports",
-  },
-  {
     href: "/venue/notifications",
     icon: "mega",
     label: "Известувања",
     title: "ИЗВЕСТУВАЊА",
     subtitle: "Известувања и потсетници",
-    ready: true,
-  },
-  {
-    href: "/venue/settings",
-    icon: "gear",
-    label: "Поставки",
-    title: "ПОСТАВКИ",
-    subtitle: "Профил на локалот и поставки",
     ready: true,
   },
   {
@@ -115,6 +102,25 @@ export const NAV_ITEMS: NavItem[] = [
     subtitle: TABLE_RESERVATIONS_ENABLED ? "Резервирајте маси и управувајте со сите резервации" : "Секојдневни резервации на маси: наскоро",
     ready: TABLE_RESERVATIONS_ENABLED,
     feature: "reservations",
+  },
+  {
+    href: "/venue/settings",
+    icon: "gear",
+    label: "Поставки",
+    title: "ПОСТАВКИ",
+    subtitle: "Профил на локалот и поставки",
+    ready: true,
+    requiresElevation: "owner",
+  },
+  {
+    href: "/venue/reports",
+    icon: "chart",
+    label: "Извештаи",
+    title: "ИЗВЕШТАИ",
+    subtitle: "Аналитика и извештаи за работењето",
+    ready: true,
+    feature: "reports",
+    requiresElevation: "manager",
   },
 ];
 

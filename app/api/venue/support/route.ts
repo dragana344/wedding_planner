@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { submitVenueSupportTicket } from "@/lib/venue/support";
 import { errorResponse, withPublic } from "@/lib/api/handler";
-import { SUPPORT_TICKET_REQUIRED_ERROR, supportTicketBody } from "@/lib/api/schemas";
+import { INVALID_JSON_ERROR, SUPPORT_TICKET_REQUIRED_ERROR, supportTicketBody } from "@/lib/api/schemas";
 
 // Not actually public: the venue is resolved from the signed-in session
 // below (never a client-supplied id), same as /api/venue/signup — withPublic
@@ -20,5 +20,5 @@ export const POST = withPublic(
       return errorResponse(err, "Барањето не се испрати. Обидете се повторно.", request);
     }
   },
-  { invalidJsonError: "Invalid JSON body", body: supportTicketBody, invalidBodyError: SUPPORT_TICKET_REQUIRED_ERROR },
+  { invalidJsonError: INVALID_JSON_ERROR, body: supportTicketBody, invalidBodyError: SUPPORT_TICKET_REQUIRED_ERROR },
 );

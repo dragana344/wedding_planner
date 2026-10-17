@@ -96,7 +96,7 @@ describe("effective_features (spec §4.3)", () => {
 
   it("gives existing and new venues the default plan with everything unlocked", async () => {
     const { data: def } = await admin.from("plans").select("id").eq("is_default", true).single();
-    const { data: fresh } = await admin.rpc("provision_venue", { p_user_id: (await admin.auth.admin.createUser({ email: `plan-${Date.now()}@test.local`, password: "plan-password-1", email_confirm: true })).data.user!.id, p_venue_name: "Fresh Venue" });
+    const { data: fresh } = await admin.rpc("provision_venue", { p_user_id: (await admin.auth.admin.createUser({ email: `plan-${Date.now()}@test.local`, password: "plan-password-1", email_confirm: true })).data.user!.id, p_venue_name: "Fresh Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123" });
     const { data: v } = await admin.from("venues").select("plan_id").eq("id", fresh).single();
     expect(v!.plan_id).toBe(def!.id);
     const f = await resolved(fresh as string, null);

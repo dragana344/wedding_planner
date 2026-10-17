@@ -298,6 +298,19 @@
 .vp .nav a.soon {
   opacity: 0.7; /* D2: 6:1 on the sidebar (0.55 was 4.2:1) */
 }
+/* Couple sidebar only (components/couple/shell/nav.ts's `group`) — the
+ * venue panel's own nav items never set this class. */
+.vp .nav-sec {
+  margin: 14px 13px 4px;
+  color: #6b707a;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.vp .nav-sec:first-child {
+  margin-top: 4px;
+}
 .vp .locked-wrap {
   position: relative;
   min-height: 70vh;

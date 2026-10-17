@@ -7,6 +7,8 @@ import { exportEventData, exportVenueData } from "@/lib/privacy/export";
 import { ERASED_COUPLE_NAMES, deleteVenueAccount, eraseEventPersonalData } from "@/lib/privacy/erase";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 import { COLUMN_CLASSIFICATION } from "./privacy-classification";
+import { createManagerElevation } from "@/lib/venue/manager-elevation";
+import { MANAGER_TOKEN_HEADER } from "@/lib/venue/manager-guard";
 
 // DATA-005 / DATA-006 / DATA-007: export returns the subject's data and
 // nobody else's; erasure and account deletion leave no personal data in the
@@ -59,6 +61,13 @@ async function newVenue(tag: string): Promise<Venue> {
   venuesToClean.push(venue.id);
   const room = await must(admin.from("rooms").insert({ venue_id: venue.id, name: "Hall" }).select("id").single());
   return { venueId: venue.id, roomId: room.id, name };
+}
+
+/** Export/delete-account are owner-gated (Plan 2 Task 4) — a token for a
+ * fresh owner manager of `venueId`, to attach as MANAGER_TOKEN_HEADER. */
+async function ownerToken(venueId: string): Promise<string> {
+  const managerId = (await must(admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Власник", p_password: "owner-pass-123", p_is_owner: true }))) as unknown as string;
+  return (await createManagerElevation(venueId, managerId, "Власник", true)).token;
 }
 
 async function newStaff(venueIds: string[]): Promise<{ userId: string; email: string; client: SupabaseClient }> {
@@ -496,7 +505,8 @@ describe("venue privacy routes (DATA-006)", () => {
     const staff = await newStaff([v.venueId]);
     const seeded = await seedEvent(v, `re${stamp}`);
     session.client = staff.client;
-    const res = await exportRoute(new NextRequest("http://localhost/api/venue/privacy/export"));
+    const token = await ownerToken(v.venueId);
+    const res = await exportRoute(new NextRequest("http://localhost/api/venue/privacy/export", { headers: { [MANAGER_TOKEN_HEADER]: token } }));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="podatoci-\d{4}-\d{2}-\d{2}\.json"$/);
     const body = await res.json();
@@ -511,14 +521,17 @@ describe("venue privacy routes (DATA-006)", () => {
     const mine = await seedEvent(v, `rx${stamp}`);
     const theirs = await seedEvent(other, `ro${stamp}`);
     session.client = staff.client;
+    const token = await ownerToken(v.venueId);
+    const postOwner = (path: string, body: unknown) =>
+      new NextRequest(`http://localhost${path}`, { method: "POST", headers: { "content-type": "application/json", [MANAGER_TOKEN_HEADER]: token }, body: JSON.stringify(body) });
 
-    const wrong = await eraseRoute(post("/api/venue/privacy/erase-event", { event_id: mine.eventId, confirm: "couple rx" }), { params: {} });
+    const wrong = await eraseRoute(postOwner("/api/venue/privacy/erase-event", { event_id: mine.eventId, confirm: "couple rx" }), { params: {} });
     expect(wrong.status).toBe(400);
-    const foreign = await eraseRoute(post("/api/venue/privacy/erase-event", { event_id: theirs.eventId, confirm: `Couple ${theirs.tag}` }), { params: {} });
+    const foreign = await eraseRoute(postOwner("/api/venue/privacy/erase-event", { event_id: theirs.eventId, confirm: `Couple ${theirs.tag}` }), { params: {} });
     expect(foreign.status).toBe(404);
     expect(await remainingPersonalData(theirs.eventId, theirs.checklistId)).toContain("event_guests");
 
-    const ok = await eraseRoute(post("/api/venue/privacy/erase-event", { event_id: mine.eventId, confirm: ` Couple ${mine.tag} ` }), { params: {} });
+    const ok = await eraseRoute(postOwner("/api/venue/privacy/erase-event", { event_id: mine.eventId, confirm: ` Couple ${mine.tag} ` }), { params: {} });
     expect(ok.status).toBe(200);
     expect(await remainingPersonalData(mine.eventId, mine.checklistId)).toEqual([]);
   });
@@ -527,12 +540,15 @@ describe("venue privacy routes (DATA-006)", () => {
     const v = await newVenue("RD");
     const staff = await newStaff([v.venueId]);
     session.client = staff.client;
+    const token = await ownerToken(v.venueId);
+    const postOwner = (path: string, body: unknown) =>
+      new NextRequest(`http://localhost${path}`, { method: "POST", headers: { "content-type": "application/json", [MANAGER_TOKEN_HEADER]: token }, body: JSON.stringify(body) });
 
-    const wrong = await deleteRoute(post("/api/venue/privacy/delete-account", { confirm: v.name.toUpperCase() }), { params: {} });
+    const wrong = await deleteRoute(postOwner("/api/venue/privacy/delete-account", { confirm: v.name.toUpperCase() }), { params: {} });
     expect(wrong.status).toBe(400);
     expect((await admin.from("venues").select("id").eq("id", v.venueId)).data).toHaveLength(1);
 
-    const ok = await deleteRoute(post("/api/venue/privacy/delete-account", { confirm: v.name }), { params: {} });
+    const ok = await deleteRoute(postOwner("/api/venue/privacy/delete-account", { confirm: v.name }), { params: {} });
     expect(ok.status).toBe(200);
     expect((await admin.from("venues").select("id").eq("id", v.venueId)).data).toEqual([]);
     expect((await admin.auth.admin.getUserById(staff.userId)).data.user).toBeNull();

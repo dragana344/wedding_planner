@@ -3,7 +3,7 @@ import { AgendaClient } from "@/components/couple/AgendaClient";
 import { BudgetClient } from "@/components/couple/BudgetClient";
 import { GuestsClient } from "@/components/couple/GuestsClient";
 import { StorageMeter } from "@/components/couple/StorageMeter";
-import { RsvpBreakdown } from "@/components/couple/guests/RsvpBreakdown";
+import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
 import { CoupleShell } from "@/components/couple/shell/CoupleShell";
 import { brandVars } from "@/lib/venue/brand-palette";
 import { DEMO_LOGO, EVENT_ID, emptyStats, guestStats, guests } from "../fixtures";
@@ -51,12 +51,12 @@ export const GuestsBirthday: Story = {
 export const GuestsPhone: Story = { ...Guests, name: "Гости: на телефон", globals: { viewport: { value: "mobile1" } } };
 
 export const Breakdown: Story = {
-  name: "Одговори на поканата",
+  name: "Гости: преглед",
   args: {
     children: (
       <div className="wrap" style={{ display: "grid", gap: 16 }}>
-        <RsvpBreakdown stats={guestStats} />
-        <RsvpBreakdown stats={emptyStats} />
+        <GuestsSummary stats={guestStats} />
+        <GuestsSummary stats={emptyStats} />
       </div>
     ),
   },
@@ -73,6 +73,8 @@ export const Agenda: Story = {
           { id: "a2", event_id: EVENT_ID, time: "18:00", title: "Пречек на гости", notes: "Музика во живо на влез", sort_order: 20 },
           { id: "a3", event_id: EVENT_ID, time: null, title: "Торта", notes: null, sort_order: 30 },
         ]}
+        coupleNames="Ана и Марко"
+        eventDate="2026-10-18"
       />
     ),
   },
@@ -81,7 +83,7 @@ export const Agenda: Story = {
 export const AgendaEmpty: Story = {
   name: "Програма: празна",
   parameters: { nextjs: { navigation: { pathname: "/couple/agenda" } } },
-  args: { children: <AgendaClient initialItems={[]} /> },
+  args: { children: <AgendaClient initialItems={[]} coupleNames="Ана и Марко" eventDate="2026-10-18" /> },
 };
 
 const budgetItem = (id: string, category: string, name: string, estimated_amount: number | null, paid_amount: number) => ({

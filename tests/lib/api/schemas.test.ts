@@ -213,9 +213,17 @@ describe("public schemas", () => {
   });
 
   it("signup: keeps the required message and caps the venue name", () => {
-    expect(venueSignupBody.safeParse({ venue_name: "Ресторан" }).success).toBe(true);
-    expect(msg(parseInput(venueSignupBody, { venue_name: "  " }, "D"))).toBe("Внесете име на локалот.");
-    expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201) }).success).toBe(false);
+    const ownerFields = { owner_name: "Марко", owner_password: "owner-pass-123" };
+    expect(venueSignupBody.safeParse({ venue_name: "Ресторан", ...ownerFields }).success).toBe(true);
+    expect(msg(parseInput(venueSignupBody, { venue_name: "  ", ...ownerFields }, "D"))).toBe("Внесете име на локалот.");
+    expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201), ...ownerFields }).success).toBe(false);
+  });
+
+  it("signup: requires the owner's name and a manager password of at least 8 characters", () => {
+    const base = { venue_name: "Ресторан" };
+    expect(venueSignupBody.safeParse({ ...base, owner_name: "", owner_password: "owner-pass-123" }).success).toBe(false);
+    expect(venueSignupBody.safeParse({ ...base, owner_name: "Марко", owner_password: "short" }).success).toBe(false);
+    expect(venueSignupBody.safeParse({ ...base, owner_name: "Марко", owner_password: "owner-pass-123" }).success).toBe(true);
   });
 
   it("support ticket: requires name, problem and description, and caps lengths", () => {

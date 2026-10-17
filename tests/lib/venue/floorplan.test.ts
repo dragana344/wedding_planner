@@ -111,12 +111,13 @@ describe("floorplan data layer: fixed elements + lock password", () => {
     expect(await verifyLayoutLockPassword(venueId, "", staffClient)).toBe(false);
   });
 
-  it("sets and changes the lock password", async () => {
-    await setLayoutLockPassword(venueId, "1234", staffClient);
+  it("sets and changes the lock password (owner-only route, service role — 0106) and staff unlock with it", async () => {
+    await expect(setLayoutLockPassword(venueId, "1234", staffClient)).rejects.toThrow();
+    await setLayoutLockPassword(venueId, "1234", admin);
     expect(await verifyLayoutLockPassword(venueId, "1234", staffClient)).toBe(true);
     expect(await verifyLayoutLockPassword(venueId, "9999", staffClient)).toBe(false);
 
-    await setLayoutLockPassword(venueId, "5678", staffClient);
+    await setLayoutLockPassword(venueId, "5678", admin);
     expect(await verifyLayoutLockPassword(venueId, "1234", staffClient)).toBe(false);
     expect(await verifyLayoutLockPassword(venueId, "5678", staffClient)).toBe(true);
   });
@@ -132,9 +133,8 @@ describe("floorplan data layer: fixed elements + lock password", () => {
     const canVerify = await verifyLayoutLockPassword(venueId, "1234", nonStaffClient);
     expect(canVerify).toBe(false);
 
-    await expect(setLayoutLockPassword(venueId, "5555", nonStaffClient)).rejects.toThrow(
-      "Not authorized to change this venue's layout lock password."
-    );
+    await expect(setLayoutLockPassword(venueId, "5555", nonStaffClient)).rejects.toThrow();
+    expect(await verifyLayoutLockPassword(venueId, "5678", staffClient)).toBe(true);
   });
 
   it("resizes a fixed element", async () => {

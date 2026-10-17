@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +34,13 @@ export default function ResetPasswordPage() {
     // SEC-017: a password change ends the sessions on other devices; this
     // browser keeps its own.
     await supabase.auth.signOut({ scope: "others" });
-    router.push("/venue");
+    // This page is shared by both the venue and admin "forgot password"
+    // flows (ForgotPasswordForm redirects here either way) — an admin must
+    // land on /admin, not /venue. A hard navigation, not router.push: same
+    // reasoning as the other logins — a client-side transition right after
+    // an auth-state change can race ahead of the auth SDK's cookie write.
+    const { data } = await supabase.auth.getUser();
+    window.location.href = data.user?.app_metadata?.role === "platform_admin" ? "/admin" : "/venue";
   }
 
   return (

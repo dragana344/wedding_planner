@@ -13,6 +13,7 @@ import {
   saveVenueOverride,
   sendStaffPasswordReset,
   signOutStaff,
+  resetManagerPassword,
   blockVenue,
   unblockVenue,
   deleteVenue,
@@ -40,33 +41,16 @@ export function VenueAdminPanels({
           <h2 className="panel-t">Основни</h2>
         </div>
         <RenameForm venueId={venue.id} initialName={venue.name} />
-      </section>
-
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Ниво</h2>
-        </div>
-        <PlanSelect venueId={venue.id} planId={venue.planId} plans={plans} />
-      </section>
-
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Функции</h2>
-        </div>
-        <FeatureOverridesEditor scope="venue" features={features} overrides={overrides} onSave={(v) => saveVenueOverride({ venueId: venue.id, ...v })} />
-      </section>
-
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Вработени</h2>
-        </div>
+        {/* A venue has exactly one login account — this isn't a staff
+            roster, just the one login's own facts and actions, so it lives
+            here rather than in its own section. */}
         {venue.staff.length === 0 ? (
-          <p className="s1-empty">Нема вработени.</p>
+          <p className="s1-empty" style={{ padding: "0 20px 16px" }}>Нема најава за овој локал.</p>
         ) : (
           <table className="s1-tbl">
             <thead>
               <tr>
-                <th>Е-пошта</th>
+                <th>Е-пошта (најава)</th>
                 <th>Последна најава</th>
                 <th />
               </tr>
@@ -98,6 +82,44 @@ export function VenueAdminPanels({
 
       <section className="panel">
         <div className="panel-h">
+          <h2 className="panel-t">Ниво</h2>
+        </div>
+        <PlanSelect venueId={venue.id} planId={venue.planId} plans={plans} />
+      </section>
+
+      <section className="panel">
+        <div className="panel-h">
+          <h2 className="panel-t">Функции</h2>
+        </div>
+        <FeatureOverridesEditor scope="venue" features={features} overrides={overrides} onSave={(v) => saveVenueOverride({ venueId: venue.id, ...v })} />
+      </section>
+
+      <section className="panel">
+        <div className="panel-h">
+          <h2 className="panel-t">Менаџери</h2>
+        </div>
+        {venue.managers.length === 0 ? (
+          <p className="s1-empty">Нема менаџери.</p>
+        ) : (
+          <table className="s1-tbl">
+            <thead>
+              <tr>
+                <th>Име</th>
+                <th>Улога</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {venue.managers.map((m) => (
+                <ManagerRow key={m.id} venueId={venue.id} manager={m} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-h">
           <h2 className="panel-t">Статус</h2>
         </div>
         <StatusPanel venue={venue} />
@@ -110,6 +132,67 @@ export function VenueAdminPanels({
         <DeleteVenuePanel venueId={venue.id} venueName={venue.name} />
       </section>
     </>
+  );
+}
+
+function ManagerRow({ venueId, manager }: { venueId: string; manager: { id: string; name: string; isOwner: boolean } }) {
+  // The admin types in whatever password the caller dictates over the
+  // phone — a generated random string isn't practical to read out
+  // character by character (app owner's call). Plain text, not a password
+  // field: the admin is the one typing it, not authenticating with it.
+  const [newPassword, setNewPassword] = useState("");
+  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!window.confirm(`Стара лозинка на „${manager.name}“ престанува да важи и активните негови/нејзини најави на менаџер се прекинуваат. Продолжи?`)) return;
+    setPending(true);
+    setStatus(null);
+    try {
+      const result = await resetManagerPassword({ venueId, managerId: manager.id, newPassword });
+      if (result.ok) {
+        setIsError(false);
+        setStatus("Лозинката е сменета.");
+        setNewPassword("");
+      } else {
+        setIsError(true);
+        setStatus(result.error);
+      }
+    } catch {
+      // A failed request (network, server error) must not leave the row disabled.
+      setIsError(true);
+      setStatus("Акцијата не успеа. Обидете се повторно.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>{manager.name}</td>
+      <td>{manager.isOwner ? "Сопственик" : "Менаџер"}</td>
+      <td>
+        <form onSubmit={submit} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            className="fld"
+            placeholder="Нова лозинка"
+            aria-label={`Нова лозинка за ${manager.name}`}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            minLength={8}
+            required
+            disabled={pending}
+          />
+          <button type="submit" className="btn btn-ghost" disabled={pending}>
+            Зачувај
+          </button>
+          {status ? <span className="muted" style={{ color: isError ? "var(--bad)" : undefined }}> {status}</span> : null}
+        </form>
+      </td>
+    </tr>
   );
 }
 

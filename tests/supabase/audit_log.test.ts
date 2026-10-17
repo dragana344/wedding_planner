@@ -46,19 +46,45 @@ async function newEvent(venue = venueId) {
 }
 
 describe("audit log (SEC-018)", () => {
-  it("records couple credential creation and regeneration by staff, once each, with the staff user as actor", async () => {
+  it("records couple credential creation without a staff actor, now that it's gated through a service-role route (security review fix, same tradeoff as password regeneration below)", async () => {
+    // Migration 0110: create_event_credentials is no longer callable by a
+    // plain authenticated staff session at all — only via the gated
+    // event-creation route, which calls it with a service-role client after
+    // independently verifying manager elevation. auth.uid() is null under
+    // service_role, so the trigger falls back to actor_type 'system' — same
+    // tradeoff already documented for regenerate_event_password below.
     const eventId = await newEvent();
-    expect((await staff.rpc("create_event_credentials", { p_event_id: eventId, p_username: `audit-${stamp}`, p_password: "long-enough-1" })).error).toBeNull();
-    expect((await staff.rpc("regenerate_event_password", { p_event_id: eventId, p_password: "long-enough-2" })).error).toBeNull();
+    expect((await admin.rpc("create_event_credentials", { p_event_id: eventId, p_username: `audit-${stamp}`, p_password: "long-enough-1" })).error).toBeNull();
 
-    const rows = await auditRows({ event_id: eventId });
-    expect(rows.map((r) => r.action).sort()).toEqual(["couple_credentials_created", "couple_password_regenerated"]);
-    for (const r of rows) expect(r).toMatchObject({ actor_type: "staff", actor_id: staffId, venue_id: venueId });
+    const rows = await auditRows({ event_id: eventId, action: "couple_credentials_created" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ actor_type: "system", actor_id: null, venue_id: venueId });
   });
 
-  it("records an event deletion by staff, without personal data", async () => {
+  it("records password regeneration without a staff actor, now that it's gated through a service-role route (final review finding, same tradeoff as event deletion below)", async () => {
+    // Migration 0102: regenerate_event_password is no longer callable by a
+    // plain authenticated staff session at all — only via the gated
+    // /api/venue/events/[eventId]/regenerate-password route, which calls it
+    // with a service-role client after independently verifying manager
+    // elevation. auth.uid() is null under service_role, so the trigger
+    // falls back to actor_type 'system' — the audit-log-by-manager-name
+    // gap (spec D7) this leaves open is a known, still-deferred item.
     const eventId = await newEvent();
-    expect((await staff.from("events").delete().eq("id", eventId)).error).toBeNull();
+    expect((await admin.rpc("create_event_credentials", { p_event_id: eventId, p_username: `audit-regen-${stamp}`, p_password: "long-enough-1" })).error).toBeNull();
+    expect((await admin.rpc("regenerate_event_password", { p_event_id: eventId, p_password: "long-enough-2" })).error).toBeNull();
+
+    const rows = await auditRows({ event_id: eventId, action: "couple_password_regenerated" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ actor_type: "system", actor_id: null, venue_id: venueId });
+  });
+
+  it("records an event deletion, without personal data", async () => {
+    // Plan 2 (migration 0095): events are deleted only through the gated
+    // /api/venue/events/[eventId] route, which uses the service-role
+    // client after independently verifying the manager-elevation token —
+    // staff's own RLS-bound client can no longer delete events directly.
+    const eventId = await newEvent();
+    expect((await admin.from("events").delete().eq("id", eventId)).error).toBeNull();
     const rows = await auditRows({ event_id: eventId, action: "event_deleted" });
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows[0])).not.toContain("Audit & Test");
@@ -66,7 +92,7 @@ describe("audit log (SEC-018)", () => {
 
   it("cannot be changed or deleted by staff or even the service role", async () => {
     const eventId = await newEvent();
-    await staff.from("events").delete().eq("id", eventId);
+    await admin.from("events").delete().eq("id", eventId);
     const [row] = await auditRows({ event_id: eventId });
 
     await staff.from("audit_log").update({ action: "tampered" }).eq("id", row.id);

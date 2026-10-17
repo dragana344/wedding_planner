@@ -24,7 +24,14 @@ export function futureDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type VenueAccount = { venueName: string; email: string; password: string };
+export type VenueAccount = {
+  venueName: string;
+  email: string;
+  password: string;
+  /** The owner's manager-login name/password (venue-manager-staff-login spec) — needed by elevateAsOwner. */
+  ownerName: string;
+  ownerPassword: string;
+};
 
 /** Flow 1: sign a new venue up at /signup; resolves once the venue dashboard has loaded. */
 export async function signUpVenue(page: Page): Promise<VenueAccount> {
@@ -33,11 +40,17 @@ export async function signUpVenue(page: Page): Promise<VenueAccount> {
     venueName: `E2E Локал ${id}`,
     email: `e2e-venue-${id}@example.com`,
     password: `E2e-pass-${id}`,
+    ownerName: `Сопственик ${id}`,
+    ownerPassword: `Owner-pass-${id}`,
   };
   await page.goto("/signup");
   await page.getByLabel("Име на локалот").fill(account.venueName);
+  await page.getByLabel("Име (за менаџерска најава)").fill(account.ownerName);
+  await page.getByLabel("Менаџерска лозинка").fill(account.ownerPassword);
   await page.getByLabel("Е-пошта").fill(account.email);
-  await page.getByLabel("Лозинка").fill(account.password);
+  // Exact match: "Лозинка" is also a substring of "Менаџерска лозинка" above,
+  // which would otherwise make this locator ambiguous (final review finding).
+  await page.getByLabel("Лозинка", { exact: true }).fill(account.password);
   await page.getByRole("button", { name: "Регистрирај се" }).click();
 
   await page.waitForURL((url) => url.pathname === "/venue", { timeout: 30_000 });
@@ -45,10 +58,33 @@ export async function signUpVenue(page: Page): Promise<VenueAccount> {
   return account;
 }
 
+/**
+ * Elevates the currently loaded venue page's session to manager (as the
+ * owner), via the account menu — the UI path, same as a real manager would
+ * use. Must be called on a page already loaded in the venue panel (not
+ * followed by page.goto, which is a real browser navigation that drops the
+ * elevation held only in React state — use a client-side <Link> click after
+ * this instead, same as the rest of the panel's own navigation).
+ */
+export async function elevateAsOwner(page: Page, account: VenueAccount): Promise<void> {
+  await page.getByRole("button", { name: account.venueName }).click();
+  await page.getByRole("menuitem", { name: "Логирај се како менаџер" }).click();
+  await page.getByLabel("Име").fill(account.ownerName);
+  await page.getByLabel("Лозинка", { exact: true }).fill(account.ownerPassword);
+  await page.getByRole("button", { name: "Најави се" }).click();
+  await expect(page.getByText(`Менаџер: ${account.ownerName}`)).toBeVisible();
+  // The dropdown stays open after a successful elevation (by design — it
+  // swaps the login form for the menu list rather than closing). At phone
+  // width that open menu overlaps page content underneath it, intercepting
+  // clicks meant for e.g. "ДОДАДИ НАСТАН" (final review follow-up finding).
+  // Escape is the menu's own documented close path.
+  await page.keyboard.press("Escape");
+}
+
 export type CoupleAccount = { coupleNames: string; username: string; password: string };
 
 /** Flow 2: from the venue panel's event list, create an event with couple credentials. */
-export async function createEventWithCouple(page: Page): Promise<CoupleAccount> {
+export async function createEventWithCouple(page: Page, account: VenueAccount): Promise<CoupleAccount> {
   const id = uniqueId();
   const couple = {
     coupleNames: `Ана & Марко ${id}`,
@@ -58,6 +94,11 @@ export async function createEventWithCouple(page: Page): Promise<CoupleAccount> 
   expect(couple.password.length).toBeGreaterThanOrEqual(10);
 
   await page.goto("/venue/events");
+  // Creating an event now requires manager elevation (venue-manager-staff-login
+  // spec) — done here, before the client-side Link click below, since a
+  // page.goto afterward would drop it (final review finding: this test used
+  // to create an event without ever elevating).
+  await elevateAsOwner(page, account);
   await page.getByRole("link", { name: "ДОДАДИ НАСТАН" }).click();
   await page.waitForURL("**/venue/events/new");
 
@@ -89,8 +130,8 @@ export async function loginCouple(page: Page, couple: CoupleAccount): Promise<vo
 
 /** A signed-in couple with a fresh venue and event behind it. */
 export async function setUpCouple(page: Page): Promise<CoupleAccount> {
-  await signUpVenue(page);
-  const couple = await createEventWithCouple(page);
+  const account = await signUpVenue(page);
+  const couple = await createEventWithCouple(page, account);
   // The couple signs in from its own browser, not the venue's; drop the
   // venue's cookies so the couple session is the only one in play.
   await page.context().clearCookies();

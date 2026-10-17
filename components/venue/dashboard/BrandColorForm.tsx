@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateVenueBrandColor } from "@/lib/venue/venue-profile";
+import { saveVenueBrandColor } from "@/lib/venue/settings-client";
 import { brandVars, normalizeBrandColor } from "@/lib/venue/brand-palette";
 import { errorMessage } from "@/lib/venue/user-error";
 
@@ -14,7 +14,16 @@ const PLATFORM_GOLD = "#c9992f";
  * its couples' panels and on the guests' pages. Locked plans see what it is
  * and that it is not included, instead of a control that silently does nothing.
  */
-export function BrandColorForm({ venueId, color: initialColor, enabled }: { venueId: string; color: string | null; enabled: boolean }) {
+export function BrandColorForm({
+  managerToken = null,
+  color: initialColor,
+  enabled,
+}: {
+  /** The owner's elevation token; the server refuses anyone else (spec D4). */
+  managerToken?: string | null;
+  color: string | null;
+  enabled: boolean;
+}) {
   const router = useRouter();
   const [color, setColor] = useState(initialColor ?? PLATFORM_GOLD);
   const [saved, setSaved] = useState(initialColor);
@@ -28,7 +37,7 @@ export function BrandColorForm({ venueId, color: initialColor, enabled }: { venu
     setFailed(false);
     setBusy(true);
     try {
-      await updateVenueBrandColor(venueId, next);
+      await saveVenueBrandColor(next, managerToken);
       setSaved(next ? normalizeBrandColor(next) : null);
       if (!next) setColor(PLATFORM_GOLD);
       setStatus(next ? "Бојата е зачувана." : "Вратена е стандардната боја.");

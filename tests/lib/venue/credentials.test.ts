@@ -43,17 +43,25 @@ describe("lib/venue/credentials", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("creates credentials and lets staff read the username back", async () => {
-    await createEventCredentials(eventId, "lib-test-username", "a-strong-password", staffClient);
+  it("creates credentials via a service-role client (security review fix: no longer callable by a plain staff session) and lets staff read the username back", async () => {
+    await createEventCredentials(eventId, "lib-test-username", "a-strong-password", admin);
     const username = await getEventUsername(eventId, staffClient);
     expect(username).toBe("lib-test-username");
   });
 
-  it("regenerates the password", async () => {
-    await regenerateEventPassword(eventId, "a-new-password", staffClient);
+  it("refuses create_event_credentials for a plain staff session now that the direct grant is revoked (0110) — a staff session could otherwise mint a couple login with a password of its own choosing", async () => {
+    await expect(createEventCredentials(eventId, "should-not-exist", "a-strong-password", staffClient)).rejects.toThrow();
+  });
+
+  it("regenerates the password via a service-role client (migration 0102: no longer callable by a plain staff session)", async () => {
+    await regenerateEventPassword(eventId, "a-new-password", admin);
     // Correctness of the new password is covered by 0013's RPC test; here we
     // only assert the call succeeds and the username is unchanged.
     const username = await getEventUsername(eventId, staffClient);
     expect(username).toBe("lib-test-username");
+  });
+
+  it("refuses a plain staff session now that the direct grant is revoked", async () => {
+    await expect(regenerateEventPassword(eventId, "another-password", staffClient)).rejects.toThrow();
   });
 });

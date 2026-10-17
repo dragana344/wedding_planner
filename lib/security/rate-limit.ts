@@ -21,6 +21,7 @@ export type RateLimitRule = {
 
 export const RATE_LIMITS = {
   coupleLogin: { bucket: "couple-login", limit: 10, windowSeconds: 60, failClosed: true },
+  managerElevation: { bucket: "manager-elevation", limit: 10, windowSeconds: 60, failClosed: true },
   venueSignup: { bucket: "venue-signup", limit: 5, windowSeconds: 3600, failClosed: true },
   contactForm: { bucket: "contact-form", limit: 5, windowSeconds: 3600, failClosed: true },
   // Keyed per invitation + IP. A whole wedding shares the venue's Wi-Fi (one

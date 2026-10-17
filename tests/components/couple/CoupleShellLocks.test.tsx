@@ -34,4 +34,10 @@ describe("couple lock UI (spec §4.4)", () => {
     render(<CoupleShell coupleNames="Ана и Марко" eventDate="2028-06-01" rooms={[]} lockedFeatures={[]}><p>content</p></CoupleShell>);
     expect(screen.queryByText(/не е вклучена/)).toBeNull();
   });
+
+  it("groups the sidebar into ПЛАНИРАЊЕ / ЗА ГОСТИТЕ sections, leaving Почетна and Поддршка ungrouped", () => {
+    render(<CoupleShell coupleNames="Ана и Марко" eventDate="2028-06-01" rooms={[]} lockedFeatures={[]}><p>content</p></CoupleShell>);
+    const labels = screen.getAllByText(/^(ПЛАНИРАЊЕ|ЗА ГОСТИТЕ)$/).map((el) => el.textContent);
+    expect(labels).toEqual(["ПЛАНИРАЊЕ", "ЗА ГОСТИТЕ"]); // exactly one of each, in this order
+  });
 });

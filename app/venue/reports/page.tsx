@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { getVenueFeatures } from "@/lib/entitlements/server";
-import { getReport, type ReportData } from "@/lib/venue/reports";
+import { type ReportData } from "@/lib/venue/reports";
 import { listRooms } from "@/lib/venue/rooms";
 import { ReportsClient } from "@/components/venue/dashboard/ReportsClient";
 
@@ -51,11 +51,10 @@ export default async function ReportsPage({
   // reading any data. The panel shell already shows the LockedBanner here.
   // Behind the shell's blur go invented numbers, never the venue's own.
   if (!(await getVenueFeatures(venueId)).reports.enabled) {
-    return <ReportsClient report={SAMPLE_REPORT} rooms={[]} filters={{ from, to }} />;
+    return <ReportsClient initialReport={SAMPLE_REPORT} rooms={[]} filters={{ from, to }} />;
   }
   const rooms = await listRooms(venueId, supabase);
   const roomId = rooms.some((r) => r.id === params.room) ? params.room : undefined;
-  const report = await getReport(supabase, venueId, { from, to, roomId });
 
-  return <ReportsClient report={report} rooms={rooms.map((r) => ({ id: r.id, name: r.name }))} filters={{ from, to, roomId }} />;
+  return <ReportsClient rooms={rooms.map((r) => ({ id: r.id, name: r.name }))} filters={{ from, to, roomId }} />;
 }

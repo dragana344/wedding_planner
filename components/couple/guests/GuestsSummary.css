@@ -1,0 +1,6 @@
+/* Guests-specific addition to StatSummaryCard.css's shared look. */
+.guests-summary-menu {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: #8a7d64;
+}

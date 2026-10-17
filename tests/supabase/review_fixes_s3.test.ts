@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { venueHistoryActions } from "@/lib/venue/floorplan-history";
+import { staffLayoutActions } from "@/lib/venue/floorplan-history";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
+
+// What the seating route runs server-side with its service-role client.
+const venueHistoryActions = staffLayoutActions(createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } }));
 
 // Final-review fixes (S3): staff undo never deletes the couple's seats (C1)
 // and restores atomically (I1); table types shrinking or going away free

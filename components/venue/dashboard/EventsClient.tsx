@@ -88,6 +88,11 @@ export function EventsClient({
   const [viewingMenuFor, setViewingMenuFor] = useState<EventDetail | null>(null);
 
   const today = useMemo(() => todayIn(), []);
+  // Security review finding: Настани opened every event fully editable
+  // regardless of date — only Клиенти computed this. Server-side write
+  // paths now refuse past-event edits either way, but the UI should match
+  // rather than let staff fill out a form only to have it rejected.
+  const isEditingPast = editing ? editing.event_date < today : false;
 
   // Week runs Monday–Sunday, matching the calendar view and local convention.
   const { weekEnd, monthEnd } = useMemo(() => {
@@ -355,13 +360,13 @@ export function EventsClient({
         <Modal title={editing.couple_names} onClose={() => setEditing(null)} hideHeader>
           <EventEditForm
             event={editing}
-            venueId={venueId}
             rooms={rooms}
             menuTemplates={menuTemplates}
             onClose={() => setEditing(null)}
             onChanged={() => {
               void refresh();
             }}
+            readOnly={isEditingPast}
           />
         </Modal>
       ) : null}

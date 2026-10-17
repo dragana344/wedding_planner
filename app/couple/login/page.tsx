@@ -2,12 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { GENERIC_ERROR } from "@/lib/auth-messages";
 
 export default function CoupleLoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +26,10 @@ export default function CoupleLoginPage() {
         setError(message ?? GENERIC_ERROR);
         return;
       }
-      router.push("/couple");
+      // A hard navigation, not router.push: same reasoning as the venue and
+      // admin logins — a client-side transition right after the session
+      // cookie is set can race ahead of it in a way a real navigation can't.
+      window.location.href = "/couple";
     } catch {
       setError(GENERIC_ERROR);
     } finally {

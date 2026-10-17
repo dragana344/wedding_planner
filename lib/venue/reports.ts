@@ -1,6 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EventStatus, EventType } from "./events";
 import { listRoomsWithSeatTotals } from "./rooms";
+import { log } from "@/lib/log";
+
+// Same reasoning as lib/list-bound.ts's MAX_LIST_ROWS (PERF-002), just a
+// higher ceiling since a report's own date-range filter already narrows
+// things down, and events accumulate across years rather than per-event
+// like a guest list. The cap used to be silent (final review finding: a
+// venue with more events than this in range would just get an incomplete
+// report with no indication why).
+const REPORT_MAX_EVENTS = 5000;
 
 // Venue reports (B9): events per month / type / status, guests, money from
 // the finance fields, and fill per hall. Staff cannot read guest lists, so
@@ -112,10 +121,11 @@ export async function getReport(client: SupabaseClient, venueId: string, f: Repo
   const [{ data, error }, rooms] = await Promise.all([
     query
       .order("event_date")
-      .limit(5000),
+      .limit(REPORT_MAX_EVENTS),
     listRoomsWithSeatTotals(venueId, client),
   ]);
   if (error) throw error;
+  if ((data ?? []).length >= REPORT_MAX_EVENTS) log("warn", "report_event_bound_reached", { venue_id: venueId, max: REPORT_MAX_EVENTS });
   const events: ReportEvent[] = (data ?? []).map((e) => ({
     id: e.id,
     event_date: e.event_date,

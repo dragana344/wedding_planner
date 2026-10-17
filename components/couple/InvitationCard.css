@@ -1,0 +1,49 @@
+/* The elegant ivory/gold "invitation card" look shared by the couple
+ * dashboard's content cards (EventHeroCard, MenuPicker's preview, the
+ * Агенда timeline): a plain white outer card holding a gold-bordered inner
+ * frame with a centered serif title, muted subtitle, and a rule-and-diamond
+ * divider. Same token values as EventHeroCard.css/MenuPicker.css, duplicated
+ * rather than wired through CSS custom properties across files — see
+ * EventHeroCard.css's own note on that tradeoff. */
+.invite-card {
+  background: #fff;
+  padding: 22px;
+}
+.invite-frame {
+  border: 1px solid #c9a24a;
+  border-radius: 14px;
+  padding: 32px 28px;
+}
+.invite-title {
+  margin: 0;
+  text-align: center;
+  font-size: 34px;
+  color: #2e2617;
+  font-weight: 400;
+}
+.invite-sub {
+  margin: 4px 0 0;
+  text-align: center;
+  color: #8a7d64;
+  font-size: 13px;
+}
+.invite-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 20px;
+}
+.invite-divider::before,
+.invite-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #eaddbf;
+}
+.invite-diamond {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  background: #c9a24a;
+  transform: rotate(45deg);
+}

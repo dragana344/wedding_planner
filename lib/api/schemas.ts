@@ -19,6 +19,7 @@
 //   party size 1..50, quantities 1..100 000, money 0..1e12.
 
 import { z } from "zod";
+import { DEPOSIT_OVER_TOTAL_ERROR } from "@/lib/venue/events";
 
 // ---------------------------------------------------------------------------
 // Messages
@@ -373,6 +374,124 @@ export const loginBody = z.object(
 );
 
 // ---------------------------------------------------------------------------
+// Venue manager elevation
+
+export const MANAGER_ELEVATION_REQUIRED_ERROR = "Задолжителни се името и лозинката.";
+export const managerElevationBody = z.object(
+  {
+    name: z.string({ error: MANAGER_ELEVATION_REQUIRED_ERROR }).min(1, { error: MANAGER_ELEVATION_REQUIRED_ERROR }).max(NAME_MAX),
+    password: z.string({ error: MANAGER_ELEVATION_REQUIRED_ERROR }).min(1, { error: MANAGER_ELEVATION_REQUIRED_ERROR }).max(1000),
+  },
+  { error: INVALID_JSON_ERROR },
+);
+export const managerDeauthorizeBody = z.object(
+  { token: z.string({ error: INVALID_JSON_ERROR }).min(1) },
+  { error: INVALID_JSON_ERROR },
+);
+
+// ---------------------------------------------------------------------------
+// Venue events (gated: manager or owner elevation required — Plan 2)
+
+export const EVENT_INPUT_REQUIRED_ERROR = "Внесете ги задолжителните податоци за настанот.";
+const eventStatus = z.enum(["preparation", "confirmed", "in_progress", "completed", "cancelled"]);
+const eventType = z.enum(["wedding", "birthday", "baptism", "graduation", "corporate", "other"]);
+const eventContactsShape = {
+  contact_email: z.string().max(254).nullable().optional(),
+  contact_email_2: z.string().max(254).nullable().optional(),
+  contact_phone: z.string().max(50).nullable().optional(),
+};
+
+// Bug fix (security review): create_event_credentials used to be called
+// directly from the browser against an RPC grantable to any authenticated
+// staff session (0110 revoked that grant) — credentials are now created
+// server-side, inside the same manager-gated event-creation route, so this
+// shape has to travel in the same request body as the rest of the event.
+const eventCredentialsShape = {
+  username: z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).min(1).max(NAME_MAX),
+  password: z.string({ error: "Лозинката мора да има најмалку 10 знаци." }).min(10).max(200),
+};
+
+export const EVENT_DATE_INVALID_ERROR = "Внесете важечки датум (ГГГГ-ММ-ДД).";
+
+// Final review finding: a malformed event_date (not even the right shape,
+// or a calendar date that doesn't exist, e.g. 2026-02-30) used to pass this
+// schema as any non-empty string, then fail deep in the database with a
+// generic "couldn't save" message that never says why.
+const eventDate = z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).refine((v) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}, { error: EVENT_DATE_INVALID_ERROR });
+
+export const createEventBody = z
+  .object(
+    {
+      couple_names: z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).min(1).max(NAME_MAX),
+      event_date: eventDate,
+      start_time: z.string().nullable().optional(),
+      end_time: z.string().nullable().optional(),
+      event_type: eventType.optional(),
+      status: eventStatus.optional(),
+      guest_count_estimate: z.number().int().min(0).nullable().optional(),
+      room_ids: z.array(uuid).max(50),
+      menu_template_id: uuid.nullable(),
+      contacts: z.object(eventContactsShape),
+      credentials: z.object(eventCredentialsShape),
+      // Optional, set in the same insert as the rest of the event (security
+      // review fix — see CreateEventInput in lib/venue/events.ts for why
+      // this isn't a follow-up updateEventFinanceViaApi call anymore).
+      total_price: z.number().min(0).max(1e12).nullable().optional(),
+      deposit_paid: z.number().min(0).max(1e12).nullable().optional(),
+    },
+    { error: EVENT_INPUT_REQUIRED_ERROR },
+  )
+  .refine((v) => !v.total_price || !v.deposit_paid || v.deposit_paid <= v.total_price, {
+    error: DEPOSIT_OVER_TOTAL_ERROR,
+    path: ["deposit_paid"],
+  });
+
+export const updateEventBody = z.object(
+  {
+    couple_names: z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).min(1).max(NAME_MAX),
+    event_date: eventDate,
+    start_time: z.string().nullable(),
+    end_time: z.string().nullable(),
+    status: eventStatus,
+    event_type: eventType,
+    guest_count_estimate: z.number().int().min(0).nullable(),
+    room_ids: z.array(uuid).max(50),
+    menu_template_id: uuid.nullable(),
+  },
+  { error: EVENT_INPUT_REQUIRED_ERROR },
+);
+
+export const updateEventContactBody = z.object(
+  {
+    contact_email: z.string().max(254).nullable(),
+    contact_email_2: z.string().max(254).nullable(),
+    contact_phone: z.string().max(50).nullable(),
+  },
+  { error: EVENT_INPUT_REQUIRED_ERROR },
+);
+
+export const updateEventFinanceBody = z
+  .object(
+    {
+      total_price: z.number().min(0).max(1e12).nullable(),
+      deposit_paid: z.number().min(0).max(1e12).nullable(),
+    },
+    { error: EVENT_INPUT_REQUIRED_ERROR },
+  )
+  // Final review finding: the form already blocks this, but the route
+  // itself accepted any deposit regardless of the total price — a direct
+  // API call could still save one, same class of gap client-only checks
+  // always leave open.
+  .refine((v) => v.total_price === null || v.deposit_paid === null || v.deposit_paid <= v.total_price, {
+    error: DEPOSIT_OVER_TOTAL_ERROR,
+    path: ["deposit_paid"],
+  });
+
+// ---------------------------------------------------------------------------
 // Public: RSVP (Macedonian messages: guests read them, A18)
 
 export const RSVP_REQUIRED_ERROR = "Внесете име и одговор.";
@@ -441,6 +560,14 @@ export const venueSignupBody = z.object(
       .string({ error: VENUE_NAME_REQUIRED_ERROR })
       .refine((v) => v.trim().length > 0, { error: VENUE_NAME_REQUIRED_ERROR })
       .refine((v) => v.trim().length <= NAME_MAX, { error: "Името на локалот е предолго." }),
+    owner_name: z
+      .string({ error: "Внесете име на сопственикот." })
+      .refine((v) => v.trim().length > 0, { error: "Внесете име на сопственикот." })
+      .refine((v) => v.trim().length <= NAME_MAX, { error: "Името на сопственикот е предолго." }),
+    owner_password: z
+      .string({ error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
+      .min(8, { error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
+      .max(200),
   },
   { error: VENUE_NAME_REQUIRED_ERROR },
 );
@@ -471,6 +598,36 @@ export const supportTicketBody = z.object(
 const confirmText = z.string().max(400);
 export const privacyEraseEventBody = z.object({ event_id: uuid, confirm: confirmText });
 export const privacyDeleteAccountBody = z.object({ confirm: confirmText });
+
+// ---------------------------------------------------------------------------
+// Owner-only manager management (Plan 3)
+
+export const ADD_MANAGER_REQUIRED_ERROR = "Внесете име и лозинка.";
+export const addManagerBody = z.object(
+  {
+    name: z.string({ error: ADD_MANAGER_REQUIRED_ERROR }).min(1).max(NAME_MAX),
+    password: z.string({ error: "Лозинката мора да има најмалку 8 знаци." }).min(8).max(200),
+  },
+  { error: ADD_MANAGER_REQUIRED_ERROR },
+);
+
+export const CURRENT_PASSWORD_REQUIRED_ERROR = "Внесете ја тековната лозинка.";
+
+// Final review finding: a manager could change their own password without
+// proving they know the current one — anyone at an unattended computer with
+// a manager already logged in could lock the real manager out.
+export const changeManagerPasswordBody = z.object(
+  {
+    currentPassword: z.string({ error: CURRENT_PASSWORD_REQUIRED_ERROR }).min(1, { error: CURRENT_PASSWORD_REQUIRED_ERROR }),
+    newPassword: z.string({ error: "Лозинката мора да има најмалку 8 знаци." }).min(8).max(200),
+  },
+  { error: "Лозинката мора да има најмалку 8 знаци." },
+);
+
+export const regenerateEventPasswordBody = z.object(
+  { password: z.string({ error: "Лозинката мора да има најмалку 10 знаци." }).min(10).max(200) },
+  { error: "Лозинката мора да има најмалку 10 знаци." },
+);
 
 // ---------------------------------------------------------------------------
 // Parsing helper

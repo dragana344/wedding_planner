@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+// next/font is compiled by Next, not available under jsdom.
+vi.mock("next/font/google", () => ({
+  Cormorant_Garamond: () => ({ className: "font" }),
+}));
+
 import { AgendaClient } from "@/components/couple/AgendaClient";
 
 const items = [
@@ -13,12 +19,12 @@ describe("AgendaClient", () => {
       ok: true,
       json: async () => ({ id: "a3", event_id: "e1", time: "18:00", title: "Вечера", notes: null, sort_order: 2 }),
     });
-    render(<AgendaClient initialItems={items} />);
+    render(<AgendaClient initialItems={items} coupleNames="Ана и Марко" eventDate="2026-10-18" />);
 
     expect(screen.getByText("Собирање гости")).toBeInTheDocument();
     expect(screen.getByText("Церемонија")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Наслов"), { target: { value: "Вечера" } });
+    fireEvent.change(screen.getByLabelText("Наслов"), { target: { value: "Вечера" } });
     fireEvent.click(screen.getByRole("button", { name: /додади/i }));
 
     await waitFor(() => expect(screen.getByText("Вечера")).toBeInTheDocument());
@@ -30,7 +36,7 @@ describe("AgendaClient", () => {
 
   it("deletes an item", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
-    render(<AgendaClient initialItems={items} />);
+    render(<AgendaClient initialItems={items} coupleNames="Ана и Марко" eventDate="2026-10-18" />);
 
     fireEvent.click(screen.getAllByRole("button", { name: /избриши/i })[0]);
 
@@ -42,7 +48,7 @@ describe("AgendaClient", () => {
       ok: true,
       json: async () => ({ id: "a1", event_id: "e1", time: "16:00", title: "Изменето", notes: null, sort_order: 0 }),
     });
-    render(<AgendaClient initialItems={items} />);
+    render(<AgendaClient initialItems={items} coupleNames="Ана и Марко" eventDate="2026-10-18" />);
 
     fireEvent.click(screen.getAllByRole("button", { name: /^измени$/i })[0]);
 
@@ -58,5 +64,18 @@ describe("AgendaClient", () => {
         body: JSON.stringify({ time: "16:00", title: "Изменето", notes: null }),
       })
     );
+  });
+
+  it("shows the couple names, date and each item's time in the invitation card", () => {
+    render(<AgendaClient initialItems={items} coupleNames="Ана и Марко" eventDate="2026-10-18" />);
+    expect(screen.getByRole("heading", { name: "Агенда" })).toBeInTheDocument();
+    expect(screen.getByText("Ана и Марко · 18 октомври 2026")).toBeInTheDocument();
+    expect(screen.getByText("16:00")).toBeInTheDocument();
+    expect(screen.getByText("17:00")).toBeInTheDocument();
+  });
+
+  it("shows an empty message when there's nothing planned yet", () => {
+    render(<AgendaClient initialItems={[]} coupleNames="Ана и Марко" eventDate="2026-10-18" />);
+    expect(screen.getByText("Сè уште нема испланирано ништо.")).toBeInTheDocument();
   });
 });

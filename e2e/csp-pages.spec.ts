@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { setUpCouple, signUpVenue } from "./helpers";
+import { elevateAsOwner, setUpCouple, signUpVenue } from "./helpers";
 
 // SEC-001: every page of the venue panel, the couple panel and the public
 // pages loads without a single Content-Security-Policy violation (the csp
@@ -46,10 +46,14 @@ test("public pages load without CSP violations", async ({ page }) => {
 });
 
 test("every venue panel page loads without CSP violations", async ({ page }) => {
-  await signUpVenue(page);
+  const account = await signUpVenue(page);
   for (const path of VENUE_PAGES) {
     const res = await page.goto(path);
     expect(res!.status(), path).toBe(200);
+    // Elevate after landing so /venue/events/new and /venue/settings render
+    // their real content, not just the "managers only" message — each
+    // page.goto is a real navigation, dropping any earlier elevation.
+    if (path === "/venue/events/new" || path === "/venue/settings") await elevateAsOwner(page, account);
     await page.waitForLoadState("networkidle");
   }
 });

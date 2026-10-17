@@ -1,23 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import {
-  checkLogoFile,
-  removeVenueLogo,
-  updateVenueProfile,
-  uploadVenueLogo,
-  LOGO_TYPE_ERROR,
-} from "@/lib/venue/venue-profile";
+import { checkLogoFile, LOGO_TYPE_ERROR } from "@/lib/venue/venue-profile";
+import { removeLogo, saveVenueProfile, uploadLogo } from "@/lib/venue/settings-client";
 import { errorMessage } from "@/lib/venue/user-error";
 
 /** Settings → venue profile (B10): address, phone and the logo used on printed plans and invitations. */
 export function VenueProfileForm({
-  venueId,
+  managerToken = null,
   address: initialAddress,
   phone: initialPhone,
   logoUrl: initialLogoUrl,
 }: {
-  venueId: string;
+  /** The owner's elevation token; the server refuses anyone else (spec D4). */
+  managerToken?: string | null;
   address: string | null;
   phone: string | null;
   logoUrl: string | null;
@@ -35,7 +31,7 @@ export function VenueProfileForm({
     setStatus(null);
     setSaving(true);
     try {
-      await updateVenueProfile(venueId, { address, phone });
+      await saveVenueProfile({ address, phone }, managerToken);
       setStatus("Зачувано.");
     } catch (err) {
       setStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
@@ -52,7 +48,7 @@ export function VenueProfileForm({
     setUploading(true);
     try {
       await checkLogoFile(file);
-      setLogoUrl(await uploadVenueLogo(venueId, file));
+      setLogoUrl(await uploadLogo(file, managerToken));
     } catch (err) {
       setLogoStatus(errorMessage(err, LOGO_TYPE_ERROR));
     } finally {
@@ -63,7 +59,7 @@ export function VenueProfileForm({
   async function dropLogo() {
     setLogoStatus(null);
     try {
-      await removeVenueLogo(venueId);
+      await removeLogo(managerToken);
       setLogoUrl(null);
     } catch (err) {
       setLogoStatus(errorMessage(err, "Не успеа отстранувањето на логото."));

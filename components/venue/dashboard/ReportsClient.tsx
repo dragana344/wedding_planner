@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { STATUS_META, TYPE_META } from "@/lib/venue/event-display";
 import type { ReportData, ReportFilters } from "@/lib/venue/reports";
+import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 
 const MONTH = new Intl.DateTimeFormat("mk-MK", { month: "long", year: "numeric", timeZone: "UTC" });
 const NUMBER = new Intl.NumberFormat("de-DE"); // 230.000 — the dot grouping used for денари
@@ -36,22 +41,96 @@ function Bars({ rows }: { rows: { label: string; count: number }[] }) {
 
 /** Извештаи (B9): period and hall filter (plain GET form), totals, months, types, statuses, fill per hall. */
 export function ReportsClient({
-  report,
+  initialReport,
   rooms,
   filters,
 }: {
-  report: ReportData;
+  /** Already-resolved data for the locked-feature (sample) branch — the page
+   * never fetches real data in that case regardless of elevation. */
+  initialReport?: ReportData;
   rooms: { id: string; name: string }[];
   filters: ReportFilters;
 }) {
+  const { token: managerToken } = useManagerElevation();
+  const router = useRouter();
+  const [report, setReport] = useState<ReportData | null>(initialReport ?? null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  // A filter change keeps the previous numbers on screen until the new ones
+  // arrive — this says they are being replaced, so they aren't misread.
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialReport) return; // sample-report (locked-feature) branch already has its data
+    if (!managerToken) {
+      setReport(null);
+      setReportError(null); // an old failure must not greet the next login
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    const params = new URLSearchParams();
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (filters.roomId) params.set("room", filters.roomId);
+    fetch(`/api/venue/reports?${params.toString()}`, { headers: { "x-venue-manager-token": managerToken }, signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 403) reportElevationRejected();
+          const body = await res.json().catch(() => null);
+          setReportError(body?.error ?? "Извештајот не можеше да се вчита.");
+          return;
+        }
+        setReport(await res.json());
+        setReportError(null);
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") return; // superseded by a newer filter/token change
+        setReportError("Извештајот не можеше да се вчита.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [managerToken, filters.from, filters.to, filters.roomId, initialReport]);
+
+  if (!managerToken && !initialReport) {
+    return <p className="muted" style={{ padding: 24 }}>Извештаите се достапни само за менаџери.</p>;
+  }
+  if (!report) {
+    return reportError ? (
+      <p role="alert" style={{ padding: 24 }}>{reportError}</p>
+    ) : (
+      <p className="muted" style={{ padding: 24 }}>Се вчитува...</p>
+    );
+  }
+
   const { totals } = report;
+
+  // A plain <form method="get"> submit is a full browser navigation, which
+  // remounts PanelShell's ManagerElevationProvider and drops the manager's
+  // token (held only in React state, by design — final review finding: the
+  // filter form was unusable for an elevated manager, since submitting it
+  // always bounced them back to "managers only"). router.push keeps the URL
+  // (and so the locked/sample branch's server-side read, and shareable
+  // links) working exactly as before, without the hard reload.
+  function handleFilterSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const params = new URLSearchParams();
+    for (const key of ["from", "to", "room"]) {
+      const value = data.get(key);
+      if (typeof value === "string" && value) params.set(key, value);
+    }
+    router.push(`/venue/reports${params.size > 0 ? `?${params.toString()}` : ""}`);
+  }
+
   return (
     <div className="wrap">
       <section className="panel">
         <div className="panel-h">
           <h2 className="panel-t">Извештаи</h2>
         </div>
-        <form method="get" className="s3-report-filter">
+        <form onSubmit={handleFilterSubmit} className="s3-report-filter">
           <label className="lab-s">
             Од
             <input className="fld" type="date" name="from" defaultValue={filters.from} />
@@ -71,13 +150,14 @@ export function ReportsClient({
               ))}
             </select>
           </label>
-          <button type="submit" className="btn btn-gold">
-            Прикажи
+          <button type="submit" className="btn btn-gold" disabled={isLoading}>
+            {isLoading ? "Се вчитува..." : "Прикажи"}
           </button>
         </form>
+        {reportError ? <p role="alert" style={{ margin: "0 20px 16px" }}>{reportError}</p> : null}
       </section>
 
-      <section className="tiles" aria-label="Вкупно">
+      <section className="tiles" aria-label="Вкупно" aria-busy={isLoading} style={isLoading ? { opacity: 0.55 } : undefined}>
         <div className="tile">
           <div>
             <div className="num">{totals.events}</div>

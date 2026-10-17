@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { getEventById, markSeatingSeen } from "@/lib/venue/events";
+import { todayIn } from "@/lib/date";
 import { getRoomById, listTableTypes } from "@/lib/venue/rooms";
 import { listFixedElements, listEventLayoutElements } from "@/lib/venue/floorplan";
-import { EventSeatingPage } from "@/components/venue/dashboard/EventSeatingPage";
+import { VenueEventSeating } from "@/components/venue/dashboard/VenueEventSeating";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
 import { eventHasFeature } from "@/lib/entitlements/server";
 
@@ -41,7 +42,7 @@ export default async function EventSeatingRoute({
   await markSeatingSeen(event.id, supabase);
 
   return (
-    <EventSeatingPage
+    <VenueEventSeating
       eventId={event.id}
       eventName={event.couple_names}
       room={room}
@@ -49,7 +50,11 @@ export default async function EventSeatingRoute({
       initialLayoutElements={layoutElements}
       initialTableTypes={tableTypes}
       initialSeating={seating}
-      seatingReadOnly
+      // Security review fix: this routed page never computed this, unlike
+      // the event-modal's seating tab (EventEditForm → EventSeatingOverlay,
+      // which already passes pastEvent={readOnly}) — a past event's full-
+      // page seating editor was fully unlocked.
+      pastEvent={event.event_date < todayIn()}
       printLinks={{ plan: `/venue/events/${event.id}/print/plan`, qr: canPrintQr ? `/venue/events/${event.id}/print/qr` : undefined }}
     />
   );

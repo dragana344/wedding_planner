@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseInput, VENUE_NAME_REQUIRED_ERROR, venueSignupBody } from "@/lib/api/schemas";
+import { INVALID_JSON_ERROR, parseInput, VENUE_NAME_REQUIRED_ERROR, venueSignupBody } from "@/lib/api/schemas";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { provisionVenueForUser, recordTermsAcceptance } from "@/lib/venue/provisioning";
 import { LEGAL_VERSION } from "@/lib/legal/facts";
@@ -28,13 +28,13 @@ async function signup(request: NextRequest) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ error: INVALID_JSON_ERROR }, { status: 400 });
   }
   const parsed = parseInput(venueSignupBody, rawBody, VENUE_NAME_REQUIRED_ERROR);
   if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const result = await provisionVenueForUser(user.id, parsed.data.venue_name.trim());
+    const result = await provisionVenueForUser(user.id, parsed.data.venue_name.trim(), parsed.data.owner_name.trim(), parsed.data.owner_password);
     // The signup form states that registering accepts the Terms (incl. the
     // DPA). If this fails the route errors and the client's retry records it
     // (provisioning returns the same venue).

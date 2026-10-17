@@ -21,7 +21,6 @@ import { TableSeatsPanel } from "@/components/seating/TableSeatsPanel";
 import { AllTablesView } from "@/components/seating/AllTablesView";
 import { occupancyOf, OCCUPANCY_COLORS, OCCUPANCY_LABELS, type Occupancy } from "@/lib/seating/occupancy";
 import { tableTitle, type RoomSeating, type SeatInput } from "@/lib/seating/types";
-import { venueHistoryActions } from "@/lib/venue/floorplan-history";
 import { errorMessage } from "@/lib/venue/user-error";
 import { openSpot } from "@/lib/venue/open-spot";
 
@@ -60,9 +59,6 @@ export interface SeatingActions {
   saveTableSeats?: (roomId: string, elementId: string, seats: SeatInput[], expected: SeatInput[]) => Promise<RoomSeating>;
 }
 
-/** Staff's editor: live event layout with multi-step undo/redo (0072). */
-export const venueSeatingActions: SeatingActions = venueHistoryActions;
-
 export function EventSeatingPage({
   eventId,
   eventName,
@@ -70,13 +66,15 @@ export function EventSeatingPage({
   initialFixedElements,
   initialLayoutElements,
   initialTableTypes,
-  actions = venueSeatingActions,
+  actions,
   skipInitialization = false,
   backHref = "/venue/events",
   backLabel = "← Назад кон настани",
   onBack,
   initialSeating,
   seatingReadOnly = false,
+  viewOnly = false,
+  viewOnlyNotice,
   printLinks,
 }: {
   eventId: string;
@@ -85,7 +83,7 @@ export function EventSeatingPage({
   initialFixedElements: FixedElement[];
   initialLayoutElements: EventLayoutElement[];
   initialTableTypes: TableType[];
-  actions?: SeatingActions;
+  actions: SeatingActions;
   skipInitialization?: boolean;
   backHref?: string;
   backLabel?: string;
@@ -96,6 +94,12 @@ export function EventSeatingPage({
   initialSeating?: RoomSeating;
   /** Venue staff see the lists but cannot edit them (they cannot read the guest list). */
   seatingReadOnly?: boolean;
+  /** Look-only: every element stays put and every editing tool is hidden
+   * (venue staff without a manager login, past events). Seat lists are
+   * read-only too. Zoom, "Сите маси" and printing still work. */
+  viewOnly?: boolean;
+  /** Shown above the plan while `viewOnly`, saying why it can't be edited. */
+  viewOnlyNotice?: string;
   /** B7: the printable A4 plan and per-table QR cards. */
   printLinks?: { plan: string; qr?: string };
 }) {
@@ -410,7 +414,7 @@ export function EventSeatingPage({
     redoRef.current = handleRedo;
   });
   useEffect(() => {
-    if (!actions.getHistoryState) return;
+    if (!actions.getHistoryState || viewOnly) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -421,7 +425,7 @@ export function EventSeatingPage({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions.getHistoryState]);
+  }, [actions.getHistoryState, viewOnly]);
 
   function toggleGroupPick(id: string) {
     const el = layoutElements.find((e) => e.id === id);
@@ -521,6 +525,7 @@ export function EventSeatingPage({
         label,
         shape,
         rotationDeg: el.rotation_deg,
+        locked: viewOnly,
         highlighted: showAllTables && el.id === highlightedId,
       };
     }),
@@ -547,7 +552,15 @@ export function EventSeatingPage({
         <span className="inline-flex items-center rounded-full bg-lilac-light px-3 py-1">{seatedCount} седишта</span>
       </p>
 
+      {viewOnly && viewOnlyNotice ? (
+        <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          {viewOnlyNotice}
+        </p>
+      ) : null}
+
       <div className="mb-3 flex flex-wrap gap-2">
+        {viewOnly ? null : (
+        <>
         <button type="button" onClick={() => handleAddMovable("stage")} className={PALETTE_BUTTON_CLASS}>
           + Бина
         </button>
@@ -618,6 +631,8 @@ export function EventSeatingPage({
             Разгрупирај
           </button>
         ) : null}
+        </>
+        )}
         {seating ? (
           <button
             type="button"
@@ -693,7 +708,7 @@ export function EventSeatingPage({
           </button>
           <span className="ml-1 text-xs text-neutral-500">{Math.round(zoom * 100)}%</span>
         </div>
-        {actions.getHistoryState ? (
+        {viewOnly ? null : actions.getHistoryState ? (
           <>
             <button type="button" onClick={handleUndo} disabled={!history.canUndo || isUndoing} className={`${PALETTE_BUTTON_CLASS} ml-2`} title="Ctrl+Z">
               ← Врати
@@ -732,7 +747,7 @@ export function EventSeatingPage({
       </div>
       {selectedTable ? (
         <div className="max-h-[50vh] space-y-3 overflow-auto lg:max-h-none lg:w-80 lg:shrink-0">
-          {actions.relabelElement ? (
+          {actions.relabelElement && !viewOnly ? (
             <form
               key={`label:${selectedTable.id}:${selectedTable.label ?? ""}`}
               className="flex items-end gap-2 rounded-2xl border border-neutral-200 bg-white p-3"
@@ -765,7 +780,7 @@ export function EventSeatingPage({
             table={selectedSeatTable}
             seats={seating.seats.filter((s) => s.elementId === selectedSeatTable.elementId)}
             guests={seating.guests}
-            readOnly={seatingReadOnly || !actions.saveTableSeats}
+            readOnly={seatingReadOnly || viewOnly || !actions.saveTableSeats}
             onClose={() => setSelectedId(null)}
             onSave={async (seats) => {
               const loaded = seating.seats

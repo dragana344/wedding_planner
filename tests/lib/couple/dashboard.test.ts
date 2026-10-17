@@ -29,6 +29,8 @@ describe("lib/couple/dashboard: getEventSummary", () => {
         venue_id: venue!.id,
         couple_names: "Dashboard & Test",
         event_date: "2026-12-05",
+        start_time: "18:00:00",
+        end_time: "23:00:00",
         guest_count_estimate: 50,
         menu_template_id: template!.id,
         contact_email: "couple@example.com",
@@ -54,6 +56,8 @@ describe("lib/couple/dashboard: getEventSummary", () => {
     expect(summary.seatedCount).toBe(8);
     expect(summary.menuStatus).toEqual({ kind: "template", name: "Classic Menu" });
     expect(summary.contact_email).toBe("couple@example.com");
+    expect(summary.start_time).toBe("18:00:00");
+    expect(summary.end_time).toBe("23:00:00");
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });

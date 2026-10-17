@@ -28,36 +28,39 @@ export async function listShowcasePhotos(eventId: string): Promise<ShowcasePhoto
   return checkListBound(data, "event_showcase_photos");
 }
 
+// Adding and removing photos is a manager action (0107): it runs in
+// /api/venue/events/[eventId]/showcase with a service-role client, so each
+// write below is scoped to the event explicitly.
+
+/** Records an uploaded (already confirmed) photo for the event. */
 export async function addShowcasePhoto(
-  venueId: string,
   eventId: string,
-  file: File
+  photoPath: string,
+  client: SupabaseClient = resolveSupabaseClient()
 ): Promise<ShowcasePhoto> {
-  const extension = file.name.split(".").pop() ?? "jpg";
-  const path = `${venueId}/${eventId}-${Date.now()}.${extension}`;
-  const supabase = resolveSupabaseClient();
-
-  const { error: uploadError } = await supabase.storage
-    .from(SHOWCASE_PHOTOS_BUCKET)
-    // Unique path per upload: safe to cache for a year (PERF-001).
-    .upload(path, file, { cacheControl: "31536000" });
-  if (uploadError) throw uploadError;
-
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from("event_showcase_photos")
-    .insert({ event_id: eventId, photo_path: path })
+    .insert({ event_id: eventId, photo_path: photoPath })
     .select("id, event_id, photo_path")
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function deleteShowcasePhoto(photoId: string): Promise<void> {
-  const { error } = await resolveSupabaseClient()
+/** Removes one of the event's photos; its file is queued for deletion (0038). False when no such photo. */
+export async function deleteShowcasePhoto(
+  eventId: string,
+  photoId: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<boolean> {
+  const { data, error } = await client
     .from("event_showcase_photos")
     .delete()
-    .eq("id", photoId);
+    .eq("id", photoId)
+    .eq("event_id", eventId)
+    .select("id");
   if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 export async function countPastEvents(

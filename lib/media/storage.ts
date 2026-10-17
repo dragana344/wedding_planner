@@ -60,7 +60,8 @@ export async function removeObject(path: string, bucket = MEDIA_BUCKET): Promise
  */
 export async function sweepStalePendingMedia(maxAgeMs = 24 * 60 * 60 * 1000): Promise<{ removed: number }> {
   let removed = 0;
-  for (const bucket of [PHOTO_UPLOAD_BUCKET, MEDIA_BUCKET]) removed += await sweepBucket(bucket, Date.now() - maxAgeMs);
+  // event-showcase-photos: the venue's logo and showcase uploads (lib/venue/photo-upload.ts).
+  for (const bucket of [PHOTO_UPLOAD_BUCKET, MEDIA_BUCKET, "event-showcase-photos"]) removed += await sweepBucket(bucket, Date.now() - maxAgeMs);
   return { removed };
 }
 

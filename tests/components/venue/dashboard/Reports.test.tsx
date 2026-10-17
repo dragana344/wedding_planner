@@ -1,8 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import { ReportsClient } from "@/components/venue/dashboard/ReportsClient";
 import { NotificationsList } from "@/components/venue/dashboard/NotificationsList";
+import { ManagerElevationProvider, ManagerElevationContext } from "@/components/venue/shell/ManagerElevationContext";
 import type { ReportData } from "@/lib/venue/reports";
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 const report: ReportData = {
   byMonth: [
@@ -19,9 +23,17 @@ const report: ReportData = {
 };
 const rooms = [{ id: "big", name: "Голема сала" }, { id: "small", name: "Мала сала" }];
 
+beforeEach(() => {
+  mockPush.mockReset();
+});
+
 describe("ReportsClient (B9)", () => {
   it("shows the totals, months, types and hall fill", () => {
-    render(<ReportsClient report={report} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />);
+    render(
+      <ManagerElevationProvider>
+        <ReportsClient initialReport={report} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />
+      </ManagerElevationProvider>
+    );
     const kpis = screen.getByRole("region", { name: "Вкупно" });
     expect(within(kpis).getByText("4")).toBeInTheDocument();
     expect(within(kpis).getByText("700")).toBeInTheDocument();
@@ -45,7 +57,11 @@ describe("ReportsClient (B9)", () => {
       byStatus: [{ status: "confirmed", count: 1 }, { status: "preparation", count: 1 }],
       totals: { ...report.totals, events: 2 },
     };
-    const { container } = render(<ReportsClient report={twoEvents} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />);
+    const { container } = render(
+      <ManagerElevationProvider>
+        <ReportsClient initialReport={twoEvents} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />
+      </ManagerElevationProvider>
+    );
     const fills = container.querySelectorAll(".s3-bar-fill");
     // byType has a single row (100% of itself) then byStatus's two 50% rows.
     expect(Array.from(fills).map((el) => (el as HTMLElement).style.width)).toEqual(["100%", "50%", "50%"]);
@@ -53,8 +69,58 @@ describe("ReportsClient (B9)", () => {
 
   it("says so when the period has no events", () => {
     const empty = { ...report, byMonth: [], byType: [], byStatus: [], totals: { events: 0, guests: 0, revenue: 0, deposits: 0 } };
-    render(<ReportsClient report={empty} rooms={rooms} filters={{ from: "2027-01-01", to: "2027-12-31" }} />);
+    render(
+      <ManagerElevationProvider>
+        <ReportsClient initialReport={empty} rooms={rooms} filters={{ from: "2027-01-01", to: "2027-12-31" }} />
+      </ManagerElevationProvider>
+    );
     expect(screen.getByText("Нема настани во избраниот период.")).toBeInTheDocument();
+  });
+
+  it("shows an owner/manager-only message when not elevated", () => {
+    render(
+      <ManagerElevationProvider>
+        <ReportsClient rooms={[]} filters={{}} />
+      </ManagerElevationProvider>
+    );
+    expect(screen.getByText("Извештаите се достапни само за менаџери.")).toBeInTheDocument();
+  });
+
+  it("submits the filter via client-side navigation instead of a full page reload, so an elevated manager's token survives (final review finding: a real form submit remounted the app and dropped it)", () => {
+    render(
+      <ManagerElevationProvider>
+        <ReportsClient initialReport={report} rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />
+      </ManagerElevationProvider>
+    );
+    fireEvent.change(screen.getByLabelText("Од"), { target: { value: "2027-02-01" } });
+    fireEvent.change(screen.getByLabelText("Сала"), { target: { value: "small" } });
+    fireEvent.click(screen.getByRole("button", { name: "Прикажи" }));
+    expect(mockPush).toHaveBeenCalledWith("/venue/reports?from=2027-02-01&to=2027-01-31&room=small");
+  });
+
+  it("keeps the already-loaded report and filter form visible when a later refetch fails (final review finding)", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => report });
+    const elevatedValue = { managerName: "Марко", isOwner: false, token: "tok", elevate: async () => ({ ok: true as const }), deAuthorize: () => {}, passwordResetNoticeAt: null, dismissPasswordResetNotice: async () => {} };
+    const { rerender } = render(
+      <ManagerElevationContext.Provider value={elevatedValue}>
+        <ReportsClient rooms={rooms} filters={{ from: "2026-12-01", to: "2027-01-31" }} />
+      </ManagerElevationContext.Provider>
+    );
+    await waitFor(() => expect(screen.getByRole("table", { name: "По месец" })).toBeInTheDocument());
+
+    mockFetch.mockResolvedValueOnce({ ok: false, json: async () => ({ error: "Серверска грешка." }) });
+    rerender(
+      <ManagerElevationContext.Provider value={elevatedValue}>
+        <ReportsClient rooms={rooms} filters={{ from: "2027-01-01", to: "2027-02-01" }} />
+      </ManagerElevationContext.Provider>
+    );
+    await waitFor(() => expect(screen.getByText("Серверска грешка.")).toBeInTheDocument());
+    // The previously loaded report and its filter form stay visible —
+    // the error doesn't blank the whole page out.
+    expect(screen.getByRole("table", { name: "По месец" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Од")).toBeInTheDocument();
   });
 });
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 import { parseCoupleContacts, type CoupleContactsInput } from "@/lib/venue/event-contacts";
+import { todayIn } from "@/lib/date";
 
 export interface EventSummary {
   id: string;
@@ -193,12 +194,26 @@ export interface CreateEventInput {
   menu_template_id: string | null;
   /** A21: required, saved with the event. */
   contacts: CoupleContactsInput;
+  /** Optional, set in the same insert as the rest of the event — folded in
+   * here (rather than a follow-up updateEventFinance call) specifically so
+   * creating a deliberately backdated event with its finance figures
+   * already known doesn't trip the past-event write lock that call now has
+   * (security review finding: past events are read-only, enforced
+   * server-side — see assertEventNotPast/PastEventError below). An insert
+   * has no "past" state to violate; only *editing* an existing event does. */
+  total_price?: number | null;
+  deposit_paid?: number | null;
+  /** Security review fix: the couple's login is created here, server-side,
+   * in the same call as the event row — create_event_credentials' direct
+   * `authenticated` grant was revoked (0110) since it let any staff session
+   * mint a couple login with a password of their own choosing. */
+  credentials: { username: string; password: string };
 }
 
-export async function createEvent(input: CreateEventInput): Promise<{ id: string }> {
+export async function createEvent(input: CreateEventInput, client: SupabaseClient = resolveSupabaseClient()): Promise<{ id: string }> {
   const contacts = parseCoupleContacts(input.contacts);
   if (!contacts.ok) throw new Error(contacts.error);
-  const supabase = resolveSupabaseClient();
+  const supabase = client;
 
   if (input.menu_template_id) {
     const { data: template, error: templateError } = await supabase
@@ -225,30 +240,32 @@ export async function createEvent(input: CreateEventInput): Promise<{ id: string
     }
   }
 
-  const { data: event, error: eventError } = await supabase
-    .from("events")
-    .insert({
-      venue_id: input.venue_id,
-      couple_names: input.couple_names,
-      event_date: input.event_date,
-      start_time: input.start_time ?? null,
-      end_time: input.end_time ?? null,
-      event_type: input.event_type ?? "other",
-      status: input.status ?? "preparation",
-      guest_count_estimate: input.guest_count_estimate ?? null,
-      menu_template_id: input.menu_template_id,
-      ...contacts.data,
-    })
-    .select("id")
-    .single();
-  if (eventError) throw eventError;
-
-  const { error: roomsError } = await supabase
-    .from("event_rooms")
-    .insert(input.room_ids.map((room_id) => ({ event_id: event.id, room_id })));
-  if (roomsError) throw roomsError;
-
-  return event;
+  // create_event_full (0111) does the event row, its rooms and the couple's
+  // login as one Postgres function — one implicit transaction, so a failure
+  // partway (e.g. the credentials insert) rolls back everything else the
+  // function did instead of needing JS-level compensating cleanup that
+  // could itself fail independently (final review finding).
+  const { data: eventId, error } = await supabase.rpc("create_event_full", {
+    p_venue_id: input.venue_id,
+    p_couple_names: input.couple_names,
+    p_event_date: input.event_date,
+    p_start_time: input.start_time ?? null,
+    p_end_time: input.end_time ?? null,
+    p_event_type: input.event_type ?? "other",
+    p_status: input.status ?? "preparation",
+    p_guest_count_estimate: input.guest_count_estimate ?? null,
+    p_menu_template_id: input.menu_template_id,
+    p_room_ids: input.room_ids,
+    p_contact_email: contacts.data.contact_email,
+    p_contact_email_2: contacts.data.contact_email_2,
+    p_contact_phone: contacts.data.contact_phone,
+    p_total_price: input.total_price ?? null,
+    p_deposit_paid: input.deposit_paid ?? null,
+    p_username: input.credentials.username,
+    p_password: input.credentials.password,
+  });
+  if (error) throw error;
+  return { id: eventId as string };
 }
 
 export interface UpdateEventInput {
@@ -263,12 +280,49 @@ export interface UpdateEventInput {
   menu_template_id: string | null;
 }
 
+/** Thrown by the gated-route write helpers below when the eventId/venueId
+ * pair matched zero rows — a deleted event, or one from another venue — so
+ * callers can report 404 instead of a false {ok:true}. */
+export class EventNotFoundError extends Error {
+  constructor() {
+    super("Настанот не е пронајден.");
+  }
+}
+
+/** Past events are read-only server-side, not just in one UI path (security
+ * review finding — this used to be enforced only by a `readOnly` prop
+ * threaded through ClientsClient → EventEditForm; Настани and the full-page
+ * seating editor had no lock at all, and no write endpoint checked the
+ * event's own date). "Past" compares against the venue's local today
+ * (lib/date.ts), the same definition the UI already uses. Deleting the
+ * whole event and erasing its personal data are deliberately NOT gated by
+ * this — both are documented as staff choices that stay available either
+ * way, unlike editing the event's content. */
+export class PastEventError extends Error {
+  constructor() {
+    super("Настанот е во минатото и повеќе не може да се уредува.");
+  }
+}
+
+export async function assertEventNotPast(
+  eventId: string,
+  venueId: string,
+  client: SupabaseClient
+): Promise<void> {
+  const { data, error } = await client.from("events").select("event_date").eq("id", eventId).eq("venue_id", venueId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new EventNotFoundError();
+  if (data.event_date < todayIn()) throw new PastEventError();
+}
+
 export async function updateEvent(
   eventId: string,
   venueId: string,
-  input: UpdateEventInput
+  input: UpdateEventInput,
+  client: SupabaseClient = resolveSupabaseClient()
 ): Promise<void> {
-  const supabase = resolveSupabaseClient();
+  const supabase = client;
+  await assertEventNotPast(eventId, venueId, supabase);
 
   if (input.menu_template_id) {
     const { data: template, error: templateError } = await supabase
@@ -295,53 +349,33 @@ export async function updateEvent(
     }
   }
 
-  const { error: eventError } = await supabase
-    .from("events")
-    .update({
-      couple_names: input.couple_names,
-      event_date: input.event_date,
-      start_time: input.start_time,
-      end_time: input.end_time,
-      status: input.status,
-      event_type: input.event_type,
-      guest_count_estimate: input.guest_count_estimate,
-      menu_template_id: input.menu_template_id,
-    })
-    .eq("id", eventId);
-  if (eventError) throw eventError;
-
-  // Only the halls that actually changed: removing a hall frees its seats
-  // (0077), so kept halls must not be deleted and re-added; that also keeps
-  // their layout_initialized_at claim.
-  const { data: current, error: currentError } = await supabase
-    .from("event_rooms")
-    .select("room_id")
-    .eq("event_id", eventId);
-  if (currentError) throw currentError;
-  const had = new Set((current ?? []).map((r) => r.room_id as string));
-  const removed = Array.from(had).filter((id) => !input.room_ids.includes(id));
-  const added = input.room_ids.filter((id) => !had.has(id));
-
-  if (removed.length > 0) {
-    const { error: deleteRoomsError } = await supabase
-      .from("event_rooms")
-      .delete()
-      .eq("event_id", eventId)
-      .in("room_id", removed);
-    if (deleteRoomsError) throw deleteRoomsError;
-  }
-
-  if (added.length > 0) {
-    const { error: insertRoomsError } = await supabase
-      .from("event_rooms")
-      .insert(added.map((room_id) => ({ event_id: eventId, room_id })));
-    if (insertRoomsError) throw insertRoomsError;
-  }
+  // update_event_full (0111) does the event row and its room diff as one
+  // Postgres function — one implicit transaction, so a failure partway
+  // (e.g. the rooms insert) rolls back the event row change too, instead of
+  // leaving an event saved with half-updated rooms (final review finding).
+  const { data: found, error } = await supabase.rpc("update_event_full", {
+    p_event_id: eventId,
+    p_venue_id: venueId,
+    p_couple_names: input.couple_names,
+    p_event_date: input.event_date,
+    p_start_time: input.start_time,
+    p_end_time: input.end_time,
+    p_event_type: input.event_type,
+    p_status: input.status,
+    p_guest_count_estimate: input.guest_count_estimate,
+    p_menu_template_id: input.menu_template_id,
+    p_room_ids: input.room_ids,
+  });
+  if (error) throw error;
+  if (!found) throw new EventNotFoundError();
 }
 
-export async function deleteEvent(eventId: string): Promise<void> {
-  const { error } = await resolveSupabaseClient().from("events").delete().eq("id", eventId);
+// The routes call these with the service-role client, which bypasses RLS —
+// so venueId is required: it is what scopes the write to the caller's venue.
+export async function deleteEvent(eventId: string, venueId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<void> {
+  const { data, error } = await client.from("events").delete().eq("id", eventId).eq("venue_id", venueId).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new EventNotFoundError();
 }
 
 export interface EventContactInfo {
@@ -351,11 +385,18 @@ export interface EventContactInfo {
 }
 
 /** A21: the couple's email and phone stay required when the venue edits them. */
-export async function updateEventContactInfo(eventId: string, input: EventContactInfo): Promise<void> {
+export async function updateEventContactInfo(
+  eventId: string,
+  venueId: string,
+  input: EventContactInfo,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  await assertEventNotPast(eventId, venueId, client);
   const contacts = parseCoupleContacts(input);
   if (!contacts.ok) throw new Error(contacts.error);
-  const { error } = await resolveSupabaseClient().from("events").update(contacts.data).eq("id", eventId);
+  const { data, error } = await client.from("events").update(contacts.data).eq("id", eventId).eq("venue_id", venueId).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new EventNotFoundError();
 }
 
 export interface EventFinanceInfo {
@@ -363,9 +404,19 @@ export interface EventFinanceInfo {
   deposit_paid: number | null;
 }
 
-export async function updateEventFinance(eventId: string, input: EventFinanceInfo): Promise<void> {
-  const { error } = await resolveSupabaseClient().from("events").update(input).eq("id", eventId);
+export async function updateEventFinance(
+  eventId: string,
+  venueId: string,
+  input: EventFinanceInfo,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  // Deliberately not reachable during event creation — see CreateEventInput's
+  // total_price/deposit_paid, which go straight into the insert instead so a
+  // deliberately backdated event's finance fields aren't blocked by this.
+  await assertEventNotPast(eventId, venueId, client);
+  const { data, error } = await client.from("events").update(input).eq("id", eventId).eq("venue_id", venueId).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new EventNotFoundError();
 }
 
 /**

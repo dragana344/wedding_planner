@@ -128,7 +128,7 @@ export async function setLayoutLockPassword(
     p_password: newPassword,
   });
   if (error) throw error;
-  if (!data) throw new Error("Not authorized to change this venue's layout lock password.");
+  if (!data) throw new Error("Лозинката за распоредот не е зачувана. Обидете се повторно.");
 }
 
 export async function updateRoomDimensions(

@@ -5,9 +5,8 @@ import type { EventDetail } from "@/lib/venue/events";
 // DATA-006: destructive privacy actions stay disabled until the exact name is
 // typed, and only then call their API route.
 
-const mockPush = vi.fn();
 const mockSignOut = vi.fn(async () => ({ error: null }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/lib/supabase/client", () => ({
   createBrowserSupabaseClient: () => ({ auth: { signOut: mockSignOut } }),
 }));
@@ -25,14 +24,51 @@ vi.mock("@/lib/venue/credentials", () => ({
 
 import { SettingsClient } from "@/components/venue/dashboard/SettingsClient";
 import { EventEditForm } from "@/components/venue/dashboard/EventEditForm";
+import { ManagerElevationProvider, ManagerElevationContext } from "@/components/venue/shell/ManagerElevationContext";
+
+// Settings is owner-gated (Plan 2 Task 4): these tests exercise the
+// delete-account flow itself, not the elevation gate, so they pre-seed an
+// already-elevated owner state via the raw context rather than going
+// through the real elevate() fetch.
+const elevatedOwnerValue = {
+  managerName: "Власник",
+  isOwner: true,
+  token: "test-owner-token",
+  elevate: async () => ({ ok: true as const }),
+  deAuthorize: () => {}, passwordResetNoticeAt: null, dismissPasswordResetNotice: async () => {},
+};
 
 const fetchMock = vi.fn();
 
+// The delete-account flow navigates to /login with a hard
+// `window.location.href` assignment rather than router.push (see the
+// comment in SettingsClient.tsx for why) — jsdom's window.location can't be
+// reassigned directly, so it's replaced with a stand-in that records it.
+let locationHref = "";
 beforeEach(() => {
   fetchMock.mockReset();
-  mockPush.mockReset();
   mockSignOut.mockClear();
-  vi.stubGlobal("fetch", fetchMock);
+  // Settings is owner-gated and renders ManagersSection, which fires its
+  // own GET /api/venue/managers on mount — routed to a fixed stub here so
+  // it never touches fetchMock, keeping every existing toHaveBeenCalledWith/
+  // toHaveBeenCalledTimes assertion about the delete-account/export/erase
+  // calls accurate.
+  vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+    if (url === "/api/venue/managers") return Promise.resolve({ ok: true, json: async () => ({ managers: [] }) });
+    return fetchMock(url, init);
+  });
+  locationHref = "";
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: {
+      get href() {
+        return locationHref;
+      },
+      set href(value: string) {
+        locationHref = value;
+      },
+    },
+  });
 });
 
 afterEach(() => {
@@ -63,7 +99,11 @@ const event: EventDetail = {
 
 describe("Settings: delete account (DATA-006)", () => {
   function renderSettings() {
-    render(<SettingsClient venueId="v1" venueName="Sala Biser" email="owner@example.com" />);
+    render(
+      <ManagerElevationContext.Provider value={elevatedOwnerValue}>
+        <SettingsClient venueName="Sala Biser" email="owner@example.com" />
+      </ManagerElevationContext.Provider>
+    );
     return {
       input: screen.getByLabelText(/внесете го името на локалот/i),
       button: screen.getByRole("button", { name: /Избриши ја сметката/ }),
@@ -95,7 +135,7 @@ describe("Settings: delete account (DATA-006)", () => {
     const { input, button } = renderSettings();
     fireEvent.change(input, { target: { value: "  Sala Biser " } });
     fireEvent.click(button);
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(locationHref).toBe("/login"));
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/venue/privacy/delete-account",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "  Sala Biser " }) }),
@@ -109,7 +149,7 @@ describe("Settings: delete account (DATA-006)", () => {
     fireEvent.change(input, { target: { value: "Sala Biser" } });
     fireEvent.click(button);
     expect(await screen.findByText("Потврдата не се совпаѓа")).toBeInTheDocument();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(locationHref).toBe("");
   });
 
   it("offers a data download", () => {
@@ -119,8 +159,18 @@ describe("Settings: delete account (DATA-006)", () => {
 });
 
 describe("Event form: erase personal data (DATA-006)", () => {
+  // Erase requires manager elevation (security review minor finding — it
+  // used to render for any staff member, elevated or not, same class of gap
+  // closed elsewhere in this file). It must still work on a read-only (past)
+  // event for an elevated manager though — gated on !canEdit specifically,
+  // not the combined `locked` flag that also folds in readOnly, matching
+  // "Избриши настан" staying available on past events too.
   function renderForm(onChanged = vi.fn(), onClose = vi.fn()) {
-    render(<EventEditForm event={event} venueId="v1" rooms={[]} menuTemplates={[]} onClose={onClose} onChanged={onChanged} readOnly />);
+    render(
+      <ManagerElevationContext.Provider value={elevatedOwnerValue}>
+        <EventEditForm event={event} rooms={[]} menuTemplates={[]} onClose={onClose} onChanged={onChanged} readOnly />
+      </ManagerElevationContext.Provider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Избриши ги личните податоци за овој настан" }));
     return {
       input: screen.getByLabelText(/За потврда, внесете/),
@@ -130,7 +180,17 @@ describe("Event form: erase personal data (DATA-006)", () => {
     };
   }
 
-  it("is available on read-only (past) events and gated by the couple's names", () => {
+  it("is not offered at all to a plain staff member who is not elevated, even if they weren't going to be able to submit it anyway", () => {
+    render(
+      <ManagerElevationProvider>
+        <EventEditForm event={event} rooms={[]} menuTemplates={[]} onClose={vi.fn()} onChanged={vi.fn()} readOnly />
+      </ManagerElevationProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Избриши ги личните податоци за овој настан" })).not.toBeInTheDocument();
+    expect(screen.getByText(/само менаџер или сопственик може да ги избрише/i)).toBeInTheDocument();
+  });
+
+  it("is available on read-only (past) events for an elevated manager, and gated by the couple's names", () => {
     const { input, button } = renderForm();
     expect(button).toBeDisabled();
     fireEvent.change(input, { target: { value: "Ana" } });

@@ -5,7 +5,7 @@ import { NotificationsList } from "@/components/venue/dashboard/NotificationsLis
 import { ComingSoon } from "@/components/venue/shell/ComingSoon";
 import { PanelShell } from "@/components/venue/shell/PanelShell";
 import { brandVars } from "@/lib/venue/brand-palette";
-import { DEMO_LOGO, EVENT_ID, VENUE_ID } from "../fixtures";
+import { DEMO_LOGO, EVENT_ID } from "../fixtures";
 
 const meta: Meta<typeof PanelShell> = {
   title: "Локал/Панел",
@@ -86,13 +86,13 @@ export const NotificationsEmpty: Story = {
 export const BrandColourAllowed: Story = {
   name: "Поставки: боја на локалот",
   parameters: { nextjs: { navigation: { pathname: "/venue/settings" } } },
-  args: { children: <div className="wrap"><BrandColorForm venueId={VENUE_ID} color="#1f6f5b" enabled /></div> },
+  args: { children: <div className="wrap"><BrandColorForm color="#1f6f5b" enabled /></div> },
 };
 
 export const BrandColourLocked: Story = {
   name: "Поставки: боја заклучена во пакетот",
   parameters: { nextjs: { navigation: { pathname: "/venue/settings" } } },
-  args: { children: <div className="wrap"><BrandColorForm venueId={VENUE_ID} color={null} enabled={false} /></div> },
+  args: { children: <div className="wrap"><BrandColorForm color={null} enabled={false} /></div> },
 };
 
 export const Blocked: Story = {

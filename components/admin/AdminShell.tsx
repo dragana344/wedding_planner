@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { IconSprite } from "@/components/venue/shell/IconSprite";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -9,7 +9,6 @@ import { ADMIN_NAV, matchAdminNav } from "./nav";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   // On the admin host the address bar shows "/venues" while links and the
   // nav use "/admin/venues" (proxy.ts rewrites one to the other), so a page
   // opened directly or refreshed has no "/admin" prefix to match on.
@@ -17,7 +16,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await createBrowserSupabaseClient().auth.signOut({ scope: "local" });
-    router.push("/admin/login");
+    // A hard navigation, not router.push: same reasoning as the venue
+    // AccountMenu's sign-out — a client-side transition right after
+    // signOut() can race ahead of the auth SDK's cookie clear.
+    window.location.href = "/admin/login";
   }
 
   return (

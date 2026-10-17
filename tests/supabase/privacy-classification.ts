@@ -102,6 +102,12 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   venue_feature_overrides: {
     venue_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,
   },
+  venue_managers: {
+    id: N, venue_id: N, name: P, password_hash: S, is_owner: N, failed_attempts: N, locked_until: N, created_at: N,
+    // System-set flag timestamp (support reset the password) — no personal content.
+    password_reset_notice_at: N,
+  },
+  venue_manager_elevations: { token: S, venue_id: N, manager_id: N, manager_name: P, created_at: N, expires_at: N },
   venue_staff: { user_id: P, venue_id: N },
   venues: {
     id: N, name: P, created_at: N, layout_lock_password_hash: S, terms_version: N, terms_accepted_at: N,

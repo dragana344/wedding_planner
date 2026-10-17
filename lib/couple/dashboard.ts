@@ -12,6 +12,8 @@ export interface CoupleEventSummary {
   id: string;
   couple_names: string;
   event_date: string;
+  start_time: string | null;
+  end_time: string | null;
   event_type: string;
   guest_count_estimate: number | null;
   venue_name: string;
@@ -36,7 +38,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   const { data: event, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, event_type, guest_count_estimate, venue_id, menu_template_id, contact_email, contact_email_2, contact_phone, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
+      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, menu_template_id, contact_email, contact_email_2, contact_phone, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
     )
     .eq("id", eventId)
     .single();
@@ -84,6 +86,8 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     id: event.id,
     couple_names: event.couple_names,
     event_date: event.event_date,
+    start_time: event.start_time,
+    end_time: event.end_time,
     event_type: event.event_type,
     guest_count_estimate: event.guest_count_estimate,
     venue_name: venue?.name ?? "Непознат локал",

@@ -39,6 +39,7 @@ export type VenueRow = {
 export type VenueDetail = VenueRow & {
   blockedReason: string | null;
   staff: { userId: string; email: string; lastSignInAt: string | null }[];
+  managers: { id: string; name: string; isOwner: boolean }[];
   rooms: { id: string; name: string }[];
   events: { id: string; date: string; coupleNames: string; status: string; type: string | null }[];
 };
@@ -262,6 +263,7 @@ type VenueDetailDb = {
   blocked_reason: string | null;
   plans: { name: string };
   venue_staff: { user_id: string }[];
+  venue_managers: { id: string; name: string; is_owner: boolean }[];
   rooms: { id: string; name: string }[];
   events: { id: string; event_date: string; couple_names: string; status: string; event_type: string | null }[];
 };
@@ -272,7 +274,7 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
   const { data, error } = await db()
     .from("venues")
     .select(
-      "id, name, plan_id, created_at, blocked_at, blocked_reason, plans(name), venue_staff(user_id), rooms(id, name), events(id, event_date, couple_names, status, event_type)"
+      "id, name, plan_id, created_at, blocked_at, blocked_reason, plans(name), venue_staff(user_id), venue_managers(id, name, is_owner), rooms(id, name), events(id, event_date, couple_names, status, event_type)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -302,6 +304,10 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
         .sort()
         .at(-1) ?? null,
     staff,
+    // Owner first, then by name — a stable order between loads.
+    managers: v.venue_managers
+      .map((m) => ({ id: m.id, name: m.name, isOwner: m.is_owner }))
+      .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || a.name.localeCompare(b.name, "mk")),
     rooms: v.rooms,
     events: v.events
       .map((e) => ({ id: e.id, date: e.event_date, coupleNames: e.couple_names, status: e.status, type: e.event_type }))

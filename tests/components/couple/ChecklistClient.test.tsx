@@ -25,7 +25,7 @@ describe("ChecklistClient", () => {
     expect(screen.getByText("Book photographer")).toBeInTheDocument();
     expect(screen.getByText(/1 отворени/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Наслов на задачата"), { target: { value: "Send invitations" } });
+    fireEvent.change(screen.getByLabelText("Наслов на задачата"), { target: { value: "Send invitations" } });
     fireEvent.click(screen.getByRole("button", { name: /додади задача/i }));
 
     await waitFor(() => expect(screen.getByText("Send invitations")).toBeInTheDocument());

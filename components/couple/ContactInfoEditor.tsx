@@ -44,7 +44,7 @@ export function ContactInfoEditor({
   }
 
   return (
-    <form onSubmit={handleSave} className="panel" style={{ padding: 16 }}>
+    <form onSubmit={handleSave} className="panel couple-card" style={{ padding: 16 }}>
       <p className="panel-t" style={{ marginBottom: 12 }}>
         <Icon name="call" size="sm" /> Контакт информации
       </p>

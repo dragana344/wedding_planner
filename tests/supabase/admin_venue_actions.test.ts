@@ -52,6 +52,23 @@ describe("admin venue actions", () => {
     await expect(venueActionCore.staffPasswordReset({ venueId, userId: strangerId }, ctx)).rejects.toThrow("не е вработен");
   });
 
+  it("resets a manager's password to whatever the admin types (admin-mediated, no self-service email) and refuses a manager from another venue", async () => {
+    const managerId = (await admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Тест Менаџер за ресет", p_password: "old-password-123", p_is_owner: false })).data as string;
+    const result = await venueActionCore.managerPasswordReset({ venueId, managerId, newPassword: "dictated-over-phone-1" }, ctx);
+    expect(result.audit).toMatchObject({ action: "admin_manager_password_reset", venueId, targetId: managerId });
+    const verify = await admin.rpc("verify_venue_manager", { p_venue_id: venueId, p_name: "Тест Менаџер за ресет", p_password: "dictated-over-phone-1" });
+    expect(verify.data![0].error_code).toBeNull();
+
+    // Security review #4: no identity check on the phone caller, but the
+    // manager must see a one-time notice next time they elevate.
+    const { data: afterReset } = await admin.from("venue_managers").select("password_reset_notice_at").eq("id", managerId).single();
+    expect(afterReset!.password_reset_notice_at).not.toBeNull();
+
+    const otherVenueId = (await admin.from("venues").insert({ name: "Other Action Venue" }).select("id").single()).data!.id;
+    await expect(venueActionCore.managerPasswordReset({ venueId: otherVenueId, managerId, newPassword: "dictated-over-phone-2" }, ctx)).rejects.toThrow("не припаѓа");
+    await admin.from("venues").delete().eq("id", otherVenueId);
+  });
+
   it("refuses to touch a venue that doesn't exist", async () => {
     const missingId = "22222222-3333-4000-8000-444444444444";
     await expect(venueActionCore.rename({ venueId: missingId, name: "Нема" }, ctx)).rejects.toThrow("Локалот не постои.");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
@@ -10,7 +10,7 @@ import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
-import { buildCoupleNavItems, matchCoupleNavItem } from "./nav";
+import { buildCoupleNavItems, matchCoupleNavItem, COUPLE_NAV_GROUP_LABELS } from "./nav";
 import { formatMkDate } from "@/lib/date";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
@@ -71,33 +71,38 @@ export function CoupleShell({
         </div>
 
         <nav className="nav" aria-label="Главна навигација">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={[
-                item.href === active?.href ? "on" : "",
-                item.ready ? "" : "soon",
-              ].filter(Boolean).join(" ")}
-              aria-current={item.href === active?.href ? "page" : undefined}
-              data-locked={isLocked(item.feature) ? "true" : undefined}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-              {isLocked(item.feature) ? (
-                <>
-                  <span aria-hidden="true" style={{ marginLeft: 4 }}>
-                    🔒
-                  </span>
-                  {/* Visually hidden, not aria-hidden: the emoji marker above
-                   * is decorative, so without this the link's accessible
-                   * name would be just the label and a screen reader user
-                   * would never learn the section is locked. */}
-                  <span className="sr-only"> (заклучено)</span>
-                </>
-              ) : null}
-            </Link>
-          ))}
+          {navItems.map((item, index) => {
+            const showGroupLabel = item.group && item.group !== navItems[index - 1]?.group;
+            return (
+              <Fragment key={item.href}>
+                {showGroupLabel ? <div className="nav-sec">{COUPLE_NAV_GROUP_LABELS[item.group!]}</div> : null}
+                <Link
+                  href={item.href}
+                  className={[
+                    item.href === active?.href ? "on" : "",
+                    item.ready ? "" : "soon",
+                  ].filter(Boolean).join(" ")}
+                  aria-current={item.href === active?.href ? "page" : undefined}
+                  data-locked={isLocked(item.feature) ? "true" : undefined}
+                >
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                  {isLocked(item.feature) ? (
+                    <>
+                      <span aria-hidden="true" style={{ marginLeft: 4 }}>
+                        🔒
+                      </span>
+                      {/* Visually hidden, not aria-hidden: the emoji marker above
+                       * is decorative, so without this the link's accessible
+                       * name would be just the label and a screen reader user
+                       * would never learn the section is locked. */}
+                      <span className="sr-only"> (заклучено)</span>
+                    </>
+                  ) : null}
+                </Link>
+              </Fragment>
+            );
+          })}
         </nav>
         <Link href="/privacy" target="_blank" style={{ display: "block", padding: "12px 20px", fontSize: 12.5, color: "var(--side-text)" }}>
           Политика за приватност

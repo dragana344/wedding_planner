@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { localIsoDate, todayIn } from "@/lib/date";
+import { localIsoDate, todayIn, formatMkDateWithWeekday } from "@/lib/date";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,5 +20,9 @@ describe("venue-local dates (REL-006)", () => {
 
   it("formats a Date's own calendar fields without shifting to UTC", () => {
     expect(localIsoDate(new Date(2026, 5, 15))).toBe("2026-06-15");
+  });
+
+  it("prefixes the weekday in Macedonian", () => {
+    expect(formatMkDateWithWeekday("2026-10-18")).toBe("недела, 18 октомври 2026");
   });
 });

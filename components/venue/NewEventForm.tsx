@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createEvent, updateEventFinance, deleteEvent, findSameDayRoomEvents } from "@/lib/venue/events";
+import { findSameDayRoomEvents } from "@/lib/venue/events";
+import { createEventViaApi } from "@/lib/venue/events-client";
 import { formatTimeRange } from "@/lib/venue/event-display";
 import { formatMkDate, todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
-import { createEventCredentials, generateRandomPassword } from "@/lib/venue/credentials";
+import { generateRandomPassword } from "@/lib/venue/credentials";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import { Icon } from "@/components/venue/shell/Icon";
 import type { Room } from "@/lib/venue/rooms";
@@ -13,6 +14,7 @@ import type { MenuTemplate } from "@/lib/venue/menus";
 import type { EventStatus, EventType } from "@/lib/venue/events";
 import { errorMessage } from "@/lib/venue/user-error";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
+import { useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
 
 export function NewEventForm({
   venueId,
@@ -56,6 +58,7 @@ export function NewEventForm({
   const [depositPaid, setDepositPaid] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { token: managerToken } = useManagerElevation();
 
   function toggleRoom(roomId: string) {
     setSelectedRoomIds((prev) =>
@@ -90,7 +93,14 @@ export function NewEventForm({
         const list = sameDay.map((e) => `• ${e.couple_names}${formatTimeRange(e.start_time, e.end_time) ? ` (${formatTimeRange(e.start_time, e.end_time)})` : ""}`).join("\n");
         if (!window.confirm(`Во избраната сала на ${formatMkDate(eventDate)} веќе има настан:\n${list}\n\nДа се креира и овој?`)) return;
       }
-      const event = await createEvent({
+      // Credentials and finance now travel in the same request and are set
+      // server-side, atomically with the event row (security review fix —
+      // create_event_credentials is no longer callable directly from the
+      // browser; folding finance into the same insert also means a
+      // deliberately backdated event doesn't trip the new past-event write
+      // lock, which a separate follow-up finance PATCH would have — see
+      // lib/venue/events.ts's createEvent/CreateEventInput).
+      await createEventViaApi({
         venue_id: venueId,
         couple_names: coupleNames,
         event_date: eventDate,
@@ -102,24 +112,10 @@ export function NewEventForm({
         room_ids: selectedRoomIds,
         menu_template_id: menuTemplateId || null,
         contacts: contacts.data,
-      });
-
-      try {
-        await createEventCredentials(event.id, username, password);
-        await updateEventFinance(event.id, {
-          total_price: totalPrice === "" ? null : Number(totalPrice),
-          deposit_paid: depositPaid === "" ? null : Number(depositPaid),
-        });
-      } catch (setupError) {
-        // Compensating cleanup: don't leave an orphaned event behind if
-        // setting up the couple's login fails, so the user can safely retry.
-        try {
-          await deleteEvent(event.id);
-        } catch {
-          // best-effort cleanup; surface the original error either way
-        }
-        throw setupError;
-      }
+        credentials: { username, password },
+        total_price: totalPrice === "" ? null : Number(totalPrice),
+        deposit_paid: depositPaid === "" ? null : Number(depositPaid),
+      }, managerToken);
 
       // The password is only ever visible here; show it before leaving.
       setCreated({ username, password });

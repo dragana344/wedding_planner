@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconSprite } from "./IconSprite";
 import { Icon } from "./Icon";
-import { NAV_ITEMS, matchNavItem } from "./nav";
+import { matchNavItem } from "./nav";
+import { VenueNav } from "./VenueNav";
 import { OnboardingTour } from "./OnboardingTour";
 import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
@@ -15,6 +16,8 @@ import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 import { AccountMenu } from "./AccountMenu";
+import { ManagerElevationProvider } from "./ManagerElevationContext";
+import { PasswordResetNotice } from "./PasswordResetNotice";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -64,6 +67,7 @@ export function PanelShell({
     <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
       <IconSprite />
 
+      <ManagerElevationProvider>
       <button
         className="side-toggle"
         type="button"
@@ -83,37 +87,7 @@ export function PanelShell({
           </div>
         </div>
 
-        <nav className="nav" aria-label="Главна навигација">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              data-tour={item.href}
-              className={[
-                item.href === active.href ? "on" : "",
-                item.ready ? "" : "soon",
-              ].filter(Boolean).join(" ")}
-              aria-current={item.href === active.href ? "page" : undefined}
-              data-locked={isLocked(item.feature) ? "true" : undefined}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-              {item.ready ? null : <span className="soon-tag">Наскоро</span>}
-              {item.ready && isLocked(item.feature) ? (
-                <>
-                  <span aria-hidden="true" style={{ marginLeft: 4 }}>
-                    🔒
-                  </span>
-                  {/* Visually hidden, not aria-hidden: the emoji marker above
-                   * is decorative, so without this the link's accessible
-                   * name would be just the label and a screen reader user
-                   * would never learn the section is locked. */}
-                  <span className="sr-only"> (заклучено)</span>
-                </>
-              ) : null}
-            </Link>
-          ))}
-        </nav>
+        <VenueNav activeHref={active.href} isLocked={isLocked} />
 
         <Link className="quick" href={TABLE_RESERVATIONS_ENABLED ? "/venue/reservations" : "/venue/events/new"}>
           <b>
@@ -188,12 +162,14 @@ export function PanelShell({
           </div>
         </header>
 
+        <PasswordResetNotice />
         {isLocked(active.feature) ? <LockedContent audience="venue">{children}</LockedContent> : children}
       </div>
 
       <Suspense fallback={null}>
         <OnboardingTour />
       </Suspense>
+      </ManagerElevationProvider>
     </div>
   );
 }

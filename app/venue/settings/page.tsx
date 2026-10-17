@@ -36,7 +36,6 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient
-      venueId={venueId}
       venueName={profile.name}
       email={user?.email ?? ""}
       profile={{ address: profile.address, phone: profile.phone, logoUrl: venueLogoUrl(supabase, profile.logo_path) }}

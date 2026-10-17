@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 import { setVenueLogoPath } from "@/lib/venue/venue-profile";
 
 // S3 task 10 (migration 0074): venue profile — address, phone, logo. The logo
@@ -45,12 +46,11 @@ afterAll(async () => {
 });
 
 describe("venue profile (0074)", () => {
-  it("staff update their own venue's address and phone, not another venue's", async () => {
+  it("staff update no venue's address and phone directly — only the owner, through /api/venue/settings (0106)", async () => {
     const own = await staff.from("venues").update({ address: "ул. Маршал Тито 1, Радовиш", phone: "+389 70 111 222" }).eq("id", venueA).select("address, phone");
-    expect(own.error).toBeNull();
-    expect(own.data).toEqual([{ address: "ул. Маршал Тито 1, Радовиш", phone: "+389 70 111 222" }]);
+    expect(own.error?.code).toBe("42501");
     const other = await staff.from("venues").update({ address: "упад" }).eq("id", venueB).select();
-    expect(other.data ?? []).toEqual([]);
+    expect(other.error?.code).toBe("42501");
   });
 
   it("limits the field lengths", async () => {
@@ -59,17 +59,18 @@ describe("venue profile (0074)", () => {
     expect((await admin.from("venues").update({ logo_path: `${venueB}/logo-1.png` }).eq("id", venueA)).error?.code).toBe("23514");
   });
 
-  it("uploads the logo into the venue's own folder only", async () => {
+  it("staff upload no logo file themselves — the owner's signed upload does (0107)", async () => {
     const own = await staff.storage.from("event-showcase-photos").upload(`${venueA}/logo-1.png`, PNG, { contentType: "image/png" });
-    expect(own.error).toBeNull();
+    expect(own.error).not.toBeNull();
     const foreign = await staff.storage.from("event-showcase-photos").upload(`${venueB}/logo-1.png`, PNG, { contentType: "image/png" });
     expect(foreign.error).not.toBeNull();
   });
 
   it("queues the old logo for deletion when it is replaced or removed", async () => {
-    await must(staff.from("venues").update({ logo_path: `${venueA}/logo-1.png` }).eq("id", venueA));
-    await must(staff.from("venues").update({ logo_path: `${venueA}/logo-2.png` }).eq("id", venueA));
-    await must(staff.from("venues").update({ logo_path: null }).eq("id", venueA));
+    // The settings route writes with the service-role client (0106).
+    await must(admin.from("venues").update({ logo_path: `${venueA}/logo-1.png` }).eq("id", venueA));
+    await must(admin.from("venues").update({ logo_path: `${venueA}/logo-2.png` }).eq("id", venueA));
+    await must(admin.from("venues").update({ logo_path: null }).eq("id", venueA));
     const queued = await must(admin.from("storage_cleanup_queue").select("bucket, path").like("path", `${venueA}/logo-%`).order("id"));
     expect(queued).toEqual([
       { bucket: "event-showcase-photos", path: `${venueA}/logo-1.png` },
@@ -78,7 +79,8 @@ describe("venue profile (0074)", () => {
   });
 
   it("reports failure instead of success when the logo row was not updated (review M10)", async () => {
-    await expect(setVenueLogoPath(venueB, `${venueB}/logo-9.png`, staff)).rejects.toThrow("Логото не е зачувано.");
-    await expect(setVenueLogoPath(venueA, null, staff)).resolves.toBeUndefined();
+    // A venue id that matches no row (the route always passes the caller's own).
+    await expect(setVenueLogoPath(randomUUID(), null, admin)).rejects.toThrow("Логото не е зачувано.");
+    await expect(setVenueLogoPath(venueA, null, admin)).resolves.toBeUndefined();
   });
 });

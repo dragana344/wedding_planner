@@ -17,6 +17,26 @@ vi.mock("next/navigation", () => ({
 
 import LoginPage from "@/app/login/page";
 
+// LoginPage navigates to /venue with a hard `window.location.href` assignment
+// rather than router.push (see the comment in app/login/page.tsx for why) —
+// jsdom's window.location can't be reassigned directly, so it's replaced
+// with a stand-in that records the assignment.
+let locationHref = "";
+beforeEach(() => {
+  locationHref = "";
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: {
+      get href() {
+        return locationHref;
+      },
+      set href(value: string) {
+        locationHref = value;
+      },
+    },
+  });
+});
+
 function signIn() {
   fireEvent.change(screen.getByLabelText("Е-пошта"), { target: { value: "staff@example.com" } });
   fireEvent.change(screen.getByLabelText("Лозинка"), { target: { value: "secret-password" } });
@@ -34,7 +54,7 @@ describe("LoginPage", () => {
   it("goes straight to /venue once the password is accepted", async () => {
     render(<LoginPage />);
     signIn();
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/venue"));
+    await waitFor(() => expect(locationHref).toBe("/venue"));
     expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: "staff@example.com", password: "secret-password" });
   });
 
@@ -43,7 +63,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
     signIn();
     expect(await screen.findByText("Неточен email или лозинка.")).toBeInTheDocument();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(locationHref).toBe("");
   });
 
   it("opens the reset form from the forgotten-password link", () => {

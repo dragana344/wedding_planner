@@ -12,11 +12,19 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * always takes an already-resolved userId from the caller's own session,
  * never a client-supplied value.
  */
-export async function provisionVenueForUser(userId: string, venueName: string): Promise<{ venue_id: string }> {
-  // REL-005: venue + staff row in one transaction (migration 0041).
+export async function provisionVenueForUser(
+  userId: string,
+  venueName: string,
+  ownerName: string,
+  ownerPassword: string
+): Promise<{ venue_id: string }> {
+  // REL-005: venue + staff row + owner manager row in one transaction
+  // (migration 0041, extended by 0096 for the owner).
   const { data, error } = await createServiceRoleClient().rpc("provision_venue", {
     p_user_id: userId,
     p_venue_name: venueName,
+    p_owner_name: ownerName,
+    p_owner_password: ownerPassword,
   });
   if (error) throw error;
   return { venue_id: data as string };

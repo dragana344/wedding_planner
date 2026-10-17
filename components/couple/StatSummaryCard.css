@@ -1,0 +1,83 @@
+/* Shared by the couple dashboard's "headline numbers + one progress bar +
+ * legend" cards (Гости, Буџет): a gold eyebrow label, a big main stat with
+ * one or two smaller stats pushed to the right, a single segmented bar
+ * instead of a tile per status/category, and a count/percentage legend
+ * underneath. Same ivory/gold palette as InvitationCard.css, duplicated
+ * rather than wired through custom properties — see EventHeroCard.css's
+ * note on that tradeoff. */
+.panel.couple-card.stat-summary {
+  padding: 22px 26px;
+}
+.stat-summary-eyebrow {
+  margin: 0 0 14px;
+  color: #b0924f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.stat-summary-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 18px;
+}
+.stat-summary-headline-secondary {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+}
+.stat-summary-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.stat-summary-num {
+  font-weight: 700;
+  color: #2e2617;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stat-summary-stat-main .stat-summary-num {
+  font-size: 44px;
+}
+.stat-summary-stat:not(.stat-summary-stat-main) .stat-summary-num {
+  font-size: 30px;
+}
+.stat-summary-sub {
+  color: #8a7d64;
+  font-size: 13.5px;
+  max-width: 120px;
+  line-height: 1.25;
+}
+.stat-summary-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #efe4cb;
+}
+.stat-summary-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+  color: #3a2f1c;
+}
+.stat-summary-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.stat-summary-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

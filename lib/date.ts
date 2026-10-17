@@ -19,6 +19,7 @@ export function localIsoDate(date: Date): string {
 }
 
 const MK_MONTHS = ["јануари", "февруари", "март", "април", "мај", "јуни", "јули", "август", "септември", "октомври", "ноември", "декември"];
+const MK_WEEKDAYS = ["недела", "понеделник", "вторник", "среда", "четврток", "петок", "сабота"];
 
 /** "2026-11-14" → "14 ноември 2026". Anything that is not an ISO date comes back unchanged. */
 export function formatMkDate(isoDate: string): string {
@@ -26,6 +27,18 @@ export function formatMkDate(isoDate: string): string {
   if (!match) return isoDate;
   const month = MK_MONTHS[Number(match[2]) - 1];
   return month ? `${Number(match[3])} ${month} ${match[1]}` : isoDate;
+}
+
+/**
+ * "2026-10-18" → "сабота, 18 октомври 2026". The weekday is a fixed
+ * property of the calendar date (not "now"), so `Date.UTC` is safe here —
+ * unlike `todayIn`, there's no local-midnight ambiguity to avoid.
+ */
+export function formatMkDateWithWeekday(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!match) return isoDate;
+  const weekday = MK_WEEKDAYS[new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay()];
+  return `${weekday}, ${formatMkDate(isoDate)}`;
 }
 
 /**

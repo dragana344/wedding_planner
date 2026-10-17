@@ -476,17 +476,25 @@ describe("RLS isolation (TEST-003)", () => {
       ["event_showcase_photos", () => ({ id: A.showcasePhotoId }), () => ({ event_id: B.eventId })],
       ["event_seat_assignments", () => ({ id: A.seatAssignmentId }), () => ({ event_id: B.eventId, room_id: B.roomId, layout_element_id: B.eventLayoutElementId, seat_number: 3 })],
       ["reservations", () => ({ id: A.reservationId }), () => ({ venue_id: B.venueId, room_id: B.roomId })],
-      [
-        "event_rooms",
-        () => ({ event_id: A.eventId, room_id: A.roomId }),
-        () => ({ room_id: B.room2Id }),
-      ],
     ] as [string, () => Key, () => Row][])("%s", async (table, key, patch) => {
       const before = await adminRead(table, key());
       expect(before).toHaveLength(1);
       const { error } = await filtered(staffA.from(table).update(patch()), key());
       expect(["42501", "23514"]).toContain(error?.code);
       expect(await adminRead(table, key())).toEqual(before);
+    });
+
+    // event_rooms (Plan 2, migration 0095): staff has no write policy at
+    // all now (reads only — writes go through the gated /api/venue/events
+    // routes via service role), so an update's RLS filter just matches zero
+    // rows rather than throwing an explicit permission error — "moving it
+    // into venue B" is impossible the same way any other write is.
+    it("event_rooms", async () => {
+      const key = { event_id: A.eventId, room_id: A.roomId };
+      const before = await adminRead("event_rooms", key);
+      expect(before).toHaveLength(1);
+      await filtered(staffA.from("event_rooms").update({ room_id: B.room2Id }), key);
+      expect(await adminRead("event_rooms", key)).toEqual(before);
     });
   });
 
@@ -521,8 +529,11 @@ describe("RLS isolation (TEST-003)", () => {
         .insert({ menu_template_id: A.menuTemplateId, menu_item_id: item!.id });
       expect(mtiError).toBeNull();
 
+      // event_rooms (Plan 2, migration 0095): no longer staff-writable at
+      // all — room assignments go through the gated /api/venue/events
+      // routes (service role) now, not this direct RLS-bound insert.
       const { error: erError } = await staffA.from("event_rooms").insert({ event_id: A.eventId, room_id: A.room2Id });
-      expect(erError).toBeNull();
+      expect(erError?.code).toBe("42501");
 
       const { data: res, error: resError } = await staffA
         .from("reservations")
@@ -539,15 +550,27 @@ describe("RLS isolation (TEST-003)", () => {
         .single();
       expect(resError).toBeNull();
 
+      // events (Plan 2, migration 0095): guest_count_estimate and the rest
+      // of the "business" columns are no longer staff-writable directly —
+      // only the gated /api/venue/events routes (service role) write them
+      // now. Staff keeps direct write access to the few columns the
+      // per-event seating editor marks on view (seating_unseen_at; since
+      // 0104 every layout write goes through the gated seating route),
+      // narrowed by column grant rather than by RLS policy.
+      const { error: gatedColumnError } = await staffA.from("events").update({ guest_count_estimate: 120 }).eq("id", A.eventId);
+      expect(gatedColumnError?.code).toBe("42501");
+
       const { data: updatedEvents } = await staffA
         .from("events")
-        .update({ guest_count_estimate: 120 })
+        .update({ seating_unseen_at: null })
         .eq("id", A.eventId)
         .select();
       expect(updatedEvents).toHaveLength(1);
 
-      const { data: updatedVenue } = await staffA.from("venues").update({ name: `${RUN} Venue A renamed` }).eq("id", A.venueId).select();
-      expect(updatedVenue).toHaveLength(1);
+      // venues (0106): Поставки is owner-only, so even renaming the own
+      // venue goes through the owner-gated /api/venue/settings route now.
+      const { error: venueError } = await staffA.from("venues").update({ name: `${RUN} Venue A renamed` }).eq("id", A.venueId);
+      expect(venueError?.code).toBe("42501");
 
       const { data: deletedRes } = await staffA.from("reservations").delete().eq("id", res!.id).select();
       expect(deletedRes).toHaveLength(1);

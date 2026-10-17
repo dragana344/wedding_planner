@@ -39,7 +39,12 @@ const TABLES: [number, number, number, boolean][] = [
 ];
 
 export function DashboardPreview() {
-  const nav = NAV_ITEMS.filter((item) => item.ready).slice(0, 8);
+  // Поставки/Извештаи don't belong in a logged-out marketing mockup anyway
+  // (gated on manager/owner elevation) — excluded explicitly rather than
+  // relying on their position in NAV_ITEMS, since the sidebar's own order
+  // moved them to the end and this slice(0, 8) silently dropped them
+  // (final review follow-up finding).
+  const nav = NAV_ITEMS.filter((item) => item.ready && !item.requiresElevation).slice(0, 8);
   return (
     <CopyShield className="dp" label="Контролната табла на Каде си?: настани за денес, пополнетост, дневен план и распоред на маси">
       <IconSprite />

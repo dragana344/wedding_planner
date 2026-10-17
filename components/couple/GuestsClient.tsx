@@ -4,9 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import type { Guest, GuestSide, GuestStats, InvitationChannel, MenuChoice, RsvpStatus } from "@/lib/couple/guests";
 import { MENU_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
-import { Icon } from "@/components/venue/shell/Icon";
 import { GuestDetail } from "@/components/couple/guests/GuestDetail";
-import { RsvpBreakdown } from "@/components/couple/guests/RsvpBreakdown";
+import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
 import { BulkSendDialog, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 import { formatVenueDateTime } from "@/lib/date";
 
@@ -354,31 +353,7 @@ export function GuestsClient({
           покани на гостите од вашата страна.
         </p>
       ) : null}
-      <div className="tiles">
-        {[
-          { label: "Покани на листата", value: stats.total, icon: "users" },
-          { label: "Потврдени", value: stats.confirmed, icon: "tick" },
-          { label: "Одбиени", value: stats.declined, icon: "x" },
-          // Same group as "Без одговор" in the breakdown below: not yet invited
-          // and invited-but-silent, so the tiles add up to the total.
-          { label: "Без одговор", value: stats.pending + stats.invited, icon: "clock" },
-          { label: "Подоцна", value: stats.later, icon: "clock" },
-          { label: "Лица што доаѓаат", value: stats.totalAttending, icon: "occ" },
-          { label: "Испратени покани", value: `${stats.invitationsSent} / ${stats.total}`, icon: "tick" },
-        ].map(({ label, value, icon }) => (
-          <div key={label} className="tile">
-            <span className="badge">
-              <Icon name={icon} size="lg" />
-            </span>
-            <div>
-              <div className="num">{value}</div>
-              <div className="lab">{label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {stats.total > 0 ? <RsvpBreakdown stats={stats} /> : null}
+      <GuestsSummary stats={stats} />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <input

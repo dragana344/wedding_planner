@@ -9,9 +9,11 @@ import { NewEventForm } from "@/components/venue/NewEventForm";
 import { Icon } from "@/components/venue/shell/Icon";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuTemplate } from "@/lib/venue/menus";
+import { useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
 
 export default function NewEventPage() {
   const router = useRouter();
+  const { managerName } = useManagerElevation();
   const [venueId, setVenueId] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [menuTemplates, setMenuTemplates] = useState<MenuTemplate[]>([]);
@@ -68,7 +70,9 @@ export default function NewEventPage() {
           <h2 className="panel-t">Нов настан</h2>
         </div>
         <div style={{ padding: 20 }}>
-          {!venueId || !loaded ? (
+          {!managerName ? (
+            <p className="muted">Само менаџер или сопственик може да креира настан. Најавете се како менаџер од менито горе десно.</p>
+          ) : !venueId || !loaded ? (
             <p className="count">Се вчитува...</p>
           ) : (
             <NewEventForm

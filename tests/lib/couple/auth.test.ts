@@ -30,9 +30,10 @@ describe("lib/couple/auth", () => {
       .single();
     eventId = event!.id;
 
-    const staffClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    await staffClient.auth.signInWithPassword({ email: staffEmail, password: staffPassword });
-    await createEventCredentials(eventId, "auth-lib-username", "correct-password", staffClient);
+    // Security review fix (0110): create_event_credentials is no longer
+    // callable by a plain staff session — this is just setup for the login
+    // tests below, so it goes through the service-role client now.
+    await createEventCredentials(eventId, "auth-lib-username", "correct-password", admin);
   });
 
   afterAll(async () => {

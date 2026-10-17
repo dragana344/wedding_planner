@@ -16,7 +16,7 @@ describe("lib/venue/provisioning: provisionVenueForUser", () => {
       email_confirm: true,
     });
 
-    const result = await provisionVenueForUser(user!.user!.id, "Нов Локал");
+    const result = await provisionVenueForUser(user!.user!.id, "Нов Локал", "owner", "owner-pass-123");
     expect(result.venue_id).toBeTruthy();
 
     const { data: venue } = await admin.from("venues").select("name").eq("id", result.venue_id).single();
@@ -40,8 +40,8 @@ describe("lib/venue/provisioning: provisionVenueForUser", () => {
       email_confirm: true,
     });
 
-    const first = await provisionVenueForUser(user!.user!.id, "Прв обид");
-    const second = await provisionVenueForUser(user!.user!.id, "Втор обид (би требало да се игнорира)");
+    const first = await provisionVenueForUser(user!.user!.id, "Прв обид", "owner", "owner-pass-123");
+    const second = await provisionVenueForUser(user!.user!.id, "Втор обид (би требало да се игнорира)", "owner", "owner-pass-123");
 
     expect(second.venue_id).toBe(first.venue_id);
 

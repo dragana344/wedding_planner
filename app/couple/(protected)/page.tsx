@@ -3,12 +3,13 @@ import Link from "next/link";
 import { getEventSummary } from "@/lib/couple/dashboard";
 import { listAgendaItems } from "@/lib/couple/agenda";
 import { listChecklistItems, computeChecklistStats } from "@/lib/couple/checklist";
-import { GuestCountEditor } from "@/components/couple/GuestCountEditor";
+import { EventHeroCard } from "@/components/couple/EventHeroCard";
 import { ContactInfoEditor } from "@/components/couple/ContactInfoEditor";
 import { Icon } from "@/components/venue/shell/Icon";
 import { StorageMeter } from "@/components/couple/StorageMeter";
 import { getStorageUsage } from "@/lib/media/album";
 import { formatMkDate } from "@/lib/date";
+import { eventStartInstant, eventEndInstant } from "@/lib/couple/event-hero";
 
 export const dynamic = "force-dynamic";
 
@@ -27,19 +28,16 @@ export default async function CoupleDashboardPage() {
 
   return (
     <main style={{ padding: "18px 22px 28px" }}>
-      <section className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-h">
-          <h2 className="panel-t"><Icon name="party" size="sm" /> Вашиот настан</h2>
-        </div>
-        <div style={{ padding: "8px 14px 14px" }}>
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{summary.venue_name}</p>
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{formatMkDate(summary.event_date)}</p>
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-            {summary.rooms.map((r) => r.name).join(", ") || "Сè уште нема доделено просторија"}
-          </p>
-          <GuestCountEditor initialValue={summary.guest_count_estimate} />
-        </div>
-      </section>
+      <EventHeroCard
+        coupleNames={summary.couple_names}
+        eventDate={summary.event_date}
+        startIso={eventStartInstant(summary.event_date, summary.start_time).toISOString()}
+        endIso={eventEndInstant(summary.event_date, summary.start_time, summary.end_time).toISOString()}
+        startTime={summary.start_time}
+        endTime={summary.end_time}
+        venueName={summary.venue_name}
+        guestCount={summary.guest_count_estimate}
+      />
 
       {/* C5: the album's space, once guests have started sharing. */}
       {storage && storage.photoBytes + storage.videoBytes > 0 && (
@@ -49,7 +47,7 @@ export default async function CoupleDashboardPage() {
       )}
 
       <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2" style={{ marginBottom: 16 }}>
-        <section className="panel">
+        <section className="panel couple-card">
           <div className="panel-h">
             <h2 className="panel-t"><Icon name="cal-dot" size="sm" /> Агенда</h2>
           </div>
@@ -76,7 +74,7 @@ export default async function CoupleDashboardPage() {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel couple-card">
           <div className="panel-h">
             <h2 className="panel-t"><Icon name="check" size="sm" /> Чеклиста</h2>
           </div>

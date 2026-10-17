@@ -11,7 +11,10 @@ function clientWithStaffRow(staffRow: { venue_id: string } | null, error: unknow
   return { client: { from } as unknown as SupabaseClient, from };
 }
 
-const owner = { id: "u-1", user_metadata: { venue_name: "Демо Локал" } } as unknown as User;
+const owner = {
+  id: "u-1",
+  user_metadata: { venue_name: "Демо Локал", owner_name: "Марија Сопственик", owner_password: "owner-pass-123" },
+} as unknown as User;
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true });
@@ -23,8 +26,19 @@ describe("finishPendingSignup", () => {
     await expect(finishPendingSignup(client, owner)).resolves.toBe(true);
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/venue/signup",
-      expect.objectContaining({ method: "POST", body: JSON.stringify({ venue_name: "Демо Локал" }) })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ venue_name: "Демо Локал", owner_name: "Марија Сопственик", owner_password: "owner-pass-123" }),
+      })
     );
+  });
+
+  it("does nothing for a pending venue name with no owner manager-login details yet", async () => {
+    const { client, from } = clientWithStaffRow(null);
+    const incomplete = { id: "u-3", user_metadata: { venue_name: "Демо Локал" } } as unknown as User;
+    await expect(finishPendingSignup(client, incomplete)).resolves.toBe(false);
+    expect(from).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("does nothing for staff who already have a venue", async () => {

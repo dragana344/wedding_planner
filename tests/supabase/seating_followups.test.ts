@@ -2,9 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
-import { venueHistoryActions } from "@/lib/venue/floorplan-history";
+import { staffLayoutActions } from "@/lib/venue/floorplan-history";
 import { replaceTableSeats } from "@/lib/seating/seats";
 import { updateEvent } from "@/lib/venue/events";
+
+// What the seating route runs server-side with its service-role client.
+const venueHistoryActions = staffLayoutActions(createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } }));
 
 // Follow-ups to the S3 review: a hall taken off an event frees its seats
 // (M2); the couple's quick edits in parallel never overwrite each other (I5).

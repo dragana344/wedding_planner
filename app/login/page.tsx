@@ -52,7 +52,11 @@ export default function LoginPage() {
         return;
       }
       const venueOpened = await finishPendingSignup(supabase, signInData?.user);
-      router.push(venueOpened ? "/venue?tour=1" : "/venue");
+      // A hard navigation, not router.push: the venue layout's server-side
+      // check reads the session from cookies, and a client-side transition
+      // right after an auth-state change can race ahead of the auth SDK's
+      // cookie write, landing back on /login instead of /venue.
+      window.location.href = venueOpened ? "/venue?tour=1" : "/venue";
     } catch {
       setError(GENERIC_ERROR);
     } finally {
