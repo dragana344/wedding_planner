@@ -49,8 +49,12 @@ describe("SignupForm", () => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: "owner@example.com",
         password: "strong-password-123",
-        // The venue name rides along for the confirm-email path (lib/venue/pending-signup.ts).
-        options: { data: { venue_name: "Демо Локал" }, emailRedirectTo: `${window.location.origin}/login` },
+        // The venue name and the owner's manager-login details ride along for
+        // the confirm-email path (lib/venue/pending-signup.ts).
+        options: {
+          data: { venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123" },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
       })
     );
     await waitFor(() =>
@@ -128,6 +132,8 @@ describe("SignupForm", () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
     fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
     fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
     fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
