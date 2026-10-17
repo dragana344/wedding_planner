@@ -70,4 +70,22 @@ export const LongNames: Story = {
   },
 };
 
+// Every template in the two states that most often break a layout.
+const LONG = {
+  couple_names: "Александра-Марија Константиновска & Христијан Јовановски-Петрушевски",
+  venue_name: "Ресторан и сала за свечености „Панорама на Водно“",
+};
+const BARE = { message: null, agenda: [], locations: [], menu: [] };
+
+export const RomanticFloralLongNames: Story = { name: "Долги имиња: романтичен цветен", args: { invitation: { ...invitation, ...LONG, template_id: "romantic-floral" } } };
+export const RomanticFloralBare: Story = { name: "Само основно: романтичен цветен", args: { invitation: { ...invitation, ...BARE, template_id: "romantic-floral" } } };
+export const ElegantGoldLongNames: Story = { name: "Долги имиња: елегантно злато", args: { invitation: { ...invitation, ...LONG, template_id: "elegant-gold" } } };
+export const ElegantGoldBare: Story = { name: "Само основно: елегантно злато", args: { invitation: { ...invitation, ...BARE, template_id: "elegant-gold" } } };
+export const ClassicMinimalLongNames: Story = { name: "Долги имиња: класичен минимален", args: { invitation: { ...invitation, ...LONG, template_id: "classic-minimal" } } };
+export const ClassicMinimalBare: Story = { name: "Само основно: класичен минимален", args: { invitation: { ...invitation, ...BARE, template_id: "classic-minimal" } } };
+export const ModernWatercolorLongNames: Story = { name: "Долги имиња: модерен акварел", args: { invitation: { ...invitation, ...LONG, template_id: "modern-watercolor" } } };
+export const ModernWatercolorBare: Story = { name: "Само основно: модерен акварел", args: { invitation: { ...invitation, ...BARE, template_id: "modern-watercolor" } } };
+export const RoyalGreenLongNames: Story = { name: "Долги имиња: кралско зелено", args: { invitation: { ...invitation, ...LONG, template_id: "royal-green" } } };
+export const RoyalGreenBare: Story = { name: "Само основно: кралско зелено", args: { invitation: { ...invitation, ...BARE, template_id: "royal-green" } } };
+
 export const Phone: Story = { name: "На телефон", globals: { viewport: { value: "mobile1" } } };

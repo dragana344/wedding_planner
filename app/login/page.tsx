@@ -9,7 +9,7 @@ import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
 import { finishPendingSignup } from "@/lib/venue/pending-signup";
 
 const EYEBROW = "Панел за управување";
-const TAGLINE = "Управувајте со вашиот локал, настани и резервации — сè на едно место.";
+const TAGLINE = "Управувајте со вашиот локал и настаните — сè на едно место.";
 
 export default function LoginPage() {
   const router = useRouter();

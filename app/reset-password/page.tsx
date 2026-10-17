@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
     <AuthScreen
       theme="landing"
       eyebrow="Панел за управување"
-      tagline="Управувајте со вашиот локал, настани и резервации — сè на едно место."
+      tagline="Управувајте со вашиот локал и настаните — сè на едно место."
       title="Нова лозинка"
     >
       <form onSubmit={handleSubmit}>

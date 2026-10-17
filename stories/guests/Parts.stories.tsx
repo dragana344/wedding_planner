@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { GuestAlbum } from "@/components/album/GuestAlbum";
+import { GuestAlbum, type GuestAlbumFeatures } from "@/components/album/GuestAlbum";
+import "@/components/album/guest-album.css";
 import { RsvpForm } from "@/components/invite/RsvpForm";
 import { SeatFinder } from "@/components/invite/SeatFinder";
 import { CountdownTimer, DayBanner } from "@/components/invite/countdown";
@@ -9,6 +10,20 @@ const meta: Meta = { title: "Гости/Делови" };
 export default meta;
 
 type Story = StoryObj;
+
+// The album as its page shows it (app/e/[token]/page.tsx): the component
+// alone has no stylesheet and no header.
+const albumPage = (features?: GuestAlbumFeatures) => (
+  <main className="ga-page">
+    <header className="ga-header">
+      <p className="ga-kicker">Албум</p>
+      <h1 className="ga-title">Ана & Марко</h1>
+      <p className="ga-date">14 ноември 2026 · Ресторан Панорама</p>
+    </header>
+    <GuestAlbum token="storybook-album-token" features={features} />
+    <p className="ga-footer">Политика за приватност</p>
+  </main>
+);
 
 const card = (node: React.ReactNode) => <div style={{ maxWidth: 520, margin: "0 auto", padding: 24 }}>{node}</div>;
 
@@ -65,15 +80,20 @@ export const DayTomorrow: Story = {
 
 export const AlbumAll: Story = {
   name: "Албум: фотографии, честитки, видео",
-  render: () => <GuestAlbum token="storybook-album-token" />,
+  render: () => albumPage(),
 };
 
 export const AlbumPhotosOnly: Story = {
   name: "Албум: само фотографии",
-  render: () => <GuestAlbum token="storybook-album-token" features={{ photos: true, greetings: false, video: false }} />,
+  render: () => albumPage({ photos: true, greetings: false, video: false }),
+};
+
+export const AlbumNoVideo: Story = {
+  name: "Албум: фотографии и честитки, без видео",
+  render: () => albumPage({ photos: true, greetings: true, video: false }),
 };
 
 export const AlbumNothing: Story = {
   name: "Албум: ништо во пакетот",
-  render: () => <GuestAlbum token="storybook-album-token" features={{ photos: false, greetings: false, video: false }} />,
+  render: () => albumPage({ photos: false, greetings: false, video: false }),
 };

@@ -10,7 +10,7 @@ import type { EventDetail } from "@/lib/venue/events";
 import { RESERVATION_STATUS_META, type Reservation } from "@/lib/venue/reservations";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 import { FloorPlanCanvas, PX_PER_CM, type CanvasElement } from "./FloorPlanCanvas";
-import { FIXED_TYPE_COLORS, numberTables, type FixedElement, type RoomLayoutElement } from "@/lib/venue/floorplan";
+import { FIXED_LABELS, FIXED_TYPE_COLORS, MOVABLE_LABELS, numberTables, type FixedElement, type RoomLayoutElement } from "@/lib/venue/floorplan";
 
 /** Max height (px) the scaled-down mini floor-plan is allowed to take up. */
 const MINI_FLOORPLAN_MAX_HEIGHT = 550;
@@ -128,7 +128,7 @@ export function DashboardClient({
           width_cm: el.width_cm,
           height_cm: el.height_cm,
           color: FIXED_TYPE_COLORS[el.element_type],
-          label: el.label ?? el.element_type,
+          label: el.label ?? FIXED_LABELS[el.element_type],
           shape: "rect" as const,
           locked: true,
         })),
@@ -149,7 +149,7 @@ export function DashboardClient({
                 ? tableType
                   ? `${tableNumbers.get(el.id)} (${tableType.seats})`
                   : String(tableNumbers.get(el.id))
-                : (el.label ?? tableType?.name ?? el.element_type),
+                : (el.label ?? tableType?.name ?? MOVABLE_LABELS[el.element_type]),
             shape,
             locked: true,
           };

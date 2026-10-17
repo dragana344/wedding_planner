@@ -40,6 +40,8 @@ interface InvitationTheme {
   numeralFont: string;
   displayFontClass: string;
   displayFontSize: number;
+  /** Roughly how wide one letter of the display face is, in em (namesFontSize). */
+  displayGlyphEm: number;
   textColor: string;
   mutedColor: string;
   /** Hairlines, the photo arch and the programme rule. */
@@ -61,6 +63,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: playfair.style.fontFamily,
     displayFontClass: marckScript.className,
     displayFontSize: 54,
+    displayGlyphEm: 0.56,
     textColor: "#7A3B42",
     mutedColor: "#8E545B",
     lineColor: "#D9A5AB",
@@ -77,6 +80,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: playfair.style.fontFamily,
     displayFontClass: `${playfair.className} italic`,
     displayFontSize: 48,
+    displayGlyphEm: 0.6,
     textColor: "#3A2E1F",
     mutedColor: "#6E5E45",
     lineColor: "#B8913A",
@@ -91,6 +95,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: ebGaramond.style.fontFamily,
     displayFontClass: ebGaramond.className,
     displayFontSize: 40,
+    displayGlyphEm: 0.52,
     textColor: "#2C2C2C",
     mutedColor: "#5E5E5E",
     lineColor: "#BDBDBD",
@@ -106,6 +111,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: playfair.style.fontFamily,
     displayFontClass: manrope.className,
     displayFontSize: 40,
+    displayGlyphEm: 0.6,
     textColor: "#2F5578",
     mutedColor: "#4F7397",
     lineColor: "#9FBFDD",
@@ -120,6 +126,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: caveat.style.fontFamily,
     displayFontClass: amaticSc.className,
     displayFontSize: 68,
+    displayGlyphEm: 0.36,
     textColor: "#5C3E20",
     mutedColor: "#6E4E2F",
     lineColor: "#A07A52",
@@ -135,6 +142,7 @@ const THEMES: Record<string, InvitationTheme> = {
     numeralFont: playfair.style.fontFamily,
     displayFontClass: greatVibes.className,
     displayFontSize: 58,
+    displayGlyphEm: 0.56,
     textColor: "#F3EEDF",
     mutedColor: "#E4DDC8",
     lineColor: "#C9BC94",
@@ -145,6 +153,18 @@ const THEMES: Record<string, InvitationTheme> = {
     bottomStripe: "#F3EEDF",
   },
 };
+
+/**
+ * Size for the couple's names: the theme's own size, shrunk until the longest
+ * word (a hyphen is a place to break) fits on one line of the 480px column.
+ * Without it a long surname is cut mid-word or runs into the screen edge.
+ */
+function namesFontSize(names: string, theme: InvitationTheme): string {
+  const words = names.split(/\s+/).flatMap((word) => word.split(/(?<=-)/));
+  const longest = Math.max(1, ...words.map((word) => [...word].length));
+  const fits = `calc(min(100vw - 40px, 480px) / ${(longest * theme.displayGlyphEm).toFixed(2)})`;
+  return `max(20px, min(clamp(34px, 11vw, ${theme.displayFontSize}px), ${fits}))`;
+}
 
 /** "12.06.2027" */
 function numericDate(iso: string): string {
@@ -281,7 +301,7 @@ export function FullInvitation({
 
         <p
           className={theme.displayFontClass}
-          style={{ color: theme.textColor, fontSize: `clamp(34px, 11vw, ${theme.displayFontSize}px)`, margin: "10px 0 14px", lineHeight: 1.1, overflowWrap: "anywhere" }}
+          style={{ color: theme.textColor, fontSize: namesFontSize(invitation.couple_names, theme), margin: "10px 0 14px", lineHeight: 1.1, overflowWrap: "anywhere" }}
         >
           {invitation.couple_names}
         </p>
