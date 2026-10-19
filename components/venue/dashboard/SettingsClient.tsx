@@ -125,6 +125,7 @@ export function SettingsClient({
     // A hard navigation, not router.push: same reasoning as the other
     // sign-outs — a client-side transition right after signOut() can race
     // ahead of the auth SDK's cookie clear.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
   }
 
@@ -177,6 +178,7 @@ export function SettingsClient({
       // A hard navigation, not router.push: same reasoning as the other
       // sign-outs — a client-side transition right after signOut() can race
       // ahead of the auth SDK's cookie clear.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/login";
     } catch (err) {
       setDeleteStatus(errorMessage(err, "Не успеа бришењето на сметката."));

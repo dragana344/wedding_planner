@@ -19,6 +19,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     // A hard navigation, not router.push: same reasoning as the venue
     // AccountMenu's sign-out — a client-side transition right after
     // signOut() can race ahead of the auth SDK's cookie clear.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/admin/login";
   }
 

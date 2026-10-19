@@ -54,6 +54,7 @@ export function AccountMenu({ venueName, userRole }: { venueName: string; userRo
     // check reads the session from cookies, and a client-side transition
     // right after signOut() can race ahead of the auth SDK's cookie clear,
     // landing back on the venue dashboard instead of /login.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
   }
 

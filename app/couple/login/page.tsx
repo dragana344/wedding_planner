@@ -29,6 +29,7 @@ export default function CoupleLoginPage() {
       // A hard navigation, not router.push: same reasoning as the venue and
       // admin logins — a client-side transition right after the session
       // cookie is set can race ahead of it in a way a real navigation can't.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/couple";
     } catch {
       setError(GENERIC_ERROR);

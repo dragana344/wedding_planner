@@ -67,6 +67,7 @@ export function SignupForm() {
       // A hard navigation, not router.push: the venue layout's server-side
       // check reads the session from cookies, and a client-side transition
       // right after signUp() can race ahead of the auth SDK's cookie write.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/venue?tour=1";
     } catch {
       setError(GENERIC_ERROR);
