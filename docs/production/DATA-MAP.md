@@ -76,7 +76,7 @@ Created in `0003_events_couples.sql`, then changed by `0010` (dropped `couple_us
 - **Purpose:** managing the booking and event (contract with the couple), contacting the couple, keeping payment records.
 - **Lawful basis:** contract / pre-contract steps between venue and couple. Financial records may fall under a legal obligation (accounting) (*to confirm in COMP-001*).
 - **Access:**
-  - Venue staff via RLS `"venue staff manage own events"` (0004). This is full CRUD from the browser: `lib/venue/events.ts` selects all contact and finance columns, and `components/venue/dashboard/ClientsClient.tsx` lists them.
+  - Venue staff via RLS `"venue staff reads own events"` (0096): read-only, and since **0117** without `contact_email`, `contact_email_2`, `contact_phone`, `total_price`, `deposit_paid` (column-level grant). Those five are read only server-side with the service role, behind a manager-elevation check (`/api/venue/events/private`, `/api/venue/clients`, `/api/venue/reports`); every event write goes through manager-gated routes (0096).
   - Couples via the service role, scoped `.eq("id", eventId)`: `app/api/couple/contact-info/route.ts` updates the contact fields, and `lib/couple/dashboard.ts` / `lib/couple/seating.ts` handle the rest.
   - Guests (public): only `couple_names`, `event_date`, `start_time`, plus venue and room names, via `getInvitationBySlug` (`lib/couple/invitations.ts`, service role).
 - **Retention:** none defined, see DATA-007.
@@ -140,7 +140,6 @@ Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`; RS
 | `children_count` | Yes, in context | 0060 |
 | `rsvp_status` | Yes (attendance) | invited / confirmed / declined / pending / later |
 | `side` | Yes (family relationship: bride's or groom's side) | 0025 |
-| `menu_choice` | **Yes. May reveal religion** (`posno` = Orthodox fasting menu) | standard / posno / vegetarian (0060) |
 | `allergies` | **Yes. Special-category (health) data** | ≤ 300 chars, set by the guest in the RSVP (0060) |
 | `rsvp_comment` | Free text, like `notes` | ≤ 500 chars, set by the guest (0060) |
 | `invite_token` | **Secret** | opens this guest's personal invitation/RSVP; never exported (0060) |
@@ -174,6 +173,22 @@ Created in `0022_organizer_tools.sql`.
 - **Access:** couples via the service role (`lib/couple/invitations.ts`). Anyone holding the slug can read message, photo, couple names, date and venue via `getInvitationBySlug` (`app/invite/[slug]/page.tsx`). Staff have no policy.
 - **Retention:** none defined, see DATA-007. The link stays live indefinitely after the event.
 
+### 2.7a Menu choices: `event_guest_menu_counts`, `event_menu_submissions`
+Created in `0119_event_menus_guest_counts.sql`.
+
+| Table | Field | Personal? | Notes |
+|---|---|---|---|
+| `event_guest_menu_counts` | `count` (per `guest_id` × `menu_template_id`) | **Yes. May reveal religion or health** (e.g. how many of a guest's party eat the посно/vegan menu) | set by the guest's RSVP or by the couple |
+| `event_menu_submissions` | `counts`, `menu_titles`, `total` | Yes, in context (aggregate numbers per menu) | the numbers the couple sent to the venue |
+| `event_menu_submissions` | `sent_by` | No | always the fixed "Младенците" |
+| `event_menu_submissions` | `seen_by` | **Yes** (the venue manager's name) | set when a manager marks the numbers seen |
+
+- **Subject:** guests (counts); venue manager (`seen_by`).
+- **Purpose:** telling the venue how many portions of each of the event's menus to prepare.
+- **Access:** counts: service role only (couple routes and the RSVP), staff have no access. Submissions: staff read their own venue's rows via RLS; writes through server routes with the service role.
+- **Export / erasure:** both are exported with their event (`lib/privacy/export.ts`). Counts cascade with `event_guests` on erasure; erasure clears `seen_by` (0122).
+- **Retention:** none defined, see DATA-007. Cascades with the event.
+
 ### 2.8 Couple planning tools (free text, incidental personal data)
 
 | Table | Migration | Personal fields | Why it matters |
@@ -184,7 +199,6 @@ Created in `0022_organizer_tools.sql`.
 | `event_budget_items` | `0023_budget_checklist.sql` | `name`, `custom_label`, `estimated_amount`, `paid_amount` | Couple's spending, and vendor names (possibly sole traders) |
 | `event_checklist_items` | `0023_budget_checklist.sql` (+ `0024` marker on events) | `title`, `due_date` | Low. Free text |
 | `event_checklist_subtasks` | `0027_checklist_subtasks.sql` | `title` | Low. Free text (e.g. candidate photographers) |
-| `event_menu_item_quantities` | `0022_organizer_tools.sql` | `guest_count` | Not personal on its own |
 
 - **Subject:** couple, and third parties named in the text.
 - **Purpose:** the couple's own event planning.
@@ -228,6 +242,7 @@ Created in `0016_reservations.sql`. Policies replaced in `0017_reservations_room
 | `date`, `start_time`, `end_time`, `party_size`, `event_type` | Yes, in context |
 | `note` | Free text (may include dietary/health info) |
 | `status` | Low |
+| `server_name` | No — the venue staff member who took the booking, not the customer |
 
 `reservation_tables` holds only IDs.
 
@@ -252,7 +267,7 @@ Created in `0029_contact_submissions.sql`. Columns `status` (`new`/`read`/`answe
 - **Retention:** none defined, see DATA-007. Nothing ever deletes these rows.
 
 ### 2.13 Tables with no personal data (checked)
-`rooms`, `table_types` (0001), `menu_templates`, `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_custom_menu_items` (0013), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
+`rooms`, `table_types` (0001), `menu_templates`, `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_menu_templates` (0115; which menus an event offers; `menu_templates.event_id` (0119) marks an event's own custom menu), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
 
 ### 2.14 Entitlements: `plans`, `plan_features`, `venue_feature_overrides`, `event_feature_overrides`, `platform_settings`, and `venues.plan_id`/`blocked_at`/`blocked_reason`
 `plans`/`plan_features`/`venue_feature_overrides`/`event_feature_overrides`/`venues.plan_id`/`blocked_at`/`blocked_reason` created in `0048_plans_and_entitlements.sql`; `plans.is_public` added in `0052_plans_is_public.sql`; `platform_settings` created in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1 — the DB half of the maintenance-mode flag, `lib/platform-settings.ts`; `updated_by` is an `auth.users.id`, no direct personal-data column). See [ADMIN.md](ADMIN.md) for the resolution order and the plans/overrides model in full.
@@ -263,6 +278,7 @@ Created in `0029_contact_submissions.sql`. Columns `status` (`new`/`read`/`answe
 
 ### 2.15 Historic (removed, not in the final schema)
 - `events.couple_user_id` (0003) was dropped in `0010_event_organizers.sql`. Its values moved to `event_organizers`.
+- `event_guests.menu_choice` (0060; standard / posno / vegetarian, could reveal religion), `event_menu_item_quantities` (0022), `event_custom_menu_items` (0013) and `events.menu_template_id` (0002/0003) were **dropped** in `0122_drop_single_menu_and_couple_picker.sql`, replaced by the 0115/0119 menu tables (§2.7a).
 - `event_organizers` (`event_id`, `user_id` to `auth.users`) was created in `0010`, got an RLS fix in `0011_fix_event_organizers_rls_recursion.sql`, and was **dropped** in `0013_couple_dashboard.sql` together with `is_organizer_for_event()`. Couples no longer have Supabase Auth accounts. Any `auth.users` rows created for organizers before 0013 are **not** removed by the migration. Check production for orphans (DATA-005).
 
 ---
@@ -294,7 +310,7 @@ All three buckets are created `public = true`. That means any object can be down
 | Bucket | Created in | Contents | Path scheme | Write | Read |
 |---|---|---|---|---|---|
 | `menu-item-photos` | `0007_menu_item_price_photo.sql` | Dish photos (not personal) | `{venue_id}/...` | staff, via storage policies `"venue staff upload/update/delete own menu item photos"` (`is_venue_staff_for(foldername[1])`) | public: `"public read menu item photos"` |
-| `event-showcase-photos` | `0008_event_showcase_photos.sql` | **Photos of events, likely showing people** | `{venue_id}/{event_id}-{timestamp}.{ext}` (`lib/venue/showcase.ts`) | staff: `"venue staff upload/delete own event showcase photos"` | public: `"public read event showcase photos"` |
+| `event-showcase-photos` | `0008_event_showcase_photos.sql` | **Photos of events, likely showing people** | `{venue_id}/{event_id}-{timestamp}.{ext}` (`lib/venue/showcase.ts`) | staff: none since 0109 (uploads go through a manager-gated signed URL) | public: `"public read event showcase photos"` |
 | `invitation-photos` | `0022_organizer_tools.sql` | **Couples' personal photos** (engagement/portrait) | `{event_id}-{timestamp}.{ext}` at bucket root (`uploadInvitationPhoto` in `lib/couple/invitations.ts`) | service role only (couple route) | public: `"public read invitation photos"` |
 
 Observations for SEC/DATA tasks:

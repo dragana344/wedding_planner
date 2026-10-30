@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Plan 4 of venue-manager-staff-login (migration 0104 + the seating route):
+// Plan 4 of venue-manager-staff-login (migration 0105 + the seating route):
 // plain staff may view an event's seating but never change it — directly
 // through RLS or through the route without a manager elevation — and the
 // route's service-role writes never reach another venue's event.
@@ -181,7 +181,7 @@ describe("seating route — never reaches past the caller's venue", () => {
   });
 });
 
-describe("0104 — plain staff are read-only on event seating through RLS", () => {
+describe("0105 — plain staff are read-only on event seating through RLS", () => {
   it("can still read the layout, its seats and its undo history", async () => {
     expect(await must(staffClient.from("event_layout_elements").select("id").eq("event_id", eventId))).toHaveLength(2);
     const { error: seatsError } = await staffClient.from("event_seat_assignments").select("id").eq("event_id", eventId);

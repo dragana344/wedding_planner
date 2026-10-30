@@ -18,8 +18,7 @@ function baseEvent(overrides: Partial<EventDetail>): EventDetail {
     status: "confirmed",
     event_type: "wedding",
     guest_count_estimate: null,
-    menu_template_id: null,
-    customMenuItems: [],
+    menus: [],
     room_ids: [],
     hasShowcasePhotos: false,
     seatedCount: 0,
@@ -29,6 +28,7 @@ function baseEvent(overrides: Partial<EventDetail>): EventDetail {
     total_price: null,
     deposit_paid: null,
     hasUnseenSeatingChange: false,
+    menuNumbers: { latest: null, previous: null },
     ...overrides,
   };
 }

@@ -4,7 +4,8 @@ import { randomBytes, randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { IMAGE_SNIFF_BYTES, sniffImageType } from "@/lib/image-type";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
-import { sortDishes, type ProgramDish, type ProgramItem, type ProgramLocation } from "@/lib/couple/invitation-program";
+import { type ProgramDish, type ProgramItem, type ProgramLocation } from "@/lib/couple/invitation-program";
+import { getEventMenus } from "@/lib/couple/menu";
 import { eventHasFeature } from "@/lib/entitlements/server";
 import { getVenueBranding } from "@/lib/venue/branding";
 
@@ -152,7 +153,8 @@ export interface PublicInvitation {
   /** A14: the programme guests see (agenda without the couple's notes). */
   agenda: ProgramItem[];
   locations: ProgramLocation[];
-  menu: ProgramDish[];
+  /** Each of the event's menus with its dishes (A14). */
+  menus: { id: string; name: string; dishes: ProgramDish[] }[];
   /** The package includes seating: show "Каде седам?" / "Мојата маса" (default true). */
   seating_enabled?: boolean;
   /** The hosting venue's logo, when its plan includes branding (0087). */
@@ -171,7 +173,7 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
 
   const { data: event } = await client
     .from("events")
-    .select("couple_names, event_date, start_time, event_type, venue_id, menu_template_id, event_rooms(rooms(name))")
+    .select("couple_names, event_date, start_time, event_type, venue_id, event_rooms(rooms(name))")
     .eq("id", invitation.event_id)
     .single();
   if (!event) return null;
@@ -181,23 +183,15 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
     .map((r) => (Array.isArray(r.rooms) ? r.rooms[0]?.name : r.rooms?.name))
     .filter((n): n is string => Boolean(n));
 
-  const [agenda, locations, menu, seatingEnabled, branding] = await Promise.all([
+  const [agenda, locations, menus, seatingEnabled, branding] = await Promise.all([
     client.from("event_agenda_items").select("time, title").eq("event_id", invitation.event_id).order("sort_order").limit(100),
     client.from("event_locations").select("label, address, map_url").eq("event_id", invitation.event_id).order("sort_order").limit(50),
-    event.menu_template_id
-      ? client.from("menu_template_items").select("menu_items(course, name)").eq("menu_template_id", event.menu_template_id)
-      : client.from("event_custom_menu_items").select("menu_items(course, name)").eq("event_id", invitation.event_id),
+    getEventMenus(invitation.event_id),
     eventHasFeature(invitation.event_id, "seating"),
     getVenueBranding(event.venue_id),
   ]);
   if (agenda.error) throw agenda.error;
   if (locations.error) throw locations.error;
-  if (menu.error) throw menu.error;
-  const dishes = ((menu.data ?? []) as unknown as { menu_items: ProgramDish | null }[])
-    .map((row) => row.menu_items)
-    .filter((d): d is ProgramDish => d !== null)
-    .map((d) => ({ course: d.course, name: d.name }));
-
   return {
     couple_names: event.couple_names,
     event_date: event.event_date,
@@ -205,7 +199,7 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
     event_type: event.event_type,
     agenda: agenda.data.map((item) => ({ time: item.time ? String(item.time).slice(0, 5) : null, title: item.title })),
     locations: locations.data,
-    menu: sortDishes(dishes),
+    menus: menus.map(({ id, name, dishes }) => ({ id, name, dishes })),
     seating_enabled: seatingEnabled,
     venue_name: venue?.name ?? "",
     venue_logo_url: branding.logoUrl,

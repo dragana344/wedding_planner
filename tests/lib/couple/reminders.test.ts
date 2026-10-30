@@ -95,12 +95,34 @@ describe("runDueReminders (A10)", () => {
     const yes = mine.find((m) => m.to[0] === "yes@example.mk")!;
     expect(yes.subject).toBe("Потсетник: Ана и Марко");
     expect(yes.text).toContain(`https://kadesum.mk/invite/${public_slug}?g=${token}`);
+    // One menu or none: nothing to choose, so the original last line.
+    expect(yes.text.split("\n").pop()).toBe(`Вашата покана, агенда и потврда за доаѓање: https://kadesum.mk/invite/${public_slug}?g=${token}`);
     expect(await getReminder(id)).toMatchObject({ status: "sent", sentCount: 2 });
 
     // A second run (cron every hour) sends nothing more.
     const count = sent.length;
     await runDueReminders(new Date("2091-09-05T09:00:00Z"), "https://kadesum.mk");
     expect(sent.length).toBe(count);
+  });
+
+  it("asks guests to choose a menu when the event offers two or more", async () => {
+    const sent = mockResend();
+    const id = await newEvent("2094-09-20");
+    const { public_slug } = await upsertInvitation(id, { template_id: "elegant-gold", message: null });
+    const { data: menus } = await admin
+      .from("menu_templates")
+      .insert([{ venue_id: venueId, name: "Класично" }, { venue_id: venueId, name: "Посно" }])
+      .select("id");
+    expect((await admin.from("event_menu_templates").insert(menus!.map((m) => ({ event_id: id, menu_template_id: m.id })))).error).toBeNull();
+    const { data: guest } = await admin
+      .from("event_guests")
+      .insert({ event_id: id, full_name: "Мени", email: "menu-choice@example.mk", rsvp_status: "confirmed" })
+      .select("invite_token")
+      .single();
+
+    await runDueReminders(new Date("2094-09-05T08:00:00Z"), "https://kadesum.mk");
+    const mail = sent.find((m) => m.to[0] === "menu-choice@example.mk")!;
+    expect(mail.text.split("\n").pop()).toBe(`Потврдете доаѓање и изберете мени: https://kadesum.mk/invite/${public_slug}?g=${guest!.invite_token}`);
   });
 
   it("skips a guest already reminded by a run that died half way", async () => {

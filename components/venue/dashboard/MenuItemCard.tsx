@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 import { ImageLightbox } from "./ImageLightbox";
 import { AllergenTagEditor } from "./AllergenTagEditor";
+import { CourseChips } from "./CourseChips";
+import { DietToggles } from "./DietToggles";
+import { DishPreviewRow } from "./DishPreviewRow";
+import { PhotoDropzone } from "./PhotoDropzone";
 import { Icon } from "@/components/venue/shell/Icon";
 import {
   deleteMenuItem,
@@ -11,17 +15,27 @@ import {
   updateMenuItem,
   uploadMenuItemPhoto,
   type MenuItem,
-  type MenuItemTier,
   type MenuItemUpdateInput,
 } from "@/lib/venue/menus";
+import { COURSE_META, formatPrice } from "@/lib/venue/menu-display";
 import { errorMessage } from "@/lib/venue/user-error";
 
-const COURSE_LABELS: Record<MenuItem["course"], string> = {
-  starter: "Предјадење",
-  main: "Главно јадење",
-  dessert: "Десерт",
-  other: "Друго",
-};
+export function DietTags({ item }: { item: Pick<MenuItem, "is_vegetarian" | "is_vegan"> }) {
+  return (
+    <>
+      {item.is_vegetarian ? (
+        <span className="mp-tag">
+          <Icon name="leaf" size="sm" /> вегетаријанско
+        </span>
+      ) : null}
+      {item.is_vegan ? (
+        <span className="mp-tag">
+          <Icon name="sprout" size="sm" /> веганско
+        </span>
+      ) : null}
+    </>
+  );
+}
 
 export function MenuItemCard({
   item,
@@ -49,9 +63,16 @@ export function MenuItemCard({
         onDragStart={onDragStart}
         onClick={() => setIsOpen(true)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setIsOpen(true);
+          // Only the row's own keys: Enter on the photo button inside must
+          // open the photo, not also the edit window. Space would otherwise
+          // scroll the page, as it does for any non-<button> element.
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsOpen(true);
+          }
         }}
-        className="menu-item-row"
+        className="mp-dish-row"
       >
         {photoUrl ? (
           <button
@@ -63,18 +84,19 @@ export function MenuItemCard({
             aria-label={`Погледни фотографија на ${item.name}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoUrl} alt={item.name} className="menu-item-thumb" />
+            <img src={photoUrl} alt={item.name} className="mp-th" style={{ width: 42, height: 42 }} />
           </button>
         ) : (
-          <div className="menu-item-thumb menu-item-thumb-empty" />
+          <div className="mp-th">
+            <Icon name={COURSE_META[item.course].icon} size="md" />
+          </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <b>{item.name}</b>
-          <span className="muted"> — {COURSE_LABELS[item.course]}</span>
-          {item.is_vegetarian ? <span className="pill p-ok" style={{ marginLeft: 8 }}>вегетаријанско</span> : null}
-          {item.is_vegan ? <span className="pill p-ok" style={{ marginLeft: 8 }}>веганско</span> : null}
+        <div className="mp-dish-row-main">
+          <span className="mp-dish-name">{item.name}</span>
+          <DietTags item={item} />
+          <span className="mp-lead" />
+          {item.price !== null ? <span className="mp-price">{formatPrice(item.price)}</span> : null}
         </div>
-        {item.price !== null ? <span style={{ fontFamily: "var(--data)", fontWeight: 700 }}>{item.price.toFixed(2).replace(/\.00$/, "")} ден</span> : null}
       </div>
       {isOpen ? <MenuItemDetailModal item={item} venueId={venueId} onClose={() => setIsOpen(false)} onChanged={onChanged} /> : null}
       {isPhotoOpen && photoUrl ? <ImageLightbox src={photoUrl} alt={item.name} onClose={() => setIsPhotoOpen(false)} /> : null}
@@ -94,7 +116,6 @@ function MenuItemDetailModal({
   onChanged: () => void;
 }) {
   const [name, setName] = useState(item.name);
-  const [tiers, setTiers] = useState<MenuItemTier[]>(item.tiers);
   const [course, setCourse] = useState<MenuItem["course"]>(item.course);
   const [allergenTags, setAllergenTags] = useState<string[]>(item.allergen_tags);
   const [isVegetarian, setIsVegetarian] = useState(item.is_vegetarian);
@@ -108,9 +129,7 @@ function MenuItemDetailModal({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
 
-  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handlePhotoSelected(file: File) {
     setError(null);
     setIsUploadingPhoto(true);
     try {
@@ -123,23 +142,13 @@ function MenuItemDetailModal({
     }
   }
 
-  function toggleTier(value: MenuItemTier) {
-    setTiers((current) =>
-      current.includes(value) ? current.filter((t) => t !== value) : [...current, value]
-    );
-  }
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (tiers.length === 0) {
-      setError("Изберете барем еден вид мени.");
-      return;
-    }
     setIsSubmitting(true);
     try {
       const input: MenuItemUpdateInput = {
-        tiers,
+        tiers: item.tiers,
         course,
         name,
         allergen_tags: allergenTags,
@@ -176,76 +185,46 @@ function MenuItemDetailModal({
   return (
     <Modal title={item.name} onClose={onClose}>
       <form onSubmit={handleSave} className="ev-form">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {photoUrl ? (
-            <button type="button" onClick={() => setIsPhotoOpen(true)} aria-label={`Погледни фотографија на ${name}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoUrl} alt={name} style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover" }} />
-            </button>
-          ) : (
-            <div className="menu-item-thumb menu-item-thumb-empty" style={{ width: 64, height: 64 }} />
-          )}
-          <label className="btn btn-ghost" style={{ cursor: "pointer" }}>
-            {isUploadingPhoto ? "Се прикачува..." : "Смени фотографија"}
-            <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
-          </label>
-        </div>
+        <PhotoDropzone
+          previewUrl={photoUrl}
+          onFileSelected={handlePhotoSelected}
+          isUploading={isUploadingPhoto}
+          onViewClick={photoUrl ? () => setIsPhotoOpen(true) : undefined}
+        />
         {isPhotoOpen && photoUrl ? <ImageLightbox src={photoUrl} alt={name} onClose={() => setIsPhotoOpen(false)} /> : null}
 
-        <div className="ev-form-grid">
-          <div className="ev-field ev-field-wide">
-            <label className="lab-s" htmlFor="edit-item-name">Име</label>
-            <input id="edit-item-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div className="ev-field ev-field-wide">
-            <span className="lab-s">Вид мени</span>
-            <div style={{ display: "flex", gap: 16, paddingTop: 4 }}>
-              <div className="ev-check">
-                <input
-                  id="edit-item-tier-everyday"
-                  type="checkbox"
-                  checked={tiers.includes("everyday")}
-                  onChange={() => toggleTier("everyday")}
-                />
-                <label htmlFor="edit-item-tier-everyday">Секојдневно</label>
-              </div>
-              <div className="ev-check">
-                <input
-                  id="edit-item-tier-special"
-                  type="checkbox"
-                  checked={tiers.includes("special")}
-                  onChange={() => toggleTier("special")}
-                />
-                <label htmlFor="edit-item-tier-special">Специјално</label>
-              </div>
-            </div>
-          </div>
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="edit-item-course">Категорија</label>
-            <select id="edit-item-course" className="fld" value={course} onChange={(e) => setCourse(e.target.value as MenuItem["course"])}>
-              <option value="starter">Предјадење</option>
-              <option value="main">Главно јадење</option>
-              <option value="dessert">Десерт</option>
-              <option value="other">Друго</option>
-            </select>
-          </div>
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="edit-item-price">Цена</label>
+        <div className="ev-field">
+          <label className="lab-s" htmlFor="edit-item-name">Име</label>
+          <input id="edit-item-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="ev-field">
+          <label className="lab-s">Категорија</label>
+          <CourseChips value={course} onChange={setCourse} />
+        </div>
+        <div className="ev-field" style={{ maxWidth: 160 }}>
+          <label className="lab-s" htmlFor="edit-item-price">Цена</label>
+          <div className="mp-price-field">
             <input id="edit-item-price" className="fld" type="number" min={0} step="1" value={price} onChange={(e) => setPrice(e.target.value)} />
-          </div>
-          <div className="ev-field ev-field-wide">
-            <label className="lab-s">Алергени</label>
-            <AllergenTagEditor tags={allergenTags} onChange={setAllergenTags} />
-          </div>
-          <div className="ev-check">
-            <input id="edit-item-veg" type="checkbox" checked={isVegetarian} onChange={(e) => setIsVegetarian(e.target.checked)} />
-            <label htmlFor="edit-item-veg">Вегетаријанско</label>
-          </div>
-          <div className="ev-check">
-            <input id="edit-item-vegan" type="checkbox" checked={isVegan} onChange={(e) => setIsVegan(e.target.checked)} />
-            <label htmlFor="edit-item-vegan">Веганско</label>
+            <span>ден</span>
           </div>
         </div>
+        <div className="ev-field">
+          <label className="lab-s">Алергени</label>
+          <AllergenTagEditor tags={allergenTags} onChange={setAllergenTags} />
+        </div>
+        <div className="ev-field">
+          <label className="lab-s">Исхрана</label>
+          <DietToggles isVegetarian={isVegetarian} onVegetarianChange={setIsVegetarian} isVegan={isVegan} onVeganChange={setIsVegan} />
+        </div>
+
+        <DishPreviewRow
+          name={name}
+          course={course}
+          price={price === "" ? null : Number(price)}
+          isVegetarian={isVegetarian}
+          isVegan={isVegan}
+          photoPreviewUrl={photoUrl}
+        />
 
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
 

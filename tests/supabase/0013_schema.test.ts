@@ -160,21 +160,4 @@ describe("0013 schema: couple dashboard auth", () => {
     expect(data?.event_id).toBe(eventAId);
     await admin.from("couple_sessions").delete().eq("token", "0013-test-token");
   });
-
-  it("lets venue staff read event_custom_menu_items for their own event only", async () => {
-    const { data: menuItem } = await admin
-      .from("menu_items")
-      .insert({ venue_id: venueAId, tiers: ["special"], course: "main", name: "0013 Dish" })
-      .select()
-      .single();
-    await admin.from("event_custom_menu_items").insert({ event_id: eventAId, menu_item_id: menuItem!.id });
-
-    const staffClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    await staffClient.auth.signInWithPassword({ email: staffAEmail, password: staffAPassword });
-    const { data: rows } = await staffClient.from("event_custom_menu_items").select("menu_item_id").eq("event_id", eventAId);
-    expect(rows).toHaveLength(1);
-  });
 });

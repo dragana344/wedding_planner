@@ -5,7 +5,7 @@ import { createVenuePhotoUpload } from "@/lib/venue/photo-upload";
 import { withPublic } from "@/lib/api/handler";
 import { uuid } from "@/lib/api/schemas";
 
-// Фотографии за промоција, step 1 (manager-only, 0107): a one-time signed
+// Фотографии за промоција, step 1 (manager-only, 0109): a one-time signed
 // upload into the venue's pending folder; ./confirm checks and attaches it.
 
 export const POST = withPublic(

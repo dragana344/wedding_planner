@@ -29,10 +29,16 @@ export const invitation: PublicInvitation = {
     { label: "Црква Св. Климент", address: "бул. Партизански Одреди, Скопје", map_url: null },
     { label: "Ресторан Панорама", address: "Водно бб, Скопје", map_url: "https://maps.google.com/?q=Skopje" },
   ],
-  menu: [
-    { course: "starter", name: "Мезе чинија" },
-    { course: "main", name: "Телешко печење со компири" },
-    { course: "dessert", name: "Свадбена торта" },
+  menus: [
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Свадбено мени",
+      dishes: [
+        { course: "starter", name: "Мезе чинија" },
+        { course: "main", name: "Телешко печење со компири" },
+        { course: "dessert", name: "Свадбена торта" },
+      ],
+    },
   ],
   seating_enabled: true,
   venue_logo_url: null,
@@ -43,7 +49,7 @@ export const invitee: Invitee = {
   rsvpStatus: "invited",
   partySize: 2,
   childrenCount: 0,
-  menuChoice: null,
+  menuCounts: {},
   allergies: null,
   rsvpComment: null,
 };
@@ -63,7 +69,7 @@ function guest(n: number, over: Partial<Guest>): Guest {
     invite_token: `storybook-token-${String(n).padStart(12, "0")}`,
     email: null,
     children_count: 0,
-    menu_choice: null,
+    menu_counts: {},
     allergies: null,
     rsvp_comment: null,
     invitation_sent_at: null,
@@ -73,8 +79,8 @@ function guest(n: number, over: Partial<Guest>): Guest {
 }
 
 export const guests: Guest[] = [
-  guest(1, { full_name: "Елена Трајковска", phone: "070 123 456", party_size: 2, rsvp_status: "confirmed", side: "bride", menu_choice: "standard", invitation_sent_at: "2026-10-01T10:00:00Z", invitation_channel: "whatsapp" }),
-  guest(2, { full_name: "Баба Вера", party_size: 1, rsvp_status: "confirmed", side: "groom", allergies: "глутен", menu_choice: "vegetarian" }),
+  guest(1, { full_name: "Елена Трајковска", phone: "070 123 456", party_size: 2, rsvp_status: "confirmed", side: "bride", invitation_sent_at: "2026-10-01T10:00:00Z", invitation_channel: "whatsapp" }),
+  guest(2, { full_name: "Баба Вера", party_size: 1, rsvp_status: "confirmed", side: "groom", allergies: "глутен" }),
   guest(3, { full_name: "Игор Николовски", phone: "071 222 333", party_size: 4, children_count: 2, rsvp_status: "invited", side: "groom", invitation_sent_at: "2026-10-02T09:30:00Z", invitation_channel: "viber" }),
   guest(4, { full_name: "Марија Стојанова", email: "marija@example.com", party_size: 2, rsvp_status: "declined", side: "bride", rsvp_comment: "За жал сме на пат." }),
   guest(5, { full_name: "Кум Дејан", party_size: 2, rsvp_status: "pending", side: "groom", notes: "Кум — маса 1" }),
@@ -90,7 +96,8 @@ export const guestStats: GuestStats = {
   later: 1,
   totalAttending: 3,
   childrenAttending: 0,
-  menu: { standard: 2, posno: 0, vegetarian: 1, unset: 0 },
+  menus: [{ id: "menu-1", name: "Класично", count: 3 }],
+  notDone: [],
   invitationsSent: 2,
 };
 
@@ -103,7 +110,8 @@ export const emptyStats: GuestStats = {
   later: 0,
   totalAttending: 0,
   childrenAttending: 0,
-  menu: { standard: 0, posno: 0, vegetarian: 0, unset: 0 },
+  menus: [],
+  notDone: [],
   invitationsSent: 0,
 };
 

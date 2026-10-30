@@ -1,4 +1,4 @@
--- 0096: /signup now collects the owner's name + manager password alongside
+-- 0097: /signup now collects the owner's name + manager password alongside
 -- the venue name (spec §8) — provision_venue creates the venue, the staff
 -- row, AND the is_owner=true venue_managers row in one transaction, so a
 -- venue is never left without an owner between signup and a later step.

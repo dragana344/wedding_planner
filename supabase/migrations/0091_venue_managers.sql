@@ -1,4 +1,4 @@
--- 0090: venue managers — a name+password pair per venue (not a separate
+-- 0091: venue managers — a name+password pair per venue (not a separate
 -- Supabase Auth account) that elevates the venue's existing single login
 -- from "staff" to "manager" for the current browser tab only (spec
 -- docs/superpowers/specs/2026-10-14-venue-manager-staff-login-design.md).

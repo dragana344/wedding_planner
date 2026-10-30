@@ -41,7 +41,6 @@ function useNow() {
 
 export function PanelShell({
   venueName,
-  userRole = "Менаџер",
   lockedFeatures = [],
   brand,
   children,
@@ -49,7 +48,6 @@ export function PanelShell({
   /** The venue's own logo and accent colour (0087), when its plan includes branding. */
   brand?: { logoUrl: string | null; vars: BrandVars | null };
   venueName: string;
-  userRole?: string;
   /** Feature keys the venue's plan does not include (admin dashboard spec
    * §4.4). Locks the matching nav items and shows LockedBanner on their
    * pages. Defaults to none locked, so existing callers keep working. */
@@ -157,7 +155,7 @@ export function PanelShell({
               </div>
             </div>
             <div className="meta-item">
-              <AccountMenu venueName={venueName} userRole={userRole} />
+              <AccountMenu venueName={venueName} />
             </div>
           </div>
         </header>

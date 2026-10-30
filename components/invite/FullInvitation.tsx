@@ -215,9 +215,13 @@ export function FullInvitation({
     ...(invitation.locations.length > 0 ? [{ id: "lokacii", label: "Локации" }] : []),
     { id: "potvrda", label: "Потврда" },
   ];
-  const courses = COURSE_ORDER.map((course) => ({ course, dishes: invitation.menu.filter((d) => d.course === course) })).filter(
-    (c) => c.dishes.length > 0,
-  );
+  const menuBlocks = invitation.menus.map((menu) => ({
+    id: menu.id,
+    name: menu.name,
+    courses: COURSE_ORDER.map((course) => ({ course, dishes: menu.dishes.filter((d) => d.course === course) })).filter(
+      (c) => c.dishes.length > 0,
+    ),
+  }));
 
   return (
     <main
@@ -404,21 +408,28 @@ export function FullInvitation({
           </section>
         ) : null}
 
-        {courses.length > 0 ? (
+        {menuBlocks.length > 0 ? (
           <section aria-label="Мени" style={{ margin: "36px 0 0" }}>
             <h2 className={theme.displayFontClass} style={{ color: theme.textColor, fontSize: 30, fontWeight: 400, margin: "0 0 14px" }}>
               Мени
             </h2>
-            {courses.map(({ course, dishes }) => (
-              <div key={course} style={{ margin: "0 0 14px" }}>
-                <h3 style={{ fontSize: 15, fontStyle: "italic", fontWeight: 500, color: theme.mutedColor, margin: "0 0 4px" }}>{COURSE_LABELS[course]}</h3>
-                <p style={{ fontSize: 18, margin: 0, lineHeight: 1.6 }}>
-                  {dishes.map((d, i) => (
-                    <span key={i} style={{ display: "block" }}>
-                      {d.name}
-                    </span>
-                  ))}
-                </p>
+            {menuBlocks.map((menu) => (
+              <div key={menu.id} style={{ margin: "0 0 22px" }}>
+                <h3 style={{ color: theme.textColor, fontSize: 21, fontWeight: 600, margin: "0 0 10px" }}>{menu.name}</h3>
+                {menu.courses.map(({ course, dishes }) => (
+                  <div key={course} style={{ margin: "0 0 14px" }}>
+                    <h4 style={{ fontSize: 15, fontStyle: "italic", fontWeight: 500, color: theme.mutedColor, margin: "0 0 4px" }}>
+                      {COURSE_LABELS[course]}
+                    </h4>
+                    <p style={{ fontSize: 18, margin: 0, lineHeight: 1.6 }}>
+                      {dishes.map((d, i) => (
+                        <span key={i} style={{ display: "block" }}>
+                          {d.name}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+                ))}
               </div>
             ))}
           </section>
@@ -444,6 +455,7 @@ export function FullInvitation({
             venueName={invitation.venue_name}
             invitee={invitee}
             guestToken={guestToken}
+            menus={invitation.menus.map(({ id, name }) => ({ id, name }))}
           />
         </div>
       </div>

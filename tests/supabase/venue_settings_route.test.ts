@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Security review item #2 (migration 0106 + /api/venue/settings): Поставки
+// Security review item #2 (migration 0107 + /api/venue/settings): Поставки
 // is owner-only (spec D4) past the page gate too — a non-owner manager or
 // plain staff can change none of the venue's settings, through the routes
 // or directly through their own browser session.
@@ -138,6 +138,16 @@ describe("PATCH /api/venue/settings", () => {
 
     expect((await patch({ field: "account_email", email: "new-owner@test.local" }, ownerToken)).status).toBe(200);
   });
+
+  it("explains a refused account change in Macedonian, never Supabase's English", async () => {
+    // Reusing the current password is refused by Supabase Auth ("New
+    // password should be different from the old password.").
+    const res = await patch({ field: "account_password", password: PASSWORD }, ownerToken);
+    expect(res.status).toBe(400);
+    const { error } = await res.json();
+    expect(error).toMatch(/[А-Яа-я]/);
+    expect(error).not.toMatch(/[A-Za-z]{4,}/);
+  });
 });
 
 describe("DELETE /api/venue/settings/logo", () => {
@@ -151,7 +161,7 @@ describe("DELETE /api/venue/settings/logo", () => {
   });
 });
 
-describe("0106 — staff cannot change the venue directly", () => {
+describe("0107 — staff cannot change the venue directly", () => {
   it("refuses a direct update of any venue column", async () => {
     const { error } = await staffClient.from("venues").update({ name: "Упад", brand_color: "#000000", logo_path: null }).eq("id", venueId);
     expect(error).not.toBeNull();

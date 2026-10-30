@@ -10,7 +10,7 @@ import { PENDING_PREFIX, readObjectHead, removeObject } from "@/lib/media/storag
 // never through our server, whose body limit (4.5 MB on Vercel) is below the
 // photos' — to pending/<venue>/<uuid>; the gated confirm step then checks
 // the bytes are a real image and moves it to its final name. Staff cannot
-// write the bucket themselves (0107); the hourly cron sweeps what is never
+// write the bucket themselves (0109); the hourly cron sweeps what is never
 // confirmed (sweepStalePendingMedia).
 
 export const VENUE_PHOTO_BUCKET = "event-showcase-photos";

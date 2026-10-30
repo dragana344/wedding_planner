@@ -1,4 +1,4 @@
--- 0108: event showcase photos (Фотографии за промоција) were hidden from
+-- 0109: event showcase photos (Фотографии за промоција) were hidden from
 -- plain staff on screen, but added and removed straight from the staff
 -- browser session — any staff member could change them from devtools, the
 -- same class of hole as 0095 (events) and 0106 (Settings). The venue logo

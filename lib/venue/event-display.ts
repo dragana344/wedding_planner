@@ -23,7 +23,16 @@ export const TYPE_META: Record<EventType, { label: string; icon: string; color: 
   birthday: { label: "Роденден", icon: "gift", color: "#6B4BC0" },
   baptism: { label: "Крштевање", icon: "star", color: "#3B5BA9" },
   graduation: { label: "Матурска вечер", icon: "party", color: "#A4711A" },
+  anniversary: { label: "Годишнина / Јубилеј", icon: "award", color: "#8A6A22" },
+  family: { label: "Семејна прослава", icon: "users", color: "#2E8B6E" },
   corporate: { label: "Корпоративен настан", icon: "case", color: "#2A62C6" },
+  conference: { label: "Конференција", icon: "mic", color: "#3B6EA5" },
+  presentation: { label: "Презентација / Промоција", icon: "presentation", color: "#4A5CC4" },
+  seminar: { label: "Семинар / Обука", icon: "chalkboard", color: "#5A6B2E" },
+  team_building: { label: "Team Building", icon: "group", color: "#2E7A7A" },
+  new_year: { label: "Новогодишна прослава", icon: "tree", color: "#1E8A4A" },
+  school: { label: "Училишна прослава", icon: "backpack", color: "#B05A1E" },
+  baby_shower: { label: "Baby Shower", icon: "baby", color: "#C06B9A" },
   other: { label: "Друго", icon: "cal-dot", color: "#5A5F69" },
 };
 

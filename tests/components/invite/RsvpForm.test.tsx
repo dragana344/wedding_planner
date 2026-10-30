@@ -12,7 +12,7 @@ function sentBody() {
 }
 
 describe("RsvpForm (A2-A5, A18)", () => {
-  it("submits a yes with party size, children, menu, allergies and comment", async () => {
+  it("submits a yes with party size, children, allergies and comment", async () => {
     mockFetch();
     render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
 
@@ -20,7 +20,6 @@ describe("RsvpForm (A2-A5, A18)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
     fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText(/од кои деца/), { target: { value: "1" } });
-    fireEvent.click(screen.getByLabelText("Посно"));
     fireEvent.change(screen.getByLabelText(/Алергии/), { target: { value: "ореви" } });
     fireEvent.change(screen.getByLabelText(/Порака до младенците/), { target: { value: "Честито!" } });
     fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
@@ -31,7 +30,6 @@ describe("RsvpForm (A2-A5, A18)", () => {
       status: "confirmed",
       party_size: 3,
       children_count: 1,
-      menu_choice: "posno",
       allergies: "ореви",
       comment: "Честито!",
     });
@@ -45,7 +43,6 @@ describe("RsvpForm (A2-A5, A18)", () => {
     fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Петар Петровски" } });
     fireEvent.click(screen.getByRole("button", { name: "Нема да присуствувам" }));
     expect(screen.queryByLabelText(/Број на лица/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Посно")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Порака до младенците/), { target: { value: "Жал ни е" } });
     fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
 
@@ -97,7 +94,7 @@ describe("RsvpForm on a personal link (A1, A2)", () => {
     rsvpStatus: "invited",
     partySize: 2,
     childrenCount: 0,
-    menuChoice: null,
+    menuCounts: {},
     allergies: null,
     rsvpComment: null,
   };
@@ -118,7 +115,7 @@ describe("RsvpForm on a personal link (A1, A2)", () => {
 
   it("shows an earlier answer and lets the guest change it, prefilled", async () => {
     mockFetch();
-    const answered = { ...invitee, rsvpStatus: "confirmed", partySize: 3, childrenCount: 1, menuChoice: "vegetarian", rsvpComment: "Доаѓаме" };
+    const answered = { ...invitee, rsvpStatus: "confirmed", partySize: 3, childrenCount: 1, menuCounts: {}, rsvpComment: "Доаѓаме" };
     render(<RsvpForm slug="abc123" accentColor="#C9992F" invitee={answered} guestToken={TOKEN} />);
 
     expect(screen.getByText(/Ќе присуствувате/)).toBeInTheDocument();
@@ -127,7 +124,6 @@ describe("RsvpForm on a personal link (A1, A2)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Промени го одговорот" }));
     expect(screen.getByRole("button", { name: "Ќе присуствувам" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("Вегетаријанско")).toBeChecked();
     expect(screen.getByLabelText(/Порака до младенците/)).toHaveValue("Доаѓаме");
 
     fireEvent.click(screen.getByRole("button", { name: "Нема да присуствувам" }));
@@ -146,5 +142,56 @@ describe("RsvpForm privacy notice (COMP-001 R1-03)", () => {
     expect(screen.getByText(/ги гледаат Ана и Марко/)).toBeInTheDocument();
     expect(screen.getByText(/локалот Сала Лотос/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Политиката за приватност" })).toHaveAttribute("href", "/privacy");
+  });
+});
+
+
+describe("RsvpForm menus", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  const menus = [
+    { id: A, name: "Месо" },
+    { id: B, name: "Посно" },
+  ];
+
+  it("asks no menu question with 0 or 1 menus", () => {
+    for (const list of [[], [menus[0]]]) {
+      const { unmount } = render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={list} />);
+      fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+      expect(screen.queryByText("Мени")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Месо")).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("one number per menu with 2+, must add up to the party, zero entries not sent", async () => {
+    mockFetch();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Мила Милова" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Месо"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText("Изберете мени за сите 3 лица.")).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Месо"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Посно"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody().menu_counts).toEqual({ [A]: 3 });
+    expect(await screen.findByText(/Го забележавме вашето доаѓање/)).toBeInTheDocument();
+  });
+
+  it("prefills from the guest's earlier counts", () => {
+    const invitee = {
+      fullName: "Петар", rsvpStatus: "confirmed", partySize: 3, childrenCount: 0,
+      menuCounts: { [A]: 2, [B]: 1 }, allergies: null, rsvpComment: null,
+    };
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} invitee={invitee} guestToken="Tok_en-24charsXXXXXXXXXX" />);
+    expect(screen.getByText(/3 лица · Месо: 2, Посно: 1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Промени го одговорот" }));
+    expect(screen.getByLabelText("Месо")).toHaveValue(2);
+    expect(screen.getByLabelText("Посно")).toHaveValue(1);
   });
 });

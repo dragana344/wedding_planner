@@ -20,7 +20,7 @@ beforeEach(() => {
 function renderMenu() {
   return render(
     <ManagerElevationProvider>
-      <AccountMenu venueName="Сала Езеро" userRole="Менаџер" />
+      <AccountMenu venueName="Сала Езеро" />
     </ManagerElevationProvider>
   );
 }
@@ -33,13 +33,19 @@ describe("AccountMenu — manager elevation", () => {
     expect(screen.queryByText("Одјави се од менаџер")).not.toBeInTheDocument();
   });
 
-  it("hides 'Поставки' from the dropdown when not elevated as the owner", () => {
+  it("shows only the venue name, with no role text, until a manager elevates", () => {
+    renderMenu();
+    expect(screen.getByText("Сала Езеро")).toBeInTheDocument();
+    expect(screen.queryByText(/Менаџер/)).not.toBeInTheDocument();
+  });
+
+  it("never shows 'Поставки' in the dropdown when not elevated — it only lives in the sidebar", () => {
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: /Сала Езеро/ }));
     expect(screen.queryByRole("menuitem", { name: /Поставки/ })).not.toBeInTheDocument();
   });
 
-  it("shows 'Поставки' in the dropdown once elevated as the owner", async () => {
+  it("still doesn't show 'Поставки' in the dropdown once elevated as the owner", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ token: "tok1", expiresAt: new Date(Date.now() + 10000).toISOString(), managerName: "Власник", isOwner: true }) });
     renderMenu();
     fireEvent.click(screen.getByRole("button", { name: /Сала Езеро/ }));
@@ -48,7 +54,7 @@ describe("AccountMenu — manager elevation", () => {
     fireEvent.change(screen.getByLabelText("Лозинка"), { target: { value: "pw-1" } });
     fireEvent.click(screen.getByRole("button", { name: "Најави се" }));
     await waitFor(() => expect(screen.getByRole("menuitem", { name: "Одјави се од менаџер" })).toBeInTheDocument());
-    expect(screen.getByRole("menuitem", { name: /Поставки/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Поставки/ })).not.toBeInTheDocument();
   });
 
   it("opens the name/password form, elevates on submit, and then shows 'Одјави се од менаџер'", async () => {

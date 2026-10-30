@@ -64,3 +64,12 @@ export function formatVenueDateTime(iso: string, show: { year?: boolean; time?: 
   const day = `${Number(part("day"))}.${Number(part("month"))}${show.year === false ? "" : `.${part("year")}`}`;
   return show.time ? `${day} ${part("hour")}:${part("minute")}` : day;
 }
+
+/** An instant as the venue's calendar date, zero-padded: "14.06.2026". */
+export function formatVenueDatePadded(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: VENUE_TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" })
+    .format(date)
+    .replace(/\//g, ".");
+}

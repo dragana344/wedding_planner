@@ -66,9 +66,11 @@ describe("locked features (spec §4.4)", () => {
     expect(sp.error?.message).toBe(LOCKED);
     const se = await admin.from("event_layout_elements").insert({ event_id: eventId, room_id: roomId, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100 });
     expect(se.error?.message).toBe(LOCKED);
-    const dish = await admin.from("menu_items").insert({ venue_id: venueId, tiers: ["everyday"], course: "main", name: "Locked dish" }).select("id").single();
-    const cm = await admin.from("event_custom_menu_items").insert({ event_id: eventId, menu_item_id: dish.data!.id });
+    // A custom menu is a menu_templates row tied to the event (0122).
+    const cm = await admin.from("menu_templates").insert({ venue_id: venueId, name: "Locked custom menu", event_id: eventId });
     expect(cm.error?.message).toBe(LOCKED);
+    const standard = await admin.from("menu_templates").insert({ venue_id: venueId, name: "Venue-wide menu" });
+    expect(standard.error).toBeNull();
   });
 
   it("gates invitation templates and photo but keeps a basic invitation", async () => {

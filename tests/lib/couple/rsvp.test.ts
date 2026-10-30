@@ -131,7 +131,7 @@ describe("lib/couple/rsvp: personal invite links (A1)", () => {
     expect(invitee).toMatchObject({ fullName: "Петар Петровски", rsvpStatus: "invited", partySize: 3 });
     // Only what the guest's own page needs: no id, token, side or notes.
     expect(Object.keys(invitee!).sort()).toEqual(
-      ["allergies", "childrenCount", "fullName", "menuChoice", "partySize", "rsvpComment", "rsvpStatus"].sort(),
+      ["allergies", "childrenCount", "fullName", "menuCounts", "partySize", "rsvpComment", "rsvpStatus"].sort(),
     );
 
     expect(await getInviteeByToken(mine.slug, stranger.invite_token)).toBeNull();
@@ -205,7 +205,7 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("stores children, menu, allergies and comment with a yes", async () => {
+  it("stores children, allergies and comment with a yes", async () => {
     const { venueId, eventId, slug } = await makeEventWithInvitation("Full Answer Couple");
     const guest = await addGuest(eventId);
 
@@ -214,7 +214,6 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
       status: "confirmed",
       partySize: 3,
       childrenCount: 1,
-      menuChoice: "posno",
       allergies: "  ореви  ",
       comment: "  Доаѓаме со радост!  ",
     });
@@ -224,14 +223,13 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
       rsvp_status: "confirmed",
       party_size: 3,
       children_count: 1,
-      menu_choice: "posno",
       allergies: "ореви",
       rsvp_comment: "Доаѓаме со радост!",
     });
     expect(await getInviteeByToken(slug, guest.invite_token)).toMatchObject({
       rsvpStatus: "confirmed",
       childrenCount: 1,
-      menuChoice: "posno",
+      menuCounts: {},
       allergies: "ореви",
       rsvpComment: "Доаѓаме со радост!",
     });
@@ -241,22 +239,21 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
 
   it("keeps the comment but not the menu details with a no, and a new guest gets the answer too", async () => {
     const { venueId, eventId, slug } = await makeEventWithInvitation("No Answer Couple");
-    const guest = await addGuest(eventId, { menu_choice: "standard", children_count: 2 });
+    const guest = await addGuest(eventId, { children_count: 2 });
 
     await submitRsvpBySlug(slug, {
       guestToken: guest.invite_token,
       status: "declined",
       partySize: 1,
       childrenCount: 5,
-      menuChoice: "vegetarian",
       comment: "Жал ни е",
     });
     const { data } = await admin.from("event_guests").select("*").eq("id", guest.id).single();
-    expect(data).toMatchObject({ rsvp_status: "declined", rsvp_comment: "Жал ни е", menu_choice: "standard", children_count: 2 });
+    expect(data).toMatchObject({ rsvp_status: "declined", rsvp_comment: "Жал ни е", children_count: 2 });
 
-    await submitRsvpBySlug(slug, { fullName: "Нов Гостин", status: "confirmed", partySize: 2, childrenCount: 1, menuChoice: "vegetarian" });
+    await submitRsvpBySlug(slug, { fullName: "Нов Гостин", status: "confirmed", partySize: 2, childrenCount: 1 });
     const { data: created } = await admin.from("event_guests").select("*").eq("event_id", eventId).eq("full_name", "Нов Гостин").single();
-    expect(created).toMatchObject({ rsvp_status: "confirmed", party_size: 2, children_count: 1, menu_choice: "vegetarian" });
+    expect(created).toMatchObject({ rsvp_status: "confirmed", party_size: 2, children_count: 1 });
 
     await admin.from("venues").delete().eq("id", venueId);
   });
@@ -335,6 +332,85 @@ describe("lib/couple/rsvp: the couple hears about changed answers (A11)", () => 
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "later", partySize: 1 });
     const { data } = await admin.from("event_guests").select("rsvp_status").eq("id", guest.id).single();
     expect(data!.rsvp_status).toBe("later");
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+});
+
+
+async function addMenus(venueId: string, eventId: string, names: string[]) {
+  const ids: string[] = [];
+  for (const name of names) {
+    const { data: t } = await admin.from("menu_templates").insert({ venue_id: venueId, name }).select().single();
+    await admin.from("event_menu_templates").insert({ event_id: eventId, menu_template_id: t!.id });
+    ids.push(t!.id);
+  }
+  return ids;
+}
+
+async function storedCounts(guestId: string) {
+  const { data } = await admin.from("event_guest_menu_counts").select("menu_template_id, count").eq("guest_id", guestId);
+  return Object.fromEntries((data ?? []).map((r) => [r.menu_template_id, r.count]));
+}
+
+describe("lib/couple/rsvp: menu counts", () => {
+  it("2+ menus: confirmed without complete counts is refused and nothing is written", async () => {
+    const { venueId, eventId, slug } = await makeEventWithInvitation("Menu Refuse Couple");
+    const [a, b] = await addMenus(venueId, eventId, ["А", "Б"]);
+    const guest = await addGuest(eventId);
+
+    await expect(submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 3 })).rejects.toThrow(
+      "Изберете мени за сите 3 лица.",
+    );
+    await expect(
+      submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 3, menuCounts: { [a]: 1, [b]: 1 } }),
+    ).rejects.toThrow("Изберете мени за сите 3 лица.");
+    const { data } = await admin.from("event_guests").select("rsvp_status, party_size").eq("id", guest.id).single();
+    expect(data).toMatchObject({ rsvp_status: "invited", party_size: 1 });
+    expect(await storedCounts(guest.id)).toEqual({});
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+
+  it("2+ menus: counts stored and read back, by token and by name", async () => {
+    const { venueId, eventId, slug } = await makeEventWithInvitation("Menu Store Couple");
+    const [a, b] = await addMenus(venueId, eventId, ["А", "Б"]);
+    const guest = await addGuest(eventId);
+
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 3, menuCounts: { [a]: 2, [b]: 1 } });
+    expect(await storedCounts(guest.id)).toEqual({ [a]: 2, [b]: 1 });
+    expect((await getInviteeByToken(slug, guest.invite_token))!.menuCounts).toEqual({ [a]: 2, [b]: 1 });
+
+    // Changing the answer replaces the split.
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2, menuCounts: { [b]: 2 } });
+    expect(await storedCounts(guest.id)).toEqual({ [b]: 2 });
+
+    // A new guest by name.
+    await submitRsvpBySlug(slug, { fullName: "Нов Гостин", status: "confirmed", partySize: 2, menuCounts: { [a]: 1, [b]: 1 } });
+    const { data: created } = await admin.from("event_guests").select("id").eq("event_id", eventId).eq("full_name", "Нов Гостин").single();
+    expect(await storedCounts(created!.id)).toEqual({ [a]: 1, [b]: 1 });
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+
+  it("1 menu: no counts stored, confirmed accepted", async () => {
+    const { venueId, eventId, slug } = await makeEventWithInvitation("Menu One Couple");
+    await addMenus(venueId, eventId, ["Једно"]);
+    const guest = await addGuest(eventId);
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2 });
+    const { data } = await admin.from("event_guests").select("rsvp_status").eq("id", guest.id).single();
+    expect(data!.rsvp_status).toBe("confirmed");
+    expect(await storedCounts(guest.id)).toEqual({});
+    await admin.from("venues").delete().eq("id", venueId);
+  });
+
+  it("declined/later: counts cleared", async () => {
+    const { venueId, eventId, slug } = await makeEventWithInvitation("Menu Clear Couple");
+    const [a, b] = await addMenus(venueId, eventId, ["А", "Б"]);
+    const guest = await addGuest(eventId);
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2, menuCounts: { [a]: 1, [b]: 1 } });
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "declined", partySize: 1 });
+    expect(await storedCounts(guest.id)).toEqual({});
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2, menuCounts: { [a]: 2 } });
+    await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "later", partySize: 1 });
+    expect(await storedCounts(guest.id)).toEqual({});
     await admin.from("venues").delete().eq("id", venueId);
   });
 });

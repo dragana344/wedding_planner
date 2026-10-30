@@ -1,4 +1,4 @@
--- 0097: one-time backfill for every venue that predates the manager/staff
+-- 0098: one-time backfill for every venue that predates the manager/staff
 -- feature (spec D6/§8) — name "owner", password "owner12345".
 --
 -- TEST-PHASE-ONLY. This fixed, publicly-documented password is acceptable

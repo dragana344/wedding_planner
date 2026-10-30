@@ -1,4 +1,4 @@
--- 0099: a manager's forgot-password flow (spec §6) — the same opaque,
+-- 0100: a manager's forgot-password flow (spec §6) — the same opaque,
 -- hashed-at-rest, time-boxed token pattern as couple_sessions and
 -- venue_manager_elevations, scoped to one manager at a time.
 

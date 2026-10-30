@@ -109,7 +109,7 @@ describe("SECURITY DEFINER functions (SEC-006)", () => {
     }
   });
 
-  it("revokes set_venue_layout_password from authenticated — only the owner-gated settings route (service_role) can call it (migration 0106)", async () => {
+  it("revokes set_venue_layout_password from authenticated — only the owner-gated settings route (service_role) can call it (migration 0107)", async () => {
     const { rows } = await db.query(`select has_function_privilege('authenticated', 'public.set_venue_layout_password(uuid, text)', 'EXECUTE') as ok`);
     expect(rows[0].ok).toBe(false);
   });
@@ -121,7 +121,7 @@ describe("SECURITY DEFINER functions (SEC-006)", () => {
     expect(serviceRows[0].ok).toBe(true);
   });
 
-  it("revokes create_co_organizer and create_event_credentials from authenticated — a plain staff session could otherwise mint a couple/co-organizer login with a password of its own choosing (migration 0110)", async () => {
+  it("revokes create_co_organizer and create_event_credentials from authenticated — a plain staff session could otherwise mint a couple/co-organizer login with a password of its own choosing (migration 0111)", async () => {
     for (const fn of ["public.create_co_organizer(uuid, text, text, text)", "public.create_event_credentials(uuid, text, text)"]) {
       const { rows } = await db.query(`select has_function_privilege('authenticated', $1, 'EXECUTE') as ok`, [fn]);
       expect(rows[0].ok, fn).toBe(false);

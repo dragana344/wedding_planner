@@ -20,7 +20,7 @@ const rooms = [
 function ev(id: string, name: string, roomIds: string[]): EventDetail {
   return {
     id, couple_names: name, event_date: "2027-06-01", start_time: "19:00", end_time: null, status: "confirmed", event_type: "wedding",
-    guest_count_estimate: 100, menu_template_id: null, room_ids: roomIds,
+    guest_count_estimate: 100, menus: [], room_ids: roomIds,
   } as unknown as EventDetail;
 }
 

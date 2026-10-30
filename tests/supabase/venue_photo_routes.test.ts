@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// 0107 + the signed-upload routes: event showcase photos are added and
+// 0109 + the signed-upload routes: event showcase photos are added and
 // removed only by a manager (the venue logo only by the owner), through a
 // one-time signed upload the server then checks — never directly from a
 // staff session, and never for another venue's event.
@@ -178,7 +178,7 @@ describe("venue logo (two-step upload)", () => {
   });
 });
 
-describe("0107 — staff cannot change photos directly", () => {
+describe("0109 — staff cannot change photos directly", () => {
   it("refuses direct inserts and deletes of showcase rows", async () => {
     const { error } = await staffClient.from("event_showcase_photos").insert({ event_id: eventId, photo_path: `${venueId}/${eventId}-1.png` });
     expect(error).not.toBeNull();

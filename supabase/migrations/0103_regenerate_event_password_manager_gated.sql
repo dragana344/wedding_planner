@@ -1,4 +1,4 @@
--- 0102: regenerate_event_password was grantable to any authenticated venue
+-- 0103: regenerate_event_password was grantable to any authenticated venue
 -- staff session (0031), so a plain (non-elevated) staff member could reset
 -- a couple's login password directly via RPC, bypassing the manager
 -- elevation gating added for events/Settings/Reports in the venue-manager

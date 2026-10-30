@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EventEditForm } from "./EventEditForm";
+import { useEventPrivateDetails } from "./useEventPrivateDetails";
+import { hasUnseenMenuNumbers } from "@/lib/menu-numbers";
 import { Icon } from "@/components/venue/shell/Icon";
 import { Modal } from "./Modal";
 import { MenuDetailModal } from "./MenuDetailModal";
@@ -82,10 +84,15 @@ export function EventsClient({
   const [events, setEvents] = useState(initialEvents);
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<EventDetail | null>(
-    () => initialEvents.find((e) => e.id === initialEventId) ?? null,
+  // The open event is looked up by id so a refresh() (after Видено, a save…)
+  // reaches the open form instead of leaving it on a stale snapshot.
+  const [editingId, setEditingId] = useState<string | null>(
+    () => initialEvents.find((e) => e.id === initialEventId)?.id ?? null,
   );
+  const editing = events.find((e) => e.id === editingId) ?? null;
   const [viewingMenuFor, setViewingMenuFor] = useState<EventDetail | null>(null);
+  // Contacts and money arrive only while a manager is logged in (0117).
+  const privateDetails = useEventPrivateDetails();
 
   const today = useMemo(() => todayIn(), []);
   // Security review finding: Настани opened every event fully editable
@@ -109,6 +116,7 @@ export function EventsClient({
 
   async function refresh() {
     setEvents(await listEventsWithDetails(venueId));
+    privateDetails.reload();
   }
 
   const stats = useMemo(
@@ -240,11 +248,8 @@ export function EventsClient({
               const status = STATUS_META[event.status];
               const type = TYPE_META[event.event_type];
               const timeRange = formatTimeRange(event.start_time, event.end_time);
-              const menuTemplate = menuTemplates.find((m) => m.id === event.menu_template_id);
-              const menuName =
-                menuTemplate?.name ??
-                (event.customMenuItems.length > 0 ? `Сопствено мени (${event.customMenuItems.length})` : null);
-              const hasMenuDetail = Boolean(menuTemplate) || event.customMenuItems.length > 0;
+              const menuName = event.menus.map((m) => m.name).join(", ");
+              const hasMenuDetail = event.menus.length > 0;
               const roomNames = event.room_ids
                 .map((id) => rooms.find((r) => r.id === id)?.name)
                 .filter(Boolean)
@@ -255,7 +260,7 @@ export function EventsClient({
                   type="button"
                   className="row ev"
                   key={event.id}
-                  onClick={() => setEditing(event)}
+                  onClick={() => setEditingId(event.id)}
                   aria-label={`Отвори ${event.couple_names}`}
                   style={{
                     gridTemplateColumns: "minmax(330px, 1.55fr) minmax(190px, 0.85fr) minmax(215px, 0.95fr) 150px",
@@ -273,6 +278,7 @@ export function EventsClient({
                         {event.hasUnseenSeatingChange ? (
                           <span className="unseen-dot" title="Нова промена во распоредот на маси" aria-label="Нова промена во распоредот на маси" />
                         ) : null}
+                        {hasUnseenMenuNumbers(event.menuNumbers) ? <span className="ev-hint">Нови бројки</span> : null}
                       </div>
                       <div className="kind">{type.label}</div>
                       {event.guest_count_estimate != null ? (
@@ -357,12 +363,19 @@ export function EventsClient({
       </section>
 
       {editing ? (
-        <Modal title={editing.couple_names} onClose={() => setEditing(null)} hideHeader>
+        <Modal title={editing.couple_names} onClose={() => setEditingId(null)} hideHeader>
           <EventEditForm
-            event={editing}
+            // Remounts once the manager-only details arrive (or are dropped),
+            // so the contact and finance fields start from the right values.
+            key={`${editing.id}:${privateDetails.loaded}`}
+            event={privateDetails.withPrivate(editing)}
+            venueId={venueId}
+            privateLoaded={privateDetails.loaded}
+            privateFailed={privateDetails.failed}
+            onRetryPrivate={privateDetails.reload}
             rooms={rooms}
             menuTemplates={menuTemplates}
-            onClose={() => setEditing(null)}
+            onClose={() => setEditingId(null)}
             onChanged={() => {
               void refresh();
             }}
@@ -373,11 +386,12 @@ export function EventsClient({
 
       {viewingMenuFor ? (
         <MenuDetailModal
-          title={menuTemplates.find((m) => m.id === viewingMenuFor.menu_template_id)?.name ?? "Сопствено мени"}
-          items={
-            menuTemplates.find((m) => m.id === viewingMenuFor.menu_template_id)?.items ??
-            viewingMenuFor.customMenuItems
-          }
+          title={viewingMenuFor.menus.map((m) => m.name).join(", ") || "Мени"}
+          groups={viewingMenuFor.menus.map((m) => ({
+            id: m.id,
+            title: m.name,
+            items: menuTemplates.find((t) => t.id === m.id)?.items ?? m.items,
+          }))}
           onClose={() => setViewingMenuFor(null)}
         />
       ) : null}

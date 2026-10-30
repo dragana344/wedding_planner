@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EventEditForm } from "./EventEditForm";
 import { Modal } from "./Modal";
 import { Icon } from "@/components/venue/shell/Icon";
-import { listEventsWithDetails, type EventDetail, type EventType } from "@/lib/venue/events";
+import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
+import type { EventDetail, EventType } from "@/lib/venue/events";
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
 import { todayIn } from "@/lib/date";
+
+type ClientsData = { venueId: string; events: EventDetail[]; rooms: Room[]; menuTemplates: (MenuTemplate & { items: MenuItem[] })[] };
 
 type Tab = "all" | EventType;
 
@@ -54,30 +57,53 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function ClientsClient({
-  venueId,
-  initialEvents,
-  rooms,
-  menuTemplates,
-}: {
-  venueId: string;
-  initialEvents: EventDetail[];
-  rooms: Room[];
-  menuTemplates: (MenuTemplate & { items: MenuItem[] })[];
-}) {
-  const [events, setEvents] = useState(initialEvents);
+async function fetchClientsData(managerToken: string, signal?: AbortSignal): Promise<ClientsData> {
+  const res = await fetch("/api/venue/clients", { headers: { "x-venue-manager-token": managerToken }, signal });
+  if (!res.ok) {
+    if (res.status === 403) reportElevationRejected();
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? "Клиентите не можеа да се вчитаат.");
+  }
+  return res.json();
+}
+
+export function ClientsClient() {
+  const { managerName, token: managerToken } = useManagerElevation();
+  const [data, setData] = useState<ClientsData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   const today = useMemo(() => todayIn(), []);
 
+  useEffect(() => {
+    if (!managerToken) {
+      setData(null);
+      setLoadError(null); // a stale failure must not greet the next login
+      return;
+    }
+    const controller = new AbortController();
+    fetchClientsData(managerToken, controller.signal)
+      .then(setData)
+      .catch((err) => {
+        if (err?.name === "AbortError") return; // superseded by a newer token
+        setLoadError(err instanceof Error ? err.message : "Клиентите не можеа да се вчитаат.");
+      });
+    return () => controller.abort();
+  }, [managerToken]);
+
+  const events = useMemo(() => data?.events ?? [], [data]);
+  const rooms = data?.rooms ?? [];
+  const menuTemplates = data?.menuTemplates ?? [];
+
   async function refresh() {
-    setEvents(await listEventsWithDetails(venueId));
+    if (!managerToken) return;
+    setData(await fetchClientsData(managerToken));
   }
 
   const typeCounts = useMemo(() => {
-    const counts: Record<EventType, number> = { wedding: 0, birthday: 0, baptism: 0, graduation: 0, corporate: 0, other: 0 };
+    const counts = Object.fromEntries((Object.keys(TYPE_META) as EventType[]).map((t) => [t, 0])) as Record<EventType, number>;
     for (const e of events) counts[e.event_type]++;
     return counts;
   }, [events]);
@@ -96,6 +122,28 @@ export function ClientsClient({
 
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
   const isOpenEventPast = openEvent ? openEvent.event_date < today : false;
+
+  if (!managerName) {
+    return (
+      <div className="wrap">
+        <p className="muted" style={{ padding: 24 }}>
+          Само менаџер или сопственик може да пристапи до клиентите. Најавете се како менаџер од менито горе десно.
+        </p>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="wrap">
+        {loadError ? (
+          <p role="alert" style={{ padding: 24 }}>{loadError}</p>
+        ) : (
+          <p className="muted" style={{ padding: 24 }}>Се вчитува...</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="wrap">
@@ -124,7 +172,7 @@ export function ClientsClient({
         <div className="tile">
           <span className="badge"><Icon name="gift" size="lg" /></span>
           <div>
-            <div className="num">{typeCounts.birthday + typeCounts.baptism + typeCounts.graduation + typeCounts.other}</div>
+            <div className="num">{events.length - typeCounts.wedding - typeCounts.corporate}</div>
             <div className="lab">Останати<span>родендени, крштевки и др.</span></div>
           </div>
         </div>
@@ -260,6 +308,7 @@ export function ClientsClient({
         <Modal title={openEvent.couple_names} onClose={() => setOpenEventId(null)} hideHeader>
           <EventEditForm
             event={openEvent}
+            venueId={data?.venueId ?? ""}
             rooms={rooms}
             menuTemplates={menuTemplates}
             onClose={() => setOpenEventId(null)}

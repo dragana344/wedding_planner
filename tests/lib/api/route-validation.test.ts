@@ -21,13 +21,6 @@ const seating = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/couple/seating", () => ({ coupleSeatingActionsFor: () => seating }));
 
-const menu = vi.hoisted(() => ({
-  setMenuItemQuantities: vi.fn(async () => undefined),
-  setEventMenuSelection: vi.fn(async () => undefined),
-  getMenuItemQuantities: vi.fn(async () => []),
-}));
-vi.mock("@/lib/couple/menu", () => menu);
-
 const guests = vi.hoisted(() => ({
   listGuests: vi.fn(),
   getGuestStats: vi.fn(),
@@ -38,6 +31,8 @@ const guests = vi.hoisted(() => ({
   deleteGuest: vi.fn(async () => undefined),
   importGuests: vi.fn(async (_e: string, rows: unknown[]) => ({ imported: rows.length, skipped: 0 })),
   getGuestSeat: vi.fn(async () => null),
+  getEventMenuNames: vi.fn(async () => []),
+  setGuestMenuCounts: vi.fn(async () => ({})),
 }));
 vi.mock("@/lib/couple/guests", () => guests);
 
@@ -86,8 +81,6 @@ vi.mock("@/lib/venue/contact", () => contact);
 const entitlements = vi.hoisted(() => ({ eventHasFeature: vi.fn(async () => true) }));
 vi.mock("@/lib/entitlements/server", () => entitlements);
 
-import * as quantitiesRoute from "@/app/api/couple/menu/quantities/route";
-import * as menuRoute from "@/app/api/couple/menu/route";
 import * as elementsRoute from "@/app/api/couple/seating/elements/route";
 import * as elementRoute from "@/app/api/couple/seating/elements/[id]/route";
 import * as confirmRoute from "@/app/api/couple/seating/confirm/route";
@@ -136,45 +129,6 @@ async function call(
 
 beforeEach(() => {
   vi.clearAllMocks();
-});
-
-describe("PATCH /api/couple/menu/quantities", () => {
-  it("rejects a PostgREST-injection id with 400 before the lib is called", async () => {
-    const res = await call(
-      quantitiesRoute.PATCH,
-      req("PATCH", { quantities: [{ menu_item_id: INJECTION, guest_count: 5 }] }),
-    );
-    expect(res).toEqual({ status: 400, body: { error: "Неважечки податоци." } });
-    expect(menu.setMenuItemQuantities).not.toHaveBeenCalled();
-    expect(dbAccess).not.toHaveBeenCalled();
-  });
-
-  it("passes a valid body through unchanged", async () => {
-    const res = await call(
-      quantitiesRoute.PATCH,
-      req("PATCH", { quantities: [{ menu_item_id: ID, guest_count: 5 }, { menu_item_id: ID2, guest_count: null }] }),
-    );
-    expect(res).toEqual({ status: 200, body: { ok: true } });
-    expect(menu.setMenuItemQuantities).toHaveBeenCalledWith(EVENT, [
-      { menu_item_id: ID, guest_count: 5 },
-      { menu_item_id: ID2, guest_count: null },
-    ]);
-  });
-});
-
-describe("PATCH /api/couple/menu", () => {
-  it("rejects a non-UUID custom item id", async () => {
-    const res = await call(menuRoute.PATCH, req("PATCH", { mode: "custom", menu_item_ids: [ID, INJECTION] }));
-    expect(res.status).toBe(400);
-    expect(menu.setEventMenuSelection).not.toHaveBeenCalled();
-  });
-
-  it("keeps the unknown-mode message", async () => {
-    expect(await call(menuRoute.PATCH, req("PATCH", { mode: "surprise" }))).toEqual({
-      status: 400,
-      body: { error: "Непознат режим на избор." },
-    });
-  });
 });
 
 describe("POST /api/couple/seating/elements", () => {
@@ -476,7 +430,7 @@ describe("public routes", () => {
           status: "confirmed",
           party_size: 3,
           children_count: 1,
-          menu_choice: "posno",
+          menu_counts: { "11111111-1111-4111-8111-111111111111": 3 },
           allergies: "ореви",
           comment: "Доаѓаме!",
         },
@@ -487,7 +441,7 @@ describe("public routes", () => {
     expect(ok).toEqual({ status: 200, body: { ok: true } });
     expect(rsvp.submitRsvpBySlug).toHaveBeenCalledWith(
       "abcDEF123_-x",
-      { fullName: "Ана", status: "confirmed", partySize: 3, childrenCount: 1, menuChoice: "posno", allergies: "ореви", comment: "Доаѓаме!" },
+      { fullName: "Ана", status: "confirmed", partySize: 3, childrenCount: 1, menuCounts: { "11111111-1111-4111-8111-111111111111": 3 }, allergies: "ореви", comment: "Доаѓаме!" },
       expect.objectContaining({ ip: expect.any(String) }),
     );
   });
@@ -527,7 +481,8 @@ describe("public routes", () => {
     for (const bad of [
       { guest_token: "x' or 1=1", status: "confirmed" },
       { ...base, status: "maybe" },
-      { ...base, menu_choice: "meat" },
+      { ...base, menu_counts: { "not-a-uuid": 1 } },
+      { ...base, menu_counts: { "11111111-1111-4111-8111-111111111111": 0 } },
       { ...base, children_count: -1 },
       { ...base, comment: "x".repeat(501) },
       { ...base, allergies: "x".repeat(301) },

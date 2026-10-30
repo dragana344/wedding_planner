@@ -271,12 +271,12 @@ describe("event_seat_assignments (0070)", () => {
     expect((await anon.rpc("prune_event_seat_assignments", { p_event_id: A.eventId })).error?.code).toBe("42501");
   });
 
-  it("staff read their own venue's seats only, and write none (0104)", async () => {
+  it("staff read their own venue's seats only, and write none (0105)", async () => {
     await clearSeats(A);
     await clearSeats(B);
     await must(admin.from("event_seat_assignments").insert(seat(B, { seat_number: 1, guest_name: "Туѓ" })));
 
-    // Since 0104 staff seat lists are look-only, even for their own venue.
+    // Since 0105 staff seat lists are look-only, even for their own venue.
     const own = await staffA.from("event_seat_assignments").insert(seat(A, { seat_number: 1, guest_name: "Свој" })).select();
     expect(own.error?.code).toBe("42501");
     await must(admin.from("event_seat_assignments").insert(seat(A, { seat_number: 1, guest_name: "Свој" })));

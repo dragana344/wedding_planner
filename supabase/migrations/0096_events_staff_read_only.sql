@@ -1,4 +1,4 @@
--- 0095 (Plan 2 final review, Critical finding): "venue staff manage own
+-- 0096 (Plan 2 final review, Critical finding): "venue staff manage own
 -- events" (migration 0004) was `for all` — any signed-in staff member could
 -- still insert/update/delete events directly via their own browser client,
 -- completely bypassing the new /api/venue/events routes' manager-elevation

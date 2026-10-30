@@ -25,6 +25,8 @@ export interface Reservation {
   status: ReservationStatus;
   event_type: EventType | null;
   note: string | null;
+  /** Which staff member (waiter/barista) took the booking — "Келнер" on the form. */
+  server_name: string | null;
   table_ids: string[];
 }
 
@@ -41,6 +43,7 @@ export interface ReservationInput {
   status?: ReservationStatus;
   event_type?: EventType | null;
   note?: string | null;
+  server_name?: string | null;
   table_ids: string[];
 }
 
@@ -62,7 +65,7 @@ export const RESERVATION_STATUS_META: Record<
 const INACTIVE_STATUSES: ReservationStatus[] = ["cancelled", "completed"];
 
 const RESERVATION_COLUMNS =
-  "id, venue_id, room_id, guest_name, phone, email, date, start_time, end_time, party_size, status, event_type, note, reservation_tables(layout_element_id)";
+  "id, venue_id, room_id, guest_name, phone, email, date, start_time, end_time, party_size, status, event_type, note, server_name, reservation_tables(layout_element_id)";
 
 interface ReservationRow {
   id: string;
@@ -78,6 +81,7 @@ interface ReservationRow {
   status: ReservationStatus;
   event_type: EventType | null;
   note: string | null;
+  server_name: string | null;
   reservation_tables: { layout_element_id: string }[] | null;
 }
 
@@ -96,6 +100,7 @@ function mapRow(row: ReservationRow): Reservation {
     status: row.status,
     event_type: row.event_type,
     note: row.note,
+    server_name: row.server_name,
     table_ids: (row.reservation_tables ?? []).map((t) => t.layout_element_id),
   };
 }
@@ -373,6 +378,7 @@ export async function createReservation(
       status: input.status ?? "reserved",
       event_type: input.event_type ?? null,
       note: input.note ?? null,
+      server_name: input.server_name ?? null,
     })
     .select("id")
     .single();

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
 import { FloorPlanCanvas, type CanvasElement } from "./FloorPlanCanvas";
+import { HourOccupancySlider } from "./HourOccupancySlider";
+import { computeHourlyTableOccupancy } from "@/lib/venue/occupancy";
 import {
   listFixedElements,
   listRoomLayoutElements,
@@ -16,6 +18,7 @@ import {
   getTableAvailability,
   createReservation,
   listReservationsForDate,
+  listReservationsForRoom,
   updateReservationStatus,
   deleteReservation,
   RESERVATION_STATUS_META,
@@ -41,6 +44,8 @@ function addDaysIso(iso: string, delta: number): string {
 function todayIsoFrom(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+const LOAD_ERROR = "Податоците за резервациите не можеа да се вчитаат.";
 
 export function ReservationsClient({
   venueId,
@@ -83,25 +88,54 @@ export function ReservationsClient({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  const [serverName, setServerName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [serverNameMissing, setServerNameMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // A failed background load (floor plan, availability, the day's list) is
+  // said out loud instead of leaving stale or empty data on screen.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const failedToLoad = () => setLoadError(LOAD_ERROR);
 
   const room = rooms.find((r) => r.id === roomId);
 
+  // Picking another hall starts a fresh table selection; "Освежи приказ"
+  // (refreshTick) only reloads, keeping what was already picked.
+  useEffect(() => {
+    setSelectedTableIds([]);
+  }, [roomId]);
+
   useEffect(() => {
     if (!roomId) return;
-    setSelectedTableIds([]);
-    (async () => {
-      const [fixed, layout, types] = await Promise.all([
-        listFixedElements(roomId),
-        listRoomLayoutElements(roomId),
-        listTableTypes(roomId),
-      ]);
-      setFixedElements(fixed);
-      setLayoutElements(layout);
-      setTableTypes(types);
-    })();
+    let cancelled = false;
+    setLoadError(null);
+    Promise.all([listFixedElements(roomId), listRoomLayoutElements(roomId), listTableTypes(roomId)])
+      .then(([fixed, layout, types]) => {
+        if (cancelled) return;
+        setFixedElements(fixed);
+        setLayoutElements(layout);
+        setTableTypes(types);
+      })
+      .catch(() => {
+        if (!cancelled) failedToLoad();
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [roomId, refreshTick]);
+
+  // Hour-occupancy slider: previewTime is what actually drives the floor
+  // plan's colors below, so scrubbing the slider can preview any hour
+  // without touching the reservation form's own start time. It stays in
+  // sync with startTime until the slider is dragged away from it.
+  const [previewTime, setPreviewTime] = useState(startTime);
+  useEffect(() => {
+    setPreviewTime(startTime);
+  }, [startTime]);
+  const activeHour = Number(previewTime.split(":")[0]);
+  function handleHourChange(hour: number) {
+    setPreviewTime(`${String(hour).padStart(2, "0")}:00`);
+  }
 
   // Purely advisory floor-plan coloring — red ("reserved") within an hour of
   // an upcoming booking or genuinely occupied right now, yellow ("limited")
@@ -109,7 +143,7 @@ export function ReservationsClient({
   // gates submission: createReservation always runs its own accurate
   // conflict check server-side regardless of what's shown here.
   useEffect(() => {
-    if (!roomId || !date || !startTime) {
+    if (!roomId || !date || !previewTime) {
       setReservedTableIds([]);
       setLimitedTableIds([]);
       return;
@@ -120,11 +154,53 @@ export function ReservationsClient({
       setLimitedTableIds([]);
       return;
     }
-    getTableAvailability(roomId, date, startTime, allTableIds, null).then(({ reserved, limited }) => {
-      setReservedTableIds(reserved);
-      setLimitedTableIds(limited);
-    });
-  }, [roomId, date, startTime, layoutElements, isSubmitting]);
+    // Responses can arrive out of order when the hour or day changes
+    // quickly: only the latest request may update the colors.
+    let cancelled = false;
+    getTableAvailability(roomId, date, previewTime, allTableIds, null)
+      .then(({ reserved, limited }) => {
+        if (cancelled) return;
+        setReservedTableIds(reserved);
+        setLimitedTableIds(limited);
+      })
+      .catch(() => {
+        if (!cancelled) failedToLoad();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, date, previewTime, layoutElements, isSubmitting, refreshTick]);
+
+  // Hour-by-hour occupancy for the whole day, feeding the slider above the
+  // floor plan — independent of previewTime, since the slider needs every
+  // hour's percentage at once, not just the currently previewed one.
+  const [roomDayReservations, setRoomDayReservations] = useState<Reservation[]>([]);
+  useEffect(() => {
+    if (!roomId || !date) {
+      setRoomDayReservations([]);
+      return;
+    }
+    let cancelled = false;
+    listReservationsForRoom(roomId, date)
+      .then((list) => {
+        if (!cancelled) setRoomDayReservations(list);
+      })
+      .catch(() => {
+        if (!cancelled) failedToLoad();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, date, isSubmitting, refreshTick]);
+
+  const totalTables = useMemo(
+    () => layoutElements.filter((el) => el.element_type === "table").length,
+    [layoutElements]
+  );
+  const hourlyOccupancy = useMemo(
+    () => computeHourlyTableOccupancy(roomDayReservations, totalTables),
+    [roomDayReservations, totalTables]
+  );
 
   function toggleTable(id: string) {
     setSelectedTableIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
@@ -204,8 +280,20 @@ export function ReservationsClient({
       setDayReservations([]);
       return;
     }
-    listReservationsForDate(venueId, date).then(setDayReservations);
-  }, [venueId, date, isSubmitting]);
+    // "Претходен ден" clicked twice quickly: the older day's answer must not
+    // overwrite the newer one.
+    let cancelled = false;
+    listReservationsForDate(venueId, date)
+      .then((list) => {
+        if (!cancelled) setDayReservations(list);
+      })
+      .catch(() => {
+        if (!cancelled) failedToLoad();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [venueId, date, isSubmitting, refreshTick]);
 
   const filteredDayReservations = dayReservations.filter((r) => {
     if (listRoomFilter !== "all" && r.room_id !== listRoomFilter) return false;
@@ -216,8 +304,14 @@ export function ReservationsClient({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setServerNameMissing(false);
     if (selectedTableIds.length === 0) {
       setError("Изберете барем една маса.");
+      return;
+    }
+    if (!serverName.trim()) {
+      setServerNameMissing(true);
+      setError("Внесете кој келнер ја прави резервацијата.");
       return;
     }
     setIsSubmitting(true);
@@ -233,6 +327,7 @@ export function ReservationsClient({
         end_time: endTime || null,
         party_size: partySize,
         note: note || null,
+        server_name: serverName.trim(),
         table_ids: selectedTableIds,
       });
       setReservations((prev) => [...prev, created]);
@@ -241,6 +336,7 @@ export function ReservationsClient({
       setPhone("");
       setEmail("");
       setNote("");
+      setServerName("");
       setSelectedTableIds([]);
     } catch (err) {
       setError(errorMessage(err, "Не успеа резервацијата. Обидете се повторно."));
@@ -323,7 +419,7 @@ export function ReservationsClient({
             <input id="qb-date" type="date" className="fld" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="qb-field qb-field-time">
-            <label className="lab-s">Термин</label>
+            <label className="lab-s" htmlFor="qb-start-time">Термин</label>
             <div className="qb-time-row">
               <div className="seg">
                 {TIME_PRESETS.map((t) => (
@@ -333,23 +429,17 @@ export function ReservationsClient({
                 ))}
               </div>
               <input
+                id="qb-start-time"
                 type="time"
                 className="fld qb-time-exact"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                aria-label="Точно време"
               />
             </div>
           </div>
           <div className="qb-field">
-            <label className="lab-s">До (опционално)</label>
-            <input
-              type="time"
-              className="fld"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              aria-label="До кое време"
-            />
+            <label className="lab-s" htmlFor="qb-end-time">До (опционално)</label>
+            <input id="qb-end-time" type="time" className="fld" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
           </div>
           <div className="qb-field qb-field-narrow">
             <label className="lab-s" htmlFor="qb-party-size">Гости</label>
@@ -363,8 +453,8 @@ export function ReservationsClient({
             />
           </div>
           <div className="qb-field qb-field-grow">
-            <label className="lab-s">Сала</label>
-            <div className="seg">
+            <span className="lab-s" id="qb-room-label">Сала</span>
+            <div className="seg" role="group" aria-labelledby="qb-room-label">
               {rooms.map((r) => (
                 <button
                   key={r.id}
@@ -380,6 +470,15 @@ export function ReservationsClient({
           </div>
         </div>
       </section>
+
+      {loadError ? (
+        <p role="alert" className="qb-load-error" style={{ color: "var(--bad)", margin: "0 0 12px" }}>
+          {loadError}{" "}
+          <button type="button" className="btn btn-ghost" onClick={() => setRefreshTick((n) => n + 1)}>
+            Обиди се повторно
+          </button>
+        </p>
+      ) : null}
 
       <div className="qb-layout">
         <section className="panel">
@@ -414,6 +513,10 @@ export function ReservationsClient({
               </div>
             </div>
           </div>
+
+          {room ? (
+            <HourOccupancySlider hours={hourlyOccupancy} activeHour={activeHour} onHourChange={handleHourChange} />
+          ) : null}
 
           <div className="qb-canvas-wrap">
             <div className="qb-canvas-zoom" style={{ transform: `scale(${zoom})` }}>
@@ -488,22 +591,41 @@ export function ReservationsClient({
             <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
               <p className="lab-s">Детали за резервација</p>
               <div style={{ marginBottom: 10 }}>
-                <label className="lab-s">Име и презиме</label>
-                <input className="fld" placeholder="Име и презиме" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
+                <label className="lab-s" htmlFor="res-guest-name">Име и презиме</label>
+                <input id="res-guest-name" className="fld" placeholder="Име и презиме" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label className="lab-s">Телефон</label>
-                <input className="fld" placeholder="Телефон" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <label className="lab-s" htmlFor="res-phone">Телефон</label>
+                <input id="res-phone" className="fld" placeholder="Телефон" value={phone} onChange={(e) => setPhone(e.target.value)} required />
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label className="lab-s">Е-пошта (незадолжително)</label>
-                <input className="fld" placeholder="Е-пошта" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <label className="lab-s" htmlFor="res-email">Е-пошта (незадолжително)</label>
+                <input id="res-email" className="fld" placeholder="Е-пошта" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label className="lab-s">Белешка (опционално)</label>
-                <input className="fld" placeholder="Белешка" value={note} onChange={(e) => setNote(e.target.value)} />
+                <label className="lab-s" htmlFor="res-note">Белешка (опционално)</label>
+                <input id="res-note" className="fld" placeholder="Белешка" value={note} onChange={(e) => setNote(e.target.value)} />
               </div>
-              {error ? <p style={{ color: "var(--bad)" }}>{error}</p> : null}
+              <div style={{ marginBottom: 10 }}>
+                <label className="lab-s" htmlFor="res-server-name">
+                  Келнер <span className="req">*</span>
+                </label>
+                <input
+                  id="res-server-name"
+                  className="fld"
+                  aria-required="true"
+                  aria-invalid={serverNameMissing || undefined}
+                  aria-describedby={serverNameMissing ? "res-form-error" : undefined}
+                  placeholder="Кој ја прави резервацијата"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                />
+              </div>
+              {error ? (
+                <p id="res-form-error" role="alert" style={{ color: "var(--bad)" }}>
+                  {error}
+                </p>
+              ) : null}
               <button type="submit" className="btn btn-gold" disabled={isSubmitting} style={{ width: "100%", justifyContent: "center" }}>
                 {isSubmitting ? "Резервирање..." : "Резервирај маса(и)"}
               </button>
@@ -566,6 +688,7 @@ export function ReservationsClient({
               <span>Телефон</span>
               <span>Сала</span>
               <span>Гости</span>
+              <span>Келнер</span>
               <span>Статус</span>
               <span></span>
             </div>
@@ -579,6 +702,7 @@ export function ReservationsClient({
                   <span>{r.phone}</span>
                   <span>{roomForRow?.name ?? "—"}</span>
                   <span>{r.party_size}</span>
+                  <span>{r.server_name ?? "—"}</span>
                   <span className={`pill ${status.pill}`}>{status.label}</span>
                   <span style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                     <button type="button" className="btn btn-ghost" onClick={() => handleToggleOccupied(r.id, r.status)}>

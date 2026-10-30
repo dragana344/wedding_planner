@@ -47,7 +47,7 @@ async function newEvent(venue = venueId) {
 
 describe("audit log (SEC-018)", () => {
   it("records couple credential creation without a staff actor, now that it's gated through a service-role route (security review fix, same tradeoff as password regeneration below)", async () => {
-    // Migration 0110: create_event_credentials is no longer callable by a
+    // Migration 0111: create_event_credentials is no longer callable by a
     // plain authenticated staff session at all — only via the gated
     // event-creation route, which calls it with a service-role client after
     // independently verifying manager elevation. auth.uid() is null under
@@ -79,7 +79,7 @@ describe("audit log (SEC-018)", () => {
   });
 
   it("records an event deletion, without personal data", async () => {
-    // Plan 2 (migration 0095): events are deleted only through the gated
+    // Plan 2 (migration 0096): events are deleted only through the gated
     // /api/venue/events/[eventId] route, which uses the service-role
     // client after independently verifying the manager-elevation token —
     // staff's own RLS-bound client can no longer delete events directly.

@@ -1,4 +1,4 @@
--- 0111: createEvent and updateEvent each did their event row, its rooms (and,
+-- 0112: createEvent and updateEvent each did their event row, its rooms (and,
 -- for create, the couple's login) as separate statements from the Next.js
 -- route — a failure partway (e.g. the rooms insert) left a half-made event
 -- with no compensating cleanup for that specific step, and the one cleanup

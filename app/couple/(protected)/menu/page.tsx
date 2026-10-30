@@ -1,27 +1,15 @@
 import { headers } from "next/headers";
-import { getVenueMenuOptions, getMenuItemQuantities } from "@/lib/couple/menu";
-import { getEventSummary } from "@/lib/couple/dashboard";
-import { MenuPicker } from "@/components/couple/MenuPicker";
+import { getEventMenus } from "@/lib/couple/menu";
+import { getGuestStats } from "@/lib/couple/guests";
+import { EventMenusView } from "@/components/couple/EventMenusView";
 
 export default async function CoupleMenuPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [{ templates, specialItems, currentSelection }, quantities, summary] = await Promise.all([
-    getVenueMenuOptions(eventId),
-    getMenuItemQuantities(eventId),
-    getEventSummary(eventId),
-  ]);
+  const [menus, stats] = await Promise.all([getEventMenus(eventId), getGuestStats(eventId)]);
 
   return (
     <main style={{ padding: "18px 22px 28px" }}>
-      <MenuPicker
-        templates={templates}
-        specialItems={specialItems}
-        currentSelection={currentSelection}
-        initialQuantities={quantities}
-        guestCountEstimate={summary.guest_count_estimate}
-        coupleNames={summary.couple_names}
-        eventDate={summary.event_date}
-      />
+      <EventMenusView menus={menus} totals={stats.menus.map((m) => ({ id: m.id, count: m.count }))} />
     </main>
   );
 }

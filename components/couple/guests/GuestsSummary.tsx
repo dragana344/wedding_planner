@@ -1,6 +1,7 @@
 import type { GuestStats } from "@/lib/couple/guests";
 import "@/components/couple/StatSummaryCard.css";
 import "./GuestsSummary.css";
+import { MenuNumbersSend } from "@/components/couple/guests/MenuNumbersSend";
 
 // A17: who has answered what, as one 100% bar + legend, instead of a
 // separate tile per status (final review finding: the old seven-tile grid
@@ -14,7 +15,7 @@ const SEGMENTS: { key: "confirmed" | "later" | "declined" | "none"; label: strin
   { key: "none", label: "Без одговор", color: "#d8cbb0" },
 ];
 
-export function GuestsSummary({ stats }: { stats: GuestStats }) {
+export function GuestsSummary({ stats, canSendNumbers = false }: { stats: GuestStats; canSendNumbers?: boolean }) {
   const counts = {
     confirmed: stats.confirmed,
     later: stats.later,
@@ -62,12 +63,23 @@ export function GuestsSummary({ stats }: { stats: GuestStats }) {
       </ul>
 
       {stats.total > 0 ? (
-        <p className="guests-summary-menu">
-          Мени (порции за потврдени): Стандардно {stats.menu.standard} · Посно {stats.menu.posno} · Вегетаријанско {stats.menu.vegetarian} · Неизбрано{" "}
-          {stats.menu.unset}
-          {stats.childrenAttending > 0 ? ` · Деца: ${stats.childrenAttending}` : ""}
-        </p>
+        <>
+          {stats.menus.length > 0 ? (
+            <p className="guests-summary-menu">
+              {`Мени (порции за потврдени): ${stats.menus.map((m) => `${m.name} ${m.count}`).join(" · ")}`}
+              {stats.childrenAttending > 0 ? ` · Деца: ${stats.childrenAttending}` : ""}
+            </p>
+          ) : stats.childrenAttending > 0 ? (
+            <p className="guests-summary-menu">{`Деца: ${stats.childrenAttending}`}</p>
+          ) : null}
+          {stats.notDone.length > 0 ? (
+            <p className="guests-summary-menu" title={stats.notDone.map((g) => g.full_name).join(", ")}>
+              {stats.notDone.length === 1 ? "Уште 1 гостин нема конечен одговор" : `Уште ${stats.notDone.length} гости немаат конечен одговор`}
+            </p>
+          ) : null}
+        </>
       ) : null}
+      {canSendNumbers && stats.menus.length > 0 ? <MenuNumbersSend refreshKey={stats} /> : null}
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { POST as createRoute } from "@/app/api/venue/events/route";
 import { PATCH as updateRoute, DELETE as deleteRoute } from "@/app/api/venue/events/[eventId]/route";
 import { PATCH as contactRoute } from "@/app/api/venue/events/[eventId]/contact/route";
 import { PATCH as financeRoute } from "@/app/api/venue/events/[eventId]/finance/route";
+import { GET as menuUsageRoute } from "@/app/api/venue/events/[eventId]/menu-usage/route";
 import { createManagerElevation } from "@/lib/venue/manager-elevation";
 import { MANAGER_TOKEN_HEADER } from "@/lib/venue/manager-guard";
 
@@ -39,7 +40,7 @@ function ctx(eventId: string) {
 }
 
 const validCreateBody = {
-  couple_names: "Тест Пар", event_date: "2027-01-01", room_ids: [], menu_template_id: null,
+  couple_names: "Тест Пар", event_date: "2027-01-01", room_ids: [], menu_template_ids: [],
   contacts: { contact_email: "test@example.com", contact_phone: "070123456" },
   credentials: { username: `test-par-${Date.now()}`, password: "a-strong-password-1" },
 };
@@ -60,6 +61,21 @@ afterAll(async () => {
 });
 
 describe("POST /api/venue/events", () => {
+  it("says the couple's username is taken instead of 'could not be saved' (regression: the wizard path lost this)", async () => {
+    const credentials = { username: `zafateno-${Date.now()}`, password: "a-strong-password-1" };
+    const first = await createRoute(req("/api/venue/events", "POST", { ...validCreateBody, credentials }, managerToken), { params: Promise.resolve({}) });
+    expect(first.status).toBe(200);
+    const second = await createRoute(
+      req("/api/venue/events", "POST", { ...validCreateBody, couple_names: "Друг пар", credentials }, managerToken),
+      { params: Promise.resolve({}) },
+    );
+    expect(second.status).toBe(400);
+    expect((await second.json()).error).toBe("Корисничкото име е веќе зафатено. Изберете друго.");
+    // Nothing half-made: the second event rolled back with its login.
+    const { data } = await admin.from("events").select("id").eq("venue_id", venueId).eq("couple_names", "Друг пар");
+    expect(data).toEqual([]);
+  });
+
   it("creates an event for an elevated manager", async () => {
     const res = await createRoute(req("/api/venue/events", "POST", validCreateBody, managerToken), { params: Promise.resolve({}) });
     expect(res.status).toBe(200);
@@ -91,7 +107,7 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${eventId}`, "PATCH", {
         couple_names: "Изменет Пар", event_date: "2027-02-02", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: 50, room_ids: [], menu_template_id: null,
+        status: "confirmed", event_type: "wedding", guest_count_estimate: 50, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
       }, managerToken),
       ctx(eventId),
     );
@@ -102,7 +118,7 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${eventId}`, "PATCH", {
         couple_names: "X", event_date: "2027-02-02", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], menu_template_id: null,
+        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
       }),
       ctx(eventId),
     );
@@ -139,6 +155,27 @@ describe("PATCH /api/venue/events/[eventId]/contact and /finance", () => {
   });
 });
 
+describe("GET /api/venue/events/[eventId]/menu-usage", () => {
+  it("manager gets per-menu guest counts, staff 403", async () => {
+    const a = (await admin.from("menu_templates").insert({ venue_id: venueId, name: "Употреба А" }).select("id").single()).data!.id;
+    const b = (await admin.from("menu_templates").insert({ venue_id: venueId, name: "Употреба Б" }).select("id").single()).data!.id;
+    await admin.from("event_menu_templates").insert([{ event_id: eventId, menu_template_id: a }, { event_id: eventId, menu_template_id: b }]);
+    const g1 = (await admin.from("event_guests").insert({ event_id: eventId, full_name: "Г1" }).select("id").single()).data!.id;
+    const g2 = (await admin.from("event_guests").insert({ event_id: eventId, full_name: "Г2" }).select("id").single()).data!.id;
+    await admin.from("event_guest_menu_counts").insert([
+      { guest_id: g1, menu_template_id: a, count: 2 },
+      { guest_id: g2, menu_template_id: a, count: 1 },
+    ]);
+
+    const res = await menuUsageRoute(req(`/api/venue/events/${eventId}/menu-usage`, "GET", undefined, managerToken), ctx(eventId));
+    expect(res.status).toBe(200);
+    expect((await res.json()).usage).toEqual({ [a]: 2, [b]: 0 });
+
+    const denied = await menuUsageRoute(req(`/api/venue/events/${eventId}/menu-usage`, "GET", undefined), ctx(eventId));
+    expect(denied.status).toBe(403);
+  });
+});
+
 describe("Past events are read-only server-side (security review fix)", () => {
   let pastEventId: string;
   beforeAll(async () => {
@@ -152,7 +189,7 @@ describe("Past events are read-only server-side (security review fix)", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${pastEventId}`, "PATCH", {
         couple_names: "X", event_date: "2000-01-01", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], menu_template_id: null,
+        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
       }, managerToken),
       ctx(pastEventId),
     );

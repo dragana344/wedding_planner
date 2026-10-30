@@ -33,13 +33,12 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   event_reminders: { event_id: N, send_at: C, status: N, sent_at: C, sent_count: N, updated_at: N },
   event_credentials: { event_id: N, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N },
-  event_custom_menu_items: { event_id: N, menu_item_id: C },
   event_feature_overrides: {
     event_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,
   },
   event_guests: {
     id: N, event_id: N, full_name: P, phone: P, party_size: C, rsvp_status: C, notes: P, created_at: N, side: P,
-    rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, menu_choice: P, allergies: P,
+    rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, allergies: P,
     children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C, reminder_sent_at: C,
   },
   event_greetings: {
@@ -51,7 +50,12 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     rotation_deg: N, label: P, created_at: N, group_id: N, table_role: N,
   },
   event_locations: { id: N, event_id: N, label: P, address: P, map_url: P, sort_order: N, created_at: N },
-  event_menu_item_quantities: { event_id: N, menu_item_id: C, guest_count: C },
+  event_guest_menu_counts: { guest_id: N, menu_template_id: N, count: P },
+  // sent_by is always the fixed "Младенците"; seen_by is the venue manager's name.
+  event_menu_submissions: {
+    id: N, event_id: N, sent_at: N, sent_by: N, counts: C, menu_titles: N, total: C, seen_at: N, seen_by: P,
+  },
+  event_menu_templates: { event_id: N, menu_template_id: N },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },
   event_rooms: { event_id: N, room_id: N, layout_initialized_at: N },
   event_photos: {
@@ -63,7 +67,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   event_showcase_photos: { id: N, event_id: N, photo_path: P, created_at: N },
   events: {
-    id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, menu_template_id: N, created_at: N,
+    id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, created_at: N,
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
     deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
@@ -74,7 +78,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     venue_id: N, tiers: N,
   },
   menu_template_items: { menu_template_id: N, menu_item_id: N },
-  menu_templates: { id: N, venue_id: N, name: N, description: N, created_at: N },
+  menu_templates: { id: N, venue_id: N, name: N, description: N, created_at: N, event_id: N },
   plan_features: { plan_id: N, feature_key: N, enabled: N, limit_value: N },
   plans: { id: N, name: N, description: N, sort_order: N, is_default: N, is_public: N, created_at: N },
   platform_settings: { id: N, maintenance_mode: N, updated_at: N, updated_by: N },
@@ -84,6 +88,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   reservations: {
     id: N, venue_id: N, room_id: N, guest_name: P, phone: P, email: P, date: C, start_time: C, end_time: C,
     party_size: C, status: C, event_type: C, note: P, created_at: N,
+    // The venue staff member (waiter/barista) who took the booking, not the
+    // dining guest — outside the scope of this guest's export/erasure.
+    server_name: N,
   },
   room_fixed_elements: {
     id: N, room_id: N, element_type: N, x_cm: N, y_cm: N, width_cm: N, height_cm: N, rotation_deg: N, label: N, created_at: N,

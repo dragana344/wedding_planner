@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { peakConcurrentGuests } from "@/lib/venue/occupancy";
+import { peakConcurrentGuests, computeHourlyTableOccupancy } from "@/lib/venue/occupancy";
 import type { EventDetail } from "@/lib/venue/events";
+import type { Reservation } from "@/lib/venue/reservations";
 
 function ev(partial: Partial<EventDetail>): EventDetail {
   return {
@@ -12,8 +13,7 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     status: "confirmed",
     event_type: "wedding",
     guest_count_estimate: null,
-    menu_template_id: null,
-    customMenuItems: [],
+    menus: [],
     room_ids: [],
     hasShowcasePhotos: false,
     seatedCount: 0,
@@ -23,6 +23,7 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     total_price: null,
     deposit_paid: null,
     hasUnseenSeatingChange: false,
+    menuNumbers: { latest: null, previous: null },
     ...partial,
   };
 }
@@ -102,5 +103,91 @@ describe("peakConcurrentGuests", () => {
     ];
     // 13:00–13:30 has all three present.
     expect(peakConcurrentGuests(events)).toBe(135);
+  });
+});
+
+function res(partial: Partial<Reservation>): Reservation {
+  return {
+    id: Math.random().toString(36).slice(2),
+    venue_id: "v1",
+    room_id: "r1",
+    guest_name: "Test",
+    phone: "000",
+    email: null,
+    date: "2026-09-04",
+    start_time: "11:00",
+    end_time: null,
+    party_size: 2,
+    status: "reserved",
+    event_type: null,
+    note: null,
+    server_name: null,
+    table_ids: ["t1"],
+    ...partial,
+  };
+}
+
+describe("computeHourlyTableOccupancy", () => {
+  it("returns 24 hours, all empty, when there are no reservations", () => {
+    const result = computeHourlyTableOccupancy([], 10);
+    expect(result).toHaveLength(24);
+    expect(result[0]).toEqual({ hour: 0, reservedTables: 0, totalTables: 10, pct: 0 });
+    expect(result.every((h) => h.pct === 0)).toBe(true);
+  });
+
+  it("marks a table reserved only for the hours its booking spans", () => {
+    const reservations = [res({ start_time: "11:00", end_time: "13:00", table_ids: ["t1"] })];
+    const result = computeHourlyTableOccupancy(reservations, 4);
+    expect(result[10].reservedTables).toBe(0); // 10:00
+    expect(result[11].reservedTables).toBe(1); // 11:00
+    expect(result[12].reservedTables).toBe(1); // 12:00
+    expect(result[13].reservedTables).toBe(0); // 13:00, booking ends exactly here
+    expect(result[11].pct).toBe(25);
+  });
+
+  it("falls back to a 3h block when end_time is missing", () => {
+    const reservations = [res({ start_time: "20:00", end_time: null, table_ids: ["t1"] })];
+    const result = computeHourlyTableOccupancy(reservations, 1);
+    expect(result[20].reservedTables).toBe(1);
+    expect(result[21].reservedTables).toBe(1);
+    expect(result[22].reservedTables).toBe(1);
+    expect(result[23].reservedTables).toBe(0);
+  });
+
+  it("handles a booking that crosses midnight", () => {
+    const reservations = [res({ start_time: "23:00", end_time: "01:00", table_ids: ["t1"] })];
+    const result = computeHourlyTableOccupancy(reservations, 1);
+    expect(result[23].reservedTables).toBe(1);
+    expect(result[0].reservedTables).toBe(1);
+    expect(result[1].reservedTables).toBe(0);
+  });
+
+  it("counts a table once per hour even with overlapping reservations on it", () => {
+    const reservations = [
+      res({ start_time: "11:00", end_time: "13:00", table_ids: ["t1"] }),
+      res({ start_time: "12:00", end_time: "14:00", table_ids: ["t1"] }),
+    ];
+    const result = computeHourlyTableOccupancy(reservations, 2);
+    expect(result[12].reservedTables).toBe(1);
+  });
+
+  it("ignores cancelled and completed reservations", () => {
+    const reservations = [
+      res({ start_time: "11:00", end_time: "13:00", table_ids: ["t1"], status: "cancelled" }),
+      res({ start_time: "11:00", end_time: "13:00", table_ids: ["t2"], status: "completed" }),
+    ];
+    const result = computeHourlyTableOccupancy(reservations, 5);
+    expect(result[11].reservedTables).toBe(0);
+  });
+
+  it("counts a seated reservation the same as a reserved one", () => {
+    const reservations = [res({ start_time: "11:00", end_time: "13:00", table_ids: ["t1"], status: "seated" })];
+    const result = computeHourlyTableOccupancy(reservations, 2);
+    expect(result[11].reservedTables).toBe(1);
+  });
+
+  it("returns 0 pct for every hour when there are no tables at all", () => {
+    const result = computeHourlyTableOccupancy([], 0);
+    expect(result.every((h) => h.pct === 0)).toBe(true);
   });
 });

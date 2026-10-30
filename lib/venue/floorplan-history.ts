@@ -18,7 +18,7 @@ import {
 } from "@/lib/venue/floorplan";
 
 // Staff's seating editor on the live event layout, with the multi-step
-// undo/redo of 0072 (events.layout_history). Since 0104 staff can only read
+// undo/redo of 0072 (events.layout_history). Since 0105 staff can only read
 // the layout through RLS: every write runs server-side in
 // /api/venue/events/[eventId]/seating behind the manager-elevation check,
 // with a service-role client — so the route, not RLS, scopes each call to

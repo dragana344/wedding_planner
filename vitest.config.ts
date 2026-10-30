@@ -10,6 +10,8 @@ export const unitTestFiles = [
   "tests/components/**/*.test.{ts,tsx}",
   "tests/lib/supabase/client.test.ts",
   "tests/lib/venue/occupancy.test.ts",
+  "tests/lib/venue/transliterate.test.ts",
+  "tests/lib/venue/event-wizard.test.ts",
   "tests/lib/api/**/*.test.ts",
   "tests/security/**/*.test.ts",
   "tests/lib/security/**/*.test.ts",

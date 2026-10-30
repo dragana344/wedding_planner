@@ -1,4 +1,4 @@
--- 0092: verify_venue_manager's initial read took no row lock, so concurrent
+-- 0093: verify_venue_manager's initial read took no row lock, so concurrent
 -- calls could all observe "not locked" before any sibling's UPDATE
 -- committed, letting more than 5 real password checks through in a burst
 -- (final review finding I-1 on the venue-manager-elevation feature).

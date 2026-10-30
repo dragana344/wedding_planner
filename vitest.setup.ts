@@ -5,7 +5,7 @@ import { vi } from "vitest";
 // load the landing page's fonts (components/marketing/fonts.ts).
 vi.mock("next/font/google", () => {
   const font = () => ({ className: "", variable: "" });
-  return { Montserrat: font, Nunito: font };
+  return { Montserrat: font, Nunito: font, Cormorant_Garamond: font };
 });
 
 // Unit tests never talk to Supabase, but some modules build a client at import

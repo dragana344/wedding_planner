@@ -32,7 +32,7 @@ export function ImageLightbox({
       />
       <button
         onClick={onClose}
-        aria-label="Close"
+        aria-label="Затвори"
         className="absolute right-6 top-6 text-2xl text-white/80 hover:text-white"
       >
         ✕

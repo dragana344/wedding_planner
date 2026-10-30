@@ -11,8 +11,6 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
 let venueId: string;
 let roomId: string;
 let eventId: string;
-let dishA: string;
-let dishB: string;
 
 beforeAll(async () => {
   const { data: venue } = await admin.from("venues").insert({ name: "Atomic Venue" }).select("id").single();
@@ -25,14 +23,6 @@ beforeAll(async () => {
     .select("id")
     .single();
   eventId = event!.id;
-  const { data: dishes } = await admin
-    .from("menu_items")
-    .insert([
-      { venue_id: venueId, tiers: ["everyday"], course: "main", name: "A" },
-      { venue_id: venueId, tiers: ["everyday"], course: "dessert", name: "B" },
-    ])
-    .select("id");
-  [dishA, dishB] = dishes!.map((d) => d.id);
 });
 
 afterAll(async () => {
@@ -52,25 +42,6 @@ describe("atomic multi-step writes (REL-005)", () => {
     expect(rows).toEqual([{ label: "T1" }]);
     const { data: event } = await admin.from("events").select("seating_confirmed_at").eq("id", eventId).single();
     expect(event!.seating_confirmed_at).toEqual({ [roomId]: "2027-01-01T00:00:00.000Z" });
-  });
-
-  it("menu quantities: a bad row keeps the previous quantities", async () => {
-    await admin.rpc("replace_menu_item_quantities", { p_event_id: eventId, p_quantities: [{ menu_item_id: dishA, guest_count: 40 }] });
-    const { error } = await admin.rpc("replace_menu_item_quantities", {
-      p_event_id: eventId,
-      p_quantities: [{ menu_item_id: dishA, guest_count: 50 }, { menu_item_id: dishB, guest_count: 0 }],
-    });
-    expect(error).not.toBeNull();
-    const { data } = await admin.from("event_menu_item_quantities").select("menu_item_id, guest_count").eq("event_id", eventId);
-    expect(data).toEqual([{ menu_item_id: dishA, guest_count: 40 }]);
-  });
-
-  it("custom menu: a bad pick keeps the previous picks and template", async () => {
-    await admin.rpc("set_event_menu_custom", { p_event_id: eventId, p_menu_item_ids: [dishA] });
-    const { error } = await admin.rpc("set_event_menu_custom", { p_event_id: eventId, p_menu_item_ids: [dishB, randomUUID()] });
-    expect(error).not.toBeNull();
-    const { data } = await admin.from("event_custom_menu_items").select("menu_item_id").eq("event_id", eventId);
-    expect(data).toEqual([{ menu_item_id: dishA }]);
   });
 
   it("venue provisioning: a failing staff insert leaves no orphan venue", async () => {

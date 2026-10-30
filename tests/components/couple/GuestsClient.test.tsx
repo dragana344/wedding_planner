@@ -16,7 +16,7 @@ function makeGuest(overrides: Partial<Guest> = {}): Guest {
     invite_token: "tok-g1-xxxxxxxxxxxxxxxxxx",
     email: null,
     children_count: 0,
-    menu_choice: null,
+    menu_counts: {},
     allergies: null,
     rsvp_comment: null,
     invitation_sent_at: null,
@@ -35,7 +35,8 @@ function makeStats(overrides: Partial<GuestStats> = {}): GuestStats {
     later: 0,
     totalAttending: 0,
     childrenAttending: 0,
-    menu: { standard: 0, posno: 0, vegetarian: 0, unset: 0 },
+    menus: [],
+    notDone: [],
     invitationsSent: 0,
     ...overrides,
   };
@@ -118,13 +119,20 @@ describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
   });
 });
 
+const CLASSIC = "11111111-1111-4111-8111-111111111111";
+const POSNO = "22222222-2222-4222-8222-222222222222";
+const MENUS = [
+  { id: CLASSIC, name: "Класично", count: 0 },
+  { id: POSNO, name: "Посно", count: 2 },
+];
+
 describe("GuestsClient final list (A7, A8, A17)", () => {
   const list = [
-    makeGuest({ id: "g1", full_name: "Ана Петровска", rsvp_status: "confirmed", menu_choice: "posno", invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: "viber" }),
+    makeGuest({ id: "g1", full_name: "Ана Петровска", rsvp_status: "confirmed", menu_counts: { [POSNO]: 2 }, invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: "viber" }),
     makeGuest({ id: "g2", full_name: "Марко Стојанов", phone: "071999888", rsvp_status: "declined" }),
     makeGuest({ id: "g3", full_name: "Јана Илиева", rsvp_status: "later", invitation_sent_at: "2027-01-01T10:00:00Z", invitation_channel: "link" }),
   ];
-  const listStats = makeStats({ total: 3, confirmed: 1, declined: 1, later: 1, pending: 0, invitationsSent: 2 });
+  const listStats = makeStats({ menus: MENUS, total: 3, confirmed: 1, declined: 1, later: 1, pending: 0, invitationsSent: 2 });
 
   function names() {
     return screen.queryAllByRole("button", { name: /^Детали за / }).map((b) => b.textContent);
@@ -143,7 +151,7 @@ describe("GuestsClient final list (A7, A8, A17)", () => {
     fireEvent.change(screen.getByLabelText("Филтер по статус"), { target: { value: "later" } });
     expect(names()).toEqual(["Јана Илиева"]);
     fireEvent.change(screen.getByLabelText("Филтер по статус"), { target: { value: "" } });
-    fireEvent.change(screen.getByLabelText("Филтер по мени"), { target: { value: "posno" } });
+    fireEvent.change(screen.getByLabelText("Филтер по мени"), { target: { value: POSNO } });
     expect(names()).toEqual(["Ана Петровска"]);
     fireEvent.change(screen.getByLabelText("Филтер по мени"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Филтер по покана"), { target: { value: "unsent" } });
@@ -173,17 +181,17 @@ describe("GuestsClient final list (A7, A8, A17)", () => {
       rsvp_status: "confirmed",
       party_size: 3,
       children_count: 1,
-      menu_choice: "vegetarian",
+      menu_counts: { [CLASSIC]: 2, [POSNO]: 1 },
       allergies: "ореви",
       rsvp_comment: "Честито!",
       email: "petar@example.mk",
     });
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ seat: { table_label: "5", seat_number: 3, room_name: "Сала Лотос" } }) });
-    render(<GuestsClient initialGuests={[detailed]} initialStats={makeStats({ confirmed: 1, pending: 0 })} eventType="birthday" />);
+    render(<GuestsClient initialGuests={[detailed]} initialStats={makeStats({ menus: MENUS, confirmed: 1, pending: 0 })} eventType="birthday" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Детали за Петар Петровски" }));
     const dialog = screen.getByRole("dialog", { name: "Петар Петровски" });
-    for (const text of ["3 (од кои 1 деца)", "Вегетаријанско", "ореви", "Честито!", "petar@example.mk", "Не е испратена"]) {
+    for (const text of ["3 (од кои 1 деца)", "ореви", "Честито!", "petar@example.mk", "Не е испратена"]) {
       expect(within(dialog).getByText(text)).toBeInTheDocument();
     }
     expect(await within(dialog).findByText("Маса 5 · столче 3 · Сала Лотос")).toBeInTheDocument();
@@ -391,5 +399,70 @@ describe("GuestsClient greetings in the details (A7)", () => {
     await screen.findByRole("dialog", { name: "Ана Петровска" });
     expect(screen.queryByText("Честитка")).not.toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalledWith("/api/couple/guests/g1/greetings");
+  });
+});
+
+describe("GuestsClient menu counts", () => {
+  const done = makeGuest({ id: "g1", full_name: "Ана", rsvp_status: "confirmed", party_size: 4, menu_counts: { [CLASSIC]: 3, [POSNO]: 1 } });
+  const incomplete = makeGuest({ id: "g2", full_name: "Борис", rsvp_status: "confirmed", party_size: 2, menu_counts: { [CLASSIC]: 1 } });
+  const declined = makeGuest({ id: "g3", full_name: "Васил", rsvp_status: "declined" });
+  const statsTwo = makeStats({
+    total: 3,
+    confirmed: 2,
+    declined: 1,
+    pending: 0,
+    menus: [
+      { id: CLASSIC, name: "Класично", count: 4 },
+      { id: POSNO, name: "Посно", count: 1 },
+    ],
+    notDone: [{ id: "g2", full_name: "Борис" }],
+  });
+  const names = () => screen.queryAllByRole("button", { name: /^Детали за / }).map((b) => b.textContent);
+
+  it('guest row shows "Класично 3 · Посно 1" or "Нема избрано мени"', () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" />);
+    expect(screen.getByText(/Класично 3 · Посно 1/)).toBeInTheDocument();
+    // Only the unfinished guest's row says so (the filter option has the same words).
+    expect(screen.getAllByText(/Нема избрано мени/, { selector: "p" })).toHaveLength(1);
+  });
+
+  it("filters by an event menu or by guests with no menu chosen", () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" />);
+    const filter = screen.getByLabelText("Филтер по мени");
+    fireEvent.change(filter, { target: { value: POSNO } });
+    expect(names()).toEqual(["Ана"]);
+    fireEvent.change(filter, { target: { value: CLASSIC } });
+    expect(names()).toEqual(["Ана", "Борис"]);
+    fireEvent.change(filter, { target: { value: "none" } });
+    expect(names()).toEqual(["Борис"]);
+  });
+
+  it("summary shows totals and \"Уште N гости немаат конечен одговор\"", () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" />);
+    expect(screen.getByText(/Класично 4 · Посно 1/)).toBeInTheDocument();
+    expect(screen.getByText("Уште 1 гостин нема конечен одговор")).toBeInTheDocument();
+  });
+
+  it("GuestDetail edits counts only when 2+ menus", async () => {
+    const updated = { ...incomplete, menu_counts: { [CLASSIC]: 1, [POSNO]: 1 } };
+    global.fetch = vi.fn((url: string) =>
+      Promise.resolve({ ok: true, json: async () => (url.endsWith("/seat") ? { seat: null } : url.includes("/api/couple/guests/g2") ? updated : { guests: [updated], stats: statsTwo }) }),
+    ) as unknown as typeof fetch;
+    const { unmount } = render(<GuestsClient initialGuests={[incomplete]} initialStats={statsTwo} eventType="birthday" />);
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Борис" }));
+    const dialog = screen.getByRole("dialog", { name: "Борис" });
+    fireEvent.change(within(dialog).getByLabelText("Посно"), { target: { value: "1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зачувај мени" }));
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/couple/guests/g2",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ type: "menus", counts: { [CLASSIC]: 1, [POSNO]: 1 } }) }),
+      ),
+    );
+    unmount();
+
+    render(<GuestsClient initialGuests={[incomplete]} initialStats={makeStats({ menus: [{ id: CLASSIC, name: "Класично", count: 2 }] })} eventType="birthday" />);
+    fireEvent.click(screen.getByRole("button", { name: "Детали за Борис" }));
+    expect(within(screen.getByRole("dialog", { name: "Борис" })).queryByRole("button", { name: "Зачувај мени" })).not.toBeInTheDocument();
   });
 });

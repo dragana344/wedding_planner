@@ -29,7 +29,7 @@ describe("menus data layer", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("adds items to the venue's shared pool, tagged by tier", async () => {
+  it("adds items to the venue's shared pool", async () => {
     const item = await addMenuItem({
       venue_id: venueId,
       tiers: ["special"],
@@ -44,45 +44,8 @@ describe("menus data layer", () => {
     expect(item.photo_path).toBeNull();
     expect(item.tiers).toEqual(["special"]);
 
-    const everydayItem = await addMenuItem({
-      venue_id: venueId,
-      tiers: ["everyday"],
-      course: "starter",
-      name: "House salad",
-      allergen_tags: [],
-      is_vegetarian: true,
-      is_vegan: true,
-      price: 4,
-    });
-
-    const special = await listMenuItems(venueId, "special");
-    expect(special.some((i) => i.id === item.id)).toBe(true);
-    expect(special.some((i) => i.id === everydayItem.id)).toBe(false);
-
-    const everyday = await listMenuItems(venueId, "everyday");
-    expect(everyday.some((i) => i.id === everydayItem.id)).toBe(true);
-
-    await deleteMenuItem(item.id);
-    await deleteMenuItem(everydayItem.id);
-  });
-
-  it("lets a single item belong to both the everyday and special menus at once", async () => {
-    const item = await addMenuItem({
-      venue_id: venueId,
-      tiers: ["everyday", "special"],
-      course: "main",
-      name: "Печено пиле",
-      allergen_tags: [],
-      is_vegetarian: false,
-      is_vegan: false,
-      price: 8,
-    });
-    expect(item.tiers.sort()).toEqual(["everyday", "special"]);
-
-    const everyday = await listMenuItems(venueId, "everyday");
-    const special = await listMenuItems(venueId, "special");
-    expect(everyday.some((i) => i.id === item.id)).toBe(true);
-    expect(special.some((i) => i.id === item.id)).toBe(true);
+    const pool = await listMenuItems(venueId);
+    expect(pool.some((i) => i.id === item.id)).toBe(true);
 
     await deleteMenuItem(item.id);
   });
@@ -112,7 +75,7 @@ describe("menus data layer", () => {
 
     await deleteMenuTemplate(templateA.id);
 
-    const stillInPool = await listMenuItems(venueId, "special");
+    const stillInPool = await listMenuItems(venueId);
     expect(stillInPool.some((i) => i.id === chicken.id)).toBe(true);
 
     const itemsBAfter = await listMenuTemplateItems(templateB.id);
@@ -141,7 +104,7 @@ describe("menus data layer", () => {
     const templates = await listMenuTemplates(venueId);
     expect(templates.some((t) => t.id === template.id)).toBe(false);
 
-    const items = await listMenuItems(venueId, "special");
+    const items = await listMenuItems(venueId);
     expect(items.some((i) => i.id === soup.id)).toBe(true);
 
     await deleteMenuItem(soup.id);

@@ -41,10 +41,10 @@ function formatCount(n: number): string {
 }
 const QUICK_ACTIONS = [
   { href: "/venue/events/new", icon: "plus", title: "КРЕИРАЈ НАСТАН", sub: "Нов настан за секунди", primary: true },
+  { href: "/venue/reservations", icon: "book", title: "РЕЗЕРВАЦИИ", sub: "Резервирај маса / термин", primary: true },
   { href: "/venue/events", icon: "cal-dot", title: "НАСТАНИ", sub: "Сите настани и прослави", primary: false },
-  { href: "/venue/tables", icon: "tables", title: "РАСПОРЕД НА МАСИ", sub: "План на сала", primary: false },
-  { href: "/venue/menus", icon: "menu", title: "МЕНИ / ПАКЕТИ", sub: "Менија и јадења", primary: false },
   { href: "/venue/calendar", icon: "cal", title: "КАЛЕНДАР", sub: "Преглед по денови", primary: false },
+  { href: "/venue/notifications", icon: "mega", title: "ИЗВЕСТУВАЊА", sub: "Известувања и потсетници", primary: false },
 ];
 
 /** A panel with nothing to show yet, distinguishing "no data" from "not built". */

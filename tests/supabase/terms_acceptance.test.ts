@@ -45,13 +45,13 @@ describe("terms acceptance (0046)", () => {
     expect(error?.message).toMatch(/venues_terms_acceptance_complete/);
   });
 
-  it("staff cannot write the acceptance record (nor, since 0106, any venue column)", async () => {
+  it("staff cannot write the acceptance record (nor, since 0107, any venue column)", async () => {
     const staff = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
       auth: { persistSession: false },
     });
     await staff.auth.signInWithPassword({ email, password });
 
-    // Renaming is owner-only through /api/venue/settings since 0106.
+    // Renaming is owner-only through /api/venue/settings since 0107.
     const renamed = await staff.from("venues").update({ name: `Renamed ${stamp}` }).eq("id", venueId).select("name");
     expect(renamed.error?.code).toBe("42501");
 

@@ -49,12 +49,16 @@ beforeEach(() => {
   fetchMock.mockReset();
   mockSignOut.mockClear();
   // Settings is owner-gated and renders ManagersSection, which fires its
-  // own GET /api/venue/managers on mount — routed to a fixed stub here so
-  // it never touches fetchMock, keeping every existing toHaveBeenCalledWith/
-  // toHaveBeenCalledTimes assertion about the delete-account/export/erase
-  // calls accurate.
+  // own GET /api/venue/managers on mount, and now fetches its own venue
+  // data from GET /api/venue/settings too — both routed to fixed stubs
+  // here so they never touch fetchMock, keeping every existing
+  // toHaveBeenCalledWith/toHaveBeenCalledTimes assertion about the
+  // delete-account/export/erase calls accurate.
   vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
     if (url === "/api/venue/managers") return Promise.resolve({ ok: true, json: async () => ({ managers: [] }) });
+    if (url === "/api/venue/settings" && (!init?.method || init.method === "GET")) {
+      return Promise.resolve({ ok: true, json: async () => ({ venueName: "Sala Biser", email: "owner@example.com" }) });
+    }
     return fetchMock(url, init);
   });
   locationHref = "";
@@ -84,8 +88,7 @@ const event: EventDetail = {
   status: "confirmed",
   event_type: "wedding",
   guest_count_estimate: 150,
-  menu_template_id: null,
-  customMenuItems: [],
+  menus: [],
   room_ids: [],
   hasShowcasePhotos: false,
   seatedCount: 0,
@@ -95,23 +98,24 @@ const event: EventDetail = {
   total_price: null,
   deposit_paid: null,
   hasUnseenSeatingChange: false,
+  menuNumbers: { latest: null, previous: null },
 };
 
 describe("Settings: delete account (DATA-006)", () => {
-  function renderSettings() {
+  async function renderSettings() {
     render(
       <ManagerElevationContext.Provider value={elevatedOwnerValue}>
-        <SettingsClient venueName="Sala Biser" email="owner@example.com" />
+        <SettingsClient />
       </ManagerElevationContext.Provider>
     );
     return {
-      input: screen.getByLabelText(/внесете го името на локалот/i),
+      input: await screen.findByLabelText(/внесете го името на локалот/i),
       button: screen.getByRole("button", { name: /Избриши ја сметката/ }),
     };
   }
 
-  it("keeps the delete button disabled until the venue name is typed exactly", () => {
-    const { input, button } = renderSettings();
+  it("keeps the delete button disabled until the venue name is typed exactly", async () => {
+    const { input, button } = await renderSettings();
     expect(button).toBeDisabled();
     fireEvent.change(input, { target: { value: "sala biser" } });
     expect(button).toBeDisabled();
@@ -123,8 +127,8 @@ describe("Settings: delete account (DATA-006)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not call the API when submitted without a matching name", () => {
-    const { input, button } = renderSettings();
+  it("does not call the API when submitted without a matching name", async () => {
+    const { input, button } = await renderSettings();
     fireEvent.change(input, { target: { value: "Other" } });
     fireEvent.submit(button.closest("form")!);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -132,7 +136,7 @@ describe("Settings: delete account (DATA-006)", () => {
 
   it("deletes, signs out and goes to /login", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-    const { input, button } = renderSettings();
+    const { input, button } = await renderSettings();
     fireEvent.change(input, { target: { value: "  Sala Biser " } });
     fireEvent.click(button);
     await waitFor(() => expect(locationHref).toBe("/login"));
@@ -145,15 +149,15 @@ describe("Settings: delete account (DATA-006)", () => {
 
   it("shows the server's error and stays on the page when deletion fails", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: "Потврдата не се совпаѓа" }), { status: 400 }));
-    const { input, button } = renderSettings();
+    const { input, button } = await renderSettings();
     fireEvent.change(input, { target: { value: "Sala Biser" } });
     fireEvent.click(button);
     expect(await screen.findByText("Потврдата не се совпаѓа")).toBeInTheDocument();
     expect(locationHref).toBe("");
   });
 
-  it("offers a data download", () => {
-    renderSettings();
+  it("offers a data download", async () => {
+    await renderSettings();
     expect(screen.getByRole("button", { name: "Преземи ги податоците" })).toBeEnabled();
   });
 });
@@ -168,7 +172,7 @@ describe("Event form: erase personal data (DATA-006)", () => {
   function renderForm(onChanged = vi.fn(), onClose = vi.fn()) {
     render(
       <ManagerElevationContext.Provider value={elevatedOwnerValue}>
-        <EventEditForm event={event} rooms={[]} menuTemplates={[]} onClose={onClose} onChanged={onChanged} readOnly />
+        <EventEditForm venueId="v1" event={event} rooms={[]} menuTemplates={[]} onClose={onClose} onChanged={onChanged} readOnly />
       </ManagerElevationContext.Provider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Избриши ги личните податоци за овој настан" }));
@@ -183,7 +187,7 @@ describe("Event form: erase personal data (DATA-006)", () => {
   it("is not offered at all to a plain staff member who is not elevated, even if they weren't going to be able to submit it anyway", () => {
     render(
       <ManagerElevationProvider>
-        <EventEditForm event={event} rooms={[]} menuTemplates={[]} onClose={vi.fn()} onChanged={vi.fn()} readOnly />
+        <EventEditForm venueId="v1" event={event} rooms={[]} menuTemplates={[]} onClose={vi.fn()} onChanged={vi.fn()} readOnly />
       </ManagerElevationProvider>,
     );
     expect(screen.queryByRole("button", { name: "Избриши ги личните податоци за овој настан" })).not.toBeInTheDocument();

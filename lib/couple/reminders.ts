@@ -123,6 +123,12 @@ async function sendEventReminder(eventId: string, now: Date, origin: string): Pr
   const venueName = (event.venues as unknown as { name: string } | null)?.name ?? "";
   const invitation = event.event_invitations as unknown as { public_slug: string } | { public_slug: string }[] | null;
   const slug = Array.isArray(invitation) ? invitation[0]?.public_slug : invitation?.public_slug;
+  // Guests are asked to choose a menu only when there is a choice to make.
+  const { count: menuCount, error: menusError } = await client
+    .from("event_menu_templates")
+    .select("menu_template_id", { count: "exact", head: true })
+    .eq("event_id", eventId);
+  if (menusError) throw menusError;
 
   const { data: guests, error } = await client
     .from("event_guests")
@@ -142,6 +148,7 @@ async function sendEventReminder(eventId: string, now: Date, origin: string): Pr
       eventDate: event.event_date,
       venueName,
       eventType: event.event_type,
+      menuCount: menuCount ?? 0,
       link: slug ? personalInviteUrl(origin, slug, guest.invite_token) : origin,
     });
     try {

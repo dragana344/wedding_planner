@@ -206,6 +206,7 @@ export const guestCreateBody = guestFields;
 export const guestUpdateBody = z.union([
   z.object({ type: z.literal("status"), rsvp_status: z.enum(RSVP_STATUSES) }),
   z.object({ type: z.literal("side"), side: z.enum(GUEST_SIDES).nullable() }),
+  z.object({ type: z.literal("menus"), counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX)) }),
   guestFields,
 ]);
 
@@ -271,30 +272,6 @@ export const locationBody = z.object({
     .refine((v) => v.trim() === "" || /^https?:\/\//i.test(v.trim()), "Линкот мора да почнува со http:// или https://.")
     .nullable()
     .optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Couple: menu
-
-export const MENU_MODE_ERROR = "Непознат режим на избор.";
-export const menuSelectionBody = z.discriminatedUnion(
-  "mode",
-  [
-    z.object({ mode: z.literal("template"), menu_template_id: uuid }),
-    z.object({ mode: z.literal("custom"), menu_item_ids: z.array(uuid).max(ID_LIST_MAX).optional() }),
-  ],
-  { error: MENU_MODE_ERROR },
-);
-
-export const menuQuantitiesBody = z.object({
-  quantities: z
-    .array(
-      z.object({
-        menu_item_id: uuid,
-        guest_count: z.number().int().min(1).max(QUANTITY_MAX).nullable().optional(),
-      }),
-    )
-    .max(ID_LIST_MAX),
 });
 
 // ---------------------------------------------------------------------------
@@ -394,7 +371,10 @@ export const managerDeauthorizeBody = z.object(
 
 export const EVENT_INPUT_REQUIRED_ERROR = "Внесете ги задолжителните податоци за настанот.";
 const eventStatus = z.enum(["preparation", "confirmed", "in_progress", "completed", "cancelled"]);
-const eventType = z.enum(["wedding", "birthday", "baptism", "graduation", "corporate", "other"]);
+const eventType = z.enum([
+  "wedding", "birthday", "baptism", "graduation", "corporate", "anniversary", "family",
+  "conference", "presentation", "seminar", "team_building", "new_year", "school", "baby_shower", "other",
+]);
 const eventContactsShape = {
   contact_email: z.string().max(254).nullable().optional(),
   contact_email_2: z.string().max(254).nullable().optional(),
@@ -403,7 +383,7 @@ const eventContactsShape = {
 
 // Bug fix (security review): create_event_credentials used to be called
 // directly from the browser against an RPC grantable to any authenticated
-// staff session (0110 revoked that grant) — credentials are now created
+// staff session (0111 revoked that grant) — credentials are now created
 // server-side, inside the same manager-gated event-creation route, so this
 // shape has to travel in the same request body as the rest of the event.
 const eventCredentialsShape = {
@@ -434,7 +414,7 @@ export const createEventBody = z
       status: eventStatus.optional(),
       guest_count_estimate: z.number().int().min(0).nullable().optional(),
       room_ids: z.array(uuid).max(50),
-      menu_template_id: uuid.nullable(),
+      menu_template_ids: z.array(uuid).max(20),
       contacts: z.object(eventContactsShape),
       credentials: z.object(eventCredentialsShape),
       // Optional, set in the same insert as the rest of the event (security
@@ -442,6 +422,11 @@ export const createEventBody = z
       // this isn't a follow-up updateEventFinanceViaApi call anymore).
       total_price: z.number().min(0).max(1e12).nullable().optional(),
       deposit_paid: z.number().min(0).max(1e12).nullable().optional(),
+      // The event's own menu, built in the new-event form (plan feature "custom_menu").
+      custom_menu: z
+        .object({ name: z.string().trim().min(1).max(200), item_ids: z.array(uuid).max(200) })
+        .nullable()
+        .optional(),
     },
     { error: EVENT_INPUT_REQUIRED_ERROR },
   )
@@ -460,7 +445,8 @@ export const updateEventBody = z.object(
     event_type: eventType,
     guest_count_estimate: z.number().int().min(0).nullable(),
     room_ids: z.array(uuid).max(50),
-    menu_template_id: uuid.nullable(),
+    added_menu_ids: z.array(uuid).max(20),
+    removed_menu_ids: z.array(uuid).max(20),
   },
   { error: EVENT_INPUT_REQUIRED_ERROR },
 );
@@ -499,7 +485,6 @@ export const RSVP_INVALID_ERROR = "Неважечки податоци во од
 export const RSVP_NOT_FOUND_ERROR = "Поканата не е пронајдена.";
 export const RSVP_FAILED_ERROR = "Одговорот не е испратен. Обидете се повторно.";
 export const RSVP_ANSWERS = ["confirmed", "declined", "later"] as const;
-export const MENU_CHOICES = ["standard", "posno", "vegetarian"] as const;
 const PARTY_SIZE_ERROR = `Бројот на лица мора да е цел број од 1 до ${PARTY_SIZE_MAX}.`;
 const CHILDREN_MAX = 20;
 
@@ -519,7 +504,7 @@ export const rsvpBody = z
         .max(PARTY_SIZE_MAX, { error: PARTY_SIZE_ERROR })
         .optional(),
       children_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
-      menu_choice: z.enum(MENU_CHOICES, { error: RSVP_INVALID_ERROR }).nullable().optional(),
+      menu_counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX), { error: RSVP_INVALID_ERROR }).optional(),
       allergies: z.string().max(300, { error: "Алергиите се предолги (најмногу 300 знаци)." }).nullable().optional(),
       comment: z.string().max(500, { error: "Коментарот е предолг (најмногу 500 знаци)." }).nullable().optional(),
     },

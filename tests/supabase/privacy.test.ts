@@ -107,18 +107,24 @@ async function seedEvent(v: Venue, tag: string, eventDate = "2027-06-01"): Promi
   await must(admin.from("event_rooms").insert({ event_id: eventId, room_id: v.roomId }));
   await must(admin.rpc("create_event_credentials", { p_event_id: eventId, p_username: `user-${tag}`, p_password: "long-enough-password" }));
   await must(admin.from("couple_sessions").insert({ token: `tok-${tag}`, event_id: eventId, expires_at: new Date(Date.now() + 86_400_000).toISOString() }));
-  await must(admin.from("event_guests").insert({ event_id: eventId, full_name: `Guest ${tag}`, phone: `071-${tag}`, notes: `Allergy ${tag}` }));
+  const guest = await must(
+    admin.from("event_guests").insert({ event_id: eventId, full_name: `Guest ${tag}`, phone: `071-${tag}`, notes: `Allergy ${tag}` }).select("id").single(),
+  );
   await must(admin.from("event_notes").insert({ event_id: eventId, title: `Note ${tag}`, content: `Content ${tag}` }));
   await must(admin.from("event_agenda_items").insert({ event_id: eventId, title: `Agenda ${tag}`, sort_order: 0 }));
   await must(admin.from("event_locations").insert({ event_id: eventId, label: `Home ${tag}`, address: `Street ${tag}` }));
   await must(admin.from("event_budget_items").insert({ event_id: eventId, category: "other", name: `Vendor ${tag}`, paid_amount: 10 }));
   const checklist = await must(admin.from("event_checklist_items").insert({ event_id: eventId, title: `Task ${tag}` }).select("id").single());
   await must(admin.from("event_checklist_subtasks").insert({ checklist_item_id: checklist.id, title: `Subtask ${tag}` }));
-  const dish = await must(
-    admin.from("menu_items").insert({ venue_id: v.venueId, tiers: ["everyday"], course: "main", name: `Dish ${tag}` }).select("id").single(),
+  const menu = await must(admin.from("menu_templates").insert({ venue_id: v.venueId, name: `Menu ${tag}` }).select("id").single());
+  await must(admin.from("event_menu_templates").insert({ event_id: eventId, menu_template_id: menu.id }));
+  await must(admin.from("event_guest_menu_counts").insert({ guest_id: guest.id, menu_template_id: menu.id, count: 1 }));
+  await must(
+    admin.from("event_menu_submissions").insert({
+      event_id: eventId, sent_by: "Младенците", counts: { [menu.id]: 1 }, menu_titles: { [menu.id]: `Menu ${tag}` }, total: 1,
+      seen_at: new Date().toISOString(), seen_by: `Manager ${tag}`,
+    }),
   );
-  await must(admin.from("event_custom_menu_items").insert({ event_id: eventId, menu_item_id: dish.id }));
-  await must(admin.from("event_menu_item_quantities").insert({ event_id: eventId, menu_item_id: dish.id, guest_count: 7 }));
   const tableType = await must(
     admin.from("table_types").insert({ room_id: v.roomId, name: `Round ${tag}`, shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 1 }).select("id").single(),
   );
@@ -237,7 +243,7 @@ describe("export (DATA-005)", () => {
     for (const text of [
       `Couple ${eventA.tag}`, `${eventA.tag}@couple.test`, `user-${eventA.tag}`, `Guest ${eventA.tag}`, `Allergy ${eventA.tag}`,
       `Content ${eventA.tag}`, `Agenda ${eventA.tag}`, `Street ${eventA.tag}`, `Vendor ${eventA.tag}`, `Subtask ${eventA.tag}`,
-      `Welcome ${eventA.tag}`, `Dish ${eventA.tag}`, `Table ${eventA.tag}`, `Seated ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
+      `Welcome ${eventA.tag}`, `Menu ${eventA.tag}`, `Manager ${eventA.tag}`, `Table ${eventA.tag}`, `Seated ${eventA.tag}`, eventA.invitationPath, eventA.showcasePath,
       `Booker ${stamp}`, staff.email, a.name, `co-${eventA.tag}`,
       eventA.albumPath, `Uploader ${eventA.tag}`, `Greeting ${eventA.tag}`,
     ]) {
@@ -245,6 +251,10 @@ describe("export (DATA-005)", () => {
     }
     expect(data!.events[0].invitation?.photo_url).toContain(`/invitation-photos/${eventA.invitationPath}`);
     expect(data!.events[0].album_photos[0].photo_url).toContain(`/event-media/${eventA.albumPath}`);
+    expect(data!.events[0].guest_menu_counts).toEqual([
+      expect.objectContaining({ event_id: eventA.eventId, count: 1, menu_templates: { name: `Menu ${eventA.tag}` } }),
+    ]);
+    expect(data!.events[0].menu_submissions).toEqual([expect.objectContaining({ total: 1, seen_by: `Manager ${eventA.tag}` })]);
     expect(json).not.toContain(`eb${stamp}`);
     expect(json).not.toContain(b.name);
     expect(json).not.toContain("password_hash");
@@ -360,7 +370,7 @@ describe("venue account deletion (DATA-005)", () => {
     await put("menu-item-photos", menuPath);
     const strayPath = `${v.venueId}/stray-${stamp}.png`; // no row points at it
     await put("event-showcase-photos", strayPath);
-    await must(admin.from("menu_items").insert({ venue_id: v.venueId, tiers: ["everyday"], course: "main", name: "Photo dish", photo_path: menuPath }));
+    await must(admin.from("menu_items").insert({ venue_id: v.venueId, tiers: ["special"], course: "main", name: "Photo dish", photo_path: menuPath }));
     await must(
       admin.from("reservations").insert({
         venue_id: v.venueId, room_id: v.roomId, guest_name: `Booker d${stamp}`, phone: "072", date: "2027-01-01", start_time: "19:00", party_size: 2,

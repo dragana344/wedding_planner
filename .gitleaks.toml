@@ -1,0 +1,25 @@
+[extend]
+useDefault = true
+
+# Test fixtures use obviously-fake credentials (e.g. "owner-pass-123") that
+# exist only to exercise auth code paths against a throwaway local Supabase
+# — never a real secret. Gitleaks' default generic-api-key rule flags these
+# password fields on entropy alone (2026-10-19 CI failure, 27 findings: 19 in
+# tests/, 8 in planning docs that quote the same test code).
+#
+# Deliberately narrow: only that one rule, only password-named fields, only
+# in tests/ and the planning docs. Any other secret (API keys, tokens, JWTs)
+# in those folders is still reported.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Fake password fixtures in tests and the planning docs that quote them"
+condition = "AND"
+paths = [
+  '''^tests/''',
+  '''^docs/superpowers/''',
+]
+regexTarget = "match"
+regexes = [
+  '''(?i)\b(p_)?(owner_)?password\b''',
+]

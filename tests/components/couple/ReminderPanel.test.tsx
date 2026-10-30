@@ -9,7 +9,7 @@ const reminder = { sendAt: "2027-07-05T08:00:00.000Z", status: "scheduled" as co
 function guest(overrides: Partial<Guest>): Guest {
   return {
     id: "g", event_id: "e1", full_name: "Гостин", phone: "070 123 456", party_size: 1, rsvp_status: "confirmed", notes: null, side: null,
-    invite_token: "tokXXXXXXXXXXXXXXXXXXXXX", email: null, children_count: 0, menu_choice: null, allergies: null, rsvp_comment: null,
+    invite_token: "tokXXXXXXXXXXXXXXXXXXXXX", email: null, children_count: 0, menu_counts: {}, allergies: null, rsvp_comment: null,
     invitation_sent_at: null, invitation_channel: null, ...overrides,
   };
 }

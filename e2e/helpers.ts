@@ -84,7 +84,13 @@ export async function elevateAsOwner(page: Page, account: VenueAccount): Promise
 export type CoupleAccount = { coupleNames: string; username: string; password: string };
 
 /** Flow 2: from the venue panel's event list, create an event with couple credentials. */
-export async function createEventWithCouple(page: Page, account: VenueAccount): Promise<CoupleAccount> {
+export async function createEventWithCouple(
+  page: Page,
+  account: VenueAccount,
+  menuNames: string[] = [],
+  /** Also builds the event's own menu in the form's popup, from these dish ids. */
+  customMenu?: { name: string; dishIds: string[] },
+): Promise<CoupleAccount> {
   const id = uniqueId();
   const couple = {
     coupleNames: `Ана & Марко ${id}`,
@@ -102,10 +108,29 @@ export async function createEventWithCouple(page: Page, account: VenueAccount): 
   await page.getByRole("link", { name: "ДОДАДИ НАСТАН" }).click();
   await page.waitForURL("**/venue/events/new");
 
-  await page.getByLabel("Имиња на славениците").fill(couple.coupleNames);
+  // The new-event wizard (2026-10-20 redesign): type first (auto-advances),
+  // then name, date, and straight through the optional steps to credentials
+  // and contact.
+  await page.getByRole("button", { name: "Свадба" }).click();
+  await page.getByLabel("Имиња на младенците").fill(couple.coupleNames);
+  await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByLabel("Датум").fill(futureDate());
+  await page.getByRole("button", { name: "Понатаму" }).click();
+  await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
+  // rooms/menu: optional; the packages to offer (menus must already exist for the venue).
+  for (const name of menuNames) await page.getByRole("button", { name, exact: true }).click();
+  if (customMenu) {
+    await page.getByRole("button", { name: /^Сопствено мени/ }).click();
+    for (const dishId of customMenu.dishIds) await page.getByTestId(`pkg-toggle-${dishId}`).click();
+    await page.getByRole("textbox", { name: "Име на пакетот" }).fill(customMenu.name);
+    await page.getByRole("button", { name: "Зачувај мени" }).click();
+    await expect(page.getByText("Сопствено мени · " + customMenu.dishIds.length + " јадења")).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Понатаму" }).click();
+  await page.getByRole("button", { name: "Прескокни" }).click(); // price: optional
   await page.getByLabel("Корисничко име").fill(couple.username);
   await page.getByLabel("Лозинка").fill(couple.password);
+  await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByLabel("Email на парот").fill(`${couple.username}@example.mk`);
   await page.getByLabel("Телефон на парот").fill("070 123 456");
   await page.getByRole("button", { name: "Креирај настан" }).click();
@@ -117,6 +142,15 @@ export async function createEventWithCouple(page: Page, account: VenueAccount): 
   await page.getByRole("searchbox", { name: "Пребарај настан" }).fill(couple.coupleNames);
   await expect(page.getByText(couple.coupleNames).first()).toBeVisible();
   return couple;
+}
+
+/** Like createEventWithCouple, but the wizard also selects the given packages (menu templates of this venue) for the event. */
+export async function createEventWithMenus(
+  page: Page,
+  account: VenueAccount,
+  menuNames: string[],
+): Promise<CoupleAccount> {
+  return createEventWithCouple(page, account, menuNames);
 }
 
 /** Flow 3 (first half): sign the couple in at /couple/login. */

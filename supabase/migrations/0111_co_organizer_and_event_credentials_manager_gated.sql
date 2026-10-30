@@ -1,4 +1,4 @@
--- 0110: create_co_organizer and create_event_credentials (both from 0061)
+-- 0111: create_co_organizer and create_event_credentials (both from 0061)
 -- were still directly grantable to any `authenticated` venue-staff session,
 -- the same hole 0102 closed for regenerate_event_password. Each function's
 -- own check is only `is_venue_staff_for(venue_id)` — any staff login at the

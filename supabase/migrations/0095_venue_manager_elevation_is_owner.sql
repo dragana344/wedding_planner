@@ -1,4 +1,4 @@
--- 0094: venue_managers managers' is_owner flag, threaded through
+-- 0095: venue_managers managers' is_owner flag, threaded through
 -- verify_venue_manager so callers (the elevate route, Поставки/Извештаи
 -- gating) can tell an owner's elevation from a plain manager's without a
 -- second round trip.

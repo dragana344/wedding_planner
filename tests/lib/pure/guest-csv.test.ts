@@ -14,20 +14,35 @@ const base: Guest = {
   invite_token: "secret-token-not-exported-xx",
   email: "ana@example.mk",
   children_count: 1,
-  menu_choice: "posno",
+  menu_counts: { "m-classic": 2, "m-posno": 1 },
   allergies: "ореви",
   rsvp_comment: "Доаѓаме, \"со радост\"",
   invitation_sent_at: "2027-01-15T10:00:00.000Z",
   invitation_channel: "viber",
 };
 
+const menus = [
+  { id: "m-classic", name: "Класично" },
+  { id: "m-posno", name: "Посно" },
+];
+
 describe("guestsToCsv (A20)", () => {
   it("writes a BOM, Macedonian headers and one line per guest, quoting where needed", () => {
-    const csv = guestsToCsv([base]);
+    const csv = guestsToCsv([base], menus);
     expect(csv.startsWith("﻿")).toBe(true);
     const [header, line] = csv.slice(1).split("\r\n");
-    expect(header).toBe("Име и презиме,Телефон,Email,Страна,Лица,Деца,Статус,Мени,Алергии,Коментар,Покана испратена");
-    expect(line).toBe('Ана Петровска,070 111 222,ana@example.mk,Невеста,3,1,Потврден,Посно,ореви,"Доаѓаме, ""со радост""",Да (viber)');
+    expect(header).toBe("Име и презиме,Телефон,Email,Страна,Лица,Деца,Статус,Класично,Посно,Алергии,Коментар,Покана испратена");
+    expect(line).toBe('Ана Петровска,070 111 222,ana@example.mk,Невеста,3,1,Потврден,2,1,ореви,"Доаѓаме, ""со радост""",Да (viber)');
+  });
+
+  it("has a column per menu, blank for zero, and the party size under a single menu", () => {
+    const zero = { ...base, menu_counts: { "m-classic": 3 } };
+    expect(guestsToCsv([zero], menus).split("\r\n")[1]).toContain(",Потврден,3,,ореви");
+    const single = guestsToCsv([base], [{ id: "m-classic", name: "Класично" }]).split("\r\n");
+    expect(single[0]).toContain("Статус,Класично,Алергии");
+    expect(single[1]).toContain(",Потврден,3,ореви");
+    const declined = guestsToCsv([{ ...base, rsvp_status: "declined" }], [{ id: "m-classic", name: "Класично" }]).split("\r\n")[1];
+    expect(declined).toContain(",Одбиен,,ореви");
   });
 
   it("never exports the personal invite token", () => {
@@ -45,9 +60,9 @@ describe("guestsToCsv (A20)", () => {
 
   it("leaves blanks for missing values and marks unsent invitations", () => {
     const line = guestsToCsv([
-      { ...base, phone: null, email: null, side: null, menu_choice: null, allergies: null, rsvp_comment: null, invitation_sent_at: null, invitation_channel: null, rsvp_status: "later" },
+      { ...base, phone: null, email: null, side: null, menu_counts: {}, allergies: null, rsvp_comment: null, invitation_sent_at: null, invitation_channel: null, rsvp_status: "later" },
     ]).split("\r\n")[1];
-    expect(line).toBe("Ана Петровска,,,,3,1,Ќе одговори подоцна,,,,Не");
+    expect(line).toBe("Ана Петровска,,,,3,1,Ќе одговори подоцна,,,Не");
   });
 });
 

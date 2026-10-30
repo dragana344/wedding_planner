@@ -6,7 +6,7 @@ import { deleteShowcasePhoto } from "@/lib/venue/showcase";
 import { withPublic } from "@/lib/api/handler";
 import { uuid } from "@/lib/api/schemas";
 
-// Removes one showcase photo (manager-only, 0107); 0038's trigger queues its file.
+// Removes one showcase photo (manager-only, 0109); 0038's trigger queues its file.
 
 export const DELETE = withPublic(
   async ({ request, params }) => {

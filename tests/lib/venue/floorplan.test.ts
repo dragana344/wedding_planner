@@ -111,7 +111,7 @@ describe("floorplan data layer: fixed elements + lock password", () => {
     expect(await verifyLayoutLockPassword(venueId, "", staffClient)).toBe(false);
   });
 
-  it("sets and changes the lock password (owner-only route, service role — 0106) and staff unlock with it", async () => {
+  it("sets and changes the lock password (owner-only route, service role — 0107) and staff unlock with it", async () => {
     await expect(setLayoutLockPassword(venueId, "1234", staffClient)).rejects.toThrow();
     await setLayoutLockPassword(venueId, "1234", admin);
     expect(await verifyLayoutLockPassword(venueId, "1234", staffClient)).toBe(true);

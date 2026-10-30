@@ -7,7 +7,7 @@ const admin = createClient(
 );
 
 describe("0022 schema: organizer tools", () => {
-  it("creates an agenda item, a location, a guest, a menu item quantity, and an invitation", async () => {
+  it("creates an agenda item, a location, a guest and an invitation", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "0022 Venue" }).select().single();
     const { data: event } = await admin
       .from("events")
@@ -43,17 +43,6 @@ describe("0022 schema: organizer tools", () => {
       .from("event_guests")
       .insert({ event_id: event!.id, full_name: "Bad Status", rsvp_status: "not-a-real-status" });
     expect(badStatusError).not.toBeNull();
-
-    const { data: menuItem } = await admin
-      .from("menu_items")
-      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Печено пиле" })
-      .select()
-      .single();
-
-    const { error: quantityError } = await admin
-      .from("event_menu_item_quantities")
-      .insert({ event_id: event!.id, menu_item_id: menuItem!.id, guest_count: 5 });
-    expect(quantityError).toBeNull();
 
     const { data: invitation, error: invitationError } = await admin
       .from("event_invitations")

@@ -28,7 +28,6 @@ test("personal link → RSVP with menu → the couple sees it in the details", a
 
   await anonPage.getByRole("button", { name: "Ќе присуствувам" }).click();
   await anonPage.getByLabel("од кои деца").fill("1");
-  await anonPage.getByLabel("Посно").check();
   await anonPage.getByLabel("Порака до младенците (по желба)").fill("Доаѓаме со радост!");
   await anonPage.getByRole("button", { name: "Испрати одговор" }).click();
   await expect(anonPage.getByText("Вашиот одговор: Ќе присуствувате", { exact: false })).toBeVisible();
@@ -38,6 +37,5 @@ test("personal link → RSVP with menu → the couple sees it in the details", a
   const details = page.getByRole("dialog", { name: guestName });
   await expect(details.getByText("Потврден")).toBeVisible();
   await expect(details.getByText("2 (од кои 1 деца)")).toBeVisible();
-  await expect(details.getByText("Посно")).toBeVisible();
   await expect(details.getByText("Доаѓаме со радост!")).toBeVisible();
 });

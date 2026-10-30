@@ -11,8 +11,6 @@ import {
   idParams,
   invitationBody,
   isUuid,
-  menuQuantitiesBody,
-  menuSelectionBody,
   noteBody,
   parseInput,
   rsvpBody,
@@ -67,36 +65,6 @@ describe("parseInput", () => {
       "Бројот на гости мора да биде не-негативен број.",
     );
     expect(msg(parseInput(guestCountBody, null, "DEFAULT"))).toBe("Неважечко JSON тело");
-  });
-});
-
-describe("menu schemas", () => {
-  it("rejects a non-UUID menu item id in quantities", () => {
-    const r = menuQuantitiesBody.safeParse({ quantities: [{ menu_item_id: INJECTION, guest_count: 3 }] });
-    expect(r.success).toBe(false);
-  });
-
-  it("accepts the quantities body the menu pickers send", () => {
-    const r = menuQuantitiesBody.safeParse({
-      quantities: [
-        { menu_item_id: ID, guest_count: 12 },
-        { menu_item_id: ID2, guest_count: null },
-      ],
-    });
-    expect(r.success).toBe(true);
-  });
-
-  it("rejects non-positive and fractional guest counts", () => {
-    for (const guest_count of [0, -1, 1.5, "3"]) {
-      expect(menuQuantitiesBody.safeParse({ quantities: [{ menu_item_id: ID, guest_count }] }).success).toBe(false);
-    }
-  });
-
-  it("validates the selection mode and every id", () => {
-    expect(menuSelectionBody.safeParse({ mode: "template", menu_template_id: ID }).success).toBe(true);
-    expect(menuSelectionBody.safeParse({ mode: "custom", menu_item_ids: [ID, ID2] }).success).toBe(true);
-    expect(menuSelectionBody.safeParse({ mode: "custom", menu_item_ids: [ID, INJECTION] }).success).toBe(false);
-    expect(msg(parseInput(menuSelectionBody, { mode: "other" }, INVALID_INPUT_ERROR))).toBe("Непознат режим на избор.");
   });
 });
 

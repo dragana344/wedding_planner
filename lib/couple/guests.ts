@@ -1,10 +1,10 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
+import { isGuestDone, validateMenuCounts, type MenuCounts } from "@/lib/couple/guest-menus";
 
 export type RsvpStatus = "invited" | "confirmed" | "declined" | "pending" | "later";
 export type GuestSide = "bride" | "groom";
-export type MenuChoice = "standard" | "posno" | "vegetarian";
 export type InvitationChannel = "whatsapp" | "viber" | "sms" | "email" | "link";
 
 export interface Guest {
@@ -23,7 +23,8 @@ export interface Guest {
   invite_token: string;
   email: string | null;
   children_count: number;
-  menu_choice: MenuChoice | null;
+  /** How many of the party eat each of the event's menus (menu id -> count). */
+  menu_counts: MenuCounts;
   allergies: string | null;
   rsvp_comment: string | null;
   invitation_sent_at: string | null;
@@ -50,8 +51,10 @@ export interface GuestStats {
   totalAttending: number;
   /** Of `totalAttending`. */
   childrenAttending: number;
-  /** Portions for confirmed guests by menu (party size each), for the kitchen (A4). */
-  menu: Record<MenuChoice | "unset", number>;
+  /** The event's menus with the number of confirmed guests eating each (the kitchen's totals). */
+  menus: { id: string; name: string; count: number }[];
+  /** Guests the couple still has to hear from or finish choosing menus for, by name. */
+  notDone: { id: string; full_name: string }[];
   invitationsSent: number;
 }
 
@@ -64,7 +67,17 @@ export interface GuestSeat {
 
 // One literal (not concatenated) so supabase-js can type the rows.
 export const GUEST_COLUMNS =
-  "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status, invite_token, email, children_count, menu_choice, allergies, rsvp_comment, invitation_sent_at, invitation_channel";
+  "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status, invite_token, email, children_count, allergies, rsvp_comment, invitation_sent_at, invitation_channel, event_guest_menu_counts(menu_template_id, count)";
+
+type GuestRow = Omit<Guest, "menu_counts"> & { event_guest_menu_counts: { menu_template_id: string; count: number }[] | null };
+
+/** A guest row as selected with `GUEST_COLUMNS`, with its menu counts as a map. */
+export function toGuest(row: GuestRow): Guest {
+  const { event_guest_menu_counts, ...guest } = row;
+  const menu_counts: MenuCounts = {};
+  for (const c of event_guest_menu_counts ?? []) menu_counts[c.menu_template_id] = c.count;
+  return { ...guest, menu_counts };
+}
 
 export async function listGuests(eventId: string): Promise<Guest[]> {
   const client = createServiceRoleClient();
@@ -75,7 +88,7 @@ export async function listGuests(eventId: string): Promise<Guest[]> {
     .order("created_at")
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return checkListBound(data, "event_guests");
+  return checkListBound(data as unknown as GuestRow[], "event_guests").map(toGuest);
 }
 
 export async function addGuest(eventId: string, input: GuestInput): Promise<Guest> {
@@ -86,7 +99,7 @@ export async function addGuest(eventId: string, input: GuestInput): Promise<Gues
     .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
-  return data;
+  return toGuest(data as unknown as GuestRow);
 }
 
 export async function updateGuest(eventId: string, guestId: string, input: GuestInput): Promise<Guest> {
@@ -99,20 +112,69 @@ export async function updateGuest(eventId: string, guestId: string, input: Guest
     .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
-  return data;
+  return toGuest(data as unknown as GuestRow);
 }
 
 export async function updateGuestStatus(eventId: string, guestId: string, status: RsvpStatus): Promise<Guest> {
   const client = createServiceRoleClient();
-  const { data, error } = await client
+  // Scoped by event: another event's guest is never touched (nor their counts).
+  const { data: touched, error: updateError } = await client
     .from("event_guests")
     .update({ rsvp_status: status })
     .eq("id", guestId)
     .eq("event_id", eventId)
-    .select(GUEST_COLUMNS)
-    .single();
+    .select("id");
+  if (updateError) throw updateError;
+  if (!touched || touched.length === 0) throw new Error("Гостинот не е пронајден.");
+  // Someone who is no longer coming eats nothing, so their menu counts go.
+  if (status !== "confirmed") {
+    const { error: clearError } = await client.from("event_guest_menu_counts").delete().eq("guest_id", guestId);
+    if (clearError) throw clearError;
+  }
+  return getGuest(eventId, guestId);
+}
+
+async function getGuest(eventId: string, guestId: string): Promise<Guest> {
+  const client = createServiceRoleClient();
+  const { data, error } = await client.from("event_guests").select(GUEST_COLUMNS).eq("id", guestId).eq("event_id", eventId).single();
   if (error) throw error;
-  return data;
+  return toGuest(data as unknown as GuestRow);
+}
+
+export async function eventMenuIds(eventId: string): Promise<string[]> {
+  const client = createServiceRoleClient();
+  const { data, error } = await client.from("event_menu_templates").select("menu_template_id").eq("event_id", eventId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.menu_template_id);
+}
+
+export const GUEST_NOT_CONFIRMED_ERROR = "Гостинот не е потврден.";
+
+/** Replaces the guest's stored menu split with `counts` (already validated; {} clears it). */
+export async function replaceGuestMenuCounts(guestId: string, counts: MenuCounts): Promise<void> {
+  const client = createServiceRoleClient();
+  const { error: deleteError } = await client.from("event_guest_menu_counts").delete().eq("guest_id", guestId);
+  if (deleteError) throw deleteError;
+  const rows = Object.entries(counts).map(([menu_template_id, count]) => ({ guest_id: guestId, menu_template_id, count }));
+  if (rows.length > 0) {
+    const { error: insertError } = await client.from("event_guest_menu_counts").insert(rows);
+    if (insertError) throw insertError;
+  }
+}
+
+/**
+ * Replaces how a confirmed guest's party splits across the event's menus.
+ * Checked against the event's menus and the guest's current party size
+ * (`validateMenuCounts`); returns the updated guest.
+ */
+export async function setGuestMenuCounts(eventId: string, guestId: string, counts: MenuCounts): Promise<Guest> {
+  const guest = await getGuest(eventId, guestId);
+  if (guest.rsvp_status !== "confirmed") throw new Error(GUEST_NOT_CONFIRMED_ERROR);
+  const checked = validateMenuCounts(await eventMenuIds(eventId), guest.party_size, counts);
+  if (!checked.ok) throw new Error(checked.error);
+
+  await replaceGuestMenuCounts(guestId, checked.counts);
+  return getGuest(eventId, guestId);
 }
 
 export async function updateGuestSide(eventId: string, guestId: string, side: GuestSide | null): Promise<Guest> {
@@ -125,7 +187,7 @@ export async function updateGuestSide(eventId: string, guestId: string, side: Gu
     .select(GUEST_COLUMNS)
     .single();
   if (error) throw error;
-  return data;
+  return toGuest(data as unknown as GuestRow);
 }
 
 export const OTHER_SIDE_ERROR = "Како ко-организатор можете да менувате само гости од вашата страна.";
@@ -185,22 +247,45 @@ export async function importGuests(eventId: string, rows: GuestImportInput[]): P
 }
 
 export async function getGuestStats(eventId: string): Promise<GuestStats> {
-  const guests = await listGuests(eventId);
+  const [guests, menuIds, menuNames] = await Promise.all([listGuests(eventId), eventMenuIds(eventId), getEventMenuNames(eventId)]);
   const attending = guests.filter((g) => g.rsvp_status === "confirmed");
-  const menu: GuestStats["menu"] = { standard: 0, posno: 0, vegetarian: 0, unset: 0 };
-  for (const g of attending) menu[g.menu_choice ?? "unset"] += g.party_size;
+  // One menu: nothing to choose, so every confirmed party eats it.
+  const menus = menuNames.map(({ id, name }) => ({
+    id,
+    name,
+    // Only guests who are done count: partial or stale choices are left out.
+    count: attending
+      .filter((g) => isGuestDone(g, menuIds))
+      .reduce((sum, g) => sum + (menuIds.length === 1 ? g.party_size : (g.menu_counts[id] ?? 0)), 0),
+  }));
   return {
     total: guests.length,
-    confirmed: guests.filter((g) => g.rsvp_status === "confirmed").length,
+    confirmed: attending.length,
     declined: guests.filter((g) => g.rsvp_status === "declined").length,
     pending: guests.filter((g) => g.rsvp_status === "pending").length,
     invited: guests.filter((g) => g.rsvp_status === "invited").length,
     later: guests.filter((g) => g.rsvp_status === "later").length,
     totalAttending: attending.reduce((sum, g) => sum + g.party_size, 0),
     childrenAttending: attending.reduce((sum, g) => sum + g.children_count, 0),
-    menu,
+    menus,
+    notDone: guests
+      .filter((g) => !isGuestDone(g, menuIds))
+      .map((g) => ({ id: g.id, full_name: g.full_name }))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, "mk")),
     invitationsSent: guests.filter((g) => g.invitation_sent_at !== null).length,
   };
+}
+
+/** The event's menus (id, name) by name then id. */
+export async function getEventMenuNames(eventId: string): Promise<{ id: string; name: string }[]> {
+  const client = createServiceRoleClient();
+  const { data, error } = await client.from("event_menu_templates").select("menu_templates(id, name)").eq("event_id", eventId);
+  if (error) throw error;
+  type T = { id: string; name: string };
+  return ((data ?? []) as unknown as { menu_templates: T | T[] | null }[])
+    .map((l) => (Array.isArray(l.menu_templates) ? l.menu_templates[0] : l.menu_templates))
+    .filter((t): t is T => Boolean(t))
+    .sort((a, b) => a.name.localeCompare(b.name, "mk") || a.id.localeCompare(b.id));
 }
 
 /** Postgres/PostgREST codes for "no such function": seating has not shipped `guest_seat()` yet. */

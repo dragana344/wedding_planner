@@ -23,7 +23,7 @@ export const POST = withPublic(
           status: body.status ?? (body.attending ? "confirmed" : "declined"),
           partySize: body.party_size ?? 1,
           childrenCount: body.children_count,
-          menuChoice: body.menu_choice,
+          menuCounts: body.menu_counts,
           allergies: body.allergies,
           comment: body.comment,
         },

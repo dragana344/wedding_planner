@@ -34,7 +34,7 @@ const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 
 
 /**
  * Uploads as the venue would: staff write menu photos directly; showcase
- * photos and the logo go through a one-time signed upload since 0107
+ * photos and the logo go through a one-time signed upload since 0109
  * (lib/venue/photo-upload.ts) — the bucket's limits apply either way.
  */
 async function upload(bucket: string, path: string, blob: Blob) {

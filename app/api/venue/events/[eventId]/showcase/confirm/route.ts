@@ -7,7 +7,7 @@ import { addShowcasePhoto } from "@/lib/venue/showcase";
 import { withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, uuid } from "@/lib/api/schemas";
 
-// Фотографии за промоција, step 2 (manager-only, 0107): the bytes must be a
+// Фотографии за промоција, step 2 (manager-only, 0109): the bytes must be a
 // real image (any format the bucket takes, up to its 50 MB, 0040), then it
 // is moved next to the venue's other photos and recorded for the event.
 

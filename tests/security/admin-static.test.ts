@@ -25,8 +25,8 @@ const PRIVATE_TABLES = [
   // Tables owned by sessions 2–4 (MASTER §7) are private too.
   "event_seat_assignments", "event_photos", "event_greetings", "event_co_organizers", "event_reminders",
   "event_guests", "event_notes", "event_budget_items", "event_checklist_items", "event_checklist_subtasks",
-  "event_agenda_items", "event_locations", "event_invitations", "event_custom_menu_items",
-  "event_menu_item_quantities", "couple_sessions", "event_credentials",
+  "event_agenda_items", "event_locations", "event_invitations", "event_guest_menu_counts",
+  "couple_sessions", "event_credentials",
   // contact_submissions is deliberately NOT listed here: it is the
   // platform's own data (the marketing site's contact form), not a venue's
   // or a couple's, so admin code may read its name/email/message (spec §5

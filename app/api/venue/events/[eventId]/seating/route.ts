@@ -10,7 +10,7 @@ import { requireManagerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, ID_LIST_MAX, seatingElementCreateBody, seatingElementUpdateBody, uuid } from "@/lib/api/schemas";
 
-// Every staff write to an event's seating layout (migration 0104 left staff
+// Every staff write to an event's seating layout (migration 0105 left staff
 // read-only on event_layout_elements / layout_history / seat assignments).
 // The manager-elevation check is the write's real authorization; the write
 // itself uses the service-role client, which bypasses RLS — so the event,

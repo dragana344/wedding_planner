@@ -3,6 +3,7 @@
 -- replace this with a copy of production data.
 --
 --   Venue staff login:  demo@example.com / demo-password-123   (/login)
+--   Owner elevation:    owner / owner123                       (AccountMenu, after staff login)
 --   Couple login:       demo-couple / demo-couple-123          (/couple/login)
 --   Floor-plan lock:    1234
 
@@ -35,6 +36,11 @@ values ('d0000000-0000-4000-8000-0000000000a1', 'Демо Сала Езеро', 
 insert into public.venue_staff (user_id, venue_id)
 values ('d0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-0000000000a1');
 
+-- Owner-elevation login (spec D4, migration 0091): without this row the demo
+-- staff login can see the dashboard but can't elevate as owner, so Settings,
+-- creating/editing events, reports and managing managers all 403.
+select public.create_venue_manager('d0000000-0000-4000-8000-0000000000a1', 'owner', 'owner123', true);
+
 insert into public.rooms (id, venue_id, name, width_cm, height_cm) values
   ('d0000000-0000-4000-8000-0000000000b1', 'd0000000-0000-4000-8000-0000000000a1', 'Голема сала', 2400, 1600),
   ('d0000000-0000-4000-8000-0000000000b2', 'd0000000-0000-4000-8000-0000000000a1', 'Тераса', 1600, 1000);
@@ -59,15 +65,22 @@ from generate_series(0, 5) as i;
 -- Menu
 -- ---------------------------------------------------------------------------
 insert into public.menu_items (id, venue_id, tiers, course, name, price, is_vegetarian) values
-  ('d0000000-0000-4000-8000-0000000000d1', 'd0000000-0000-4000-8000-0000000000a1', array['everyday','special'], 'starter', 'Шопска салата', 180, true),
+  ('d0000000-0000-4000-8000-0000000000d1', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'starter', 'Шопска салата', 180, true),
   ('d0000000-0000-4000-8000-0000000000d2', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'starter', 'Пршута и сирења', 420, false),
-  ('d0000000-0000-4000-8000-0000000000d3', 'd0000000-0000-4000-8000-0000000000a1', array['everyday','special'], 'main', 'Пастрмка на скара', 650, false),
+  ('d0000000-0000-4000-8000-0000000000d3', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'main', 'Пастрмка на скара', 650, false),
   ('d0000000-0000-4000-8000-0000000000d4', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'main', 'Телешко печено', 890, false),
-  ('d0000000-0000-4000-8000-0000000000d5', 'd0000000-0000-4000-8000-0000000000a1', array['everyday'], 'main', 'Полнети пиперки', 480, true),
-  ('d0000000-0000-4000-8000-0000000000d6', 'd0000000-0000-4000-8000-0000000000a1', array['everyday','special'], 'dessert', 'Баклава', 220, true);
+  ('d0000000-0000-4000-8000-0000000000d5', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'main', 'Полнети пиперки', 480, true),
+  ('d0000000-0000-4000-8000-0000000000d6', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'dessert', 'Баклава', 220, true);
+
+insert into public.menu_items (id, venue_id, tiers, course, name, price, is_vegetarian, is_vegan) values
+  ('d0000000-0000-4000-8000-0000000000d7', 'd0000000-0000-4000-8000-0000000000a1', array['special'], 'main', 'Печурки на жар со зеленчук', 420, true, true);
 
 insert into public.menu_templates (id, venue_id, name, description) values
-  ('d0000000-0000-4000-8000-0000000000e1', 'd0000000-0000-4000-8000-0000000000a1', 'Класично свадбено мени', 'Три слеја, риба и месо');
+  ('d0000000-0000-4000-8000-0000000000e1', 'd0000000-0000-4000-8000-0000000000a1', 'Класично свадбено мени', 'Три слеја, риба и месо'),
+  -- Demo data for the wizard's multi-menu picker (0115): a venue typically
+  -- offers this alongside the classic menu for guests keeping пост or on a
+  -- plant-based diet, not instead of it.
+  ('d0000000-0000-4000-8000-0000000000e2', 'd0000000-0000-4000-8000-0000000000a1', 'Посно мени', 'За гости на пост или со растителна исхрана');
 
 insert into public.menu_template_items (menu_template_id, menu_item_id)
 select 'd0000000-0000-4000-8000-0000000000e1', id
@@ -75,18 +88,29 @@ from public.menu_items
 where id in ('d0000000-0000-4000-8000-0000000000d1', 'd0000000-0000-4000-8000-0000000000d3',
              'd0000000-0000-4000-8000-0000000000d4', 'd0000000-0000-4000-8000-0000000000d6');
 
+insert into public.menu_template_items (menu_template_id, menu_item_id)
+select 'd0000000-0000-4000-8000-0000000000e2', id
+from public.menu_items
+where id in ('d0000000-0000-4000-8000-0000000000d1', 'd0000000-0000-4000-8000-0000000000d5',
+             'd0000000-0000-4000-8000-0000000000d7', 'd0000000-0000-4000-8000-0000000000d6');
+
 -- ---------------------------------------------------------------------------
 -- Events: one fully planned wedding for the demo couple, plus a year of
 -- other bookings so lists, calendars and reports have realistic volume.
 -- ---------------------------------------------------------------------------
 insert into public.events (id, venue_id, couple_names, event_date, start_time, end_time, event_type, status, guest_count_estimate,
-                           menu_template_id, contact_email, contact_phone, total_price, deposit_paid)
+                           contact_email, contact_phone, total_price, deposit_paid)
 values ('d0000000-0000-4000-8000-0000000000f1', 'd0000000-0000-4000-8000-0000000000a1', 'Ана и Марко',
         current_date + 60, '19:00', '02:00', 'wedding', 'confirmed', 120,
-        'd0000000-0000-4000-8000-0000000000e1', 'ana.marko@example.com', '+389 70 000 001', 540000, 150000);
+        'ana.marko@example.com', '+389 70 000 001', 540000, 150000);
 
 insert into public.event_rooms (event_id, room_id)
 values ('d0000000-0000-4000-8000-0000000000f1', 'd0000000-0000-4000-8000-0000000000b1');
+
+-- The demo wedding offers both menus; guests pick between them on the RSVP.
+insert into public.event_menu_templates (event_id, menu_template_id) values
+  ('d0000000-0000-4000-8000-0000000000f1', 'd0000000-0000-4000-8000-0000000000e1'),
+  ('d0000000-0000-4000-8000-0000000000f1', 'd0000000-0000-4000-8000-0000000000e2');
 
 insert into public.events (venue_id, couple_names, event_date, start_time, end_time, event_type, status, guest_count_estimate)
 select 'd0000000-0000-4000-8000-0000000000a1',
@@ -142,12 +166,13 @@ values ('d0000000-0000-4000-8000-0000000000f1', 'romantic-floral', 'Со рад�
 -- ---------------------------------------------------------------------------
 -- Terrace reservations over the coming weeks
 -- ---------------------------------------------------------------------------
-insert into public.reservations (venue_id, room_id, guest_name, phone, date, start_time, end_time, party_size, status)
+insert into public.reservations (venue_id, room_id, guest_name, phone, date, start_time, end_time, party_size, status, server_name)
 select 'd0000000-0000-4000-8000-0000000000a1', 'd0000000-0000-4000-8000-0000000000b2',
        (array['Тодор','Марта','Лазар','Симона','Виктор'])[1 + i % 5] || ' (демо)',
        '+389 71 111 ' || lpad(i::text, 3, '0'),
        current_date + (i / 3), (array['12:00','16:00','20:00'])[1 + i % 3]::time, null,
-       2 + i % 5, 'reserved'
+       2 + i % 5, 'reserved',
+       (array['Ивана','Стефан','Бојана'])[1 + i % 3]
 from generate_series(0, 29) as i;
 
 insert into public.reservation_tables (reservation_id, layout_element_id)

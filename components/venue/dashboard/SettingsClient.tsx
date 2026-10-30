@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -12,27 +12,35 @@ import { errorMessage } from "@/lib/venue/user-error";
 import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 import { ManagersSection } from "./ManagersSection";
 
-export function SettingsClient({
-  venueName: initialVenueName,
-  email: initialEmail,
-  profile,
-  branding,
-}: {
+type SettingsData = {
   venueName: string;
   email: string;
-  /** Venue profile (B10); absent in older callers. */
   profile?: { address: string | null; phone: string | null; logoUrl: string | null };
-  /** The venue's accent colour and whether its plan includes branding (0087); omitted when unknown. */
   branding?: { color: string | null; enabled: boolean };
-}) {
+};
+
+async function fetchSettingsData(managerToken: string, signal?: AbortSignal): Promise<SettingsData> {
+  const res = await fetch("/api/venue/settings", { headers: { "x-venue-manager-token": managerToken }, signal });
+  if (!res.ok) {
+    if (res.status === 403) reportElevationRejected();
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? "Поставките не можеа да се вчитаат.");
+  }
+  return res.json();
+}
+
+export function SettingsClient() {
   const router = useRouter();
   const { isOwner, token: managerToken } = useManagerElevation();
 
-  const [venueName, setVenueName] = useState(initialVenueName);
+  const [data, setData] = useState<SettingsData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [venueName, setVenueName] = useState("");
   const [venueNameStatus, setVenueNameStatus] = useState<string | null>(null);
   const [isSavingVenueName, setIsSavingVenueName] = useState(false);
 
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
@@ -47,13 +55,34 @@ export function SettingsClient({
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // DATA-006: data export and account deletion.
-  const [savedVenueName, setSavedVenueName] = useState(initialVenueName);
+  const [savedVenueName, setSavedVenueName] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const canDeleteAccount = confirmationMatches(deleteConfirm, savedVenueName);
+
+  useEffect(() => {
+    if (!isOwner || !managerToken) {
+      setData(null);
+      setLoadError(null); // a stale failure must not greet the next login
+      return;
+    }
+    const controller = new AbortController();
+    fetchSettingsData(managerToken, controller.signal)
+      .then((d) => {
+        setData(d);
+        setVenueName(d.venueName);
+        setSavedVenueName(d.venueName);
+        setEmail(d.email);
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") return; // superseded by a newer token
+        setLoadError(err instanceof Error ? err.message : "Поставките не можеа да се вчитаат.");
+      });
+    return () => controller.abort();
+  }, [isOwner, managerToken]);
 
   async function handleSaveVenueName(e: React.FormEvent) {
     e.preventDefault();
@@ -194,6 +223,18 @@ export function SettingsClient({
     );
   }
 
+  if (!data) {
+    return (
+      <div className="wrap">
+        {loadError ? (
+          <p role="alert" style={{ padding: 24 }}>{loadError}</p>
+        ) : (
+          <p className="muted" style={{ padding: 24 }}>Се вчитува...</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="wrap">
       <section className="panel">
@@ -220,24 +261,24 @@ export function SettingsClient({
         </form>
       </section>
 
-      {profile ? (
+      {data.profile ? (
         <section className="panel">
           <div className="panel-h">
             <h2 className="panel-t">Профил на локалот</h2>
           </div>
           <div style={{ padding: 20 }}>
-            <VenueProfileForm managerToken={managerToken} address={profile.address} phone={profile.phone} logoUrl={profile.logoUrl} />
+            <VenueProfileForm managerToken={managerToken} address={data.profile.address} phone={data.profile.phone} logoUrl={data.profile.logoUrl} />
           </div>
         </section>
       ) : null}
 
-      {branding ? (
+      {data.branding ? (
         <section className="panel">
           <div className="panel-h">
             <h2 className="panel-t">Брендирање</h2>
           </div>
           <div style={{ padding: 20 }}>
-            <BrandColorForm managerToken={managerToken} color={branding.color} enabled={branding.enabled} />
+            <BrandColorForm managerToken={managerToken} color={data.branding.color} enabled={data.branding.enabled} />
           </div>
         </section>
       ) : null}

@@ -1,4 +1,4 @@
--- 0091: DATA-004 — every foreign key column needs an index.
+-- 0092: DATA-004 — every foreign key column needs an index.
 -- venue_manager_elevations.manager_id (fk to venue_managers) was missed in
 -- 0090; only venue_id got one.
 

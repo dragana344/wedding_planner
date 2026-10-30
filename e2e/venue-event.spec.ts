@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, elevateAsOwner, signUpVenue } from "./helpers";
+import { adminClient, createEventWithCouple, elevateAsOwner, futureDate, signUpVenue } from "./helpers";
 
 // Flow 2: the venue creates an event together with the couple's login.
 test("venue creates an event with couple credentials", async ({ page }) => {
@@ -25,8 +25,10 @@ test("venue creates an event with couple credentials", async ({ page }) => {
   await expect(page).toHaveURL(/\/couple\/login$/);
 });
 
-// B6: a venue with more than one hall picks the hall before anything else.
-test("new event in a two-hall venue starts with picking the hall", async ({ page }) => {
+// The wizard opens straight to the type grid regardless of how many halls
+// the venue has — a hall is picked later, on its own rooms/menu step, where
+// a two-hall venue sees both as cards (2026-10-20 redesign).
+test("new event in a two-hall venue offers both halls on the rooms step", async ({ page }) => {
   const venue = await signUpVenue(page);
   const admin = adminClient();
   const { data: row, error } = await admin.from("venues").select("id").eq("name", venue.venueName).single();
@@ -38,10 +40,18 @@ test("new event in a two-hall venue starts with picking the hall", async ({ page
 
   await page.goto("/venue/events/new");
   await elevateAsOwner(page, venue);
-  await expect(page.getByRole("heading", { name: "Во која сала?" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Продолжи" })).toBeDisabled();
-  await page.getByRole("button", { name: /Мала сала/ }).click();
-  await page.getByRole("button", { name: "Продолжи" }).click();
-  await expect(page.getByLabel("Мала сала")).toBeChecked();
-  await expect(page.getByLabel("Имиња на славениците")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Каков настан славиме?" })).toBeVisible();
+  await page.getByRole("button", { name: "Свадба" }).click();
+
+  await expect(page.getByLabel("Имиња на младенците")).toBeVisible();
+  await page.getByLabel("Имиња на младенците").fill("Проверка на сали");
+  await page.getByRole("button", { name: "Понатаму" }).click();
+  await page.getByLabel("Датум").fill(futureDate());
+  await page.getByRole("button", { name: "Понатаму" }).click();
+  await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
+
+  await expect(page.getByRole("button", { name: "Голема сала" })).toBeVisible();
+  await page.getByRole("button", { name: "Мала сала" }).click();
+  await expect(page.getByRole("button", { name: "Мала сала" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Голема сала" })).toHaveAttribute("aria-pressed", "false");
 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { getReport } from "@/lib/venue/reports";
 import { listRooms } from "@/lib/venue/rooms";
@@ -32,7 +33,9 @@ export async function GET(request: Request) {
       const room = url.searchParams.get("room");
       const rooms = await listRooms(venueId, supabase);
       const roomId = rooms.some((r) => r.id === room) ? room! : undefined;
-      const report = await getReport(supabase, venueId, {
+      // Revenue and deposits aren't readable by the staff session (0117);
+      // the elevation check above authorises this read, scoped to venueId.
+      const report = await getReport(createServiceRoleClient(), venueId, {
         from: from && ISO.test(from) ? from : undefined,
         to: to && ISO.test(to) ? to : undefined,
         roomId,

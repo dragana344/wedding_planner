@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Icon } from "./Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useManagerElevation, reportElevationRejected } from "./ManagerElevationContext";
 
-export function AccountMenu({ venueName, userRole }: { venueName: string; userRole: string }) {
+export function AccountMenu({ venueName }: { venueName: string }) {
   const [open, setOpen] = useState(false);
   const [showElevateForm, setShowElevateForm] = useState(false);
   const [name, setName] = useState("");
@@ -21,7 +20,7 @@ export function AccountMenu({ venueName, userRole }: { venueName: string; userRo
   const [changePasswordIsError, setChangePasswordIsError] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const { managerName, isOwner, token, elevate, deAuthorize } = useManagerElevation();
+  const { managerName, token, elevate, deAuthorize } = useManagerElevation();
 
   useEffect(() => {
     if (!open) return;
@@ -128,8 +127,12 @@ export function AccountMenu({ venueName, userRole }: { venueName: string; userRo
         <Icon name="user-circle" size="lg" style={{ color: "var(--ink-2)" }} />
         <span>
           <span className="n">{venueName}</span>
-          <br />
-          <span className="r">{managerName ? `Менаџер: ${managerName}` : userRole}</span>
+          {managerName ? (
+            <>
+              <br />
+              <span className="r">{`Менаџер: ${managerName}`}</span>
+            </>
+          ) : null}
         </span>
         <Icon name="down" size="sm" style={{ color: "var(--faint)" }} />
       </button>
@@ -209,11 +212,6 @@ export function AccountMenu({ venueName, userRole }: { venueName: string; userRo
             </form>
           ) : (
             <>
-              {isOwner ? (
-                <Link href="/venue/settings" role="menuitem" onClick={() => setOpen(false)}>
-                  <Icon name="gear" size="sm" /> Поставки
-                </Link>
-              ) : null}
               {managerName ? (
                 <>
                   <button type="button" role="menuitem" onClick={() => setShowChangePasswordForm(true)}>

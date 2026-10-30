@@ -1,7 +1,7 @@
 // Guest list CSV export and import (A20). Pure, so it is unit-tested without a
 // database and runs on either side.
 import type { Guest, GuestSide } from "@/lib/couple/guests";
-import { MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 
 export const GUEST_IMPORT_MAX_ROWS = 1000;
 const PARTY_SIZE_MAX = 50;
@@ -23,7 +23,8 @@ export interface GuestImportError {
 // ---------------------------------------------------------------------------
 // Export
 
-const EXPORT_HEADER = ["Име и презиме", "Телефон", "Email", "Страна", "Лица", "Деца", "Статус", "Мени", "Алергии", "Коментар", "Покана испратена"];
+const HEADER_BEFORE_MENUS = ["Име и презиме", "Телефон", "Email", "Страна", "Лица", "Деца", "Статус"];
+const HEADER_AFTER_MENUS = ["Алергии", "Коментар", "Покана испратена"];
 
 /** A spreadsheet runs a cell starting with one of these as a formula. */
 const FORMULA_START = /^[=+\-@\t\r]/;
@@ -35,8 +36,17 @@ function cell(value: string | number | null): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** CSV for Excel/Sheets: UTF-8 with BOM (Cyrillic), CRLF. Never includes the invite token. */
-export function guestsToCsv(guests: readonly Guest[]): string {
+/**
+ * CSV for Excel/Sheets: UTF-8 with BOM (Cyrillic), CRLF. Never includes the
+ * invite token. One column per event menu (header = its name) holds how many
+ * of the guest's party eat it, blank for none; with a single menu a confirmed
+ * guest's whole party eats it.
+ */
+export function guestsToCsv(guests: readonly Guest[], menus: readonly { id: string; name: string }[] = []): string {
+  const menuCount = (g: Guest, id: string): number | null => {
+    const count = menus.length === 1 ? (g.rsvp_status === "confirmed" ? g.party_size : 0) : (g.menu_counts[id] ?? 0);
+    return count > 0 ? count : null;
+  };
   const lines = guests.map((g) =>
     [
       g.full_name,
@@ -46,7 +56,7 @@ export function guestsToCsv(guests: readonly Guest[]): string {
       g.party_size,
       g.children_count,
       STATUS_LABELS[g.rsvp_status] ?? g.rsvp_status,
-      g.menu_choice ? MENU_LABELS[g.menu_choice] : null,
+      ...menus.map((m) => menuCount(g, m.id)),
       g.allergies,
       g.rsvp_comment,
       g.invitation_sent_at ? `Да${g.invitation_channel ? ` (${g.invitation_channel})` : ""}` : "Не",
@@ -54,7 +64,7 @@ export function guestsToCsv(guests: readonly Guest[]): string {
       .map(cell)
       .join(","),
   );
-  return "﻿" + [EXPORT_HEADER.join(","), ...lines].join("\r\n") + "\r\n";
+  return "﻿" + [[...HEADER_BEFORE_MENUS, ...menus.map((m) => m.name), ...HEADER_AFTER_MENUS].map(cell).join(","), ...lines].join("\r\n") + "\r\n";
 }
 
 // ---------------------------------------------------------------------------

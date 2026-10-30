@@ -33,7 +33,7 @@ export const PersonalLinkNoSeatYet: Story = {
 export const PersonalLinkAnswered: Story = {
   name: "Личен линк: веќе потврдил",
   args: {
-    invitee: { ...invitee, rsvpStatus: "confirmed", menuChoice: "vegetarian", allergies: "јаткасти плодови" },
+    invitee: { ...invitee, rsvpStatus: "confirmed", allergies: "јаткасти плодови" },
     guestToken: GUEST_TOKEN,
     mySeat: { found: true, seat: null },
   },
@@ -51,7 +51,7 @@ export const NoSeatingInPackage: Story = {
 
 export const Bare: Story = {
   name: "Само основно (без програма, локации, мени)",
-  args: { invitation: { ...invitation, message: null, agenda: [], locations: [], menu: [] } },
+  args: { invitation: { ...invitation, message: null, agenda: [], locations: [], menus: [] } },
 };
 
 export const WithVenueLogo: Story = {
@@ -75,7 +75,7 @@ const LONG = {
   couple_names: "Александра-Марија Константиновска & Христијан Јовановски-Петрушевски",
   venue_name: "Ресторан и сала за свечености „Панорама на Водно“",
 };
-const BARE = { message: null, agenda: [], locations: [], menu: [] };
+const BARE = { message: null, agenda: [], locations: [], menus: [] };
 
 export const RomanticFloralLongNames: Story = { name: "Долги имиња: романтичен цветен", args: { invitation: { ...invitation, ...LONG, template_id: "romantic-floral" } } };
 export const RomanticFloralBare: Story = { name: "Само основно: романтичен цветен", args: { invitation: { ...invitation, ...BARE, template_id: "romantic-floral" } } };

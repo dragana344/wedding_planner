@@ -22,6 +22,7 @@ const base: Reservation = {
   status: "reserved",
   event_type: "wedding",
   note: null,
+  server_name: "Ивана",
   table_ids: ["t1"],
 };
 
@@ -48,6 +49,7 @@ function mockFloorPlan() {
     { id: "tt1", room_id: "r1", name: "Round-8", shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 5 },
   ]);
   vi.spyOn(reservations, "getTableAvailability").mockResolvedValue({ reserved: [], limited: [] });
+  vi.spyOn(reservations, "listReservationsForRoom").mockResolvedValue([]);
 }
 
 describe("ReservationsClient", () => {
@@ -68,6 +70,7 @@ describe("ReservationsClient", () => {
       status: "reserved",
       event_type: null,
       note: null,
+      server_name: "Стефан",
       table_ids: ["t1"],
     });
 
@@ -78,12 +81,30 @@ describe("ReservationsClient", () => {
 
     fireEvent.change(screen.getByPlaceholderText(/име и презиме/i), { target: { value: "Ana" } });
     fireEvent.change(screen.getByPlaceholderText("Телефон", { exact: true }), { target: { value: "070111222" } });
+    fireEvent.change(screen.getByPlaceholderText(/кој ја прави резервацијата/i), { target: { value: "Стефан" } });
     fireEvent.click(screen.getByRole("button", { name: /резервирај маса/i }));
 
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
     const call = createSpy.mock.calls[0][0];
     expect(call.table_ids).toEqual(["t1"]);
     expect(call.guest_name).toBe("Ana");
+    expect(call.server_name).toBe("Стефан");
+  });
+
+  it("blocks submission with an error until the Келнер field is filled in", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+    const createSpy = vi.spyOn(reservations, "createReservation");
+
+    render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toBeInTheDocument());
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"));
+    fireEvent.change(screen.getByPlaceholderText(/име и презиме/i), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByPlaceholderText("Телефон", { exact: true }), { target: { value: "070111222" } });
+    fireEvent.click(screen.getByRole("button", { name: /резервирај маса/i }));
+
+    expect(await screen.findByText(/внесете кој келнер/i)).toBeInTheDocument();
+    expect(createSpy).not.toHaveBeenCalled();
   });
 
   it("shows the conflicting-table error message when createReservation rejects", async () => {
@@ -98,6 +119,7 @@ describe("ReservationsClient", () => {
     fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"));
     fireEvent.change(screen.getByPlaceholderText(/име и презиме/i), { target: { value: "Ana" } });
     fireEvent.change(screen.getByPlaceholderText("Телефон", { exact: true }), { target: { value: "070111222" } });
+    fireEvent.change(screen.getByPlaceholderText(/кој ја прави резервацијата/i), { target: { value: "Стефан" } });
     fireEvent.click(screen.getByRole("button", { name: /резервирај маса/i }));
 
     expect(await screen.findByText(/веќе резервирани/i)).toBeInTheDocument();
@@ -225,5 +247,47 @@ describe("ReservationsClient", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /следен ден/i }));
     await waitFor(() => expect(listSpy.mock.calls.length).toBeGreaterThan(callsBefore));
+  });
+
+  it("says when the floor plan could not load, and retries", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+    const layoutSpy = vi.spyOn(floorplan, "listRoomLayoutElements").mockRejectedValueOnce(new Error("network"));
+
+    render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
+    expect(await screen.findByText("Податоците за резервациите не можеа да се вчитаат.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Обиди се повторно" }));
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toBeInTheDocument());
+    expect(layoutSpy).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("Податоците за резервациите не можеа да се вчитаат.")).not.toBeInTheDocument();
+  });
+
+  it("keeps the selected table when the view is refreshed", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toBeInTheDocument());
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"));
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#F59E0B"));
+
+    fireEvent.click(screen.getByRole("button", { name: /освежи приказ/i }));
+    await waitFor(() => expect(floorplan.listRoomLayoutElements).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#F59E0B");
+  });
+
+  it("marks a missing Келнер on the field itself for screen readers", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+    render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toBeInTheDocument());
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t1"));
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Телефон"), { target: { value: "070111222" } });
+    fireEvent.click(screen.getByRole("button", { name: /резервирај маса/i }));
+    const field = screen.getByLabelText(/Келнер/);
+    await waitFor(() => expect(field).toHaveAttribute("aria-invalid", "true"));
+    expect(screen.getByRole("alert")).toHaveTextContent("Внесете кој келнер ја прави резервацијата.");
   });
 });

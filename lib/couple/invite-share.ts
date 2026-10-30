@@ -10,6 +10,8 @@ export interface InviteMessageInput {
   venueName: string;
   link: string;
   eventType?: string;
+  /** How many menus the event offers; 2+ makes the reminder ask for a choice. */
+  menuCount?: number;
 }
 
 /** The guest's own invitation link (A1). */
@@ -37,7 +39,9 @@ export function reminderMessage(input: InviteMessageInput): string {
   return (
     `Почитуван/а ${input.guestName},\n` +
     `Ве потсетуваме на ${occasion} на ${input.coupleNames} на ${formatDate(input.eventDate)} во ${input.venueName}. Ве очекуваме!\n` +
-    `Вашата покана, агенда и потврда за доаѓање: ${input.link}`
+    ((input.menuCount ?? 0) >= 2
+      ? `Потврдете доаѓање и изберете мени: ${input.link}`
+      : `Вашата покана, агенда и потврда за доаѓање: ${input.link}`)
   );
 }
 

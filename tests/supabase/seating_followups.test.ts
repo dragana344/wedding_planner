@@ -73,7 +73,7 @@ describe("M2: saving the event form", () => {
     )).id;
     await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: hall.id, layout_element_id: table, seat_number: 1, guest_name: "Останува" }));
 
-    const base = { couple_names: RUN, event_date: "2027-12-09", start_time: null, end_time: null, status: "confirmed" as const, event_type: "wedding" as const, guest_count_estimate: null, menu_template_id: null };
+    const base = { couple_names: RUN, event_date: "2027-12-09", start_time: null, end_time: null, status: "confirmed" as const, event_type: "wedding" as const, guest_count_estimate: null, added_menu_ids: [], removed_menu_ids: [] };
     await updateEvent(eventId, venueId, { ...base, room_ids: [hall.id, other.id] });
     expect(await must(admin.from("event_seat_assignments").select("guest_name").eq("event_id", eventId))).toEqual([{ guest_name: "Останува" }]);
     const rooms = await must(admin.from("event_rooms").select("room_id, layout_initialized_at").eq("event_id", eventId).order("room_id"));

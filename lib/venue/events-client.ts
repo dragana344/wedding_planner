@@ -6,6 +6,7 @@
 // file is imported from "use client" components.
 import type { CreateEventInput, UpdateEventInput, EventContactInfo, EventFinanceInfo } from "@/lib/venue/events";
 import { reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
+import { LOCKED_MESSAGE } from "@/lib/entitlements/features";
 
 const MANAGER_TOKEN_HEADER = "x-venue-manager-token";
 
@@ -18,14 +19,36 @@ async function post<T>(url: string, method: string, body: unknown, managerToken:
     // A 403 here means the server no longer honours this token (expired or
     // revoked) — tell the provider so the stale "Менаџер: X" badge and
     // gated controls clear instead of only surfacing this one error.
-    if (response.status === 403) reportElevationRejected();
+    // A locked plan feature is also a 403, but the manager login is still valid.
+    if (response.status === 403 && data?.error !== LOCKED_MESSAGE) reportElevationRejected();
     throw new Error(data?.error ?? "Акцијата не успеа.");
   }
   return data as T;
 }
 
-export function createEventViaApi(input: CreateEventInput, managerToken: string | null): Promise<{ id: string }> {
+/** The event's own menu, built in the new-event form; created with the event. */
+export type NewEventCustomMenu = { name: string; item_ids: string[] };
+
+export function createEventViaApi(
+  input: CreateEventInput & { custom_menu?: NewEventCustomMenu | null },
+  managerToken: string | null,
+): Promise<{ id: string }> {
   return post("/api/venue/events", "POST", input, managerToken);
+}
+
+/** Whether the venue's plan includes the custom menu. Any failure counts as
+ * enabled: the create itself still decides. */
+export async function fetchNewEventCustomMenuEnabled(managerToken: string | null): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = {};
+    if (managerToken) headers[MANAGER_TOKEN_HEADER] = managerToken;
+    const response = await fetch("/api/venue/events", { headers });
+    if (!response.ok) return true;
+    const data = (await response.json()) as { customMenuEnabled?: unknown };
+    return data.customMenuEnabled !== false;
+  } catch {
+    return true;
+  }
 }
 
 export async function updateEventViaApi(eventId: string, input: UpdateEventInput, managerToken: string | null): Promise<void> {

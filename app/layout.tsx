@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Archivo_Black, Manrope, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
@@ -36,6 +36,10 @@ const plexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "Каде си?",
   description: "Платформа за ресторани и сали за настани: резервации, распоред на маси, покани и гости.",
+};
+
+export const viewport: Viewport = {
+  colorScheme: "light",
 };
 
 export default function RootLayout({

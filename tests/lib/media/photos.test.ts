@@ -172,7 +172,10 @@ describe("couple moderation", () => {
 describe("pending sweep", () => {
   it("removes unconfirmed uploads older than the cutoff only", async () => {
     const fresh = await upload(otherEventId, JPEG);
-    expect((await sweepStalePendingMedia(60 * 60 * 1000)).removed).toBe(0);
+    // Not `removed === 0`: a local database can hold genuinely stale uploads
+    // left by earlier, interrupted test runs, which this sweep rightly removes.
+    // What matters is that the fresh upload survives an hour-old cutoff.
+    await sweepStalePendingMedia(60 * 60 * 1000);
     expect(await exists(fresh)).toBe(true);
     // Not 0: other test files confirm their own pending uploads in parallel, within well under a second.
     await new Promise((r) => setTimeout(r, 1500));

@@ -3,60 +3,45 @@
 import { useState } from "react";
 import { Modal } from "./Modal";
 import { ImageLightbox } from "./ImageLightbox";
-import { getMenuItemPhotoUrl } from "@/lib/venue/menus";
+import { MenuCardContent, type MenuDetailItem } from "./MenuCardContent";
+import { Icon } from "@/components/venue/shell/Icon";
 
-const COURSE_LABELS: Record<string, string> = {
-  starter: "Предјадење",
-  main: "Главно јадење",
-  dessert: "Десерт",
-  other: "Друго",
-};
+export type { MenuDetailItem } from "./MenuCardContent";
 
-export interface MenuDetailItem {
+/** One menu's dishes; several are shown as separate titled cards. */
+export interface MenuDetailGroup {
   id: string;
-  name: string;
-  course: string;
-  photo_path: string | null;
+  title: string;
+  items: MenuDetailItem[];
 }
 
 export function MenuDetailModal({
   title,
   items,
+  groups,
   onClose,
 }: {
   title: string;
-  items: MenuDetailItem[];
+  /** A single menu's dishes (titled `title`)… */
+  items?: MenuDetailItem[];
+  /** …or several menus, one card each. */
+  groups?: MenuDetailGroup[];
   onClose: () => void;
 }) {
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null);
 
   return (
-    <Modal title={title} onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {items.map((item) => {
-          const photoUrl = getMenuItemPhotoUrl(item.photo_path);
-          return (
-            <div key={item.id} className="menu-item-row" style={{ cursor: "default" }}>
-              {photoUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setZoomed({ src: photoUrl, alt: item.name })}
-                  aria-label={`Погледни фотографија на ${item.name}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoUrl} alt={item.name} className="menu-item-thumb" />
-                </button>
-              ) : (
-                <div className="menu-item-thumb menu-item-thumb-empty" />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{item.name}</b>
-                <span className="muted"> — {COURSE_LABELS[item.course] ?? item.course}</span>
-              </div>
-            </div>
-          );
-        })}
+    <Modal title={title} onClose={onClose} hideHeader>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button type="button" onClick={onClose} aria-label="Затвори" className="modal-close">
+          <Icon name="x" size="sm" />
+        </button>
       </div>
+      {(groups ?? [{ id: "menu", title, items: items ?? [] }]).map((group) => (
+        <div key={group.id} style={{ marginBottom: 12 }}>
+          <MenuCardContent title={group.title} items={group.items} onPhotoClick={(src, alt) => setZoomed({ src, alt })} />
+        </div>
+      ))}
       {zoomed ? <ImageLightbox src={zoomed.src} alt={zoomed.alt} onClose={() => setZoomed(null)} /> : null}
     </Modal>
   );

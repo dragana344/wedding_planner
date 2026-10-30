@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { Guest, GuestSeat, GuestSide } from "@/lib/couple/guests";
-import { CHANNEL_LABELS, MENU_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { CHANNEL_LABELS, SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { GuestSendButtons, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 import { formatVenueDateTime } from "@/lib/date";
+import { isGuestDone } from "@/lib/couple/guest-menus";
+import { jsonOrThrow } from "@/lib/couple/client-utils";
 
 /** Mirrors lib/media/greetings `Greeting` (a server-only module). */
 interface GuestGreeting {
@@ -27,6 +29,91 @@ function seatText(seat: GuestSeat): string {
     .join(" · ");
 }
 
+function menuText(guest: Guest, menus: { id: string; name: string }[]): string {
+  if (guest.rsvp_status !== "confirmed") return "—";
+  if (!isGuestDone(guest, menus.map((m) => m.id))) return "Нема избрано мени";
+  return menus
+    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
+    .map((m) => `${m.name} ${guest.menu_counts[m.id]}`)
+    .join(" · ");
+}
+
+/** Edits how a confirmed guest's party splits across the event's menus. */
+function MenuCountsEditor({
+  guest,
+  menus,
+  onSaved,
+}: {
+  guest: Guest;
+  menus: { id: string; name: string }[];
+  onSaved?: (guest: Guest) => void;
+}) {
+  const initial = () => Object.fromEntries(menus.map((m) => [m.id, String(guest.menu_counts[m.id] ?? 0)]));
+  const [values, setValues] = useState<Record<string, string>>(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const total = menus.reduce((sum, m) => sum + (Number(values[m.id]) || 0), 0);
+
+  async function save() {
+    setError(null);
+    setSaving(true);
+    try {
+      const counts: Record<string, number> = {};
+      for (const m of menus) {
+        const n = Number(values[m.id]) || 0;
+        if (n > 0) counts[m.id] = n;
+      }
+      const saved = (await jsonOrThrow(
+        await fetch(`/api/couple/guests/${guest.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "menus", counts }),
+        }),
+      )) as Guest;
+      onSaved?.(saved);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не успеа зачувувањето на менито.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Мени по лице</h3>
+      <div style={{ display: "grid", gap: 8 }}>
+        {menus.map((m) => (
+          <label key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
+            <span>{m.name}</span>
+            <input
+              type="number"
+              min={0}
+              max={guest.party_size}
+              inputMode="numeric"
+              aria-label={m.name}
+              className="fld"
+              style={{ width: 90 }}
+              value={values[m.id] ?? "0"}
+              onChange={(e) => setValues((prev) => ({ ...prev, [m.id]: e.target.value }))}
+            />
+          </label>
+        ))}
+      </div>
+      <p style={{ margin: "8px 0", fontSize: 13.5, color: total === guest.party_size ? "var(--muted)" : "var(--bad)" }}>
+        {`Избрано ${total} од ${guest.party_size} лица`}
+      </p>
+      {error ? (
+        <p role="alert" style={{ margin: "0 0 8px", fontSize: 13.5, color: "var(--bad)" }}>
+          {error}
+        </p>
+      ) : null}
+      <button type="button" className="btn" disabled={saving} onClick={save}>
+        {saving ? "Се зачувува..." : "Зачувај мени"}
+      </button>
+    </div>
+  );
+}
+
 /** A7: everything about one guest, opened from the list. */
 export function GuestDetail({
   guest,
@@ -36,6 +123,9 @@ export function GuestDetail({
   sendBlockedBy = null,
   sendingEnabled = true,
   greetingsEnabled = false,
+  menus = [],
+  canEditMenus = true,
+  onMenusSaved,
   onClose,
 }: {
   guest: Guest;
@@ -48,6 +138,11 @@ export function GuestDetail({
   sendingEnabled?: boolean;
   /** The package includes `guest_greetings` (Session 4's greetings). */
   greetingsEnabled?: boolean;
+  /** The event's menus (id, name); counts are edited here only when there are 2 or more. */
+  menus?: { id: string; name: string }[];
+  /** A co-organizer edits only their own side's guests. */
+  canEditMenus?: boolean;
+  onMenusSaved?: (guest: Guest) => void;
   onClose: () => void;
 }) {
   const [seat, setSeat] = useState<GuestSeat | null | undefined>(undefined);
@@ -85,7 +180,7 @@ export function GuestDetail({
   const rows: [string, string][] = [
     ["Статус", STATUS_LABELS[guest.rsvp_status] ?? guest.rsvp_status],
     ["Лица", guest.children_count > 0 ? `${guest.party_size} (од кои ${guest.children_count} деца)` : String(guest.party_size)],
-    ["Мени", guest.menu_choice ? MENU_LABELS[guest.menu_choice] : "—"],
+    ...(menus.length > 1 ? ([["Мени", menuText(guest, menus)]] as [string, string][]) : []),
     ["Алергии", guest.allergies ?? "—"],
     ["Коментар", guest.rsvp_comment ?? "—"],
     ["Телефон", guest.phone ?? "—"],
@@ -140,6 +235,9 @@ export function GuestDetail({
           <dt style={{ color: "var(--muted)" }}>Маса</dt>
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
+        {menus.length > 1 && canEditMenus && guest.rsvp_status === "confirmed" ? (
+          <MenuCountsEditor key={`${guest.id}-${guest.party_size}-${JSON.stringify(guest.menu_counts)}`} guest={guest} menus={menus} onSaved={onMenusSaved} />
+        ) : null}
         {greetingsEnabled ? (
           <>
             <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Честитка</h3>

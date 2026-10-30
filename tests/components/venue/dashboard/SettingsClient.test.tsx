@@ -9,7 +9,7 @@ describe("SettingsClient — owner-only gate", () => {
   it("shows an owner-only message instead of the settings content when not elevated as owner", () => {
     render(
       <ManagerElevationProvider>
-        <SettingsClient venueName="Sala Biser" email="owner@example.com" />
+        <SettingsClient />
       </ManagerElevationProvider>
     );
     expect(screen.getByText("Оваа страница е достапна само за сопственикот.")).toBeInTheDocument();

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
 import { ImageLightbox } from "./ImageLightbox";
 import { MenuDetailModal } from "./MenuDetailModal";
+import { Modal } from "./Modal";
+import { PackageBuilder } from "./PackageBuilder";
+import { MenuNumbersSection } from "./MenuNumbersSection";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
 import {
   type EventDetail,
@@ -18,6 +21,9 @@ import {
   updateEventFinanceViaApi,
   regenerateEventPasswordViaApi,
 } from "@/lib/venue/events-client";
+import { fetchMenuUsage } from "@/lib/venue/menu-usage-client";
+import { fetchCustomMenuEnabled, saveCustomMenuViaApi } from "@/lib/venue/custom-menu-client";
+import { LockedBanner } from "@/components/entitlements/LockedBanner";
 import { reportElevationRejected, useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
 import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import {
@@ -31,21 +37,44 @@ import {
   generateRandomPassword,
 } from "@/lib/venue/credentials";
 import type { Room } from "@/lib/venue/rooms";
-import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
+import { listMenuItems, type MenuItem, type MenuTemplate } from "@/lib/venue/menus";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { errorMessage } from "@/lib/venue/user-error";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
 
+/** Shown to plain staff instead of the couple's contacts and the money (0117). */
+const PRIVATE_HINT = "Само за менаџери: најавете се како менаџер за да ги видите.";
+
+function PrivateLoading({ failed, onRetry }: { failed: boolean; onRetry?: () => void }) {
+  if (!failed) return <p className="ev-hint">Се вчитува...</p>;
+  return (
+    <p role="alert" className="ev-hint" style={{ color: "var(--bad)" }}>
+      Податоците не можеа да се вчитаат.{" "}
+      {onRetry ? (
+        <button type="button" className="btn btn-ghost" onClick={onRetry}>
+          Обиди се повторно
+        </button>
+      ) : null}
+    </p>
+  );
+}
+
 export function EventEditForm({
   event,
+  venueId,
   rooms,
   menuTemplates,
   onClose,
   onChanged,
   readOnly = false,
+  privateLoaded = true,
+  privateFailed = false,
+  onRetryPrivate,
 }: {
   event: EventDetail;
+  /** For loading the venue's dishes when building the event's custom menu. */
+  venueId: string;
   rooms: Room[];
   menuTemplates: (MenuTemplate & { items: MenuItem[] })[];
   onClose: () => void;
@@ -54,6 +83,13 @@ export function EventEditForm({
    * are hidden, but deleting the event is still allowed either way — staff
    * choice, never automatic. */
   readOnly?: boolean;
+  /** Whether `event` carries the manager-only contacts and money (0117).
+   * False while they are still loading for a manager — the two sections
+   * wait rather than show empty fields that a save would write back. */
+  privateLoaded?: boolean;
+  /** Loading them failed — say so and offer a retry instead of waiting forever. */
+  privateFailed?: boolean;
+  onRetryPrivate?: () => void;
 }) {
   const [coupleNames, setCoupleNames] = useState(event.couple_names);
   const [eventDate, setEventDate] = useState(event.event_date);
@@ -65,7 +101,6 @@ export function EventEditForm({
   const [status, setStatus] = useState<EventStatus>(event.status);
   const [eventType, setEventType] = useState<EventType>(event.event_type);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(event.room_ids);
-  const [viewingMenu, setViewingMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -103,10 +138,82 @@ export function EventEditForm({
   const [eraseError, setEraseError] = useState<string | null>(null);
   const canErase = confirmationMatches(eraseConfirm, event.couple_names);
 
-  const [menuTemplateId, setMenuTemplateId] = useState(event.menu_template_id ?? "");
-  const selectedMenuTemplate = menuTemplates.find((m) => m.id === event.menu_template_id);
-  const hasMenu = Boolean(selectedMenuTemplate) || event.customMenuItems.length > 0;
-  const menuDisplayName = selectedMenuTemplate?.name ?? (event.customMenuItems.length > 0 ? "Сопствено мени" : "Без мени");
+  // Multi-menu: every menu on the event toggles, standard packages and the
+  // event's own custom menu alike (taking the custom menu off deletes it).
+  const [menuIds, setMenuIds] = useState<string[]>(event.menus.map((m) => m.id));
+  // What this window saw when it opened: the save sends only the difference
+  // from it, so a menu another tab added meanwhile is never dropped.
+  const [seenMenuIds] = useState<string[]>(() => event.menus.map((m) => m.id));
+  // A custom menu saved in this window before the refreshed event arrives:
+  // kept selected so saving the form right away does not drop it.
+  const [savedCustomMenu, setSavedCustomMenu] = useState<{ id: string; name: string; itemIds: string[] } | null>(null);
+  const eventCustomMenu = event.menus.find((m) => m.isCustom) ?? null;
+  const customMenu =
+    savedCustomMenu && savedCustomMenu.id !== eventCustomMenu?.id
+      ? { id: savedCustomMenu.id, name: savedCustomMenu.name, itemIds: savedCustomMenu.itemIds }
+      : eventCustomMenu
+        ? { id: eventCustomMenu.id, name: eventCustomMenu.name, itemIds: eventCustomMenu.items.map((i) => i.id) }
+        : null;
+  const extraMenus = [
+    ...event.menus.filter((m) => !menuTemplates.some((t) => t.id === m.id)),
+    ...(savedCustomMenu && !event.menus.some((m) => m.id === savedCustomMenu.id)
+      ? [{ id: savedCustomMenu.id, name: savedCustomMenu.name, isCustom: true, items: [] }]
+      : []),
+  ];
+  const menuName = (id: string) => menuTemplates.find((t) => t.id === id)?.name ?? extraMenus.find((m) => m.id === id)?.name;
+  const [menuUsage, setMenuUsage] = useState<Record<string, number> | null>(null);
+  const usageRequested = useRef(false);
+  const [viewingMenuId, setViewingMenuId] = useState<string | null>(null);
+  // Whether the plan includes the custom menu; null until known (manager only).
+  const [customMenuEnabled, setCustomMenuEnabled] = useState<boolean | null>(null);
+  // The dish pool for the custom-menu builder; null while it is closed.
+  const [customMenuDishes, setCustomMenuDishes] = useState<MenuItem[] | null>(null);
+  const [customMenuError, setCustomMenuError] = useState<string | null>(null);
+  const removedMenuIds = event.menus.map((m) => m.id).filter((id) => !menuIds.includes(id));
+
+  /** Menus added to / removed from the selection, relative to what the window saw
+   * (a custom menu saved in this window counts as already present). */
+  function diffMenus() {
+    const seen = new Set(seenMenuIds);
+    if (savedCustomMenu) seen.add(savedCustomMenu.id);
+    const now = new Set(menuIds);
+    return {
+      added_menu_ids: [...now].filter((id) => !seen.has(id)),
+      removed_menu_ids: [...seen].filter((id) => !now.has(id)),
+    };
+  }
+
+  function toggleMenu(id: string) {
+    const removing = menuIds.includes(id);
+    setMenuIds(removing ? menuIds.filter((x) => x !== id) : [...menuIds, id]);
+    if (removing && !usageRequested.current) {
+      usageRequested.current = true;
+      fetchMenuUsage(event.id, managerToken)
+        .then(setMenuUsage)
+        // No count available: the save itself is still safe, only the hint is lost.
+        .catch(() => { usageRequested.current = false; });
+    }
+  }
+
+  useEffect(() => {
+    if (!canEdit || readOnly) return;
+    let active = true;
+    fetchCustomMenuEnabled(event.id, managerToken).then((enabled) => {
+      if (active) setCustomMenuEnabled(enabled);
+    });
+    return () => {
+      active = false;
+    };
+  }, [event.id, managerToken, canEdit, readOnly]);
+
+  async function openCustomMenuBuilder() {
+    setCustomMenuError(null);
+    try {
+      setCustomMenuDishes(await listMenuItems(venueId));
+    } catch (err) {
+      setCustomMenuError(errorMessage(err, "Не успеа вчитувањето на јадењата. Обидете се повторно."));
+    }
+  }
 
   async function refreshShowcasePhotos() {
     setShowcasePhotos(await listShowcasePhotos(event.id));
@@ -228,7 +335,7 @@ export function EventEditForm({
         event_type: eventType,
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
-        menu_template_id: menuTemplateId || null,
+        ...diffMenus(),
       };
       await updateEventViaApi(event.id, input, managerToken);
       onChanged();
@@ -445,33 +552,72 @@ export function EventEditForm({
           </div>
 
           <div className="ev-field">
-            <label className="lab-s">Мени</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap" }}>
-              {hasMenu ? (
+            <span className="lab-s" id="edit-menus-label">Мени</span>
+            <div role="group" aria-labelledby="edit-menus-label" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {menuTemplates.map((template) => (
                 <button
+                  key={template.id}
                   type="button"
-                  onClick={() => setViewingMenu(true)}
                   className="btn btn-ghost"
-                  style={{ padding: "4px 10px", whiteSpace: "nowrap", flexShrink: 0 }}
+                  aria-pressed={menuIds.includes(template.id)}
+                  disabled={locked}
+                  onClick={() => toggleMenu(template.id)}
+                  style={menuIds.includes(template.id) ? { fontWeight: 700, outline: "2px solid currentColor" } : undefined}
                 >
-                  Погледни мени
+                  {template.name}
                 </button>
-              ) : null}
-              <select
-                id="edit-menu-template"
-                className="fld"
-                aria-label="Мени"
-                value={menuTemplateId}
-                onChange={(e) => setMenuTemplateId(e.target.value)}
-              >
-                <option value="">{event.customMenuItems.length > 0 && !event.menu_template_id ? "Сопствено мени" : "Без мени"}</option>
-                {menuTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
+              ))}
+              {extraMenus.map((menu) => (
+                <button
+                  key={menu.id}
+                  type="button"
+                  className="btn btn-ghost"
+                  aria-pressed={menuIds.includes(menu.id)}
+                  disabled={locked}
+                  onClick={() => toggleMenu(menu.id)}
+                  style={menuIds.includes(menu.id) ? { fontWeight: 700, outline: "2px solid currentColor" } : undefined}
+                >
+                  {menu.name}
+                </button>
+              ))}
+              {menuTemplates.length === 0 && extraMenus.length === 0 ? <span>Без мени</span> : null}
             </div>
+            {menuIds.map((id) => {
+              const name = menuName(id);
+              if (!name) return null;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setViewingMenuId(id)}
+                  className="btn btn-ghost"
+                  style={{ padding: "4px 10px", marginTop: 6, marginRight: 6 }}
+                >
+                  Погледни мени: {name}
+                </button>
+              );
+            })}
+            {canEdit && !readOnly ? (
+              <div style={{ marginTop: 6 }}>
+                {customMenuEnabled === false ? (
+                  <LockedBanner audience="venue" />
+                ) : (
+                  <button type="button" className="btn btn-ghost" onClick={openCustomMenuBuilder}>
+                    {customMenu ? "Уреди сопствено мени" : "+ Сопствено мени"}
+                  </button>
+                )}
+                {customMenuError ? (
+                  <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: "6px 0 0" }}>{customMenuError}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {removedMenuIds
+              .filter((id) => (menuUsage?.[id] ?? 0) > 0)
+              .map((id) => (
+                <p key={id} role="status" className="ev-warn" style={{ margin: "6px 0 0" }}>
+                  {menuName(id) ?? "Мени"}: {menuUsage?.[id]} гости го избрале ова мени — нивниот избор ќе се избрише
+                </p>
+              ))}
           </div>
         </fieldset>
 
@@ -522,96 +668,110 @@ export function EventEditForm({
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
       </form>
 
+      <MenuNumbersSection eventId={event.id} menuNumbers={event.menuNumbers} canConfirm={canEdit} token={managerToken} onChanged={onChanged} />
+
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Финансии</legend>
-        <form onSubmit={handleSaveFinance}>
-          <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
-            <div className="ev-form-grid">
-              <div className="ev-field">
-                <label className="lab-s" htmlFor="edit-total-price">
-                  Вкупна цена (МКД)
-                </label>
-                <input
-                  id="edit-total-price"
-                  className="fld"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={totalPrice}
-                  onChange={(e) => setTotalPrice(e.target.value)}
-                />
+        {!canEdit ? (
+          <p className="ev-hint">{PRIVATE_HINT}</p>
+        ) : !privateLoaded ? (
+          <PrivateLoading failed={privateFailed} onRetry={onRetryPrivate} />
+        ) : (
+          <form onSubmit={handleSaveFinance}>
+            <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
+              <div className="ev-form-grid">
+                <div className="ev-field">
+                  <label className="lab-s" htmlFor="edit-total-price">
+                    Вкупна цена (МКД)
+                  </label>
+                  <input
+                    id="edit-total-price"
+                    className="fld"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={totalPrice}
+                    onChange={(e) => setTotalPrice(e.target.value)}
+                  />
+                </div>
+                <div className="ev-field">
+                  <label className="lab-s" htmlFor="edit-deposit-paid">
+                    Платен капар (МКД)
+                  </label>
+                  <input
+                    id="edit-deposit-paid"
+                    className="fld"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={depositPaid}
+                    onChange={(e) => setDepositPaid(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="ev-field">
-                <label className="lab-s" htmlFor="edit-deposit-paid">
-                  Платен капар (МКД)
-                </label>
-                <input
-                  id="edit-deposit-paid"
-                  className="fld"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={depositPaid}
-                  onChange={(e) => setDepositPaid(e.target.value)}
-                />
-              </div>
-            </div>
-          </fieldset>
-          {financeError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{financeError}</p> : null}
-          {locked ? null : (
-            <button type="submit" className="btn btn-ghost" disabled={isSavingFinance}>
-              {isSavingFinance ? "Се зачувува..." : "Зачувај финансии"}
-            </button>
-          )}
-        </form>
+            </fieldset>
+            {financeError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{financeError}</p> : null}
+            {locked ? null : (
+              <button type="submit" className="btn btn-ghost" disabled={isSavingFinance}>
+                {isSavingFinance ? "Се зачувува..." : "Зачувај финансии"}
+              </button>
+            )}
+          </form>
+        )}
       </fieldset>
 
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Контакт на парот</legend>
-        <form onSubmit={handleSaveContactInfo}>
-          <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
-          <div className="ev-form-grid">
-            <div className="ev-field">
-              <input
-                className="fld"
-                type="email"
-                aria-label="Email на парот"
-                placeholder="Email на парот"
-                required
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
+        {!canEdit ? (
+          <p className="ev-hint">{PRIVATE_HINT}</p>
+        ) : !privateLoaded ? (
+          <PrivateLoading failed={privateFailed} onRetry={onRetryPrivate} />
+        ) : (
+          <form onSubmit={handleSaveContactInfo}>
+            <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
+            <div className="ev-form-grid">
+              <div className="ev-field">
+                <input
+                  className="fld"
+                  type="email"
+                  aria-label="Email на парот"
+                  placeholder="Email на парот"
+                  required
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
+              <div className="ev-field">
+                <input
+                  className="fld"
+                  type="email"
+                  aria-label="Втора е-пошта (по желба)"
+                  placeholder="Втора е-пошта (по желба)"
+                  value={contactEmail2}
+                  onChange={(e) => setContactEmail2(e.target.value)}
+                />
+              </div>
+              <div className="ev-field">
+                <input
+                  className="fld"
+                  type="tel"
+                  aria-label="Телефон на парот"
+                  placeholder="Телефон на парот"
+                  required
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="ev-field">
-              <input
-                className="fld"
-                type="email"
-                aria-label="Втора е-пошта (по желба)"
-                placeholder="Втора е-пошта (по желба)"
-                value={contactEmail2}
-                onChange={(e) => setContactEmail2(e.target.value)}
-              />
-            </div>
-            <div className="ev-field">
-              <input
-                className="fld"
-                type="tel"
-                aria-label="Телефон на парот"
-                placeholder="Телефон на парот"
-                required
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-              />
-            </div>
-          </div>
-          </fieldset>
-          {contactError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{contactError}</p> : null}
-          {locked ? null : (
-            <button type="submit" className="btn btn-ghost" disabled={isSavingContact}>
-              {isSavingContact ? "Се зачувува..." : "Зачувај контакт"}
-            </button>
-          )}
-        </form>
+            </fieldset>
+            {contactError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{contactError}</p> : null}
+            {locked ? null : (
+              <button type="submit" className="btn btn-ghost" disabled={isSavingContact}>
+                {isSavingContact ? "Се зачувува..." : "Зачувај контакт"}
+              </button>
+            )}
+          </form>
+        )}
       </fieldset>
 
       <fieldset className="ev-fieldset">
@@ -755,15 +915,34 @@ export function EventEditForm({
         )}
       </fieldset>
 
+      {customMenuDishes ? (
+        <Modal title="Сопствено мени" onClose={() => setCustomMenuDishes(null)} wide hideHeader>
+          <PackageBuilder
+            venueId={venueId}
+            template={{ id: customMenu?.id ?? "", venue_id: venueId, name: customMenu?.name ?? "Сопствено мени", description: null }}
+            initialItemIds={customMenu?.itemIds ?? []}
+            items={customMenuDishes}
+            allowDelete={false}
+            onSave={async ({ name, itemIds }) => {
+              const saved = await saveCustomMenuViaApi(event.id, { name, itemIds }, managerToken);
+              setSavedCustomMenu({ id: saved.id, name, itemIds });
+              setMenuIds((ids) => (ids.includes(saved.id) ? ids : [...ids, saved.id]));
+            }}
+            onClose={() => setCustomMenuDishes(null)}
+            onChanged={onChanged}
+          />
+        </Modal>
+      ) : null}
+
       {lightboxUrl ? (
         <ImageLightbox src={lightboxUrl} alt="" onClose={() => setLightboxUrl(null)} />
       ) : null}
 
-      {viewingMenu ? (
+      {viewingMenuId ? (
         <MenuDetailModal
-          title={menuDisplayName}
-          items={selectedMenuTemplate?.items ?? event.customMenuItems}
-          onClose={() => setViewingMenu(false)}
+          title={menuName(viewingMenuId) ?? "Мени"}
+          items={menuTemplates.find((t) => t.id === viewingMenuId)?.items ?? event.menus.find((m) => m.id === viewingMenuId)?.items ?? []}
+          onClose={() => setViewingMenuId(null)}
         />
       ) : null}
 

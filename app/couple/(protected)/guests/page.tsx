@@ -38,6 +38,7 @@ export default async function GuestsPage() {
     venueName: summary.venue_name,
     eventType: summary.event_type,
     emailEnabled: emailConfigured(),
+    menuCount: stats.menus.length,
   };
   const coOrganizers =
     !organizerSide && coOrganizersEnabled && summary.event_type === "wedding" ? await listCoOrganizers(eventId) : null;

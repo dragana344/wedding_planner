@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
+import { COMMON_ALLERGENS } from "@/lib/venue/menu-display";
 
 export function AllergenTagEditor({
   tags,
@@ -22,6 +23,11 @@ export function AllergenTagEditor({
 
   function removeTag(tag: string) {
     onChange(tags.filter((t) => t !== tag));
+  }
+
+  function toggleQuickTag(tag: string) {
+    if (tags.includes(tag)) removeTag(tag);
+    else onChange([...tags, tag]);
   }
 
   return (
@@ -49,11 +55,25 @@ export function AllergenTagEditor({
               addTag();
             }
           }}
-          placeholder="Додади алерген"
+          placeholder="Додади алерген и притисни Enter"
         />
         <button type="button" onClick={addTag} className="btn btn-ghost">
           Додади
         </button>
+      </div>
+      <div className="mp-allergen-quick">
+        <span className="mp-allergen-quick-lab">Чести:</span>
+        {COMMON_ALLERGENS.map((allergen) => (
+          <button
+            key={allergen}
+            type="button"
+            className={`mp-allergen-chip${tags.includes(allergen) ? " on" : ""}`}
+            aria-pressed={tags.includes(allergen)}
+            onClick={() => toggleQuickTag(allergen)}
+          >
+            {tags.includes(allergen) ? "✓" : "+"} {allergen}
+          </button>
+        ))}
       </div>
     </div>
   );

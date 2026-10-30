@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { EventEditForm } from "@/components/venue/dashboard/EventEditForm";
+import { Modal } from "@/components/venue/dashboard/Modal";
 import { ManagerElevationContext } from "@/components/venue/shell/ManagerElevationContext";
 
 // EventEditForm is reached from the events list for any staff member,
@@ -21,6 +22,10 @@ function ManagerElevationProvider({ children }: { children: React.ReactNode }) {
 import * as eventsClient from "@/lib/venue/events-client";
 import * as showcase from "@/lib/venue/showcase";
 import * as credentials from "@/lib/venue/credentials";
+import * as menuNumbersClient from "@/lib/venue/menu-numbers-client";
+import * as menuUsageClient from "@/lib/venue/menu-usage-client";
+import * as menusLib from "@/lib/venue/menus";
+import * as customMenuClient from "@/lib/venue/custom-menu-client";
 import type { EventDetail } from "@/lib/venue/events";
 
 const baseEvent: EventDetail = {
@@ -32,8 +37,7 @@ const baseEvent: EventDetail = {
   status: "confirmed",
   event_type: "wedding",
   guest_count_estimate: 150,
-  menu_template_id: null,
-  customMenuItems: [],
+  menus: [],
   room_ids: [],
   hasShowcasePhotos: false,
   seatedCount: 120,
@@ -43,17 +47,19 @@ const baseEvent: EventDetail = {
   total_price: null,
   deposit_paid: null,
   hasUnseenSeatingChange: false,
+  menuNumbers: { latest: null, previous: null },
 };
 
 function mockSupportingCalls() {
   vi.spyOn(showcase, "listShowcasePhotos").mockResolvedValue([]);
   vi.spyOn(credentials, "getEventUsername").mockResolvedValue("ana-marko");
+  vi.spyOn(customMenuClient, "fetchCustomMenuEnabled").mockResolvedValue(true);
 }
 
 function renderForm(props: Partial<React.ComponentProps<typeof EventEditForm>> & Pick<React.ComponentProps<typeof EventEditForm>, "event" | "onClose" | "onChanged">) {
   return render(
     <ManagerElevationProvider>
-      <EventEditForm rooms={[]} menuTemplates={[]} {...props} />
+      <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} {...props} />
     </ManagerElevationProvider>
   );
 }
@@ -90,17 +96,83 @@ describe("EventEditForm", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  const tplA = { id: "ma", venue_id: "v1", name: "Класично", description: null, items: [{ id: "i1", name: "Супа", course: "starter", photo_path: null }] };
+  const tplB = { id: "mb", venue_id: "v1", name: "Посно", description: null, items: [] };
+  const withMenus = { ...baseEvent, menus: [
+    { id: "ma", name: "Класично", isCustom: false, items: [] },
+    { id: "c1", name: "Сопствено мени", isCustom: true, items: [] },
+  ] };
+
+  it("shows every menu as a chip with Погледни мени", async () => {
+    mockSupportingCalls();
+    renderForm({ event: withMenus, menuTemplates: [tplA, tplB] as never, onClose: () => {}, onChanged: () => {} });
+    expect(screen.getByRole("button", { name: "Класично" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Посно" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Сопствено мени" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button", { name: /погледни мени/i })).toHaveLength(2);
+    // The menu's name is visible on the button, not only in its accessible name.
+    expect(screen.getByText("Погледни мени: Класично")).toBeInTheDocument();
+    expect(screen.getByText("Погледни мени: Сопствено мени")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Погледни мени: Класично" }));
+    expect(await screen.findByText("Супа")).toBeInTheDocument();
+  });
+
+  it("a manager adds and removes menus and saves the added/removed menu ids", async () => {
+    mockSupportingCalls();
+    vi.spyOn(menuUsageClient, "fetchMenuUsage").mockResolvedValue({ ma: 0 });
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    renderForm({ event: withMenus, menuTemplates: [tplA, tplB] as never, onClose: () => {}, onChanged: () => {} });
+    fireEvent.click(screen.getByRole("button", { name: "Посно" }));
+    fireEvent.click(screen.getByRole("button", { name: "Класично" }));
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls[0][1].added_menu_ids).toEqual(["mb"]);
+    expect(updateSpy.mock.calls[0][1].removed_menu_ids).toEqual(["ma"]);
+  });
+
+  it("removing a menu guests chose warns \"3 гости го избрале ова мени — нивниот избор ќе се избрише\"", async () => {
+    mockSupportingCalls();
+    const usageSpy = vi.spyOn(menuUsageClient, "fetchMenuUsage").mockResolvedValue({ ma: 3, c1: 0 });
+    renderForm({ event: withMenus, menuTemplates: [tplA, tplB] as never, onClose: () => {}, onChanged: () => {} });
+    expect(screen.queryByText(/гости го избрале/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Класично" }));
+    expect(await screen.findByText("Класично: 3 гости го избрале ова мени — нивниот избор ќе се избрише")).toBeInTheDocument();
+    expect(usageSpy).toHaveBeenCalledWith("e1", "test-manager-token");
+    // Re-adding clears the warning; removing again does not refetch.
+    fireEvent.click(screen.getByRole("button", { name: "Класично" }));
+    expect(screen.queryByText(/гости го избрале/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Класично" }));
+    expect(await screen.findByText(/3 гости/)).toBeInTheDocument();
+    expect(usageSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("plain staff see menus read-only", async () => {
+    mockSupportingCalls();
+    render(
+      <ManagerElevationContext.Provider value={{ ...elevatedManagerValue, managerName: null, token: null }}>
+        <EventEditForm venueId="v1" rooms={[]} menuTemplates={[tplA, tplB] as never} event={withMenus} onClose={() => {}} onChanged={() => {}} />
+      </ManagerElevationContext.Provider>
+    );
+    expect(screen.getByRole("button", { name: "Класично" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Посно" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Погледни мени: Класично" }));
+    expect(await screen.findByText("Супа")).toBeInTheDocument();
+  });
+
   it("labels a custom menu selection and reveals its dishes behind Погледни мени", async () => {
     mockSupportingCalls();
     const eventWithCustomMenu = {
       ...baseEvent,
-      customMenuItems: [
-        { id: "m1", name: "Roast Chicken", course: "main", photo_path: null },
-        { id: "m2", name: "Birthday Cake", course: "dessert", photo_path: null },
-      ],
+      menus: [{
+        id: "c1", name: "Сопствено мени", isCustom: true,
+        items: [
+          { id: "m1", name: "Roast Chicken", course: "main", photo_path: null },
+          { id: "m2", name: "Birthday Cake", course: "dessert", photo_path: null },
+        ],
+      }],
     };
     renderForm({ event: eventWithCustomMenu, onClose: () => {}, onChanged: () => {} });
-    expect(await screen.findByText("Сопствено мени")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Сопствено мени" })).toBeInTheDocument();
     expect(screen.queryByText("Roast Chicken")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /погледни мени/i }));
@@ -151,7 +223,7 @@ describe("EventEditForm", () => {
     mockSupportingCalls();
     render(
       <ManagerElevationContext.Provider value={{ managerName: null, isOwner: false, token: null, elevate: async () => ({ ok: true as const }), deAuthorize: () => {}, passwordResetNoticeAt: null, dismissPasswordResetNotice: async () => {} }}>
-        <EventEditForm rooms={[]} menuTemplates={[]} event={baseEvent} onClose={() => {}} onChanged={() => {}} />
+        <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} event={baseEvent} onClose={() => {}} onChanged={() => {}} />
       </ManagerElevationContext.Provider>,
     );
     // No save/delete/regenerate/showcase-upload buttons — not just disabled,
@@ -161,7 +233,10 @@ describe("EventEditForm", () => {
     expect(screen.queryByRole("button", { name: /избриши настан/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /генерирај нова лозинка/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Додади фотографија")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Email на парот")).toBeDisabled();
+    // Contacts and money aren't even shown to plain staff (0117) — not just disabled.
+    expect(screen.queryByLabelText("Email на парот")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Вкупна цена (МКД)")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Само за менаџери: најавете се како менаџер за да ги видите.")).toHaveLength(2);
     // Security review minor finding: the erase-personal-data button used to
     // render for anyone, elevated or not — reachable by plain staff, who'd
     // only learn they lacked permission after typing the confirmation and
@@ -171,16 +246,214 @@ describe("EventEditForm", () => {
     expect(screen.getByText(/само менаџер или сопственик може да ги избрише личните податоци/i)).toBeInTheDocument();
   });
 
+  it("waits for a manager's contacts and money to load instead of showing empty fields that a save would write back", () => {
+    mockSupportingCalls();
+    renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {}, privateLoaded: false });
+    expect(screen.queryByLabelText("Email на парот")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /зачувај контакт/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /зачувај финансии/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Се вчитува...").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("offers a retry when the manager-only details failed to load", () => {
+    mockSupportingCalls();
+    const retry = vi.fn();
+    renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {}, privateLoaded: false, privateFailed: true, onRetryPrivate: retry });
+    expect(screen.getAllByRole("alert")[0]).toHaveTextContent("Податоците не можеа да се вчитаат.");
+    fireEvent.click(screen.getAllByRole("button", { name: "Обиди се повторно" })[0]);
+    expect(retry).toHaveBeenCalled();
+  });
+
+  it("shows a manager the loaded contacts and money", () => {
+    mockSupportingCalls();
+    renderForm({
+      event: { ...baseEvent, contact_email: "ana@example.mk", contact_phone: "070 111 222", total_price: 300000, deposit_paid: 50000 },
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    expect(screen.getByLabelText("Email на парот")).toHaveValue("ana@example.mk");
+    expect(screen.getByLabelText("Вкупна цена (МКД)")).toHaveValue(300000);
+  });
+
   it("still lets plain staff open a room's seating to look at it, but not change the rooms", async () => {
     mockSupportingCalls();
     const hall = { id: "r1", venue_id: "v1", name: "Голема сала", width_cm: 2000, height_cm: 1500 } as React.ComponentProps<typeof EventEditForm>["rooms"][number];
     render(
       <ManagerElevationContext.Provider value={{ managerName: null, isOwner: false, token: null, elevate: async () => ({ ok: true as const }), deAuthorize: () => {}, passwordResetNoticeAt: null, dismissPasswordResetNotice: async () => {} }}>
-        <EventEditForm rooms={[hall]} menuTemplates={[]} event={{ ...baseEvent, room_ids: ["r1"] }} onClose={() => {}} onChanged={() => {}} />
+        <EventEditForm venueId="v1" rooms={[hall]} menuTemplates={[]} event={{ ...baseEvent, room_ids: ["r1"] }} onClose={() => {}} onChanged={() => {}} />
       </ManagerElevationContext.Provider>,
     );
     expect(screen.getByLabelText("Голема сала")).toBeDisabled();
     const open = screen.getByRole("button", { name: /отвори седење/i });
     expect(open).toBeEnabled();
+  });
+});
+
+describe("EventEditForm custom menu", () => {
+  const dish = { id: "d1", venue_id: "v1", tiers: [], course: "main" as const, name: "Печено", allergen_tags: [], is_vegetarian: false, is_vegan: false, price: null, photo_path: null };
+
+  it("offers + Сопствено мени, builds it through the API and refreshes", async () => {
+    mockSupportingCalls();
+    vi.spyOn(menusLib, "listMenuItems").mockResolvedValue([dish]);
+    const save = vi.spyOn(customMenuClient, "saveCustomMenuViaApi").mockResolvedValue({ id: "c1" });
+    const onChanged = vi.fn();
+    renderForm({ event: baseEvent, onClose: () => {}, onChanged });
+    fireEvent.click(screen.getByRole("button", { name: "+ Сопствено мени" }));
+    fireEvent.click(await screen.findByTestId("pkg-toggle-d1"));
+    expect(screen.queryByRole("button", { name: /избриши пакет/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Зачувај мени" }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith("e1", { name: "Сопствено мени", itemIds: ["d1"] }, "test-manager-token"));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("a just-saved custom menu is kept when the event form is saved before the refresh lands", async () => {
+    mockSupportingCalls();
+    vi.spyOn(menusLib, "listMenuItems").mockResolvedValue([dish]);
+    vi.spyOn(customMenuClient, "saveCustomMenuViaApi").mockResolvedValue({ id: "c9" });
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {} });
+    fireEvent.click(screen.getByRole("button", { name: "+ Сопствено мени" }));
+    fireEvent.click(await screen.findByTestId("pkg-toggle-d1"));
+    fireEvent.click(screen.getByRole("button", { name: "Зачувај мени" }));
+    await waitFor(() => expect(screen.queryByTestId("pkg-toggle-d1")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls.at(-1)![1].added_menu_ids).toEqual([]);
+    expect(updateSpy.mock.calls.at(-1)![1].removed_menu_ids).toEqual([]);
+  });
+
+  it("a manager can take the custom menu off the event, with the guests' warning", async () => {
+    mockSupportingCalls();
+    vi.spyOn(menuUsageClient, "fetchMenuUsage").mockResolvedValue({ c1: 2 });
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    const withCustom = { ...baseEvent, menus: [{ id: "c1", name: "Мое мени", isCustom: true, items: [] }] };
+    renderForm({ event: withCustom, onClose: () => {}, onChanged: () => {} });
+    const chip = screen.getByRole("button", { name: "Мое мени" });
+    expect(chip).toBeEnabled();
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    expect(await screen.findByText("Мое мени: 2 гости го избрале ова мени — нивниот избор ќе се избрише")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls.at(-1)![1].added_menu_ids).toEqual([]);
+    expect(updateSpy.mock.calls.at(-1)![1].removed_menu_ids).toEqual(["c1"]);
+  });
+
+  it("shows the locked hint instead of the custom-menu button when the plan lacks it", async () => {
+    mockSupportingCalls();
+    const enabledSpy = vi.spyOn(customMenuClient, "fetchCustomMenuEnabled").mockResolvedValue(false);
+    renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {} });
+    expect(await screen.findByText("Оваа функција не е вклучена во вашиот пакет.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Сопствено мени" })).not.toBeInTheDocument();
+    expect(enabledSpy).toHaveBeenCalledWith("e1", "test-manager-token");
+  });
+
+  it("keeps the custom-menu button when the plan includes it, and never asks for plain staff", async () => {
+    mockSupportingCalls();
+    const enabledSpy = vi.spyOn(customMenuClient, "fetchCustomMenuEnabled").mockResolvedValue(true);
+    const { unmount } = renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {} });
+    await waitFor(() => expect(enabledSpy).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "+ Сопствено мени" })).toBeInTheDocument();
+    expect(screen.queryByText("Оваа функција не е вклучена во вашиот пакет.")).not.toBeInTheDocument();
+    unmount();
+    enabledSpy.mockClear();
+    render(
+      <ManagerElevationContext.Provider value={{ ...elevatedManagerValue, managerName: null, token: null }}>
+        <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} event={baseEvent} onClose={() => {}} onChanged={() => {}} />
+      </ManagerElevationContext.Provider>
+    );
+    expect(enabledSpy).not.toHaveBeenCalled();
+  });
+
+  it("says Уреди сопствено мени when the event has one, and hides it for past events", async () => {
+    mockSupportingCalls();
+    const withCustom = { ...baseEvent, menus: [{ id: "c1", name: "Мое", isCustom: true, items: [] }] };
+    const { unmount } = renderForm({ event: withCustom, onClose: () => {}, onChanged: () => {} });
+    expect(screen.getByRole("button", { name: "Уреди сопствено мени" })).toBeInTheDocument();
+    unmount();
+    renderForm({ event: withCustom, readOnly: true, onClose: () => {}, onChanged: () => {} });
+    expect(screen.queryByRole("button", { name: /сопствено мени/i })).not.toBeInTheDocument();
+  });
+
+  it("one Escape closes only the builder, not the event form", async () => {
+    mockSupportingCalls();
+    vi.spyOn(menusLib, "listMenuItems").mockResolvedValue([dish]);
+    const outerClose = vi.fn();
+    render(
+      <ManagerElevationProvider>
+        <Modal title="Настан" onClose={outerClose} hideHeader>
+          <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} event={baseEvent} onClose={outerClose} onChanged={() => {}} />
+        </Modal>
+      </ManagerElevationProvider>
+    );
+    fireEvent.change(screen.getByDisplayValue("Ana & Marko"), { target: { value: "Нови имиња" } });
+    fireEvent.click(screen.getByRole("button", { name: "+ Сопствено мени" }));
+    await screen.findByTestId("pkg-toggle-d1");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("pkg-toggle-d1")).not.toBeInTheDocument();
+    expect(outerClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("Нови имиња")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(outerClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("Бројки за мени", () => {
+    const sub = (id: string, sentAt: string, menus: [string, string, number][], seenAt: string | null = null) => ({
+      id, sentAt, sentBy: "Младенците",
+      numbers: { menus: menus.map(([i, name, count]) => ({ id: i, name, count })), total: menus.reduce((s, m) => s + m[2], 0) },
+      seenAt, seenBy: seenAt ? "Марко" : null,
+    });
+    const previous = sub("s1", "2026-06-10T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 22]], "2026-06-11T10:00:00Z");
+    const latest = sub("s2", "2026-06-14T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 23]]);
+
+    it("before any sending: Парот сè уште не ги испратил бројките.", () => {
+      mockSupportingCalls();
+      renderForm({ event: baseEvent, onClose: () => {}, onChanged: () => {} });
+      expect(screen.getByText("Бројки за мени")).toBeInTheDocument();
+      expect(screen.getByText("Парот сè уште не ги испратил бројките.")).toBeInTheDocument();
+    });
+
+    it("shows per-menu numbers, total and Испратено на 14.06", () => {
+      mockSupportingCalls();
+      renderForm({ event: { ...baseEvent, menuNumbers: { latest: { ...latest, seenAt: "2026-06-15T10:00:00Z" }, previous } }, onClose: () => {}, onChanged: () => {} });
+      expect(screen.getByText("Класично — 180")).toBeInTheDocument();
+      expect(screen.getByText("Посно — 23")).toBeInTheDocument();
+      expect(screen.getByText("Вкупно — 203")).toBeInTheDocument();
+      expect(screen.getByText("Испратено на 14.06.2026 од Младенците")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Видено" })).not.toBeInTheDocument();
+    });
+
+    it("an unseen newer sending is highlighted with Посно: 22 → 23 and Видено, which clears via onChanged", async () => {
+      mockSupportingCalls();
+      const seenSpy = vi.spyOn(menuNumbersClient, "markMenuNumbersSeenViaApi").mockResolvedValue();
+      const onChanged = vi.fn();
+      renderForm({ event: { ...baseEvent, menuNumbers: { latest, previous } }, onClose: () => {}, onChanged });
+      expect(screen.getByText("Посно: 22 → 23")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Видено" }));
+      await waitFor(() => expect(seenSpy).toHaveBeenCalledWith("e1", "s2", "test-manager-token"));
+      await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    });
+
+    it("a 409 (newer numbers arrived) shows the message and reloads", async () => {
+      mockSupportingCalls();
+      vi.spyOn(menuNumbersClient, "markMenuNumbersSeenViaApi").mockRejectedValue(new menuNumbersClient.NewerMenuNumbersError("Парот испрати нови бројки — освежете."));
+      const onChanged = vi.fn();
+      renderForm({ event: { ...baseEvent, menuNumbers: { latest, previous } }, onClose: () => {}, onChanged });
+      fireEvent.click(screen.getByRole("button", { name: "Видено" }));
+      expect(await screen.findByText("Парот испрати нови бројки — освежете.")).toBeInTheDocument();
+      expect(onChanged).toHaveBeenCalled();
+    });
+
+    it("plain staff see the highlight but no Видено button", () => {
+      mockSupportingCalls();
+      render(
+        <ManagerElevationContext.Provider value={{ ...elevatedManagerValue, managerName: null, token: null } as never}>
+          <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} event={{ ...baseEvent, menuNumbers: { latest, previous } }} onClose={() => {}} onChanged={() => {}} />
+        </ManagerElevationContext.Provider>
+      );
+      expect(screen.getByText("Посно: 22 → 23")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Видено" })).not.toBeInTheDocument();
+    });
   });
 });

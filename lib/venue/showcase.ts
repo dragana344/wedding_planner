@@ -28,7 +28,7 @@ export async function listShowcasePhotos(eventId: string): Promise<ShowcasePhoto
   return checkListBound(data, "event_showcase_photos");
 }
 
-// Adding and removing photos is a manager action (0107): it runs in
+// Adding and removing photos is a manager action (0109): it runs in
 // /api/venue/events/[eventId]/showcase with a service-role client, so each
 // write below is scoped to the event explicitly.
 

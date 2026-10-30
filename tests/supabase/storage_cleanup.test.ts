@@ -61,7 +61,7 @@ describe("storage cleanup (DATA-011)", () => {
     await put("menu-item-photos", newPath);
     const { data: item } = await admin
       .from("menu_items")
-      .insert({ venue_id: venueId, tiers: ["everyday"], course: "main", name: "Dish", photo_path: oldPath })
+      .insert({ venue_id: venueId, tiers: ["special"], course: "main", name: "Dish", photo_path: oldPath })
       .select("id")
       .single();
 
@@ -84,7 +84,7 @@ describe("storage cleanup (DATA-011)", () => {
     await put("menu-item-photos", path);
     const { data: item } = await admin
       .from("menu_items")
-      .insert({ venue_id: venueId, tiers: ["everyday"], course: "main", name: "Staff Dish", photo_path: path })
+      .insert({ venue_id: venueId, tiers: ["special"], course: "main", name: "Staff Dish", photo_path: path })
       .select("id")
       .single();
 

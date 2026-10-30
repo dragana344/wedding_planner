@@ -156,4 +156,6 @@ The owner makes the final call on each disposition. SEC-025's acceptance criteri
 | SR-15 | Accepted | Only trusted database roles (postgres/migrations) have no JWT context | — |
 | SR-16 | Fixed (docs) / Owner | Upstash references removed. `.env.local` pointing at the hosted project is the known pre-launch setup; move local dev to staging (ENVIRONMENTS.md) | — |
 
+> **SR-02 update (0122):** `events.menu_template_id`, `event_custom_menu_items`, `event_menu_item_quantities` and the RPCs `set_event_menu_template` / `set_event_menu_custom` / `replace_menu_item_quantities` were removed; their same-venue triggers went with them. An event's menus are now `event_menu_templates` rows, guarded by the `event_menu_templates_same_venue` trigger (template from the event's venue; an event-only menu only on its own event).
+
 Still to do on staging/production (cannot be done from the repo): OWASP ZAP authenticated scan, Supabase Security Advisor, confirm the Auth dashboard settings in AUTH.md, Sentry end-to-end.

@@ -1,4 +1,4 @@
--- 0104 (the deferred "Plan 4" of venue-manager-staff-login): per-event
+-- 0105 (the deferred "Plan 4" of venue-manager-staff-login): per-event
 -- seating was still written straight from the staff browser session, so
 -- plain staff — spec §3: "Per-event seating plan: view only" — could
 -- move/add/delete tables, rewrite undo history and seat lists from devtools.

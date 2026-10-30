@@ -9,10 +9,10 @@ import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
 import { STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { eventHasFeature } from "@/lib/entitlements/server";
-import type { RsvpStatus } from "@/lib/couple/guests";
+import { eventMenuIds, replaceGuestMenuCounts, type RsvpStatus } from "@/lib/couple/guests";
+import { validateMenuCounts, type MenuCounts } from "@/lib/couple/guest-menus";
 
 export type RsvpAnswer = "confirmed" | "declined" | "later";
-export type MenuChoice = "standard" | "posno" | "vegetarian";
 
 export interface RsvpInput {
   /** Required unless `guestToken` names the guest. */
@@ -23,7 +23,8 @@ export interface RsvpInput {
   partySize: number;
   /** Party details, kept only with a yes (A4, A5). */
   childrenCount?: number;
-  menuChoice?: MenuChoice | null;
+  /** How many of the party eat each of the event's menus (menu id -> count). */
+  menuCounts?: MenuCounts;
   allergies?: string | null;
   /** Optional note to the couple, kept with any answer (A3). */
   comment?: string | null;
@@ -41,7 +42,7 @@ export interface Invitee {
   rsvpStatus: string;
   partySize: number;
   childrenCount: number;
-  menuChoice: string | null;
+  menuCounts: MenuCounts;
   allergies: string | null;
   rsvpComment: string | null;
 }
@@ -69,18 +70,23 @@ export async function getInviteeByToken(slug: string, token: string): Promise<In
 
   const { data: guest, error } = await client
     .from("event_guests")
-    .select("full_name, rsvp_status, party_size, children_count, menu_choice, allergies, rsvp_comment")
+    .select("full_name, rsvp_status, party_size, children_count, id, allergies, rsvp_comment")
     .eq("event_id", invitation.event_id)
     .eq("invite_token", token)
     .maybeSingle();
   if (error) throw error;
   if (!guest) return null;
+  const { data: counts, error: countsError } = await client
+    .from("event_guest_menu_counts")
+    .select("menu_template_id, count")
+    .eq("guest_id", guest.id);
+  if (countsError) throw countsError;
   return {
     fullName: guest.full_name,
     rsvpStatus: guest.rsvp_status,
     partySize: guest.party_size,
     childrenCount: guest.children_count,
-    menuChoice: guest.menu_choice,
+    menuCounts: Object.fromEntries((counts ?? []).map((r) => [r.menu_template_id, r.count])),
     allergies: guest.allergies,
     rsvpComment: guest.rsvp_comment,
   };
@@ -126,8 +132,19 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
   if (attending) {
     answer.party_size = partySize!;
     answer.children_count = Math.max(0, Math.floor(input.childrenCount ?? 0));
-    answer.menu_choice = input.menuChoice ?? null;
     answer.allergies = cleanText(input.allergies);
+  }
+
+  // 2+ menus: a yes must say which menu each person eats. Checked before
+  // anything is written; with 0-1 menus there is nothing to choose.
+  let menuCounts: MenuCounts = {};
+  if (attending) {
+    const menuIds = await eventMenuIds(invitation.event_id);
+    if (menuIds.length >= 2) {
+      const checked = validateMenuCounts(menuIds, partySize!, input.menuCounts ?? {});
+      if (!checked.ok) throw new Error(checked.error);
+      menuCounts = checked.counts;
+    }
   }
 
   let match: { id: string; full_name: string; rsvp_status: string } | null;
@@ -181,6 +198,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
       .update({ ...answer, rsvp_status: status, rsvp_changed_via_link_at: now, rsvp_previous_status: guest.rsvp_status })
       .eq("id", guest.id);
     if (error) throw error;
+    await replaceGuestMenuCounts(guest.id, menuCounts);
     await audit(guest.id, guest.rsvp_status);
     if (ANSWERS.has(guest.rsvp_status) && guest.rsvp_status !== status && eventInfo?.contact_email) {
       await notifyCoupleOfChange(eventInfo.contact_email, guest.full_name, guest.rsvp_status, status, cleanText(input.comment));
@@ -201,6 +219,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
     .select("id")
     .single();
   if (insertError) throw insertError;
+  await replaceGuestMenuCounts(created.id, menuCounts);
   await audit(created.id, null);
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { emailConfigured, sendEmail } from "@/lib/email";
 import { log } from "@/lib/log";
-import { GUEST_COLUMNS, type Guest, type GuestSide, type InvitationChannel } from "@/lib/couple/guests";
+import { GUEST_COLUMNS, toGuest, type Guest, type GuestSide, type InvitationChannel } from "@/lib/couple/guests";
 import { inviteMessage, personalInviteUrl } from "@/lib/couple/invite-share";
 
 /**
@@ -25,7 +25,7 @@ export async function markInvitationSent(
   if (side) query = query.eq("side", side);
   const { data, error } = await query.select(GUEST_COLUMNS);
   if (error) throw error;
-  return data;
+  return (data as unknown as Parameters<typeof toGuest>[0][]).map(toGuest);
 }
 
 /**

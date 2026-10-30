@@ -2,18 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Invitee, MenuChoice, RsvpAnswer } from "@/lib/couple/rsvp";
+import type { Invitee, RsvpAnswer } from "@/lib/couple/rsvp";
 
 const ANSWERS: { value: RsvpAnswer; label: string }[] = [
   { value: "confirmed", label: "Ќе присуствувам" },
   { value: "declined", label: "Нема да присуствувам" },
   { value: "later", label: "Ќе одговорам подоцна" },
-];
-
-const MENUS: { value: MenuChoice; label: string }[] = [
-  { value: "standard", label: "Стандардно" },
-  { value: "posno", label: "Посно" },
-  { value: "vegetarian", label: "Вегетаријанско" },
 ];
 
 const THANKS: Record<RsvpAnswer, string> = {
@@ -26,12 +20,11 @@ function isAnswer(status: string | undefined): status is RsvpAnswer {
   return status === "confirmed" || status === "declined" || status === "later";
 }
 
-/** "3 лица (од кои 1 дете) · Посно мени", for a guest's earlier yes. */
-function partySummary(partySize: number, childrenCount: number, menuChoice: string | null): string {
+/** "3 лица (од кои 1 дете) · Месо: 2, Посно: 1", for a guest's earlier yes. */
+function partySummary(partySize: number, childrenCount: number, menuParts: string[]): string {
   const people = partySize === 1 ? "1 лице" : `${partySize} лица`;
   const children = childrenCount > 0 ? ` (од кои ${childrenCount} ${childrenCount === 1 ? "дете" : "деца"})` : "";
-  const menu = MENUS.find((m) => m.value === menuChoice);
-  return `${people}${children}${menu ? ` · ${menu.label} мени` : ""}`;
+  return `${people}${children}${menuParts.length > 0 ? ` · ${menuParts.join(", ")}` : ""}`;
 }
 
 const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base";
@@ -44,6 +37,7 @@ export function RsvpForm({
   venueName,
   invitee,
   guestToken,
+  menus = [],
   titleClassName = "font-display text-lg",
 }: {
   slug: string;
@@ -53,6 +47,8 @@ export function RsvpForm({
   /** Set on a personal link (A1): the guest is known, so no name is asked. */
   invitee?: Invitee | null;
   guestToken?: string;
+  /** The event's menus; the question is asked only with two or more. */
+  menus?: { id: string; name: string }[];
   /** The invitation template's display face for the card title. */
   titleClassName?: string;
 }) {
@@ -62,7 +58,11 @@ export function RsvpForm({
   const [status, setStatus] = useState<RsvpAnswer | null>(initialStatus);
   const [partySize, setPartySize] = useState(String(invitee?.partySize ?? 1));
   const [childrenCount, setChildrenCount] = useState(String(invitee?.childrenCount ?? 0));
-  const [menuChoice, setMenuChoice] = useState<MenuChoice | null>((invitee?.menuChoice as MenuChoice | null) ?? null);
+  const chooseMenu = menus.length >= 2;
+  const countsOf = (counts: Record<string, number> | undefined) => Object.fromEntries(menus.map((m) => [m.id, String(counts?.[m.id] ?? 0)]));
+  const [menuInputs, setMenuInputs] = useState<Record<string, string>>(() => countsOf(invitee?.menuCounts));
+  // Menu counts on record, shown in the summary after sending.
+  const [savedMenuCounts, setSavedMenuCounts] = useState<Record<string, number>>(invitee?.menuCounts ?? {});
   const [allergies, setAllergies] = useState(invitee?.allergies ?? "");
   const [comment, setComment] = useState(invitee?.rsvpComment ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +78,20 @@ export function RsvpForm({
       setError("Изберете дали ќе присуствувате.");
       return;
     }
+    const menuCounts: Record<string, number> = {};
+    if (status === "confirmed" && chooseMenu) {
+      let total = 0;
+      for (const m of menus) {
+        const n = Math.max(0, Math.floor(Number(menuInputs[m.id]) || 0));
+        total += n;
+        if (n > 0) menuCounts[m.id] = n;
+      }
+      const size = Number(partySize) || 1;
+      if (total !== size) {
+        setError(`Изберете мени за сите ${size} лица.`);
+        return;
+      }
+    }
     setError(null);
     setIsSubmitting(true);
     const who = personal ? { guest_token: guestToken } : { full_name: fullName };
@@ -89,7 +103,7 @@ export function RsvpForm({
             status,
             party_size: Number(partySize) || 1,
             children_count: Number(childrenCount) || 0,
-            menu_choice: menuChoice,
+            ...(chooseMenu ? { menu_counts: menuCounts } : {}),
             allergies: allergies.trim() || null,
             comment: note,
           }
@@ -106,6 +120,7 @@ export function RsvpForm({
         return;
       }
       setSavedStatus(status);
+      setSavedMenuCounts(menuCounts);
       setJustSent(true);
       setEditing(false);
     } catch {
@@ -116,9 +131,10 @@ export function RsvpForm({
   }
 
   if (!editing && savedStatus) {
+    const menuParts = menus.filter((m) => savedMenuCounts[m.id]).map((m) => `${m.name}: ${savedMenuCounts[m.id]}`);
     const summary =
       savedStatus === "confirmed"
-        ? `Ќе присуствувате · ${partySummary(Number(partySize) || 1, Number(childrenCount) || 0, menuChoice)}`
+        ? `Ќе присуствувате · ${partySummary(Number(partySize) || 1, Number(childrenCount) || 0, menuParts)}`
         : savedStatus === "declined"
           ? "Нема да присуствувате"
           : "Ќе одговорите подоцна";
@@ -152,7 +168,8 @@ export function RsvpForm({
               setStatus(null);
               setPartySize("1");
               setChildrenCount("0");
-              setMenuChoice(null);
+              setMenuInputs(countsOf(undefined));
+              setSavedMenuCounts({});
               setAllergies("");
               setComment("");
               setEditing(true);
@@ -246,27 +263,30 @@ export function RsvpForm({
             </div>
           </div>
 
-          <fieldset>
-            <legend className={labelClass}>Мени</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {MENUS.map((m) => (
-                <label
-                  key={m.value}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="rsvp-menu"
-                    value={m.value}
-                    checked={menuChoice === m.value}
-                    onChange={() => setMenuChoice(m.value)}
-                    style={{ accentColor }}
-                  />
-                  {m.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          {chooseMenu ? (
+            <fieldset>
+              <legend className={labelClass}>Мени (колку лица кое мени јадат)</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {menus.map((m) => (
+                  <div key={m.id}>
+                    <label htmlFor={`rsvp-menu-${m.id}`} className={labelClass}>
+                      {m.name}
+                    </label>
+                    <input
+                      id={`rsvp-menu-${m.id}`}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step={1}
+                      value={menuInputs[m.id] ?? "0"}
+                      onChange={(e) => setMenuInputs((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      className={inputClass}
+                    />
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
 
           <div>
             <label htmlFor="rsvp-allergies" className={labelClass}>

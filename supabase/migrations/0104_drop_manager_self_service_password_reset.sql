@@ -1,4 +1,4 @@
--- 0103: the app owner decided manager/owner password recovery goes through
+-- 0104: the app owner decided manager/owner password recovery goes through
 -- a phone call to support (admin dashboard resets it directly, same as the
 -- couple-login "new password" action), not a self-service email link —
 -- there's only one email address per venue anyway, so the email-based

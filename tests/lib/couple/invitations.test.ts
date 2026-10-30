@@ -40,7 +40,7 @@ describe("lib/couple/invitations", () => {
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
-  it("carries the programme guests need: agenda (no private notes), locations and the chosen menu (A14)", async () => {
+  it("carries the programme guests need: agenda (no private notes), locations and each of the event's menus with its dishes (A14)", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Programme Venue" }).select().single();
     const { data: event } = await admin
       .from("events")
@@ -59,7 +59,9 @@ describe("lib/couple/invitations", () => {
         { venue_id: venue!.id, tiers: ["special"], course: "starter", name: "Мезе" },
       ])
       .select("id");
-    await admin.from("event_custom_menu_items").insert(items!.map((i) => ({ event_id: event!.id, menu_item_id: i.id })));
+    const { data: tpl } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Свадбено" }).select().single();
+    await admin.from("menu_template_items").insert(items!.map((i) => ({ menu_template_id: tpl!.id, menu_item_id: i.id })));
+    await admin.from("event_menu_templates").insert({ event_id: event!.id, menu_template_id: tpl!.id });
     const { public_slug } = await upsertInvitation(event!.id, { template_id: "elegant-gold", message: null });
 
     const invitation = await getInvitationBySlug(public_slug);
@@ -70,9 +72,15 @@ describe("lib/couple/invitations", () => {
     ]);
     expect(JSON.stringify(invitation)).not.toContain("приватна белешка");
     expect(invitation?.locations).toEqual([{ label: "Црква", address: "Радовиш", map_url: "https://maps.app.goo.gl/x" }]);
-    expect(invitation?.menu).toEqual([
-      { course: "starter", name: "Мезе" },
-      { course: "main", name: "Печено пиле" },
+    expect(invitation?.menus).toEqual([
+      {
+        id: tpl!.id,
+        name: "Свадбено",
+        dishes: [
+          { course: "starter", name: "Мезе" },
+          { course: "main", name: "Печено пиле" },
+        ],
+      },
     ]);
 
     await admin.from("venues").delete().eq("id", venue!.id);

@@ -1,94 +1,127 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
+import { DietTags } from "./MenuItemCard";
 import {
+  countEventsUsingTemplate,
+  createMenuTemplate,
   deleteMenuTemplate,
-  listMenuTemplateItems,
+  getMenuItemPhotoUrl,
+  packageInPastEventsMessage,
+  packageInUpcomingEventsMessage,
   setMenuTemplateItems,
   updateMenuTemplate,
   type MenuItem,
-  type MenuTemplateWithItemCount,
+  type MenuTemplate,
 } from "@/lib/venue/menus";
+import { COURSE_META, COURSE_ORDER, filterDishes, formatPrice, type DishFilter } from "@/lib/venue/menu-display";
 import { errorMessage } from "@/lib/venue/user-error";
 
+function groupByCourse(ids: Set<string>, items: MenuItem[]): [MenuItem["course"], MenuItem[]][] {
+  return COURSE_ORDER.map(
+    (course): [MenuItem["course"], MenuItem[]] => [course, items.filter((item) => ids.has(item.id) && item.course === course)]
+  ).filter(([, dishes]) => dishes.length > 0);
+}
+
 /**
- * A standard package menu is just a named, drag-and-drop-curated selection
- * of the venue's special-event pool — the same item (e.g. "Печено пиле")
- * can be dragged into several packages without ever being duplicated.
+ * The package editor doubles as the "create a package" flow: for a brand
+ * new package `template` is null and Save calls createMenuTemplate instead
+ * of updateMenuTemplate — otherwise it's the same unified name/description/
+ * items editor.
  */
 export function PackageBuilder({
+  venueId,
   template,
-  specialItems,
+  initialItemIds,
+  items,
   onClose,
   onChanged,
+  onSave,
+  allowDelete = true,
 }: {
-  template: MenuTemplateWithItemCount;
-  specialItems: MenuItem[];
+  venueId: string;
+  template: MenuTemplate | null;
+  initialItemIds: string[];
+  items: MenuItem[];
   onClose: () => void;
   onChanged: () => void;
+  /** Used instead of create/update when given (the event's custom menu is
+   * saved through a server route). */
+  onSave?: (input: { name: string; description: string | null; itemIds: string[] }) => Promise<void>;
+  /** False hides the delete control. */
+  allowDelete?: boolean;
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null);
-  const [name, setName] = useState(template.name);
-  const [description, setDescription] = useState(template.description ?? "");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [isSavingName, setIsSavingName] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [name, setName] = useState(template?.name || (onSave ? "Сопствено мени" : ""));
+  const [description, setDescription] = useState(template?.description ?? "");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(initialItemIds));
+  const [filter, setFilter] = useState<DishFilter>("all");
+  const [isOver, setIsOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // How many upcoming/past events use this package; null while unknown.
+  const [eventsUsing, setEventsUsing] = useState<{ upcoming: number; past: number } | null>(null);
+  // Custom-menu mode (the event's own menu): no description, menu wording.
+  const customMode = Boolean(onSave);
+  const defaultName = customMode ? "Сопствено мени" : "Нов пакет";
+  // A new package created by an earlier save attempt whose dishes then
+  // failed: a retry updates it instead of creating a duplicate.
+  const [createdTemplate, setCreatedTemplate] = useState<MenuTemplate | null>(null);
 
-  useEffect(() => {
-    listMenuTemplateItems(template.id).then((items) => setSelectedIds(new Set(items.map((i) => i.id))));
-  }, [template.id]);
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const itemId = e.dataTransfer.getData("text/plain");
-    if (itemId) setSelectedIds((prev) => new Set(prev).add(itemId));
-  }
-
-  function removeItem(itemId: string) {
+  function toggle(itemId: string) {
     setSelectedIds((prev) => {
-      if (!prev) return prev;
       const next = new Set(prev);
-      next.delete(itemId);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
       return next;
     });
   }
 
-  async function handleSaveName(e: React.FormEvent) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    setNameError(null);
-    setIsSavingName(true);
-    try {
-      await updateMenuTemplate(template.id, name, description || null);
-      setIsEditingName(false);
-      onChanged();
-    } catch (err) {
-      setNameError(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
-    } finally {
-      setIsSavingName(false);
-    }
+    setIsOver(false);
+    const itemId = e.dataTransfer.getData("text/plain");
+    if (itemId && !selectedIds.has(itemId)) toggle(itemId);
   }
 
-  async function handleSaveItems() {
-    if (!selectedIds) return;
+  async function handleSave() {
     setSaveError(null);
     setIsSaving(true);
     try {
-      await setMenuTemplateItems(template.id, Array.from(selectedIds));
+      const finalName = name.trim() || defaultName;
+      if (onSave) {
+        const itemIds = Array.from(selectedIds).filter((id) => items.some((item) => item.id === id));
+        await onSave({ name: finalName, description: null, itemIds });
+        onChanged();
+        onClose();
+        return;
+      }
+      const existing = template ?? createdTemplate;
+      let savedTemplate: MenuTemplate;
+      if (existing) {
+        savedTemplate = await updateMenuTemplate(existing.id, finalName, description || null);
+      } else {
+        savedTemplate = await createMenuTemplate(venueId, finalName, description);
+        setCreatedTemplate(savedTemplate);
+      }
+      // Only dishes that still exist: one deleted since the builder opened
+      // would make the whole save fail.
+      const itemIds = Array.from(selectedIds).filter((id) => items.some((item) => item.id === id));
+      await setMenuTemplateItems(savedTemplate.id, itemIds);
       onChanged();
+      onClose();
     } catch (err) {
-      setSaveError(errorMessage(err, "Не успеа зачувувањето на јадењата. Обидете се повторно."));
+      setSaveError(errorMessage(err, "Не успеа зачувувањето на пакетот. Обидете се повторно."));
     } finally {
       setIsSaving(false);
     }
   }
 
   async function handleDelete() {
+    if (!template) return;
     setDeleteError(null);
     setIsDeleting(true);
     try {
@@ -96,116 +129,197 @@ export function PackageBuilder({
       onChanged();
       onClose();
     } catch (err) {
-      setDeleteError(errorMessage(err, "Не успеа бришењето на менито. Обидете се повторно."));
+      setDeleteError(errorMessage(err, "Не успеа бришењето на пакетот. Обидете се повторно."));
       setIsDeleting(false);
     }
   }
 
-  const selected = selectedIds
-    ? specialItems.filter((item) => selectedIds.has(item.id))
-    : [];
-  const available = selectedIds
-    ? specialItems.filter((item) => !selectedIds.has(item.id))
-    : specialItems;
+  const veg = Array.from(selectedIds).filter((id) => items.find((i) => i.id === id)?.is_vegetarian).length;
+  const total = Array.from(selectedIds).reduce((sum, id) => sum + (items.find((i) => i.id === id)?.price ?? 0), 0);
+  const visibleItems = filterDishes(items, filter);
+  const previewGroups = groupByCourse(selectedIds, items);
 
   return (
     <div className="ev-sections">
-      {isEditingName ? (
-        <form onSubmit={handleSaveName} className="ev-form">
-          <div className="ev-form-grid">
-            <div className="ev-field">
-              <label className="lab-s" htmlFor="pkg-name">Име</label>
-              <input id="pkg-name" className="fld" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="ev-field">
-              <label className="lab-s" htmlFor="pkg-desc">Опис</label>
-              <input id="pkg-desc" className="fld" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </div>
-          </div>
-          {nameError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{nameError}</p> : null}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="submit" className="btn btn-gold" disabled={isSavingName}>
-              {isSavingName ? "Се зачувува..." : "Зачувај"}
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setIsEditingName(false)} disabled={isSavingName}>
-              Откажи
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            {template.description ? <p className="muted" style={{ margin: 0 }}>{template.description}</p> : null}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setIsEditingName(true)}>
-              <Icon name="edit" size="sm" /> Преименувај
-            </button>
-            {confirmingDelete ? (
-              <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-                Да се избрише менито?
-                <button type="button" onClick={handleDelete} disabled={isDeleting} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                  {isDeleting ? "Се брише..." : "Да, избриши"}
-                </button>
-                <button type="button" onClick={() => setConfirmingDelete(false)} className="btn btn-ghost">
+      <div className="mp-ed-head">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <input
+            className="mp-nm"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Име на пакетот"
+            aria-label="Име на пакетот"
+          />
+          {customMode ? null : (
+            <input
+              className="mp-ds"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Краток опис, пр. За гости на пост"
+              aria-label="Опис"
+            />
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: "none" }}>
+          {template && allowDelete ? (
+            confirmingDelete ? (
+              <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, flexWrap: "wrap" }}>
+                {eventsUsing && eventsUsing.upcoming > 0 ? (
+                  <span role="alert" style={{ color: "var(--bad)" }}>
+                    {packageInUpcomingEventsMessage(eventsUsing.upcoming)}
+                  </span>
+                ) : eventsUsing && eventsUsing.past > 0 ? (
+                  <span role="alert" style={{ color: "var(--bad)" }}>
+                    {packageInPastEventsMessage(eventsUsing.past)}
+                  </span>
+                ) : null}
+                {eventsUsing && eventsUsing.upcoming > 0 ? null : (
+                  <button type="button" onClick={handleDelete} disabled={isDeleting} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                    <Icon name="trash" size="sm" /> {isDeleting ? "Се брише..." : "Потврди бришење"}
+                  </button>
+                )}
+                <button type="button" onClick={() => setConfirmingDelete(false)} disabled={isDeleting} className="btn btn-ghost">
                   Откажи
                 </button>
               </span>
             ) : (
-              <button type="button" className="btn btn-ghost" style={{ color: "var(--bad)" }} onClick={() => setConfirmingDelete(true)}>
-                <Icon name="trash" size="sm" /> Избриши мени
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(true);
+                  setEventsUsing(null);
+                  if (template) {
+                    countEventsUsingTemplate(template.id)
+                      .then(setEventsUsing)
+                      .catch(() => setEventsUsing(null));
+                  }
+                }}
+                className="btn btn-ghost"
+                style={{ color: "var(--bad)", whiteSpace: "nowrap" }}
+              >
+                <Icon name="trash" size="sm" /> Избриши пакет
               </button>
-            )}
-          </div>
+            )
+          ) : null}
+          <button type="button" onClick={onClose} aria-label="Затвори" className="modal-close">
+            <Icon name="x" size="sm" />
+          </button>
         </div>
-      )}
+      </div>
       {deleteError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{deleteError}</p> : null}
 
-      <div className="pkg-builder">
-        <div>
-          <p className="card-t" style={{ marginBottom: 10 }}>Специјално мени (влечи во менито)</p>
-          <div className="pkg-pool">
-            {available.length === 0 ? (
-              <p className="ev-hint">Нема повеќе јадења за додавање.</p>
-            ) : (
-              available.map((item) => (
+      <div className="mp-edgrid">
+        <div className="mp-pool">
+          <div style={{ padding: "14px 14px 0" }}>
+            <p className="mp-lab" style={{ marginBottom: 10 }}>
+              ЈАДЕЊА · ВЛЕЧИ ИЛИ ДОДАЈ
+            </p>
+            <div className="mp-chips">
+              <button type="button" className="mp-chip" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>
+                Сите
+              </button>
+              {COURSE_ORDER.filter((course) => course !== "other").map((course) => (
+                <button key={course} type="button" className="mp-chip" aria-pressed={filter === course} onClick={() => setFilter(course)}>
+                  {COURSE_META[course].label}
+                </button>
+              ))}
+              <button type="button" className="mp-chip" aria-pressed={filter === "posno"} onClick={() => setFilter("posno")}>
+                Посно
+              </button>
+            </div>
+          </div>
+          <div>
+            {visibleItems.map((item) => {
+              const inPackage = selectedIds.has(item.id);
+              const photoUrl = getMenuItemPhotoUrl(item.photo_path);
+              return (
                 <div
                   key={item.id}
+                  className="mp-er"
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", item.id)}
-                  className="pkg-item"
                   data-testid={`pkg-available-${item.id}`}
                 >
-                  <Icon name="move" size="sm" />
-                  {item.name}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-        <div>
-          <p className="card-t" style={{ marginBottom: 10 }}>{template.name}</p>
-          <div onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} className="pkg-dropzone" data-testid="pkg-dropzone">
-            {selected.length === 0 ? (
-              <p className="ev-hint">Довлечи јадења овде.</p>
-            ) : (
-              selected.map((item) => (
-                <div key={item.id} className="pkg-item pkg-item-selected" data-testid={`pkg-selected-${item.id}`}>
-                  {item.name}
-                  <button type="button" onClick={() => removeItem(item.id)} aria-label={`Отстрани ${item.name}`}>
-                    <Icon name="x" size="sm" />
+                  <Icon name="grip" size="sm" />
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt="" className="mp-th" style={{ width: 34, height: 34 }} />
+                  ) : (
+                    <div className="mp-th" style={{ width: 34, height: 34 }}>
+                      <Icon name={COURSE_META[item.course].icon} size="sm" />
+                    </div>
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 14, color: "var(--ink)" }}>{item.name}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted-2, var(--muted))" }}>
+                      {COURSE_META[item.course].label}
+                      {item.price !== null ? ` · ${formatPrice(item.price)}` : ""}
+                      <DietTags item={item} />
+                    </p>
+                  </div>
+                  <button type="button" className={`mp-add${inPackage ? " in" : ""}`} onClick={() => toggle(item.id)} data-testid={`pkg-toggle-${item.id}`}>
+                    {inPackage ? "✓ Во пакетот" : "+ Додај"}
                   </button>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div
+          className={`mp-drop${isOver ? " over" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsOver(true);
+          }}
+          onDragLeave={() => setIsOver(false)}
+          onDrop={handleDrop}
+          data-testid="pkg-dropzone"
+        >
+          <div className="mp-drop-inner">
+            <p className="mp-pk-name" style={{ color: name ? "var(--ink)" : "var(--faint)" }}>
+              {name || defaultName}
+            </p>
+            {customMode ? null : <p className="mp-pk-desc">{description}</p>}
+            <div className="mp-divider">
+              <span />
+              <i />
+              <span />
+            </div>
+            {previewGroups.length === 0 ? (
+              <p style={{ margin: "22px 0", fontSize: 13, color: "var(--muted-2, var(--muted))" }}>Додајте или довлечете јадења тука</p>
+            ) : (
+              previewGroups.map(([course, dishes]) => (
+                <div key={course}>
+                  <p className="mp-lab mp-pk-course">{COURSE_META[course].label.toUpperCase()}</p>
+                  {dishes.map((item) => (
+                    <div key={item.id} className="mp-drop-dish" data-testid={`pkg-selected-${item.id}`}>
+                      <span className="mp-pk-dish">{item.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggle(item.id)}
+                        aria-label={`Отстрани ${item.name}`}
+                        style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--faint)", display: "inline-flex" }}
+                      >
+                        <Icon name="x" size="sm" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ))
             )}
+            <div style={{ borderTop: "1px solid var(--line)", marginTop: 16, paddingTop: 12, fontSize: 12, color: "var(--muted)" }}>
+              {selectedIds.size} јадења · {veg} вегетаријански
+              <br />
+              <span style={{ color: "var(--gold-text, var(--gold))" }}>≈ {formatPrice(total)} по гостин</span>
+            </div>
+            {saveError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "8px 0 0" }}>{saveError}</p> : null}
+            <button type="button" className="btn btn-gold" style={{ width: "100%", marginTop: 14 }} onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Се зачувува..." : customMode ? "Зачувај мени" : "Зачувај пакет"}
+            </button>
           </div>
         </div>
       </div>
-
-      {saveError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{saveError}</p> : null}
-      <button type="button" className="btn btn-gold" onClick={handleSaveItems} disabled={isSaving || !selectedIds}>
-        {isSaving ? "Се зачувува..." : "Зачувај јадења"}
-      </button>
     </div>
   );
 }

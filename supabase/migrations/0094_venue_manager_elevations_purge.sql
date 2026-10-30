@@ -1,4 +1,4 @@
--- 0093: venue_manager_elevations needs the same cleanup couple_sessions
+-- 0094: venue_manager_elevations needs the same cleanup couple_sessions
 -- already gets (0032/0039) — the privacy guard describes it as "short-lived
 -- session secrets only, like couple_sessions" (tests/supabase/
 -- privacy_guard.test.ts), but nothing purged expired rows or indexed

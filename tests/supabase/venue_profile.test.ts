@@ -46,7 +46,7 @@ afterAll(async () => {
 });
 
 describe("venue profile (0074)", () => {
-  it("staff update no venue's address and phone directly — only the owner, through /api/venue/settings (0106)", async () => {
+  it("staff update no venue's address and phone directly — only the owner, through /api/venue/settings (0107)", async () => {
     const own = await staff.from("venues").update({ address: "ул. Маршал Тито 1, Радовиш", phone: "+389 70 111 222" }).eq("id", venueA).select("address, phone");
     expect(own.error?.code).toBe("42501");
     const other = await staff.from("venues").update({ address: "упад" }).eq("id", venueB).select();
@@ -59,7 +59,7 @@ describe("venue profile (0074)", () => {
     expect((await admin.from("venues").update({ logo_path: `${venueB}/logo-1.png` }).eq("id", venueA)).error?.code).toBe("23514");
   });
 
-  it("staff upload no logo file themselves — the owner's signed upload does (0107)", async () => {
+  it("staff upload no logo file themselves — the owner's signed upload does (0109)", async () => {
     const own = await staff.storage.from("event-showcase-photos").upload(`${venueA}/logo-1.png`, PNG, { contentType: "image/png" });
     expect(own.error).not.toBeNull();
     const foreign = await staff.storage.from("event-showcase-photos").upload(`${venueB}/logo-1.png`, PNG, { contentType: "image/png" });
@@ -67,7 +67,7 @@ describe("venue profile (0074)", () => {
   });
 
   it("queues the old logo for deletion when it is replaced or removed", async () => {
-    // The settings route writes with the service-role client (0106).
+    // The settings route writes with the service-role client (0107).
     await must(admin.from("venues").update({ logo_path: `${venueA}/logo-1.png` }).eq("id", venueA));
     await must(admin.from("venues").update({ logo_path: `${venueA}/logo-2.png` }).eq("id", venueA));
     await must(admin.from("venues").update({ logo_path: null }).eq("id", venueA));

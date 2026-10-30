@@ -21,7 +21,7 @@ export const PATCH = withPublic(
     try {
       // The elevation check above is the real authorization now; RLS limits
       // the signed-in staff session's own writes to a few unguarded columns
-      // (migration 0095), so the actual write uses the service-role client.
+      // (migration 0096), so the actual write uses the service-role client.
       await updateEvent(params.eventId, venueId, body, createServiceRoleClient());
       return NextResponse.json({ ok: true });
     } catch (err) {
@@ -44,7 +44,7 @@ export const DELETE = withPublic(
     try {
       // The elevation check above is the real authorization now; RLS limits
       // the signed-in staff session's own writes to a few unguarded columns
-      // (migration 0095), so the actual write uses the service-role client
+      // (migration 0096), so the actual write uses the service-role client
       // — which bypasses RLS entirely, so venueId must be checked explicitly
       // here instead of relying on is_venue_staff_for to scope the delete.
       await deleteEvent(params.eventId, venueId, createServiceRoleClient());

@@ -1,4 +1,4 @@
--- 0100 (Plan 3 final review, Important finding): changing a manager's
+-- 0101 (Plan 3 final review, Important finding): changing a manager's
 -- password — whether self-service or via a forgot-password reset — left
 -- every existing elevation token for that manager valid for up to its
 -- remaining 4-hour life, and left failed_attempts/locked_until untouched.

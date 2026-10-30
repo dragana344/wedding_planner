@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { Guest, GuestSide, GuestStats, InvitationChannel, MenuChoice, RsvpStatus } from "@/lib/couple/guests";
-import { MENU_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
+import type { Guest, GuestSide, GuestStats, InvitationChannel, RsvpStatus } from "@/lib/couple/guests";
+import { STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { isGuestDone } from "@/lib/couple/guest-menus";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { GuestDetail } from "@/components/couple/guests/GuestDetail";
 import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
@@ -10,7 +11,6 @@ import { BulkSendDialog, type SendActions, type ShareContext } from "@/component
 import { formatVenueDateTime } from "@/lib/date";
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RsvpStatus[]).map((value) => ({ value, label: STATUS_LABELS[value] }));
-const MENU_OPTIONS = (Object.keys(MENU_LABELS) as MenuChoice[]).map((value) => ({ value, label: MENU_LABELS[value] }));
 
 /** SEC-021: when the public invitation link last changed a guest's answer, in venue time. */
 function formatLinkChange(iso: string): string {
@@ -21,6 +21,22 @@ const SIDE_OPTIONS: { value: GuestSide; label: string }[] = [
   { value: "bride", label: "Страна на невестата" },
   { value: "groom", label: "Страна на младоженецот" },
 ];
+
+/** "Класично 3 · Посно 1" for a confirmed guest with 2+ menus, "Нема избрано мени" while unfinished; "" otherwise. */
+function menuSummary(guest: Guest, menus: { id: string; name: string }[]): string {
+  if (menus.length < 2 || guest.rsvp_status !== "confirmed") return "";
+  if (!isGuestDone(guest, menus.map((m) => m.id))) return "Нема избрано мени";
+  return menus
+    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
+    .map((m) => `${m.name} ${guest.menu_counts[m.id]}`)
+    .join(" · ");
+}
+
+function matchesMenuFilter(guest: Guest, filter: string, menuIds: string[]): boolean {
+  if (filter === "none") return guest.rsvp_status === "confirmed" && !isGuestDone(guest, menuIds);
+  if (menuIds.length === 1) return guest.rsvp_status === "confirmed";
+  return (guest.menu_counts[filter] ?? 0) > 0;
+}
 
 type SentFilter = "" | "sent" | "unsent";
 
@@ -75,7 +91,7 @@ export function GuestsClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<RsvpStatus | "">("");
-  const [menuFilter, setMenuFilter] = useState<MenuChoice | "none" | "">("");
+  const [menuFilter, setMenuFilter] = useState<string>("");
   const [sentFilter, setSentFilter] = useState<SentFilter>("");
   const [openGuestId, setOpenGuestId] = useState<string | null>(null);
   const closeDetail = useCallback(() => setOpenGuestId(null), []);
@@ -243,16 +259,20 @@ export function GuestsClient({
     }
   }
 
+  // The event's menus come with the stats (id, name, total), by name.
+  const menus = stats.menus;
+  const menuIds = useMemo(() => menus.map((m) => m.id), [menus]);
+
   const visibleGuests = useMemo(() => {
     const q = query.trim().toLowerCase();
     return guests.filter(
       (g) =>
         (!q || g.full_name.toLowerCase().includes(q) || (g.phone ?? "").toLowerCase().includes(q) || (g.email ?? "").toLowerCase().includes(q)) &&
         (!statusFilter || g.rsvp_status === statusFilter) &&
-        (!menuFilter || (menuFilter === "none" ? g.menu_choice === null : g.menu_choice === menuFilter)) &&
+        (!menuFilter || matchesMenuFilter(g, menuFilter, menuIds)) &&
         (!sentFilter || (sentFilter === "sent") === (g.invitation_sent_at !== null)),
     );
-  }, [guests, query, statusFilter, menuFilter, sentFilter]);
+  }, [guests, query, statusFilter, menuFilter, sentFilter, menuIds]);
 
   const openGuest = guests.find((g) => g.id === openGuestId) ?? null;
   const canSend = (g: Guest) => sendingEnabled && (!organizerSide || g.side === organizerSide);
@@ -287,7 +307,7 @@ export function GuestsClient({
           </button>
           <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
             {guest.phone ?? "Нема телефон"} · {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
-            {guest.menu_choice ? ` · ${MENU_LABELS[guest.menu_choice]}` : ""}
+            {menuSummary(guest, menus) ? ` · ${menuSummary(guest, menus)}` : ""}
           </p>
           {unsent ? <p style={{ color: "var(--bad)", fontSize: 12.5, fontWeight: 600, margin: 0 }}>Неиспратена покана</p> : null}
           {guest.notes ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{guest.notes}</p> : null}
@@ -353,7 +373,7 @@ export function GuestsClient({
           покани на гостите од вашата страна.
         </p>
       ) : null}
-      <GuestsSummary stats={stats} />
+      <GuestsSummary stats={stats} canSendNumbers={!organizerSide} />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <input
@@ -373,14 +393,14 @@ export function GuestsClient({
             </option>
           ))}
         </select>
-        <select aria-label="Филтер по мени" className="fld" style={FILTER_STYLE} value={menuFilter} onChange={(e) => setMenuFilter(e.target.value as MenuChoice | "none" | "")}>
+        <select aria-label="Филтер по мени" className="fld" style={FILTER_STYLE} value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}>
           <option value="">Сите менија</option>
-          {MENU_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {menus.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
             </option>
           ))}
-          <option value="none">Неизбрано мени</option>
+          {menus.length > 1 ? <option value="none">Нема избрано мени</option> : null}
         </select>
         <select aria-label="Филтер по покана" className="fld" style={FILTER_STYLE} value={sentFilter} onChange={(e) => setSentFilter(e.target.value as SentFilter)}>
           <option value="">Сите покани</option>
@@ -475,6 +495,12 @@ export function GuestsClient({
           sendBlockedBy={canSend(openGuest) || !sendingEnabled ? null : openGuest.side}
           sendingEnabled={sendingEnabled}
           greetingsEnabled={greetingsEnabled}
+          menus={menus}
+          canEditMenus={canManage(openGuest)}
+          onMenusSaved={(saved) => {
+            setGuests((prev) => prev.map((g) => (g.id === saved.id ? saved : g)));
+            void refreshStats().catch(() => undefined);
+          }}
           onClose={closeDetail}
         />
       ) : null}

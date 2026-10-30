@@ -135,6 +135,7 @@ export function ReminderPanel({
                   eventDate: share.eventDate,
                   venueName: share.venueName,
                   eventType: share.eventType,
+                  menuCount: share.menuCount,
                   link: guestLink(share, origin, g),
                 }),
               );

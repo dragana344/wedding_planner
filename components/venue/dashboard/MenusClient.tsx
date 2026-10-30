@@ -4,77 +4,112 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 import { MenuItemCard } from "./MenuItemCard";
 import { PackageBuilder } from "./PackageBuilder";
+import { EventCustomMenusSection } from "./EventCustomMenusSection";
 import { MenuItemForm } from "@/components/venue/MenuItemForm";
-import { MenuTemplateForm } from "@/components/venue/MenuTemplateForm";
 import { Icon } from "@/components/venue/shell/Icon";
 import {
+  COURSE_META,
+  COURSE_ORDER,
+  filterDishes,
+  formatPrice,
+  type DishFilter,
+} from "@/lib/venue/menu-display";
+import {
+  listEventCustomMenus,
   listMenuItems,
-  listMenuTemplatesWithItemCounts,
+  listMenuTemplatesWithItems,
+  type EventCustomMenu,
   type MenuItem,
-  type MenuTemplateWithItemCount,
+  type MenuTemplate,
 } from "@/lib/venue/menus";
 
-type Tab = "everyday" | "special" | "packages";
+type Tab = "dishes" | "packages";
+type TemplateWithItems = MenuTemplate & { items: MenuItem[] };
 
 export function MenusClient({
   venueId,
-  initialEverydayItems,
-  initialSpecialItems,
+  initialItems,
   initialTemplates,
+  initialCustomMenus = [],
 }: {
   venueId: string;
-  initialEverydayItems: MenuItem[];
-  initialSpecialItems: MenuItem[];
-  initialTemplates: MenuTemplateWithItemCount[];
+  initialItems: MenuItem[];
+  initialTemplates: TemplateWithItems[];
+  initialCustomMenus?: EventCustomMenu[];
 }) {
-  const [tab, setTab] = useState<Tab>("special");
-  const [everydayItems, setEverydayItems] = useState(initialEverydayItems);
-  const [specialItems, setSpecialItems] = useState(initialSpecialItems);
+  const [tab, setTab] = useState<Tab>("dishes");
+  const [items, setItems] = useState(initialItems);
   const [templates, setTemplates] = useState(initialTemplates);
+  const [customMenus, setCustomMenus] = useState(initialCustomMenus);
+  const [courseFilter, setCourseFilter] = useState<DishFilter>("all");
   const [showAddItem, setShowAddItem] = useState(false);
-  const [showAddTemplate, setShowAddTemplate] = useState(false);
-  const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    null,
+  );
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
 
   async function refreshItems() {
-    const [everyday, special] = await Promise.all([
-      listMenuItems(venueId, "everyday"),
-      listMenuItems(venueId, "special"),
+    // Packages too: deleting a dish removes it from every package (cascade),
+    // and a renamed/repriced dish must not keep its old look on the package
+    // cards — stale packages made the next package save fail.
+    const [nextItems, nextTemplates] = await Promise.all([
+      listMenuItems(venueId),
+      listMenuTemplatesWithItems(venueId),
     ]);
-    setEverydayItems(everyday);
-    setSpecialItems(special);
+    setItems(nextItems);
+    setTemplates(nextTemplates);
     setShowAddItem(false);
   }
 
   async function refreshTemplates() {
-    setTemplates(await listMenuTemplatesWithItemCounts(venueId));
-    setShowAddTemplate(false);
+    setTemplates(await listMenuTemplatesWithItems(venueId));
   }
 
-  const activeItems = tab === "everyday" ? everydayItems : specialItems;
-  const openTemplate = templates.find((t) => t.id === openTemplateId) ?? null;
+  async function refreshAllTemplates() {
+    const [nextTemplates, nextCustom] = await Promise.all([
+      listMenuTemplatesWithItems(venueId),
+      listEventCustomMenus(venueId),
+    ]);
+    setTemplates(nextTemplates);
+    setCustomMenus(nextCustom);
+  }
+
+  const vegetarianCount = items.filter((item) => item.is_vegetarian).length;
+  const editingTemplate =
+    templates.find((t) => t.id === editingTemplateId) ?? null;
+  const visibleItems = filterDishes(items, courseFilter);
 
   return (
     <div className="wrap">
-      <section className="tiles" aria-label="Преглед" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}>
+      <section
+        className="tiles"
+        style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}
+      >
         <div className="tile">
-          <span className="badge"><Icon name="note" size="lg" /></span>
-          <div>
-            <div className="num">{everydayItems.length}</div>
-            <div className="lab">Секојдневно<span>јадења</span></div>
-          </div>
-        </div>
-        <div className="tile">
-          <span className="badge"><Icon name="star" size="lg" /></span>
-          <div>
-            <div className="num">{specialItems.length}</div>
-            <div className="lab">Специјално<span>јадења за настани</span></div>
-          </div>
-        </div>
-        <div className="tile">
-          <span className="badge"><Icon name="menu" size="lg" /></span>
+          <span className="badge mp-badge">
+            <Icon name="book" size="lg" />
+          </span>
           <div>
             <div className="num">{templates.length}</div>
-            <div className="lab">Стандардни менија<span>готови пакети</span></div>
+            <div className="lab">готови пакети</div>
+          </div>
+        </div>
+        <div className="tile">
+          <span className="badge mp-badge">
+            <Icon name="cutlery" size="lg" />
+          </span>
+          <div>
+            <div className="num">{items.length}</div>
+            <div className="lab">јадења за настани</div>
+          </div>
+        </div>
+        <div className="tile">
+          <span className="badge mp-badge">
+            <Icon name="leaf" size="lg" />
+          </span>
+          <div>
+            <div className="num">{vegetarianCount}</div>
+            <div className="lab">вегетаријански јадења</div>
           </div>
         </div>
       </section>
@@ -83,78 +118,244 @@ export function MenusClient({
         <div className="panel-h">
           <h2 className="panel-t">Мени / Пакети</h2>
           <div className="seg">
-            <button type="button" aria-pressed={tab === "everyday"} onClick={() => setTab("everyday")}>
-              Секојдневно мени
+            <button
+              type="button"
+              aria-pressed={tab === "dishes"}
+              onClick={() => setTab("dishes")}
+            >
+              Јадења
             </button>
-            <button type="button" aria-pressed={tab === "special"} onClick={() => setTab("special")}>
-              Специјално мени
-            </button>
-            <button type="button" aria-pressed={tab === "packages"} onClick={() => setTab("packages")}>
-              Стандардни менија
+            <button
+              type="button"
+              aria-pressed={tab === "packages"}
+              onClick={() => setTab("packages")}
+            >
+              Пакети
             </button>
           </div>
           {tab === "packages" ? (
-            <button className="btn btn-gold" type="button" onClick={() => setShowAddTemplate(true)}>
-              <Icon name="plus" size="sm" /> Ново мени
+            <button
+              className="btn btn-gold"
+              type="button"
+              onClick={() => setCreatingTemplate(true)}
+            >
+              <Icon name="plus" size="sm" /> Нов пакет
             </button>
           ) : (
-            <button className="btn btn-gold" type="button" onClick={() => setShowAddItem(true)}>
+            <button
+              className="btn btn-gold"
+              type="button"
+              onClick={() => setShowAddItem(true)}
+            >
               <Icon name="plus" size="sm" /> Ново јадење
             </button>
           )}
         </div>
 
         {tab === "packages" ? (
-          templates.length === 0 ? (
-            <div className="empty">
-              <b>Нема стандардни менија</b>
-              Создадете мени и довлечете јадења од специјалното мени за да го составите пакетот.
-            </div>
-          ) : (
-            <div className="menu-package-grid">
-              {templates.map((template) => (
-                <button key={template.id} type="button" className="menu-package-card" onClick={() => setOpenTemplateId(template.id)}>
-                  <b>{template.name}</b>
-                  <span className="muted">
-                    {template.itemCount} {template.itemCount === 1 ? "јадење" : "јадења"}
-                    {template.vegetarianCount > 0 ? ` · ${template.vegetarianCount} вегетаријански` : ""}
-                  </span>
+          <>
+            <h3 className="panel-t" style={{ margin: "8px 16px" }}>
+              Стандардни пакети
+            </h3>
+            {templates.length === 0 ? (
+              <div className="empty">
+                <b>Нема пакети</b>
+                Создадете пакет и додадете јадења за да го составите.
+                <button
+                  className="btn btn-gold"
+                  type="button"
+                  style={{ marginTop: 12 }}
+                  onClick={() => setCreatingTemplate(true)}
+                >
+                  <Icon name="plus" size="sm" /> Нов пакет
                 </button>
-              ))}
-            </div>
-          )
-        ) : activeItems.length === 0 ? (
+              </div>
+            ) : (
+              <div className="mp-pk-grid" style={{ padding: "0 16px 16px" }}>
+                {templates.map((template) => {
+                  const veg = template.items.filter(
+                    (i) => i.is_vegetarian,
+                  ).length;
+                  const total = template.items.reduce(
+                    (sum, i) => sum + (i.price ?? 0),
+                    0,
+                  );
+                  const groups = COURSE_ORDER.map(
+                    (course) =>
+                      [
+                        course,
+                        template.items.filter((i) => i.course === course),
+                      ] as const,
+                  ).filter(([, dishes]) => dishes.length > 0);
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className="mp-pk-card"
+                      onClick={() => setEditingTemplateId(template.id)}
+                    >
+                      <div className="mp-pk-inner">
+                        <p className="mp-pk-name">{template.name}</p>
+                        <p className="mp-pk-desc">
+                          {template.description ?? ""}
+                        </p>
+                        <div className="mp-divider">
+                          <span />
+                          <i />
+                          <span />
+                        </div>
+                        {groups.map(([course, dishes]) => (
+                          <div key={course}>
+                            <p className="mp-lab mp-pk-course">
+                              {COURSE_META[course].label.toUpperCase()}
+                            </p>
+                            {dishes.map((item) => (
+                              <p key={item.id} className="mp-pk-dish">
+                                {item.name}
+                              </p>
+                            ))}
+                          </div>
+                        ))}
+                        <p className="mp-pk-foot">
+                          {template.items.length}{" "}
+                          {template.items.length === 1 ? "јадење" : "јадења"} ·{" "}
+                          {veg} вегетаријански
+                        </p>
+                        <p className="mp-pk-total">
+                          ≈ {formatPrice(total)} по гостин
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="mp-pk-new"
+                  onClick={() => setCreatingTemplate(true)}
+                >
+                  <span className="mp-th" style={{ width: 52, height: 52 }}>
+                    <Icon name="plus" size="lg" />
+                  </span>
+                  Креирај нов пакет
+                </button>
+              </div>
+            )}
+            <EventCustomMenusSection
+              venueId={venueId}
+              menus={customMenus}
+              items={items}
+              onChanged={refreshAllTemplates}
+            />
+          </>
+        ) : items.length === 0 ? (
           <div className="empty">
             <b>Нема јадења</b>
-            {tab === "everyday" ? "Додадете јадења од секојдневното мени на локалот." : "Додадете јадења достапни за свадби, крштевки и други настани."}
+            Додадете јадења достапни за свадби, крштевки и други настани.
           </div>
         ) : (
-          <div style={{ padding: "6px 8px" }}>
-            {activeItems.map((item) => (
-              <MenuItemCard key={item.id} item={item} venueId={venueId} onChanged={refreshItems} />
-            ))}
+          <div style={{ padding: "6px 16px 16px" }}>
+            <div className="mp-chips">
+              <button
+                type="button"
+                className="mp-chip"
+                aria-pressed={courseFilter === "all"}
+                onClick={() => setCourseFilter("all")}
+              >
+                Сите
+              </button>
+              {COURSE_ORDER.map((course) => (
+                <button
+                  key={course}
+                  type="button"
+                  className="mp-chip"
+                  aria-pressed={courseFilter === course}
+                  onClick={() => setCourseFilter(course)}
+                >
+                  {COURSE_META[course].label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="mp-chip"
+                aria-pressed={courseFilter === "posno"}
+                onClick={() => setCourseFilter("posno")}
+              >
+                Посно
+              </button>
+            </div>
+            {COURSE_ORDER.map((course) => {
+              const dishes = visibleItems.filter(
+                (item) => item.course === course,
+              );
+              if (dishes.length === 0) return null;
+              return (
+                <div key={course}>
+                  <div className="mp-course-head">
+                    <p className="mp-lab">
+                      {COURSE_META[course].label.toUpperCase()}
+                    </p>
+                    <span className="line" />
+                    <span className="count">{dishes.length}</span>
+                  </div>
+                  {dishes.map((item) => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={item}
+                      venueId={venueId}
+                      onChanged={refreshItems}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
 
       {showAddItem ? (
-        <Modal title={tab === "everyday" ? "Ново секојдневно јадење" : "Ново специјално јадење"} onClose={() => setShowAddItem(false)}>
-          <MenuItemForm venueId={venueId} defaultTier={tab === "everyday" ? "everyday" : "special"} onSaved={refreshItems} />
+        <Modal
+          title="Ново јадење"
+          onClose={() => {
+            setShowAddItem(false);
+            // A dish saved before its photo failed still belongs in the list.
+            void refreshItems();
+          }}
+        >
+          <MenuItemForm venueId={venueId} onSaved={refreshItems} />
         </Modal>
       ) : null}
 
-      {showAddTemplate ? (
-        <Modal title="Ново стандардно мени" onClose={() => setShowAddTemplate(false)}>
-          <MenuTemplateForm venueId={venueId} onSaved={refreshTemplates} />
-        </Modal>
-      ) : null}
-
-      {openTemplate ? (
-        <Modal title={openTemplate.name} onClose={() => setOpenTemplateId(null)}>
+      {creatingTemplate ? (
+        <Modal
+          title="Нов пакет"
+          onClose={() => setCreatingTemplate(false)}
+          wide
+          hideHeader
+        >
           <PackageBuilder
-            template={openTemplate}
-            specialItems={specialItems}
-            onClose={() => setOpenTemplateId(null)}
+            venueId={venueId}
+            template={null}
+            initialItemIds={[]}
+            items={items}
+            onClose={() => setCreatingTemplate(false)}
+            onChanged={refreshTemplates}
+          />
+        </Modal>
+      ) : null}
+
+      {editingTemplate ? (
+        <Modal
+          title={editingTemplate.name}
+          onClose={() => setEditingTemplateId(null)}
+          wide
+          hideHeader
+        >
+          <PackageBuilder
+            venueId={venueId}
+            template={editingTemplate}
+            initialItemIds={editingTemplate.items.map((i) => i.id)}
+            items={items}
+            onClose={() => setEditingTemplateId(null)}
             onChanged={refreshTemplates}
           />
         </Modal>

@@ -1,5 +1,5 @@
 // Browser-side showcase photo writes (Фотографии за промоција): manager-only
-// since 0107, through /api/venue/events/[eventId]/showcase with the
+// since 0109, through /api/venue/events/[eventId]/showcase with the
 // elevation token. No "server-only": imported from client components.
 import type { ShowcasePhoto } from "@/lib/venue/showcase";
 import { uploadVenuePhoto } from "@/lib/venue/photo-upload-client";

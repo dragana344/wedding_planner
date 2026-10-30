@@ -65,15 +65,6 @@ describe("0060 schema: RSVP answers", () => {
     expect((await insertGuest({ rsvp_previous_status: "maybe" })).error?.code).toBe(CHECK_VIOLATION);
   });
 
-  it("stores a menu choice from the fixed list only", async () => {
-    for (const choice of ["standard", "posno", "vegetarian", null]) {
-      const { data, error } = await insertGuest({ menu_choice: choice });
-      expect(error, String(choice)).toBeNull();
-      expect(data!.menu_choice).toBe(choice);
-    }
-    expect((await insertGuest({ menu_choice: "vegan" })).error?.code).toBe(CHECK_VIOLATION);
-  });
-
   it("defaults children to 0 and rejects a negative or absurd count", async () => {
     const { data } = await insertGuest();
     expect(data!.children_count).toBe(0);

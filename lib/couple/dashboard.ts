@@ -6,6 +6,7 @@ import { listLocations } from "./locations";
 import { getGuestStats, type GuestStats } from "./guests";
 import { getInvitation } from "./invitations";
 import { getBudgetSummary } from "./budget";
+import { getEventMenus } from "./menu";
 import { getChecklistStats, type ChecklistStats } from "./checklist";
 
 export interface CoupleEventSummary {
@@ -19,7 +20,8 @@ export interface CoupleEventSummary {
   venue_name: string;
   rooms: { id: string; name: string }[];
   seatedCount: number;
-  menuStatus: { kind: "template"; name: string } | { kind: "custom"; itemCount: number } | { kind: "none" };
+  /** Titles of the menus set for the event, in the order of getEventMenus. */
+  menus: string[];
   contact_email: string | null;
   contact_email_2: string | null;
   contact_phone: string | null;
@@ -38,7 +40,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   const { data: event, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, menu_template_id, contact_email, contact_email_2, contact_phone, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
+      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
     )
     .eq("id", eventId)
     .single();
@@ -61,25 +63,14 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
       return sum + (tableType?.seats ?? 0);
     }, 0);
 
-  let menuStatus: CoupleEventSummary["menuStatus"] = { kind: "none" };
-  if (event.menu_template_id) {
-    const { data: template } = await client.from("menu_templates").select("name").eq("id", event.menu_template_id).single();
-    menuStatus = { kind: "template", name: template?.name ?? "Непознато мени" };
-  } else {
-    const { count } = await client
-      .from("event_custom_menu_items")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", eventId);
-    if (count && count > 0) menuStatus = { kind: "custom", itemCount: count };
-  }
-
-  const [agendaItems, locations, guestStats, invitation, budgetSummary, checklistStats] = await Promise.all([
+  const [agendaItems, locations, guestStats, invitation, budgetSummary, checklistStats, eventMenus] = await Promise.all([
     listAgendaItems(eventId),
     listLocations(eventId),
     getGuestStats(eventId),
     getInvitation(eventId),
     getBudgetSummary(eventId),
     getChecklistStats(eventId),
+    getEventMenus(eventId),
   ]);
 
   return {
@@ -93,7 +84,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     venue_name: venue?.name ?? "Непознат локал",
     rooms,
     seatedCount,
-    menuStatus,
+    menus: eventMenus.map((m) => m.name),
     contact_email: event.contact_email,
     contact_email_2: event.contact_email_2,
     contact_phone: event.contact_phone,

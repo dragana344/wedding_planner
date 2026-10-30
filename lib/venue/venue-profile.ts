@@ -14,7 +14,7 @@ export async function getVenueName(
 
 // The writes below run server-side in /api/venue/settings (owner-only,
 // spec D4) with a service-role client — staff have no UPDATE on venues
-// since 0106 — so each one is scoped by its explicit venueId.
+// since 0107 — so each one is scoped by its explicit venueId.
 
 export async function updateVenueName(
   venueId: string,

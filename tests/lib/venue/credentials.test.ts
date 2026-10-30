@@ -49,7 +49,7 @@ describe("lib/venue/credentials", () => {
     expect(username).toBe("lib-test-username");
   });
 
-  it("refuses create_event_credentials for a plain staff session now that the direct grant is revoked (0110) — a staff session could otherwise mint a couple login with a password of its own choosing", async () => {
+  it("refuses create_event_credentials for a plain staff session now that the direct grant is revoked (0111) — a staff session could otherwise mint a couple login with a password of its own choosing", async () => {
     await expect(createEventCredentials(eventId, "should-not-exist", "a-strong-password", staffClient)).rejects.toThrow();
   });
 

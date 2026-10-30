@@ -13,6 +13,8 @@ export interface ShareContext {
   eventType: string;
   /** Resend is configured, so the app can send the email itself. */
   emailEnabled: boolean;
+  /** How many menus the event offers (the reminder asks for a choice at 2+). */
+  menuCount?: number;
 }
 
 export interface SendActions {

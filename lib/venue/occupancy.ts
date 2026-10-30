@@ -1,4 +1,5 @@
 import type { EventDetail } from "./events";
+import type { Reservation } from "./reservations";
 
 /** Minutes since midnight for a "HH:MM[:SS]" time string. */
 function toMinutes(time: string): number {
@@ -58,4 +59,71 @@ export function peakConcurrentGuests(events: EventDetail[]): number {
     if (running > peak) peak = running;
   }
   return peak + untimedGuests;
+}
+
+/** A single hour's share of a room's tables occupied by a reservation. */
+export interface HourOccupancy {
+  /** 0-23, local to the day being measured. */
+  hour: number;
+  reservedTables: number;
+  totalTables: number;
+  /** Rounded 0-100; 0 when totalTables is 0. */
+  pct: number;
+}
+
+/** How long a table stays reserved when a booking has no explicit end time — mirrors reservations.ts. */
+const DEFAULT_RESERVATION_MINUTES = 180;
+
+/** Reservations in these statuses no longer occupy a table — mirrors reservations.ts. */
+const INACTIVE_STATUSES = new Set<Reservation["status"]>(["cancelled", "completed"]);
+
+/** A reservation's [start, end) span in minutes-since-midnight, expanding a missing end time and a midnight crossing. */
+function toSpan(startTime: string, endTime: string | null): { s: number; e: number } {
+  const [h, m] = startTime.split(":").map(Number);
+  const s = h * 60 + m;
+  let e: number;
+  if (endTime) {
+    const [eh, em] = endTime.split(":").map(Number);
+    e = eh * 60 + em;
+  } else {
+    e = s + DEFAULT_RESERVATION_MINUTES;
+  }
+  if (e <= s) e += 24 * 60;
+  return { s, e };
+}
+
+/**
+ * For every hour of the day (0-23), how many of a room's tables a
+ * reservation's time window covers — the data behind the Резервации page's
+ * hour-by-hour occupancy slider. A table counts once per hour no matter how
+ * many reservations touch it (overlapping bookings on the same table are a
+ * data anomaly elsewhere, not something to double-count here).
+ */
+export function computeHourlyTableOccupancy(reservations: Reservation[], totalTables: number): HourOccupancy[] {
+  const active = reservations.filter((r) => !INACTIVE_STATUSES.has(r.status));
+  const spans = active.map((r) => ({ ...toSpan(r.start_time, r.end_time), table_ids: r.table_ids }));
+
+  const hours: HourOccupancy[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const hourStart = hour * 60;
+    const hourEnd = hourStart + 60;
+    const occupied = new Set<string>();
+    for (const span of spans) {
+      // Check the span itself and shifted ±24h so a booking anchored to the
+      // previous or next day's clock (e.g. 23:00-01:00) still covers the
+      // hours it actually spans today.
+      const covers = [-24 * 60, 0, 24 * 60].some((shift) => hourStart < span.e + shift && hourEnd > span.s + shift);
+      if (covers) {
+        for (const id of span.table_ids) occupied.add(id);
+      }
+    }
+    const reservedTables = occupied.size;
+    hours.push({
+      hour,
+      reservedTables,
+      totalTables,
+      pct: totalTables > 0 ? Math.round((reservedTables / totalTables) * 100) : 0,
+    });
+  }
+  return hours;
 }

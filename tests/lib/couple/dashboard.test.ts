@@ -10,17 +10,12 @@ const admin = createClient(
 );
 
 describe("lib/couple/dashboard: getEventSummary", () => {
-  it("assembles the couple's event summary, including rooms, seated count, and menu status", async () => {
+  it("assembles the couple's event summary, including rooms, seated count ", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Dashboard Lib Venue" }).select().single();
     const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Hall" }).select().single();
     const { data: tableType } = await admin
       .from("table_types")
       .insert({ room_id: room!.id, name: "Round-8", shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 5 })
-      .select()
-      .single();
-    const { data: template } = await admin
-      .from("menu_templates")
-      .insert({ venue_id: venue!.id, name: "Classic Menu" })
       .select()
       .single();
     const { data: event } = await admin
@@ -32,7 +27,6 @@ describe("lib/couple/dashboard: getEventSummary", () => {
         start_time: "18:00:00",
         end_time: "23:00:00",
         guest_count_estimate: 50,
-        menu_template_id: template!.id,
         contact_email: "couple@example.com",
       })
       .select()
@@ -54,30 +48,35 @@ describe("lib/couple/dashboard: getEventSummary", () => {
     expect(summary.venue_name).toBe("Dashboard Lib Venue");
     expect(summary.rooms).toEqual([{ id: room!.id, name: "Hall" }]);
     expect(summary.seatedCount).toBe(8);
-    expect(summary.menuStatus).toEqual({ kind: "template", name: "Classic Menu" });
-    expect(summary.contact_email).toBe("couple@example.com");
+        expect(summary.contact_email).toBe("couple@example.com");
     expect(summary.start_time).toBe("18:00:00");
     expect(summary.end_time).toBe("23:00:00");
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
-  it("reports a custom menu status when the event has custom menu items instead of a template", async () => {
+  it("menus lists titles", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Dashboard Lib Venue 2" }).select().single();
-    const { data: item } = await admin
-      .from("menu_items")
-      .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Dish" })
-      .select()
-      .single();
     const { data: event } = await admin
       .from("events")
-      .insert({ venue_id: venue!.id, couple_names: "Custom & Menu", event_date: "2026-12-10" })
+      .insert({ venue_id: venue!.id, couple_names: "Menus & List", event_date: "2026-12-10" })
       .select()
       .single();
-    await admin.from("event_custom_menu_items").insert({ event_id: event!.id, menu_item_id: item!.id });
+    expect((await getEventSummary(event!.id)).menus).toEqual([]);
+
+    const { data: b } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Б мени" }).select().single();
+    const { data: a } = await admin
+      .from("menu_templates")
+      .insert({ venue_id: venue!.id, name: "А мени", event_id: event!.id })
+      .select()
+      .single();
+    await admin.from("event_menu_templates").insert([
+      { event_id: event!.id, menu_template_id: b!.id },
+      { event_id: event!.id, menu_template_id: a!.id },
+    ]);
 
     const summary = await getEventSummary(event!.id);
-    expect(summary.menuStatus).toEqual({ kind: "custom", itemCount: 1 });
+    expect(summary.menus).toEqual(["А мени", "Б мени"]);
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });

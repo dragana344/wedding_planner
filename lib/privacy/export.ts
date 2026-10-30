@@ -28,8 +28,8 @@ export const EXPORTED_TABLES = [
   "event_checklist_items",
   "event_checklist_subtasks",
   "event_invitations",
-  "event_custom_menu_items",
-  "event_menu_item_quantities",
+  "event_guest_menu_counts",
+  "event_menu_submissions",
   "event_showcase_photos",
   "event_layout_elements",
   "event_seat_assignments",
@@ -54,8 +54,10 @@ export type EventExport = {
   budget: Row[];
   checklist: (Row & { subtasks: Row[] })[];
   invitation: (Row & { photo_url: string | null }) | null;
-  custom_menu_items: Row[];
-  menu_item_quantities: Row[];
+  /** How many of each guest's party picked which menu (0119). */
+  guest_menu_counts: Row[];
+  /** Menu numbers the couple sent to the venue (0119). */
+  menu_submissions: Row[];
   showcase_photos: (Row & { photo_url: string })[];
   seating_labels: Row[];
   seat_assignments: Row[];
@@ -79,7 +81,7 @@ export type ExportActor = { actorId?: string | null; requestId?: string | null }
 // out (secrets) or that is bulky and not personal (layout JSON).
 const EVENT_COLUMNS =
   "id, venue_id, couple_names, event_date, start_time, end_time, event_type, status, guest_count_estimate, " +
-  "contact_email, contact_email_2, contact_phone, total_price, deposit_paid, menu_template_id, created_at, personal_data_erased_at";
+  "contact_email, contact_email_2, contact_phone, total_price, deposit_paid, created_at, personal_data_erased_at";
 const VENUE_COLUMNS = "id, name, address, phone, logo_path, created_at";
 
 /** A guest row minus its personal invite token (the link opens that guest's RSVP). */
@@ -148,7 +150,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, customMenu, quantities, showcase, layout, seats, photos, greetings] =
+  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, submissions, showcase, layout, seats, photos, greetings] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
       selectIn(client, "event_co_organizers", "event_id, side, username, created_at", byEvent, ids, [byEvent, "side"]),
@@ -159,8 +161,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       selectIn(client, "event_budget_items", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_checklist_items", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_invitations", "*", byEvent, ids, [byEvent]),
-      selectIn(client, "event_custom_menu_items", "event_id, menu_item_id, menu_items(name)", byEvent, ids, [byEvent, "menu_item_id"]),
-      selectIn(client, "event_menu_item_quantities", "event_id, menu_item_id, guest_count, menu_items(name)", byEvent, ids, [byEvent, "menu_item_id"]),
+      selectIn(client, "event_menu_submissions", "*", byEvent, ids, ["sent_at", "id"]),
       selectIn(client, "event_showcase_photos", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_layout_elements", "id, event_id, room_id, element_type, label", byEvent, ids, ["id"]),
       selectIn(client, "event_seat_assignments", "event_id, room_id, layout_element_id, seat_number, guest_id, guest_name", byEvent, ids, ["layout_element_id", "seat_number"]),
@@ -171,6 +172,19 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     ...photos.map((p) => String(p.storage_path)),
     ...greetings.filter((gr) => gr.video_path).map((gr) => String(gr.video_path)),
   ]);
+
+  // Counts hang off the guest, not the event: tag each with its guest's event.
+  const guestEvent = new Map(guests.map((guest) => [String(guest.id), guest.event_id]));
+  const menuCounts = (
+    await selectIn(
+      client,
+      "event_guest_menu_counts",
+      "guest_id, menu_template_id, count, menu_templates(name)",
+      "guest_id",
+      Array.from(guestEvent.keys()),
+      ["guest_id", "menu_template_id"],
+    )
+  ).map((row) => ({ event_id: guestEvent.get(String(row.guest_id)), ...row }));
 
   const subtasks = await selectIn(
     client,
@@ -192,8 +206,8 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     budget: groupBy(budget, byEvent),
     checklist: groupBy(checklist, byEvent),
     invitations: groupBy(invitations, byEvent),
-    customMenu: groupBy(customMenu, byEvent),
-    quantities: groupBy(quantities, byEvent),
+    menuCounts: groupBy(menuCounts, byEvent),
+    submissions: groupBy(submissions, byEvent),
     showcase: groupBy(showcase, byEvent),
     labels: groupBy(layout.filter((r) => r.label), byEvent),
     seats: groupBy(seats, byEvent),
@@ -216,8 +230,8 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       budget: g.budget.get(id) ?? [],
       checklist: (g.checklist.get(id) ?? []).map((item) => ({ ...item, subtasks: subtasksByItem.get(String(item.id)) ?? [] })),
       invitation: invitation ? { ...invitation, photo_url: publicUrl(client, "invitation-photos", invitation.photo_path) } : null,
-      custom_menu_items: g.customMenu.get(id) ?? [],
-      menu_item_quantities: g.quantities.get(id) ?? [],
+      guest_menu_counts: g.menuCounts.get(id) ?? [],
+      menu_submissions: g.submissions.get(id) ?? [],
       showcase_photos: (g.showcase.get(id) ?? []).map((p) => ({
         ...p,
         photo_url: publicUrl(client, "event-showcase-photos", p.photo_path) ?? "",

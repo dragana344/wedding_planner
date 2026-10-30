@@ -1,4 +1,4 @@
--- 0107: security review Minor finding — 0101 trimmed the manager name on
+-- 0108: security review Minor finding — 0101 trimmed the manager name on
 -- create (storage side), but verify_venue_manager's lookup still compared
 -- the raw, untrimmed p_name. A manager stored as "Марко" (already trimmed
 -- since 0101) could not log back in if they typed " Марко" or "Марко " —

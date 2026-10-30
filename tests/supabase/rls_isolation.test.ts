@@ -47,6 +47,7 @@ interface VenueFixture {
   eventLayoutElementId: string;
   seatAssignmentId: string;
   reservationId: string;
+  menuSubmissionId: string;
 }
 
 let A: VenueFixture;
@@ -96,14 +97,20 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     venue_id: venue.id,
     couple_names: `${RUN} Couple ${tag}`,
     event_date: "2027-07-01",
-    menu_template_id: template.id,
   });
   await one("event_rooms", { event_id: event.id, room_id: room.id });
+  await one("event_menu_templates", { event_id: event.id, menu_template_id: template.id });
   const photo = await one<{ id: string }>("event_showcase_photos", {
     event_id: event.id,
     photo_path: `${RUN}/${tag}.jpg`,
   });
-  await one("event_custom_menu_items", { event_id: event.id, menu_item_id: item.id });
+  const submission = await one<{ id: string }>("event_menu_submissions", {
+    event_id: event.id,
+    sent_by: `${RUN} sender`,
+    counts: {},
+    menu_titles: {},
+    total: 0,
+  });
   const fixed = await one<{ id: string }>("room_fixed_elements", {
     room_id: room.id,
     element_type: "pillar",
@@ -165,6 +172,7 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     eventLayoutElementId: eventLayout.id,
     seatAssignmentId: seatAssignment.id,
     reservationId: reservation.id,
+    menuSubmissionId: submission.id,
   };
 }
 
@@ -178,6 +186,8 @@ interface TableCase {
   key: (f: VenueFixture) => Key;
   update: (own: VenueFixture) => Row;
   inserts: (own: VenueFixture, other: VenueFixture) => Row[];
+  /** What staff may select, when narrowed by column grant (default "*"). */
+  columns?: string;
 }
 
 const CASES: TableCase[] = [
@@ -238,6 +248,8 @@ const CASES: TableCase[] = [
     key: (f) => ({ id: f.eventId }),
     update: () => ({ couple_names: "hijacked", total_price: 1 }),
     inserts: (_own, other) => [{ venue_id: other.venueId, couple_names: "stray", event_date: "2027-01-01" }],
+    // 0117: contacts and money are withheld from staff by column grant.
+    columns: "id, venue_id, couple_names, event_date",
   },
   {
     table: "event_rooms",
@@ -252,20 +264,29 @@ const CASES: TableCase[] = [
     ],
   },
   {
+    table: "event_menu_templates",
+    key: (f) => ({ event_id: f.eventId, menu_template_id: f.menuTemplateId }),
+    update: (own) => ({ menu_template_id: own.menuTemplateId }),
+    inserts: (own, other) => [
+      { event_id: other.eventId, menu_template_id: other.menuTemplateId },
+      // Own event, other venue's menu.
+      { event_id: own.eventId, menu_template_id: other.menuTemplateId },
+      // Other venue's event, own menu.
+      { event_id: other.eventId, menu_template_id: own.menuTemplateId },
+    ],
+  },
+  {
+    // 0119: staff read their venue's submissions; only the service role writes.
+    table: "event_menu_submissions",
+    key: (f) => ({ id: f.menuSubmissionId }),
+    update: () => ({ seen_by: "hijacked" }),
+    inserts: (_own, other) => [{ event_id: other.eventId, sent_by: "stray", counts: {}, menu_titles: {}, total: 0 }],
+  },
+  {
     table: "event_showcase_photos",
     key: (f) => ({ id: f.showcasePhotoId }),
     update: () => ({ photo_path: "hijacked.jpg" }),
     inserts: (_own, other) => [{ event_id: other.eventId, photo_path: "stray.jpg" }],
-  },
-  {
-    table: "event_custom_menu_items",
-    key: (f) => ({ event_id: f.eventId, menu_item_id: f.menuItemId }),
-    update: (own) => ({ menu_item_id: own.menuItemId }),
-    // Select-only for staff; the couple API writes these with service role.
-    inserts: (own, other) => [
-      { event_id: other.eventId, menu_item_id: other.menuItemId },
-      { event_id: own.eventId, menu_item_id: own.menuItemId },
-    ],
   },
   {
     table: "room_fixed_elements",
@@ -408,13 +429,14 @@ describe("RLS isolation (TEST-003)", () => {
 
   describe.each(CASES)("$table", (c) => {
     it("staff A sees its own row but none of venue B's", async () => {
-      const { data: all, error } = await staffA.from(c.table).select("*");
+      // `as "*"` keeps the typed client happy with a per-case column list.
+      const { data: all, error } = await staffA.from(c.table).select((c.columns ?? "*") as "*");
       expect(error).toBeNull();
       const rows = all as Row[];
       expect(rows.some((r) => matches(r, c.key(A))), "own row visible").toBe(true);
       expect(rows.filter((r) => matches(r, c.key(B)))).toEqual([]);
 
-      const { data: direct } = await filtered(staffA.from(c.table).select("*"), c.key(B));
+      const { data: direct } = await filtered(staffA.from(c.table).select((c.columns ?? "*") as "*"), c.key(B));
       expect(direct ?? []).toEqual([]);
     });
 
@@ -484,7 +506,7 @@ describe("RLS isolation (TEST-003)", () => {
       expect(await adminRead(table, key())).toEqual(before);
     });
 
-    // event_rooms (Plan 2, migration 0095): staff has no write policy at
+    // event_rooms (Plan 2, migration 0096): staff has no write policy at
     // all now (reads only — writes go through the gated /api/venue/events
     // routes via service role), so an update's RLS filter just matches zero
     // rows rather than throwing an explicit permission error — "moving it
@@ -495,6 +517,16 @@ describe("RLS isolation (TEST-003)", () => {
       expect(before).toHaveLength(1);
       await filtered(staffA.from("event_rooms").update({ room_id: B.room2Id }), key);
       expect(await adminRead("event_rooms", key)).toEqual(before);
+    });
+
+    // event_menu_templates (0115): same read-only treatment as event_rooms
+    // from day one — writes only happen through create_event_full.
+    it("event_menu_templates", async () => {
+      const key = { event_id: A.eventId, menu_template_id: A.menuTemplateId };
+      const before = await adminRead("event_menu_templates", key);
+      expect(before).toHaveLength(1);
+      await filtered(staffA.from("event_menu_templates").update({ menu_template_id: B.menuTemplateId }), key);
+      expect(await adminRead("event_menu_templates", key)).toEqual(before);
     });
   });
 
@@ -520,7 +552,7 @@ describe("RLS isolation (TEST-003)", () => {
 
       const { data: item, error: itemError } = await staffA
         .from("menu_items")
-        .insert({ venue_id: A.venueId, course: "dessert", name: `${RUN} own dessert`, tiers: ["everyday"] })
+        .insert({ venue_id: A.venueId, course: "dessert", name: `${RUN} own dessert`, tiers: ["special"] })
         .select()
         .single();
       expect(itemError).toBeNull();
@@ -529,7 +561,7 @@ describe("RLS isolation (TEST-003)", () => {
         .insert({ menu_template_id: A.menuTemplateId, menu_item_id: item!.id });
       expect(mtiError).toBeNull();
 
-      // event_rooms (Plan 2, migration 0095): no longer staff-writable at
+      // event_rooms (Plan 2, migration 0096): no longer staff-writable at
       // all — room assignments go through the gated /api/venue/events
       // routes (service role) now, not this direct RLS-bound insert.
       const { error: erError } = await staffA.from("event_rooms").insert({ event_id: A.eventId, room_id: A.room2Id });
@@ -550,12 +582,12 @@ describe("RLS isolation (TEST-003)", () => {
         .single();
       expect(resError).toBeNull();
 
-      // events (Plan 2, migration 0095): guest_count_estimate and the rest
+      // events (Plan 2, migration 0096): guest_count_estimate and the rest
       // of the "business" columns are no longer staff-writable directly —
       // only the gated /api/venue/events routes (service role) write them
       // now. Staff keeps direct write access to the few columns the
       // per-event seating editor marks on view (seating_unseen_at; since
-      // 0104 every layout write goes through the gated seating route),
+      // 0105 every layout write goes through the gated seating route),
       // narrowed by column grant rather than by RLS policy.
       const { error: gatedColumnError } = await staffA.from("events").update({ guest_count_estimate: 120 }).eq("id", A.eventId);
       expect(gatedColumnError?.code).toBe("42501");
@@ -564,10 +596,10 @@ describe("RLS isolation (TEST-003)", () => {
         .from("events")
         .update({ seating_unseen_at: null })
         .eq("id", A.eventId)
-        .select();
+        .select("id");
       expect(updatedEvents).toHaveLength(1);
 
-      // venues (0106): Поставки is owner-only, so even renaming the own
+      // venues (0107): Поставки is owner-only, so even renaming the own
       // venue goes through the owner-gated /api/venue/settings route now.
       const { error: venueError } = await staffA.from("venues").update({ name: `${RUN} Venue A renamed` }).eq("id", A.venueId);
       expect(venueError?.code).toBe("42501");

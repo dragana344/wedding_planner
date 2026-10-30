@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Client } from "pg";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { setMenuItemQuantities } from "@/lib/couple/menu";
 import { hashSessionToken } from "@/lib/couple/session-hash";
 import { validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
 import { PATCH as guestCount } from "@/app/api/couple/guest-count/route";
@@ -16,7 +15,6 @@ let db: Client;
 let venueA: string;
 let venueB: string;
 let eventA: string;
-let dishB: string;
 let templateB: string;
 let roomB: string;
 
@@ -27,7 +25,6 @@ beforeAll(async () => {
   [venueA, venueB] = venues!.map((v) => v.id);
   const { data: event } = await admin.from("events").insert({ venue_id: venueA, couple_names: "SR & A", event_date: "2027-12-01" }).select("id").single();
   eventA = event!.id;
-  dishB = (await admin.from("menu_items").insert({ venue_id: venueB, tiers: ["everyday"], course: "main", name: "B dish" }).select("id").single()).data!.id;
   templateB = (await admin.from("menu_templates").insert({ venue_id: venueB, name: "B menu" }).select("id").single()).data!.id;
   roomB = (await admin.from("rooms").insert({ venue_id: venueB, name: "B hall" }).select("id").single()).data!.id;
 });
@@ -58,14 +55,9 @@ describe("SR-01 couple credentials", () => {
 });
 
 describe("SR-02 same-venue references", () => {
-  it("refuses another venue's dish in a couple's quantities, even through server code", async () => {
-    await expect(setMenuItemQuantities(eventA, [{ menu_item_id: dishB, guest_count: 10 }])).rejects.toBeTruthy();
-    const { data } = await admin.from("event_menu_item_quantities").select("menu_item_id").eq("event_id", eventA);
-    expect(data).toEqual([]);
-  });
-
   it("refuses another venue's menu template or room on an event", async () => {
-    expect((await admin.from("events").update({ menu_template_id: templateB }).eq("id", eventA)).error?.code).toBe("23514");
+    // 0122: an event's menus are event_menu_templates links (events.menu_template_id is gone).
+    expect((await admin.from("event_menu_templates").insert({ event_id: eventA, menu_template_id: templateB })).error?.code).toBe("23514");
     const { error } = await admin
       .from("event_layout_elements")
       .insert({ event_id: eventA, room_id: roomB, element_type: "table", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100 });

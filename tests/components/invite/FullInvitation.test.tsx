@@ -25,7 +25,7 @@ const invitation = {
   event_type: "wedding",
   agenda: [],
   locations: [],
-  menu: [],
+  menus: [],
 };
 
 const withProgramme = {
@@ -38,10 +38,17 @@ const withProgramme = {
     { label: "Црква Св. Никола", address: "Радовиш", map_url: "https://maps.app.goo.gl/abc" },
     { label: "Матично", address: null, map_url: "javascript:alert(1)" },
   ],
-  menu: [
-    { course: "starter" as const, name: "Мезе" },
-    { course: "main" as const, name: "Печено пиле" },
-    { course: "main" as const, name: "Сарма" },
+  menus: [
+    {
+      id: "m1",
+      name: "Месно мени",
+      dishes: [
+        { course: "starter" as const, name: "Мезе" },
+        { course: "main" as const, name: "Печено пиле" },
+        { course: "main" as const, name: "Сарма" },
+      ],
+    },
+    { id: "m2", name: "Посно мени", dishes: [{ course: "main" as const, name: "Грав" }] },
   ],
 };
 
@@ -50,7 +57,7 @@ const invitee = {
   rsvpStatus: "invited",
   partySize: 2,
   childrenCount: 0,
-  menuChoice: null,
+  menuCounts: {},
   allergies: null,
   rsvpComment: null,
 };
@@ -83,11 +90,14 @@ describe("FullInvitation", () => {
     expect(document.querySelector('a[href^="javascript"]')).toBeNull();
   });
 
-  it("lists the menu by course (A14)", () => {
+  it("lists each menu with its dishes by course (A14)", () => {
     render(<FullInvitation slug="abc123" invitation={withProgramme} photoUrl={null} />);
     const menu = screen.getByRole("region", { name: "Мени" });
-    expect(within(menu).getByRole("heading", { name: "Главно јадење" })).toBeInTheDocument();
+    expect(within(menu).getByRole("heading", { name: "Месно мени" })).toBeInTheDocument();
+    expect(within(menu).getByRole("heading", { name: "Посно мени" })).toBeInTheDocument();
+    expect(within(menu).getAllByRole("heading", { name: "Главно јадење" })).toHaveLength(2);
     expect(within(menu).getByText("Сарма")).toBeInTheDocument();
+    expect(within(menu).getByText("Грав")).toBeInTheDocument();
   });
 
   it("leaves out empty sections", () => {

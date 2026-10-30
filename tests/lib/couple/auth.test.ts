@@ -30,7 +30,7 @@ describe("lib/couple/auth", () => {
       .single();
     eventId = event!.id;
 
-    // Security review fix (0110): create_event_credentials is no longer
+    // Security review fix (0111): create_event_credentials is no longer
     // callable by a plain staff session — this is just setup for the login
     // tests below, so it goes through the service-role client now.
     await createEventCredentials(eventId, "auth-lib-username", "correct-password", admin);

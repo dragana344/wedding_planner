@@ -53,8 +53,6 @@ import * as invitationPhotoRoute from "@/app/api/couple/invitation/photo/route";
 import * as invitationPhotoConfirmRoute from "@/app/api/couple/invitation/photo/confirm/route";
 import * as locationsRoute from "@/app/api/couple/locations/route";
 import * as locationsIdRoute from "@/app/api/couple/locations/[id]/route";
-import * as menuRoute from "@/app/api/couple/menu/route";
-import * as menuQuantitiesRoute from "@/app/api/couple/menu/quantities/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as notesIdRoute from "@/app/api/couple/notes/[id]/route";
 import * as supportRoute from "@/app/api/couple/support/route";
@@ -71,6 +69,7 @@ import * as albumPhotosRoute from "@/app/api/couple/album/photos/route";
 import * as albumPhotoIdRoute from "@/app/api/couple/album/photos/[id]/route";
 import * as albumZipRoute from "@/app/api/couple/album/zip/route";
 import * as greetingIdRoute from "@/app/api/couple/greetings/[id]/route";
+import * as menuNumbersRoute from "@/app/api/couple/menu-numbers/route";
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -224,8 +223,14 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
       photo_path: `${RUN}-b-photo.jpg`,
       public_slug: `${RUN}-b-slug`,
     });
-    await insert("event_custom_menu_items", { event_id: event.id, menu_item_id: menuItemIds[0] });
-    await insert("event_menu_item_quantities", { event_id: event.id, menu_item_id: menuItemIds[0], guest_count: 42 });
+    await insert("event_menu_templates", { event_id: event.id, menu_template_id: menuTemplateId });
+    await insert("event_menu_submissions", {
+      event_id: event.id,
+      sent_by: "Младенците",
+      counts: { [menuTemplateId]: 42 },
+      menu_titles: { [menuTemplateId]: text("menu") },
+      total: 42,
+    });
   }
 
   // Guests' album. A's photos have real files (the zip streams them); B's
@@ -292,8 +297,8 @@ async function snapshotEvent(f: EventFixture): Promise<Record<string, Row[]>> {
     event_locations: await byEvent("event_locations"),
     event_notes: await byEvent("event_notes"),
     event_invitations: await byEvent("event_invitations", "event_id", ""),
-    event_custom_menu_items: await byEvent("event_custom_menu_items", "event_id", ""),
-    event_menu_item_quantities: await byEvent("event_menu_item_quantities", "event_id", ""),
+    event_menu_templates: await byEvent("event_menu_templates", "event_id", ""),
+    event_menu_submissions: await byEvent("event_menu_submissions"),
     event_photos: await byEvent("event_photos"),
     event_greetings: await byEvent("event_greetings"),
   };
@@ -793,40 +798,19 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       },
     },
   },
-  "menu/route.ts": {
-    module: menuRoute,
-    methods: {
-      PATCH: async () => {
-        const template = await call(menuRoute.PATCH, NONE, "PATCH", {
-          body: { mode: "template", menu_template_id: menuTemplateId },
-        });
-        expect(template.status).toBe(200);
-        expect((await aEvent()).menu_template_id).toBe(menuTemplateId);
-        const custom = await call(menuRoute.PATCH, NONE, "PATCH", {
-          body: { mode: "custom", menu_item_ids: menuItemIds },
-        });
-        expect(custom.status).toBe(200);
-        const { data } = await admin.from("event_custom_menu_items").select("menu_item_id").eq("event_id", A.eventId);
-        expect(data).toHaveLength(2);
-      },
-    },
-  },
-  "menu/quantities/route.ts": {
-    module: menuQuantitiesRoute,
+  "menu-numbers/route.ts": {
+    module: menuNumbersRoute,
     methods: {
       GET: async () => {
-        const res = await call(menuQuantitiesRoute.GET, NONE, "GET");
+        const res = await call(menuNumbersRoute.GET, NONE, "GET");
         expect(res.status).toBe(200);
-        // B has a quantity row (guest_count 42); A has none yet.
-        expect(res.json).toEqual([]);
+        expect(res.text).not.toContain(SECRET);
       },
-      PATCH: async () => {
-        const res = await call(menuQuantitiesRoute.PATCH, NONE, "PATCH", {
-          body: { quantities: [{ menu_item_id: menuItemIds[0], guest_count: 3 }] },
-        });
-        expect(res.status).toBe(200);
-        const again = await call(menuQuantitiesRoute.GET, NONE, "GET");
-        expect(again.json).toEqual([{ menu_item_id: menuItemIds[0], guest_count: 3 }]);
+      POST: async () => {
+        // A has no menus, so nothing is sent; B's submissions stay as they were.
+        const res = await call(menuNumbersRoute.POST, NONE, "POST");
+        expect(res.status).toBe(400);
+        expect((await admin.from("event_menu_submissions").select("id").eq("event_id", A.eventId)).data).toEqual([]);
       },
     },
   },

@@ -1,6 +1,6 @@
 // Browser-side Settings writes: each goes through /api/venue/settings with
 // the manager-elevation token, which the server re-checks is the owner's
-// (spec D4) — staff have no direct UPDATE on venues since 0106. Same split
+// (spec D4) — staff have no direct UPDATE on venues since 0107. Same split
 // as lib/venue/events-client.ts. No "server-only": imported from client components.
 import { isPhoneNumber, VENUE_PHONE_ERROR } from "@/lib/venue/venue-profile";
 import { uploadVenuePhoto } from "@/lib/venue/photo-upload-client";

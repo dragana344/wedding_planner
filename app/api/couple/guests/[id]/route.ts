@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withCoupleEvent } from "@/lib/api/handler";
 import { guestUpdateBody, idParams } from "@/lib/api/schemas";
-import { updateGuest, updateGuestStatus, updateGuestSide, deleteGuest, assertGuestOnSide } from "@/lib/couple/guests";
+import { updateGuest, updateGuestStatus, updateGuestSide, setGuestMenuCounts, deleteGuest, assertGuestOnSide } from "@/lib/couple/guests";
 import { organizerSide } from "@/lib/couple/organizer-side";
 
 export const PATCH = withCoupleEvent(
@@ -12,6 +12,9 @@ export const PATCH = withCoupleEvent(
     // Moving a guest between sides, editing or deleting one: a co-organizer
     // only for their own side (recording an answer above stays open to both).
     await assertGuestOnSide(eventId, params.id, organizerSide(request));
+    if (body.type === "menus") {
+      return NextResponse.json(await setGuestMenuCounts(eventId, params.id, body.counts));
+    }
     if (body.type === "side") {
       return NextResponse.json(await updateGuestSide(eventId, params.id, body.side));
     }

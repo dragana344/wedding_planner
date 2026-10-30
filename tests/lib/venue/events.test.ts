@@ -103,39 +103,38 @@ describe("events data layer: listEventsWithDetails seatedCount", () => {
     expect(events).toHaveLength(1);
     expect(events[0].seatedCount).toBe(16);
     expect(events[0].guest_count_estimate).toBe(30);
-    expect(events[0].customMenuItems).toEqual([]);
+    expect(events[0].menus).toEqual([]);
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
-  it("surfaces a couple's custom menu selection (no template) so staff can see it", async () => {
-    const { data: venue } = await admin.from("venues").insert({ name: "Custom Menu Visibility Test Venue" }).select().single();
+  it("returns every linked menu with its items, and flags event-only custom menus", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Menus List Test Venue" }).select().single();
     const { data: event } = await admin
       .from("events")
-      .insert({ venue_id: venue!.id, couple_names: "Custom Menu Couple", event_date: "2026-09-21" })
+      .insert({ venue_id: venue!.id, couple_names: "Menus Couple", event_date: "2026-09-21" })
       .select()
       .single();
+    const { data: standard } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Стандардно" }).select().single();
+    const { data: custom } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Посебно", event_id: event!.id }).select().single();
     const { data: chicken } = await admin
       .from("menu_items")
       .insert({ venue_id: venue!.id, tiers: ["special"], course: "main", name: "Roast Chicken" })
       .select()
       .single();
-    const { data: cake } = await admin
-      .from("menu_items")
-      .insert({ venue_id: venue!.id, tiers: ["special"], course: "dessert", name: "Birthday Cake" })
-      .select()
-      .single();
-    await admin
-      .from("event_custom_menu_items")
-      .insert([
-        { event_id: event!.id, menu_item_id: chicken!.id },
-        { event_id: event!.id, menu_item_id: cake!.id },
-      ]);
+    await admin.from("menu_template_items").insert({ menu_template_id: standard!.id, menu_item_id: chicken!.id });
+    await admin.from("event_menu_templates").insert([
+      { event_id: event!.id, menu_template_id: standard!.id },
+      { event_id: event!.id, menu_template_id: custom!.id },
+    ]);
 
     const events = await listEventsWithDetails(venue!.id, admin);
-    expect(events).toHaveLength(1);
-    expect(events[0].menu_template_id).toBeNull();
-    expect(events[0].customMenuItems.map((i) => i.name).sort()).toEqual(["Birthday Cake", "Roast Chicken"]);
+    const menus = [...events[0].menus].sort((x, y) => x.name.localeCompare(y.name));
+    expect(menus.map((m) => [m.name, m.isCustom])).toEqual([["Посебно", true], ["Стандардно", false]]);
+    expect(menus.find((m) => m.id === standard!.id)!.items).toEqual([
+      { id: chicken!.id, name: "Roast Chicken", course: "main", photo_path: null },
+    ]);
+    expect(menus.find((m) => m.id === custom!.id)!.items).toEqual([]);
 
     await admin.from("venues").delete().eq("id", venue!.id);
   });
@@ -156,7 +155,7 @@ describe("events data layer: createEvent", () => {
       couple_names: "Ivana & Petar",
       event_date: "2099-10-01",
       room_ids: [room!.id],
-      menu_template_id: template!.id,
+      menu_template_ids: [template!.id],
       contacts: { contact_email: "ivana@example.mk", contact_phone: "070 123 456" },
       credentials: { username: `ivana-petar-${Date.now()}`, password: "a-strong-password-1" },
     });
@@ -178,7 +177,7 @@ describe("events data layer: createEvent", () => {
         couple_names: "No Contacts",
         event_date: "2026-10-02",
         room_ids: [],
-        menu_template_id: null,
+        menu_template_ids: [],
         contacts: { contact_email: "", contact_phone: "070 123 456" },
         credentials: { username: `no-contacts-${Date.now()}`, password: "a-strong-password-1" },
       }),
@@ -197,7 +196,7 @@ describe("events data layer: createEvent", () => {
       couple_names: "First Claim",
       event_date: "2026-10-03",
       room_ids: [],
-      menu_template_id: null,
+      menu_template_ids: [],
       contacts: { contact_email: "first@example.mk", contact_phone: "070 000 000" },
       credentials: { username: takenUsername, password: "a-strong-password-1" },
     });
@@ -207,16 +206,14 @@ describe("events data layer: createEvent", () => {
         couple_names: "Collides On Username",
         event_date: "2026-10-04",
         room_ids: [],
-        menu_template_id: null,
+        menu_template_ids: [],
         contacts: { contact_email: "second@example.mk", contact_phone: "070 111 111" },
         credentials: { username: takenUsername, password: "a-strong-password-1" },
       }),
-      // create_event_credentials only maps a friendly Macedonian message for
-      // a collision with a co-organizer's username — a collision with
-      // another couple's own username surfaces the table's raw unique-
-      // constraint error instead (a pre-existing RPC quirk, not this fix's
-      // concern; rollback-on-failure is what this test is actually checking).
-    ).rejects.toThrow("duplicate key value violates unique constraint");
+      // Any taken username (another couple's or a co-organizer's) comes back
+      // as a unique violation, which createEvent turns into the Macedonian
+      // message staff can act on — and the whole event rolls back.
+    ).rejects.toThrow("Корисничкото име е веќе зафатено. Изберете друго.");
     const { data: orphaned } = await admin.from("events").select("id").eq("couple_names", "Collides On Username");
     expect(orphaned).toEqual([]);
 
@@ -225,6 +222,145 @@ describe("events data layer: createEvent", () => {
     );
 
     await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
+  it("createEvent links every chosen menu", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Multi Menu Test Venue" }).select().single();
+    const { data: classic } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Класично" }).select().single();
+    const { data: posno } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Посно" }).select().single();
+
+    const event = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Ана и Петар",
+      event_date: "2099-10-05",
+      room_ids: [],
+      menu_template_ids: [classic!.id, posno!.id],
+      contacts: { contact_email: "ana@example.mk", contact_phone: "070 222 333" },
+      credentials: { username: `ana-petar-${Date.now()}`, password: "a-strong-password-1" },
+    });
+
+    const { data: linkedMenus } = await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id);
+    expect((linkedMenus ?? []).map((r) => r.menu_template_id).sort()).toEqual([classic!.id, posno!.id].sort());
+
+    await expect(
+      createEvent({
+        venue_id: venue!.id,
+        couple_names: "Foreign Menu",
+        event_date: "2099-10-06",
+        room_ids: [],
+        menu_template_ids: ["00000000-0000-4000-8000-000000000000"],
+        contacts: { contact_email: "x@example.mk", contact_phone: "070 000 111" },
+        credentials: { username: `foreign-menu-${Date.now()}`, password: "a-strong-password-1" },
+      }),
+    ).rejects.toThrow("Едно или повеќе менија не припаѓаат на овој локал.");
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
+  it("updateEvent replaces the menu list and drops guest counts of unlinked menus", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Update Menus Test Venue" }).select().single();
+    const { data: a } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "A" }).select().single();
+    const { data: b } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "B" }).select().single();
+    const event = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Update Menus",
+      event_date: "2099-12-05",
+      room_ids: [],
+      menu_template_ids: [a!.id, b!.id],
+      contacts: { contact_email: "um@example.mk", contact_phone: "070 111 222" },
+      credentials: { username: `update-menus-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const { data: guest } = await admin.from("event_guests").insert({ event_id: event.id, full_name: "Гостин" }).select("id").single();
+    await admin.from("event_guest_menu_counts").insert([
+      { guest_id: guest!.id, menu_template_id: a!.id, count: 1 },
+      { guest_id: guest!.id, menu_template_id: b!.id, count: 1 },
+    ]);
+
+    await updateEvent(event.id, venue!.id, {
+      couple_names: "Update Menus", event_date: "2099-12-05", start_time: null, end_time: null,
+      status: "preparation", event_type: "wedding", guest_count_estimate: null, room_ids: [],
+      added_menu_ids: [], removed_menu_ids: [a!.id],
+    }, admin);
+
+    const { data: linked } = await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id);
+    expect((linked ?? []).map((r) => r.menu_template_id)).toEqual([b!.id]);
+    const { data: counts } = await admin.from("event_guest_menu_counts").select("menu_template_id").eq("guest_id", guest!.id);
+    expect((counts ?? []).map((r) => r.menu_template_id)).toEqual([b!.id]);
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
+  it("a stale window's save is a diff: menus linked or built meanwhile survive", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Stale Window Venue" }).select().single();
+    const { data: p1 } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "P1" }).select().single();
+    const { data: p2 } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "P2" }).select().single();
+    const event = await createEvent({
+      venue_id: venue!.id, couple_names: "Stale", event_date: "2099-12-10", room_ids: [], menu_template_ids: [p1!.id],
+      contacts: { contact_email: "stale@example.mk", contact_phone: "070 111 555" },
+      credentials: { username: `stale-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    // Window A has seen [P1]; meanwhile P2 is linked and a custom menu C is built.
+    const { data: c } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "C", event_id: event.id }).select().single();
+    await admin.from("event_menu_templates").insert([
+      { event_id: event.id, menu_template_id: p2!.id },
+      { event_id: event.id, menu_template_id: c!.id },
+    ]);
+    const base = {
+      couple_names: "Stale", event_date: "2099-12-10", start_time: null, end_time: null,
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+    };
+    const linked = async () =>
+      ((await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id)).data ?? [])
+        .map((r) => r.menu_template_id).sort();
+
+    await updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [], removed_menu_ids: [] }, admin);
+    expect(await linked()).toEqual([p1!.id, p2!.id, c!.id].sort());
+    expect((await admin.from("menu_templates").select("id").eq("id", c!.id)).data).toHaveLength(1);
+
+    await updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [], removed_menu_ids: [p1!.id] }, admin);
+    expect(await linked()).toEqual([p2!.id, c!.id].sort());
+    expect((await admin.from("menu_templates").select("id").eq("id", c!.id)).data).toHaveLength(1);
+
+    await updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [p1!.id], removed_menu_ids: [c!.id] }, admin);
+    expect(await linked()).toEqual([p1!.id, p2!.id].sort());
+    expect((await admin.from("menu_templates").select("id").eq("id", c!.id)).data).toHaveLength(0);
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
+  it("refuses another venue's menu, and another event's custom menu", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Menu Refusal Venue" }).select().single();
+    const { data: other } = await admin.from("venues").insert({ name: "Menu Refusal Other Venue" }).select().single();
+    const { data: foreign } = await admin.from("menu_templates").insert({ venue_id: other!.id, name: "Туѓо" }).select().single();
+    const event = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Refusal",
+      event_date: "2099-12-06",
+      room_ids: [],
+      menu_template_ids: [],
+      contacts: { contact_email: "r@example.mk", contact_phone: "070 111 333" },
+      credentials: { username: `refusal-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const { data: otherEvent } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "Друг", event_date: "2099-12-07" }).select("id").single();
+    const { data: someoneElsesCustom } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "Туѓо посебно", event_id: otherEvent!.id }).select().single();
+    const MSG = "Едно или повеќе менија не припаѓаат на овој локал.";
+    const base = {
+      couple_names: "Refusal", event_date: "2099-12-06", start_time: null, end_time: null,
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+    };
+
+    await expect(updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [foreign!.id], removed_menu_ids: [] }, admin)).rejects.toThrow(MSG);
+    await expect(updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [someoneElsesCustom!.id], removed_menu_ids: [] }, admin)).rejects.toThrow(MSG);
+    await expect(
+      createEvent({
+        venue_id: venue!.id, couple_names: "R2", event_date: "2099-12-08", room_ids: [],
+        menu_template_ids: [someoneElsesCustom!.id],
+        contacts: { contact_email: "r2@example.mk", contact_phone: "070 111 444" },
+        credentials: { username: `refusal2-${Date.now()}`, password: "a-strong-password-1" },
+      }),
+    ).rejects.toThrow(MSG);
+
+    await admin.from("venues").delete().in("id", [venue!.id, other!.id]);
   });
 
   it("rolls back the event row too when the rooms insert itself fails (final review finding: this specific step had no cleanup at all before — only the credentials step did)", async () => {
@@ -244,7 +380,7 @@ describe("events data layer: createEvent", () => {
       p_event_type: "wedding",
       p_status: "preparation",
       p_guest_count_estimate: null,
-      p_menu_template_id: null,
+      p_menu_template_ids: [],
       p_room_ids: [bogusRoomId],
       p_contact_email: "rooms-rollback@example.mk",
       p_contact_email_2: null,
@@ -271,7 +407,7 @@ describe("events data layer: updateEvent atomicity (final review finding)", () =
       couple_names: "Original Name",
       event_date: "2099-11-02",
       room_ids: [],
-      menu_template_id: null,
+      menu_template_ids: [],
       contacts: { contact_email: "update-atomic@example.mk", contact_phone: "070 333 333" },
       credentials: { username: `update-atomic-${Date.now()}`, password: "a-strong-password-1" },
     });
@@ -290,7 +426,7 @@ describe("events data layer: updateEvent atomicity (final review finding)", () =
       p_event_type: "wedding",
       p_status: "confirmed",
       p_guest_count_estimate: null,
-      p_menu_template_id: null,
+      p_menu_template_ids: [],
       p_room_ids: [bogusRoomId],
     });
     expect(error).not.toBeNull();
@@ -441,7 +577,7 @@ describe("events data layer: past-event write lock (security review fix)", () =>
       couple_names: "Past Couple",
       event_date: "2000-01-01",
       room_ids: [],
-      menu_template_id: null,
+      menu_template_ids: [],
       contacts: { contact_email: "past@example.mk", contact_phone: "070 000 000" },
       credentials: { username: `past-couple-${Date.now()}`, password: "a-strong-password-1" },
       total_price: 500,
@@ -460,7 +596,8 @@ describe("events data layer: past-event write lock (security review fix)", () =>
         event_type: "wedding",
         guest_count_estimate: null,
         room_ids: [],
-        menu_template_id: null,
+        added_menu_ids: [],
+        removed_menu_ids: [],
       }),
     ).rejects.toThrow(PastEventError);
 
@@ -488,7 +625,7 @@ describe("events data layer: past-event write lock (security review fix)", () =>
       couple_names: "Today Couple",
       event_date: todayIn(),
       room_ids: [],
-      menu_template_id: null,
+      menu_template_ids: [],
       contacts: { contact_email: "today@example.mk", contact_phone: "070 000 000" },
       credentials: { username: `today-couple-${Date.now()}`, password: "a-strong-password-1" },
     });

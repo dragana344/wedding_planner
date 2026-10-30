@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { inviteMessage, personalInviteUrl, shareLinks, internationalPhone } from "@/lib/couple/invite-share";
+import { inviteMessage, reminderMessage, personalInviteUrl, shareLinks, internationalPhone } from "@/lib/couple/invite-share";
 
 const event = { coupleNames: "Ана и Марко", eventDate: "2027-06-12", venueName: "Сала Лотос" };
 
@@ -23,6 +23,24 @@ describe("inviteMessage (A9)", () => {
 
   it("says 'celebration' for events that are not weddings", () => {
     expect(inviteMessage({ guestName: "А", link: "L", ...event, eventType: "birthday" })).toContain("на прославата на Ана и Марко");
+  });
+});
+
+describe("reminderMessage (A10)", () => {
+  it("asks to choose a menu only when the event has 2+ menus", () => {
+    const text = reminderMessage({ guestName: "Петар", link: "https://x.mk/invite/s?g=t", ...event, menuCount: 2 });
+    expect(text).toBe(
+      "Почитуван/а Петар,\n" +
+        "Ве потсетуваме на свадбата на Ана и Марко на 12.06.2027 во Сала Лотос. Ве очекуваме!\n" +
+        "Потврдете доаѓање и изберете мени: https://x.mk/invite/s?g=t",
+    );
+  });
+
+  it("keeps the original last line with one menu or none", () => {
+    for (const menuCount of [undefined, 0, 1]) {
+      const text = reminderMessage({ guestName: "Петар", link: "L", ...event, menuCount });
+      expect(text.split("\n").pop()).toBe("Вашата покана, агенда и потврда за доаѓање: L");
+    }
   });
 });
 

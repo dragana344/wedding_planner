@@ -44,7 +44,7 @@ export const RsvpPersonalConfirmed: Story = {
       <RsvpForm
         slug="storybook"
         accentColor="#b0607a"
-        invitee={{ ...invitee, rsvpStatus: "confirmed", menuChoice: "standard", childrenCount: 1, rsvpComment: "Едвај чекаме!" }}
+        invitee={{ ...invitee, rsvpStatus: "confirmed", childrenCount: 1, rsvpComment: "Едвај чекаме!" }}
         guestToken={GUEST_TOKEN}
       />,
     ),

@@ -1,8 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
-import { listEventsWithDetails } from "@/lib/venue/events";
-import { listRooms } from "@/lib/venue/rooms";
-import { listMenuTemplatesWithItems } from "@/lib/venue/menus";
 import { ClientsClient } from "@/components/venue/dashboard/ClientsClient";
 
 // Same stale-Router-Cache fix as /venue/reservations.
@@ -14,13 +11,8 @@ export default async function ClientsPage() {
   // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
   if (!venueId) return null;
 
-  const [events, rooms, menuTemplates] = await Promise.all([
-    listEventsWithDetails(venueId, supabase),
-    listRooms(venueId, supabase),
-    listMenuTemplatesWithItems(venueId, supabase),
-  ]);
-
-  return (
-    <ClientsClient venueId={venueId} initialEvents={events} rooms={rooms} menuTemplates={menuTemplates} />
-  );
+  // Client contact info is manager/owner only (B?) — ClientsClient fetches it
+  // itself from /api/venue/clients with the elevation token, so an
+  // unelevated session is never sent the data in the first place.
+  return <ClientsClient />;
 }

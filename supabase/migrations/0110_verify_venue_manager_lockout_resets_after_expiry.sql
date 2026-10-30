@@ -1,4 +1,4 @@
--- 0109: verify_venue_manager never reset failed_attempts once a lockout
+-- 0110: verify_venue_manager never reset failed_attempts once a lockout
 -- expired, so any wrong password after the 15-minute lock passed re-crossed
 -- the >=5 threshold immediately (failed_attempts kept climbing: 6, 7, 8...)
 -- and re-locked for another 15 minutes. Anyone with the shared staff login

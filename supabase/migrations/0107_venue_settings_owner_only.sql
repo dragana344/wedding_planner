@@ -1,4 +1,4 @@
--- 0106 (security review item #2): Поставки is owner-only (spec D4), but the
+-- 0107 (security review item #2): Поставки is owner-only (spec D4), but the
 -- page gate was the only check — the venue's name, address/phone/logo,
 -- brand colour and floor-plan lock password were written straight from the
 -- staff browser session, so any staff member could change them from

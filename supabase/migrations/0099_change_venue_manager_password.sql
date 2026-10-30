@@ -1,4 +1,4 @@
--- 0098: a manager changing their own password (spec §7's "change own
+-- 0099: a manager changing their own password (spec §7's "change own
 -- manager password" row) — same hashing as create_venue_manager.
 
 begin;

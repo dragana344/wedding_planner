@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 import { parseCoupleContacts, type CoupleContactsInput } from "@/lib/venue/event-contacts";
+import { credentialsError } from "@/lib/venue/credentials";
 import { todayIn } from "@/lib/date";
+import { toMenuSubmission, type MenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
 
 export interface EventSummary {
   id: string;
@@ -37,7 +39,31 @@ export type EventType =
   | "baptism"
   | "graduation"
   | "corporate"
+  | "anniversary"
+  | "family"
+  | "conference"
+  | "presentation"
+  | "seminar"
+  | "team_building"
+  | "new_year"
+  | "school"
+  | "baby_shower"
   | "other";
+
+export interface EventMenuItem {
+  id: string;
+  name: string;
+  course: string;
+  photo_path: string | null;
+}
+
+export interface EventMenu {
+  id: string;
+  name: string;
+  /** An event-only menu built by the manager (menu_templates.event_id set). */
+  isCustom: boolean;
+  items: EventMenuItem[];
+}
 
 export interface EventDetail {
   id: string;
@@ -48,11 +74,8 @@ export interface EventDetail {
   status: EventStatus;
   event_type: EventType;
   guest_count_estimate: number | null;
-  menu_template_id: string | null;
-  /** Dishes the couple picked via the custom menu builder — populated only
-   * when menu_template_id is null and the couple actually built a custom
-   * selection (lib/couple/menu.ts's "custom" mode). Empty otherwise. */
-  customMenuItems: { id: string; name: string; course: string; photo_path: string | null }[];
+  /** Every menu linked to the event (event_menu_templates), custom ones included. */
+  menus: EventMenu[];
   room_ids: string[];
   hasShowcasePhotos: boolean;
   seatedCount: number;
@@ -63,25 +86,117 @@ export interface EventDetail {
   deposit_paid: number | null;
   /** The couple confirmed a seating change staff hasn't opened yet. */
   hasUnseenSeatingChange: boolean;
+  /** What the couple sent the venue: the newest sending and the one before it. */
+  menuNumbers: { latest: MenuSubmission | null; previous: MenuSubmission | null };
 }
 
+/**
+ * The couple's contact details and the event's money — manager/owner only
+ * (migration 0117 withholds these columns from plain staff sessions). Read
+ * only server-side with the service-role client, behind an elevation check.
+ */
+export const EVENT_PRIVATE_COLUMNS = "contact_email, contact_email_2, contact_phone, total_price, deposit_paid";
+
+export type EventPrivateDetails = Pick<EventDetail, "id" | "contact_email" | "contact_email_2" | "contact_phone" | "total_price" | "deposit_paid">;
+
+/** Every event's private details for a venue (manager/owner routes only). */
+export async function listEventPrivateDetails(venueId: string, client: SupabaseClient): Promise<EventPrivateDetails[]> {
+  const { data, error } = await client
+    .from("events")
+    .select(`id, ${EVENT_PRIVATE_COLUMNS}`)
+    .eq("venue_id", venueId)
+    .limit(MAX_LIST_ROWS);
+  if (error) throw error;
+  return checkListBound(data, "events (private)") as EventPrivateDetails[];
+}
+
+/** Clears the private fields — what a plain staff session is given. */
+export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
+  return { ...event, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null };
+}
+
+const EVENT_DETAIL_COLUMNS =
+  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by)";
+
+type EventDetailRow = {
+  id: string;
+  couple_names: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  status: string;
+  event_type: string;
+  guest_count_estimate: number | null;
+  seating_unseen_at: string | null;
+  event_rooms: { room_id: string }[] | null;
+  event_showcase_photos: { id: string }[] | null;
+  event_layout_elements: unknown;
+  event_menu_templates: unknown;
+  event_menu_submissions: MenuSubmissionRow[] | null;
+  // Present only with includePrivate.
+  contact_email?: string | null;
+  contact_email_2?: string | null;
+  contact_phone?: string | null;
+  total_price?: number | null;
+  deposit_paid?: number | null;
+};
+
+type MenuTemplateRow = {
+  id: string;
+  name: string;
+  event_id: string | null;
+  menu_template_items: { menu_items: EventMenuItem | EventMenuItem[] | null }[] | null;
+};
+
+function toEventMenus(raw: unknown): EventMenu[] {
+  const links = (raw ?? []) as { menu_templates: MenuTemplateRow | MenuTemplateRow[] | null }[];
+  return links
+    .map((link) => (Array.isArray(link.menu_templates) ? link.menu_templates[0] : link.menu_templates))
+    .filter((t): t is MenuTemplateRow => Boolean(t))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      isCustom: t.event_id !== null,
+      items: (t.menu_template_items ?? [])
+        .map((row) => (Array.isArray(row.menu_items) ? row.menu_items[0] : row.menu_items))
+        .filter((item): item is EventMenuItem => Boolean(item)),
+    }))
+    // The nested select has no order of its own; menus[0] must be stable.
+    .sort((a, b) => a.name.localeCompare(b.name, "mk") || a.id.localeCompare(b.id));
+}
+
+function toMenuNumbers(rows: MenuSubmissionRow[] | null): EventDetail["menuNumbers"] {
+  const [latest, previous] = [...(rows ?? [])]
+    .sort((a, b) => b.sent_at.localeCompare(a.sent_at) || b.id.localeCompare(a.id))
+    .slice(0, 2)
+    .map(toMenuSubmission);
+  return { latest: latest ?? null, previous: previous ?? null };
+}
+
+/**
+ * Every event of a venue with its rooms, photos and seats. Without
+ * `includePrivate` (the default — every page a plain staff member can open)
+ * the couple's contacts and the money stay null; only a manager-gated route
+ * using the service-role client may pass it.
+ */
 export async function listEventsWithDetails(
   venueId: string,
-  client: SupabaseClient = resolveSupabaseClient()
+  client: SupabaseClient = resolveSupabaseClient(),
+  options: { includePrivate?: boolean } = {}
 ): Promise<EventDetail[]> {
   const { data, error } = await client
     .from("events")
-    .select(
-      "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, menu_template_id, contact_email, contact_email_2, contact_phone, total_price, deposit_paid, seating_unseen_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_custom_menu_items(menu_items(id, name, course, photo_path))"
-    )
+    .select(options.includePrivate ? `${EVENT_DETAIL_COLUMNS}, ${EVENT_PRIVATE_COLUMNS}` : EVENT_DETAIL_COLUMNS)
     .eq("venue_id", venueId)
     .order("event_date")
     .order("start_time", { nullsFirst: false })
+    .order("sent_at", { ascending: false, referencedTable: "event_menu_submissions" })
+    .limit(2, { referencedTable: "event_menu_submissions" })
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
   checkListBound(data, "events (details)");
 
-  return (data ?? []).map((event) => {
+  return ((data ?? []) as unknown as EventDetailRow[]).map((event) => {
     const layoutElements = (event.event_layout_elements ?? []) as unknown as {
       element_type: string;
       table_types: { seats: number } | { seats: number }[] | null;
@@ -102,21 +217,17 @@ export async function listEventsWithDetails(
       status: event.status as EventStatus,
       event_type: event.event_type as EventType,
       guest_count_estimate: event.guest_count_estimate,
-      menu_template_id: event.menu_template_id,
-      customMenuItems: ((event.event_custom_menu_items ?? []) as unknown as {
-        menu_items: { id: string; name: string; course: string; photo_path: string | null } | null;
-      }[])
-        .map((link) => link.menu_items)
-        .filter((item): item is { id: string; name: string; course: string; photo_path: string | null } => item !== null),
+      menus: toEventMenus(event.event_menu_templates),
       room_ids: ((event.event_rooms ?? []) as { room_id: string }[]).map((r) => r.room_id),
       hasShowcasePhotos: ((event.event_showcase_photos ?? []) as { id: string }[]).length > 0,
       seatedCount,
-      contact_email: event.contact_email,
-      contact_email_2: event.contact_email_2,
-      contact_phone: event.contact_phone,
-      total_price: event.total_price,
-      deposit_paid: event.deposit_paid,
+      contact_email: event.contact_email ?? null,
+      contact_email_2: event.contact_email_2 ?? null,
+      contact_phone: event.contact_phone ?? null,
+      total_price: event.total_price ?? null,
+      deposit_paid: event.deposit_paid ?? null,
       hasUnseenSeatingChange: event.seating_unseen_at !== null,
+      menuNumbers: toMenuNumbers(event.event_menu_submissions),
     };
   });
 }
@@ -180,6 +291,25 @@ export async function listEventsForCalendar(
   }));
 }
 
+/** The venue's own shared packages, plus the event's own custom menus — never
+ * another venue's menu or another event's custom one. */
+async function assertMenusAllowed(
+  client: SupabaseClient,
+  venueId: string,
+  menuTemplateIds: string[],
+  eventId: string | null
+): Promise<void> {
+  const unique = [...new Set(menuTemplateIds)];
+  if (unique.length === 0) return;
+  let query = client.from("menu_templates").select("id").eq("venue_id", venueId).in("id", unique);
+  query = eventId ? query.or(`event_id.is.null,event_id.eq.${eventId}`) : query.is("event_id", null);
+  const { data, error } = await query;
+  if (error) throw error;
+  if ((data ?? []).length !== unique.length) {
+    throw new Error("Едно или повеќе менија не припаѓаат на овој локал.");
+  }
+}
+
 export interface CreateEventInput {
   venue_id: string;
   couple_names: string;
@@ -191,7 +321,8 @@ export interface CreateEventInput {
   status?: EventStatus;
   guest_count_estimate?: number | null;
   room_ids: string[];
-  menu_template_id: string | null;
+  /** The menus linked to the event, in order; may be empty. */
+  menu_template_ids: string[];
   /** A21: required, saved with the event. */
   contacts: CoupleContactsInput;
   /** Optional, set in the same insert as the rest of the event — folded in
@@ -205,7 +336,7 @@ export interface CreateEventInput {
   deposit_paid?: number | null;
   /** Security review fix: the couple's login is created here, server-side,
    * in the same call as the event row — create_event_credentials' direct
-   * `authenticated` grant was revoked (0110) since it let any staff session
+   * `authenticated` grant was revoked (0111) since it let any staff session
    * mint a couple login with a password of their own choosing. */
   credentials: { username: string; password: string };
 }
@@ -214,19 +345,6 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
   const contacts = parseCoupleContacts(input.contacts);
   if (!contacts.ok) throw new Error(contacts.error);
   const supabase = client;
-
-  if (input.menu_template_id) {
-    const { data: template, error: templateError } = await supabase
-      .from("menu_templates")
-      .select("id")
-      .eq("id", input.menu_template_id)
-      .eq("venue_id", input.venue_id)
-      .maybeSingle();
-    if (templateError) throw templateError;
-    if (!template) {
-      throw new Error("Менито не припаѓа на овој локал.");
-    }
-  }
 
   if (input.room_ids.length > 0) {
     const { data: rooms, error: roomsCheckError } = await supabase
@@ -240,7 +358,9 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     }
   }
 
-  // create_event_full (0111) does the event row, its rooms and the couple's
+  await assertMenusAllowed(supabase, input.venue_id, input.menu_template_ids, null);
+
+  // create_event_full (0112) does the event row, its rooms and the couple's
   // login as one Postgres function — one implicit transaction, so a failure
   // partway (e.g. the credentials insert) rolls back everything else the
   // function did instead of needing JS-level compensating cleanup that
@@ -254,7 +374,6 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     p_event_type: input.event_type ?? "other",
     p_status: input.status ?? "preparation",
     p_guest_count_estimate: input.guest_count_estimate ?? null,
-    p_menu_template_id: input.menu_template_id,
     p_room_ids: input.room_ids,
     p_contact_email: contacts.data.contact_email,
     p_contact_email_2: contacts.data.contact_email_2,
@@ -263,8 +382,11 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     p_deposit_paid: input.deposit_paid ?? null,
     p_username: input.credentials.username,
     p_password: input.credentials.password,
+    p_menu_template_ids: input.menu_template_ids,
   });
-  if (error) throw error;
+  // The couple's login is created inside create_event_full (0112): a taken
+  // username must still say so, not "the event could not be saved".
+  if (error) throw credentialsError(error);
   return { id: eventId as string };
 }
 
@@ -277,7 +399,10 @@ export interface UpdateEventInput {
   event_type: EventType;
   guest_count_estimate: number | null;
   room_ids: string[];
-  menu_template_id: string | null;
+  /** The menus the editing window linked / unlinked, relative to what it saw —
+   * never the full list, so a menu added elsewhere meanwhile survives the save. */
+  added_menu_ids: string[];
+  removed_menu_ids: string[];
 }
 
 /** Thrown by the gated-route write helpers below when the eventId/venueId
@@ -324,19 +449,6 @@ export async function updateEvent(
   const supabase = client;
   await assertEventNotPast(eventId, venueId, supabase);
 
-  if (input.menu_template_id) {
-    const { data: template, error: templateError } = await supabase
-      .from("menu_templates")
-      .select("id")
-      .eq("id", input.menu_template_id)
-      .eq("venue_id", venueId)
-      .maybeSingle();
-    if (templateError) throw templateError;
-    if (!template) {
-      throw new Error("Менито не припаѓа на овој локал.");
-    }
-  }
-
   if (input.room_ids.length > 0) {
     const { data: rooms, error: roomsCheckError } = await supabase
       .from("rooms")
@@ -349,7 +461,26 @@ export async function updateEvent(
     }
   }
 
-  // update_event_full (0111) does the event row and its room diff as one
+  const added = [...new Set(input.added_menu_ids)];
+  const removed = [...new Set(input.removed_menu_ids)];
+  await assertMenusAllowed(supabase, venueId, added, eventId);
+
+  // The final list is the event's CURRENT links, minus what this window
+  // removed, plus what it added.
+  const { data: currentLinks, error: linksError } = await supabase
+    .from("event_menu_templates")
+    .select("menu_template_id")
+    .eq("event_id", eventId);
+  if (linksError) throw linksError;
+  const removedSet = new Set(removed);
+  const final = [
+    ...new Set([
+      ...(currentLinks ?? []).map((r) => r.menu_template_id as string).filter((id) => !removedSet.has(id)),
+      ...added,
+    ]),
+  ];
+
+  // update_event_full (0112) does the event row and its room diff as one
   // Postgres function — one implicit transaction, so a failure partway
   // (e.g. the rooms insert) rolls back the event row change too, instead of
   // leaving an event saved with half-updated rooms (final review finding).
@@ -363,11 +494,25 @@ export async function updateEvent(
     p_event_type: input.event_type,
     p_status: input.status,
     p_guest_count_estimate: input.guest_count_estimate,
-    p_menu_template_id: input.menu_template_id,
     p_room_ids: input.room_ids,
+    p_menu_template_ids: final,
   });
   if (error) throw error;
   if (!found) throw new EventNotFoundError();
+
+  // An event-only custom menu this window took off the event has no other place
+  // to live: delete it (its dishes and guests' counts cascade). Only ids that were
+  // explicitly removed and are not in the final list — never ones merely absent.
+  const toDelete = removed.filter((id) => !final.includes(id));
+  if (toDelete.length > 0) {
+    const { error: orphanError } = await supabase
+      .from("menu_templates")
+      .delete()
+      .eq("venue_id", venueId)
+      .eq("event_id", eventId)
+      .in("id", toDelete);
+    if (orphanError) throw orphanError;
+  }
 }
 
 // The routes call these with the service-role client, which bypasses RLS —
