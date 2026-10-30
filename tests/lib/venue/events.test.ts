@@ -328,6 +328,37 @@ describe("events data layer: createEvent", () => {
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
+  it("two concurrent saves on different menus both land (0124: the diff is applied by id, never a recomputed full list)", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Concurrent Menus Venue" }).select().single();
+    const { data: a } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "A" }).select().single();
+    const { data: b } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "B" }).select().single();
+    const { data: c } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name: "C" }).select().single();
+    const event = await createEvent({
+      venue_id: venue!.id, couple_names: "Concurrent", event_date: "2099-12-12", room_ids: [],
+      menu_template_ids: [a!.id, b!.id],
+      contacts: { contact_email: "concurrent@example.mk", contact_phone: "070 111 666" },
+      credentials: { username: `concurrent-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const base = {
+      couple_names: "Concurrent", event_date: "2099-12-12", start_time: null, end_time: null,
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+    };
+
+    // Both windows started from the same [A, B] and never re-read between
+    // dispatch and commit — exactly the gap the old read-then-recompute
+    // approach raced on. Window 1 removes A; window 2 (unaware A is going)
+    // adds C. Neither should be able to undo the other's effect.
+    await Promise.all([
+      updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [], removed_menu_ids: [a!.id] }, admin),
+      updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [c!.id], removed_menu_ids: [] }, admin),
+    ]);
+
+    const { data: linked } = await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id);
+    expect((linked ?? []).map((r) => r.menu_template_id).sort()).toEqual([b!.id, c!.id].sort());
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
   it("refuses another venue's menu, and another event's custom menu", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Menu Refusal Venue" }).select().single();
     const { data: other } = await admin.from("venues").insert({ name: "Menu Refusal Other Venue" }).select().single();
@@ -426,7 +457,8 @@ describe("events data layer: updateEvent atomicity (final review finding)", () =
       p_event_type: "wedding",
       p_status: "confirmed",
       p_guest_count_estimate: null,
-      p_menu_template_ids: [],
+      p_added_menu_ids: [],
+      p_removed_menu_ids: [],
       p_room_ids: [bogusRoomId],
     });
     expect(error).not.toBeNull();

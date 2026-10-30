@@ -97,7 +97,18 @@ export async function saveEventCustomMenu(
     if (link.error && link.error.code !== "23505") throw link.error;
   }
 
-  await setMenuTemplateItems(id, itemIds, client);
+  try {
+    await setMenuTemplateItems(id, itemIds, client);
+  } catch (err) {
+    // A dish deleted between assertVenueDishes above and this write (e.g. by
+    // a concurrent manager) surfaces here as a raw FK violation; report it
+    // the same way assertVenueDishes already does, not as a generic save
+    // failure.
+    if (err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "23503") {
+      throw new Error(FOREIGN_DISH_ERROR);
+    }
+    throw err;
+  }
   return { id };
 }
 

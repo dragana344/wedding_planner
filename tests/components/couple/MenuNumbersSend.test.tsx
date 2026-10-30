@@ -29,5 +29,9 @@ describe("MenuNumbersSend", () => {
     await waitFor(() => expect(gets).toBe(2));
     expect(await screen.findByText(/чекаме одговор од: Ана Петрова/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
+    // Bug fix: the confirm dialog stays open on a failed send, and a guest
+    // going "not done" while it's open must disable the send button too —
+    // not just the reload before the dialog was ever opened.
+    expect(screen.getByRole("button", { name: "Потврди и испрати" })).toBeDisabled();
   });
 });

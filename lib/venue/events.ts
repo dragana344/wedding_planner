@@ -465,25 +465,14 @@ export async function updateEvent(
   const removed = [...new Set(input.removed_menu_ids)];
   await assertMenusAllowed(supabase, venueId, added, eventId);
 
-  // The final list is the event's CURRENT links, minus what this window
-  // removed, plus what it added.
-  const { data: currentLinks, error: linksError } = await supabase
-    .from("event_menu_templates")
-    .select("menu_template_id")
-    .eq("event_id", eventId);
-  if (linksError) throw linksError;
-  const removedSet = new Set(removed);
-  const final = [
-    ...new Set([
-      ...(currentLinks ?? []).map((r) => r.menu_template_id as string).filter((id) => !removedSet.has(id)),
-      ...added,
-    ]),
-  ];
-
-  // update_event_full (0112) does the event row and its room diff as one
-  // Postgres function — one implicit transaction, so a failure partway
-  // (e.g. the rooms insert) rolls back the event row change too, instead of
-  // leaving an event saved with half-updated rooms (final review finding).
+  // update_event_full (0112; menu diff moved into it by 0124) does the event
+  // row, its room diff and its menu-link diff as one Postgres function — one
+  // implicit transaction, so a failure partway (e.g. the rooms insert) rolls
+  // back the event row change too, instead of leaving an event saved with
+  // half-updated rooms (final review finding). Passing only this window's
+  // added/removed ids (never a recomputed full list) means a menu linked or
+  // unlinked elsewhere in between always survives the save (0124 — the
+  // previous read-then-recompute-then-overwrite approach did not).
   const { data: found, error } = await supabase.rpc("update_event_full", {
     p_event_id: eventId,
     p_venue_id: venueId,
@@ -495,24 +484,11 @@ export async function updateEvent(
     p_status: input.status,
     p_guest_count_estimate: input.guest_count_estimate,
     p_room_ids: input.room_ids,
-    p_menu_template_ids: final,
+    p_added_menu_ids: added,
+    p_removed_menu_ids: removed,
   });
   if (error) throw error;
   if (!found) throw new EventNotFoundError();
-
-  // An event-only custom menu this window took off the event has no other place
-  // to live: delete it (its dishes and guests' counts cascade). Only ids that were
-  // explicitly removed and are not in the final list — never ones merely absent.
-  const toDelete = removed.filter((id) => !final.includes(id));
-  if (toDelete.length > 0) {
-    const { error: orphanError } = await supabase
-      .from("menu_templates")
-      .delete()
-      .eq("venue_id", venueId)
-      .eq("event_id", eventId)
-      .in("id", toDelete);
-    if (orphanError) throw orphanError;
-  }
 }
 
 // The routes call these with the service-role client, which bypasses RLS —

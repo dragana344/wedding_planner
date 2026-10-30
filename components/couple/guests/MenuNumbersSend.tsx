@@ -87,7 +87,7 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
             ))}
           </ul>
           <p>{`Вкупно: ${current.total}`}</p>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void send()}>
+          <button type="button" className="btn btn-primary" disabled={busy || blocked} onClick={() => void send()}>
             Потврди и испрати
           </button>{" "}
           <button type="button" className="btn" disabled={busy} onClick={() => setConfirming(false)}>

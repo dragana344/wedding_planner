@@ -26,6 +26,7 @@
 }
 .stat-summary-headline-secondary {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 28px;
 }
