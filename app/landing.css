@@ -15,6 +15,14 @@
   --teal: #0e9f95;
   --blue: #1d4fd6;
   --eco: #4b9a28;
+  /* --eco itself (3.5:1 on white) is for icon fills/strokes, not text — too
+     light for the 4.5:1 text threshold. This is the same green, darkened,
+     for the two places it's actually used as text. */
+  --eco-text: #3d7f21;
+  --kdg: #1f6e42;
+  --kdg-soft: #eaf6ec;
+  --kda: #b8862b;
+  --kda-soft: #fbf2df;
   --shadow: 0 1px 2px rgba(20, 26, 46, 0.05), 0 8px 24px rgba(20, 26, 46, 0.07);
   --f-display: var(--font-montserrat), "Segoe UI", system-ui, sans-serif;
   --f-body: var(--font-sans), "Segoe UI", system-ui, sans-serif;
@@ -102,9 +110,8 @@
 .lp .hero-mark { display: block; width: min(100%, 430px); height: auto; margin-inline: auto; animation: lp-float 6s ease-in-out infinite; }
 .lp .hero-copy { min-width: 0; }
 .lp .hero-word { display: block; width: min(100%, 560px); height: auto; margin-bottom: 26px; }
-.lp .hero h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 700; margin-bottom: 14px; }
-.lp .hero-lead { color: var(--muted); font-size: 17px; max-width: 38em; }
-.lp .hero-ctas { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 30px; }
+.lp .hero h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 700; }
+.lp .hero-ctas { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
 .lp .play { width: 22px; height: 22px; flex-shrink: 0; }
 
 @keyframes lp-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
@@ -134,18 +141,31 @@
 .lp .eco-item { display: flex; align-items: center; gap: 8px; padding-inline: 16px; }
 .lp .eco-item + .eco-item { border-left: 1px solid var(--line); }
 .lp .eco-item svg { width: 22px; height: 22px; flex-shrink: 0; }
-.lp .eco-lead { color: var(--eco); font-weight: 800; }
-.lp .eco-tag { color: var(--eco); text-transform: none; letter-spacing: 0; font-size: 13px; }
+.lp .eco-lead { color: var(--eco-text); font-weight: 800; text-align: center; }
+/* The text sits between two flanking leaf icons; without this, a wrapped
+   second line left-aligns inside its own box instead of staying centred
+   under the first, breaking the symmetry with the leaves. */
+.lp .eco-tag { color: var(--eco-text); text-transform: none; letter-spacing: 0; font-size: 13px; text-align: center; }
+/* Between the stacked phone layout and a full-width single row, the strip
+   wraps: give the tag its own centred line so it doesn't start with a
+   stray divider. */
+@media (min-width: 881px) and (max-width: 1240px) {
+  .lp .eco-item.eco-tag { flex-basis: 100%; justify-content: center; border-left: 0; }
+}
 
 /* ---------- sections ---------- */
-.lp .band { padding-block: clamp(64px, 9vw, 104px); }
+/* Was clamp(64px, 9vw, 104px): on anything ≥1160px wide 9vw always exceeds
+   the 104px ceiling, so every section flatly got 104px top AND bottom —
+   ~208px of dead space between consecutive sections, worse than it reads on
+   a design mockup because the page has no large images to break it up. */
+.lp .band { padding-block: clamp(36px, 4.5vw, 60px); }
 .lp .band-tint { background: var(--tint); }
 .lp .eyebrow {
   font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--red); margin-bottom: 10px;
+  color: var(--red-deep); margin-bottom: 10px;
 }
 .lp .band h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
-.lp .section-head { max-width: 640px; margin-bottom: 44px; }
+.lp .section-head { max-width: 640px; margin-bottom: 32px; }
 .lp .section-head p:last-child:not(.eyebrow) { color: var(--muted); margin-top: 12px; }
 
 /* platform: dashboard preview + points */
@@ -241,6 +261,28 @@
 .lp .point p { color: var(--muted); font-size: 14.5px; }
 .lp .caption { margin-top: 14px; font-size: 13px; color: var(--muted); text-align: center; }
 
+/* KADESI acronym: a horizontal card strip, then the same six as a flower ring */
+/* 3 columns (not 6): each card's description is a full sentence, and the
+   page's own .wrap caps at 1440px regardless of viewport, so 6 across never
+   gets much wider than ~215px per card — tested cramped (3-4 line wraps,
+   uneven row heights) at every width that matters. 3 stays comfortable. */
+.lp .acronym-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 56px; }
+.lp .acronym-card { position: relative; background: var(--kdg-soft); border-radius: 16px; padding: 24px 16px 20px; text-align: center; overflow: hidden; }
+.lp .acronym-card.gold { background: var(--kda-soft); }
+.lp .acronym-card > svg { position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; opacity: 0.8; }
+.lp .acronym-badge { position: relative; display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--kdg); margin-bottom: 14px; }
+.lp .acronym-card.gold .acronym-badge { background: var(--kda); }
+.lp .acronym-letter { font: 800 24px/1 var(--f-display); color: #fff; }
+.lp .acronym-icon { position: absolute; bottom: -4px; right: -6px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--kda); border: 2px solid var(--kdg-soft); }
+.lp .acronym-card.gold .acronym-icon { background: var(--kdg); border-color: var(--kda-soft); }
+.lp .acronym-icon svg { width: 13px; height: 13px; }
+.lp .acronym-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.lp .acronym-card p { color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+/* The same six, as the venue's own flower graphic (background removed) —
+   placed as a plain image rather than redrawn, so it matches it exactly. */
+.lp .flower-photo { display: block; width: min(100%, 720px); height: auto; margin: 0 auto; }
+
 /* how it works: a real sequence, so it's a numbered timeline */
 .lp .timeline {
   list-style: none; margin: 12px 0 0; padding: 0; position: relative;
@@ -272,15 +314,16 @@
 /* pricing */
 /* The admin decides how many cards there are (Ценовник): three fill the row
    as before, more wrap, one or two stay card-sized and centred. */
-.lp .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 18px; }
+/* align-items: start, not the grid default (stretch): a plan with fewer
+   features than its neighbours was stretched to match the tallest card,
+   leaving empty space between its last item and its button. */
+.lp .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 18px; align-items: start; }
 .lp .plans[data-count="1"] { max-width: 460px; margin-inline: auto; }
 .lp .plans[data-count="2"] { max-width: 940px; margin-inline: auto; }
-.lp .plan { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 30px 26px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 18px; }
+.lp .plan { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 30px 26px; display: grid; grid-template-rows: auto 1fr auto; gap: 18px; }
 .lp .plan.featured { border: 2px solid var(--red); box-shadow: 0 12px 32px rgba(229, 24, 74, 0.14); }
 .lp .badge { position: absolute; top: -13px; left: 26px; background: var(--red); color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; }
 .lp .plan h3 { font-size: 18px; font-weight: 700; }
-.lp .price { font: 800 26px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
-.lp .price small { font: 500 14px var(--f-body); color: var(--muted); }
 .lp .plan ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; align-content: start; font-size: 14.5px; }
 .lp .plan li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; }
 .lp .plan li svg { width: 18px; height: 18px; margin-top: 3px; color: var(--teal); }
@@ -296,8 +339,14 @@
 .lp .faq details p { color: var(--muted); padding-bottom: 18px; max-width: 64ch; }
 
 /* contact */
-.lp .contact-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 64px); align-items: start; }
-.lp .contact-side > p:last-child { color: var(--muted); margin-top: 12px; }
+/* align-items: center, not start: the lead text is much shorter than the
+   form, so top-aligning them left a tall dead zone under the text instead of
+   splitting the extra height naturally above and below it. */
+.lp .contact-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
+.lp .contact-lead { color: var(--muted); margin-top: 12px; }
+.lp .contact-direct { margin-top: 20px; font-size: 14.5px; }
+.lp .contact-direct a { color: var(--red-deep); font-weight: 600; text-decoration: none; }
+.lp .contact-direct a:hover { text-decoration: underline; }
 .lp .contact-form { display: grid; gap: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 26px; box-shadow: var(--shadow); }
 .lp .contact-form label { display: grid; gap: 6px; margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .lp .contact-form input, .lp .contact-form textarea {
@@ -310,11 +359,13 @@
 
 /* closing cta */
 .lp .cta {
-  background: var(--tint); text-align: center;
-  padding-block: clamp(56px, 8vw, 84px);
+  background: var(--bg); text-align: center;
+  padding-block: clamp(32px, 4.5vw, 52px);
 }
 .lp .cta h2 { font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
 .lp .cta p { margin: 12px auto 28px; max-width: 34em; color: var(--muted); text-wrap: balance; }
+.lp .cta-taglines { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; font: 700 13px/1 var(--f-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--red-deep); margin-bottom: 18px; }
+.lp .cta-sun { margin: 22px auto 0; max-width: 34em; color: var(--muted); font-size: 14px; text-wrap: balance; }
 
 /* footer */
 .lp .footer { background: var(--ink); color: #c9cbd6; font-size: 14.5px; padding-block: clamp(40px, 6vw, 60px) 0; }
@@ -470,7 +521,7 @@
 @media (max-width: 880px) {
   .lp .hero-grid { grid-template-columns: minmax(0, 1fr); text-align: center; }
   .lp .hero-mark { width: min(62vw, 260px); }
-  .lp .hero-word, .lp .hero-lead { margin-inline: auto; }
+  .lp .hero-word { margin-inline: auto; }
   .lp .hero-ctas { justify-content: center; }
   .lp .platform-grid, .lp .contact-grid { grid-template-columns: minmax(0, 1fr); }
   .lp .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -478,10 +529,12 @@
   .lp .plans { grid-template-columns: minmax(0, 1fr); max-width: 480px; margin-inline: auto; }
   .lp .eco-row { flex-direction: column; }
   .lp .eco-item + .eco-item { border-left: 0; }
+  .lp .acronym-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .lp .feat-grid { grid-template-columns: minmax(0, 1fr); }
   .lp .footer-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp .acronym-grid { grid-template-columns: minmax(0, 1fr); }
   /* Phone: no sidebar and a single column of panels, at a narrower design
      width so the text stays readable. */
   .lp .dp-in { --dw: 620; grid-template-columns: minmax(0, 1fr); }
@@ -489,6 +542,36 @@
   .lp .dp-qrow, .lp .dp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp .dp-grid { grid-template-columns: minmax(0, 1fr); }
   .lp .hero-ctas .btn { flex: 1 1 100%; }
+
+  /* Phone type scale: the desktop sizes (tuned for wide, short lines) read as
+     oversized once a 390px-wide screen forces every heading and paragraph to
+     wrap across several lines. */
+  .lp .hero h1 { font-size: 20px; }
+  .lp .band h2 { font-size: 22px; }
+  .lp .section-head p:last-child:not(.eyebrow) { font-size: 14px; }
+  .lp .feat h3 { font-size: 15px; }
+  .lp .feat p { font-size: 13px; }
+  .lp .point h3 { font-size: 15px; }
+  .lp .point p { font-size: 13.5px; }
+  .lp .timeline h3 { font-size: 15.5px; }
+  .lp .timeline p { font-size: 13.5px; }
+  .lp .plan h3 { font-size: 16px; }
+  .lp .plan ul { font-size: 13.5px; }
+  .lp .cta h2 { font-size: 22px; }
+  .lp .cta p { font-size: 14px; }
+  .lp .faq summary { font-size: 14.5px; }
+  .lp .acronym-card h3 { font-size: 14px; }
+  .lp .acronym-card p { font-size: 12px; }
+
+  /* Phone spacing: `.band`'s clamp() is tuned for wide screens, where 9vw
+     comfortably exceeds its 64px floor; on a 390px phone 9vw is ~35px, so
+     every section clamps to the same flat 64px top+bottom regardless of how
+     little content it holds. The gap between sections (e.g. "Како работи" →
+     "Планови") was ~130px of empty space. */
+  .lp .band { padding-block: 32px; }
+  .lp .section-head { margin-bottom: 24px; }
+  .lp .cta { padding-block: 32px; }
+  .lp .footer-grid { gap: 28px; }
 }
 @media (max-width: 880px) {
   .lp .auth-grid { grid-template-columns: minmax(0, 1fr); max-width: 472px; }

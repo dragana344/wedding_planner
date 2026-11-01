@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 import { ContactForm } from "@/components/marketing/ContactForm";
@@ -59,8 +60,8 @@ const FEATURES = [
 
 const POINTS = [
   {
-    title: "Настани и резервации",
-    desc: "Свадби, родендени, матурски и секојдневни резервации, прегледно на еден календар. Без телефонски повици и хартиени тетратки.",
+    title: "Сите резервации на едно место",
+    desc: "Преглед на сите настани, нивниот статус и достапните термини — без тетратки, пораки и расфрлани евиденции.",
     tint: "var(--red-soft)",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth={2} strokeLinecap="round">
@@ -70,8 +71,8 @@ const POINTS = [
     ),
   },
   {
-    title: "Распоред на маси",
-    desc: "Нацртајте ги просториите и масите еднаш, а потоа распоредувајте ги гостите за секој настан.",
+    title: "Целосна контрола на просторот",
+    desc: "Дигитализиран распоред на сите сали, простории и маси, со јасен увид во нивната зафатеност и капацитет.",
     tint: "#e6f6f4",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth={2} strokeLinecap="round">
@@ -84,23 +85,108 @@ const POINTS = [
     ),
   },
   {
-    title: "Покани и потврди",
-    desc: "Секој пар добива своја табла: дигитална покана со QR код, листа на гости и следење на потврди.",
+    title: "Ажурирани информации во реално време",
+    desc: "Следете ги промените во бројот на гости, распоредот на масите и менијата, со помалку време и пропусти.",
     tint: "#f1ebfe",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" strokeWidth={2} strokeLinecap="round">
-        <path d="M4 6h16v12H4z" />
-        <path d="m4 7 8 6 8-6" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 11A8 8 0 0 0 6.3 6.3M4 5v5h5M4 13a8 8 0 0 0 13.7 4.7M20 19v-5h-5" />
       </svg>
     ),
   },
   {
-    title: "Менија и пакети",
-    desc: "Изградете менија и пакети што клиентите ги гледаат и избираат директно во платформата.",
+    title: "Подобра координација со организаторите",
+    desc: "Сите важни детали за настанот на едно место — од списокот на гости и потврдите за присуство до распоредот и избраното мени.",
     tint: "#fff3e8",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth={2} strokeLinecap="round">
-        <path d="M5 11h14M6 11a6 6 0 0 1 12 0M4 15h16M12 5V3.5" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx={9} cy={8} r={3} />
+        <path d="M3.5 19c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5" />
+        <circle cx={17.5} cy={9} r={2.3} />
+        <path d="M14.8 13.8c2.5.2 4.7 2 4.7 5.2" />
+      </svg>
+    ),
+  },
+  {
+    title: "Поефикасна работа и професионална услуга",
+    desc: "Намалете ја административната работа, подгответе се навреме за секој настан и понудете модерно дигитално искуство на вашите клиенти.",
+    tint: "#eaf2ff",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 3 4 14h7l-1 7 9-11h-7z" />
+      </svg>
+    ),
+  },
+];
+
+const ACRONYM = [
+  {
+    letter: "К",
+    title: "Контрола",
+    desc: "Комплетен увид во резервациите, настаните и работните активности.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x={3} y={4.5} width={18} height={16.5} rx={3} />
+        <path d="M3 9.5h18M8 2.5v4M16 2.5v4M8.5 15l2.5 2.5 4.5-5" />
+      </svg>
+    ),
+  },
+  {
+    letter: "А",
+    title: "Автоматизација",
+    desc: "Поедноставено управување со резервации и организациски процеси.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx={12} cy={12} r={3} />
+        <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+      </svg>
+    ),
+  },
+  {
+    letter: "Д",
+    title: "Дигитализација",
+    desc: "Дигитален приказ на просторот, масите, салите и распоредот.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x={3} y={3} width={18} height={18} rx={2.5} />
+        <path d="M3 9h18M9 9v12" />
+      </svg>
+    ),
+  },
+  {
+    letter: "Е",
+    title: "Ефикасност",
+    desc: "Побрзо и точно планирање, подобра организација и заштеда на време.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx={12} cy={12} r={9} />
+        <path d="M12 7v5l3.5 2" />
+      </svg>
+    ),
+  },
+  {
+    letter: "С",
+    title: "Синхронизација",
+    desc: "Усогласеност на информациите и увид во реално време за целиот тим.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx={9} cy={8} r={3} />
+        <path d="M3.5 19c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5" />
+        <circle cx={17.5} cy={9} r={2.3} />
+        <path d="M14.8 13.8c2.5.2 4.7 2 4.7 5.2" />
+      </svg>
+    ),
+  },
+  {
+    letter: "И",
+    title: "Интегрираност",
+    desc: "Сите клучни функции за управување со ресторанот на едно место.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x={3} y={4} width={13} height={9} rx={1.5} />
+        <path d="M7 19h5M9.5 13v6" />
+        <circle cx={19} cy={16} r={3} />
+        <path d="M19 14.3v2l1.3 1.3" />
       </svg>
     ),
   },
@@ -200,9 +286,6 @@ export default async function Home() {
           <div className="hero-copy">
             <Wordmark id="hero-word" className="hero-word" />
             <h1>Платформа за организирање на вашите посебни моменти</h1>
-            <p className="hero-lead">
-              Сè на едно место: настани, резервации, гости, покани, менија и повеќе. Паметно, брзо и едноставно.
-            </p>
             <div className="hero-ctas">
               <Link href="/signup" className="btn btn-red">
                 Започни бесплатно
@@ -237,12 +320,9 @@ export default async function Home() {
         <div className="wrap">
           <div className="eco-row">
             <div className="eco-item eco-lead">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--eco)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 19H4.8a1.8 1.8 0 0 1-1.6-2.7L6 11.5M11 19h8.2a1.8 1.8 0 0 0 1.6-2.7L19 13M14 5.5l-1-1.8a1.8 1.8 0 0 0-3.1 0L7.8 7.4" />
-                <path d="M8.5 16 11 19l-2.5 3M17.5 10.5 19 13l-3.5 1M5 8.6 7.8 7.4l1.2 3" />
-              </svg>
               <Leaf />
               Повеќе организација со:
+              <Leaf flip />
             </div>
             <div className="eco-item">
               <svg viewBox="0 0 24 24" fill="none" stroke="var(--eco)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -259,7 +339,7 @@ export default async function Home() {
             </div>
             <div className="eco-item">
               <svg viewBox="0 0 24 24">
-                <circle cx={12} cy={12} r={9.5} fill="#3b8fd9" />
+                <circle cx={12} cy={12} r={9.5} fill="var(--eco)" />
                 <path
                   d="M6 6.5c2 .3 3 1.6 2.6 3.2-.3 1.3 1 2 2 2.6 1.3.8.6 2.6-.4 3.4-.9.8-.9 2.5-.2 3.7M14 3.2c-.6 1.4.3 2.8 1.8 3 1.6.3 1.8 2 .8 3-1.1 1.1-.2 2.8 1.3 3 1.3.1 2.5-.4 3.4-1.1"
                   fill="none"
@@ -279,12 +359,43 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="platform" className="band">
+      <section id="kadesi" className="band" aria-label="КАДЕСИ накратко">
+        <div className="wrap">
+          <div className="section-head">
+            <p className="eyebrow">Повеќе од обична платформа</p>
+            <h2>КАДЕСИ, накратко</h2>
+          </div>
+          <Image
+            src="/marketing/kadesi-flower.png"
+            alt="К-А-Д-Е-С-И: Контрола, Автоматизација, Дигитализација, Ефикасност, Синхронизација, Интегрираност — истите шест зборови, околу знакот на платформата."
+            width={1392}
+            height={1130}
+            className="flower-photo"
+            sizes="(max-width: 880px) 100vw, 720px"
+          />
+
+          <div className="acronym-grid">
+            {ACRONYM.map((a, i) => (
+              <article key={a.letter} className={`acronym-card ${i % 2 ? "gold" : "green"}`}>
+                <Leaf />
+                <span className="acronym-badge">
+                  <span className="acronym-letter">{a.letter}</span>
+                  <span className="acronym-icon">{a.icon}</span>
+                </span>
+                <h3>{a.title}</h3>
+                <p>{a.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="platform" className="band band-tint">
         <div className="wrap">
           <div className="section-head">
             <p className="eyebrow">За платформата</p>
-            <h2>Една контролна табла за целиот ваш локал</h2>
-            <p>Каде си? им служи на ресторани и сали за настани, а преку нив и на секој пар или организатор што слави кај вас.</p>
+            <h2>Што добива вашиот ресторан со „Каде си?“</h2>
+            <p>Дигитална работна алатка за организација, координација и контрола на настаните — достапна 24/7.</p>
           </div>
           <div className="platform-grid">
             <div>
@@ -313,7 +424,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="how" className="band band-tint">
+      <section id="how" className="band">
         <div className="wrap">
           <div className="section-head">
             <p className="eyebrow">Процес</p>
@@ -338,21 +449,18 @@ export default async function Home() {
       </section>
 
       {pricing.length > 0 ? (
-        <section id="pricing" className="band">
+        <section id="pricing" className="band band-tint">
           <div className="wrap">
             <div className="section-head">
-              <p className="eyebrow">Цени</p>
+              <p className="eyebrow">Пакети за ресторани</p>
               <h2>Планови</h2>
-              <p>Регистрацијата е бесплатна. Надградете кога ќе ви затреба повеќе.</p>
+              <p>Пакетите подолу се наменети за ресторани и сали за настани. Контактирајте нè за да дознаете кој пакет одговара на вашиот локал.</p>
             </div>
             <div className="plans" data-count={pricing.length}>
               {pricing.map((tier) => (
                 <article key={tier.id} className={`plan${tier.featured ? " featured" : ""}`}>
                   {tier.featured ? <span className="badge">Препорачано</span> : null}
                   <h3>{tier.name}</h3>
-                  <div className="price">
-                    {tier.price} {tier.period ? <small>{tier.period}</small> : null}
-                  </div>
                   <ul>
                     {tier.features.map((f, i) => (
                       <li key={i}>
@@ -371,7 +479,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <section id="faq" className="band band-tint">
+      <section id="faq" className="band">
         <div className="wrap">
           <div className="section-head">
             <p className="eyebrow">Прашања</p>
@@ -388,12 +496,16 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="contact" className="band">
+      <section id="contact" className="band band-tint">
         <div className="wrap contact-grid">
           <div className="contact-side">
             <p className="eyebrow">Да започнеме</p>
             <h2>Контакт</h2>
-            <p>Имате прашање за плановите или сакате демо за вашиот локал? Пишете ни и ќе ви одговориме во рок од еден работен ден.</p>
+            <p className="contact-lead">Имате прашање за плановите или сакате демо за вашиот локал? Пишете ни и ќе ви одговориме во рок од еден работен ден.</p>
+            <p className="contact-direct">
+              Или пишете директно на{" "}
+              <a href="mailto:support@kadesi.mk">support@kadesi.mk</a>
+            </p>
           </div>
           <ContactForm />
         </div>
@@ -401,11 +513,17 @@ export default async function Home() {
 
       <section className="cta">
         <div className="wrap">
+          <div className="cta-taglines">
+            <span>Повеќе прегледност.</span>
+            <span>Подобра организација.</span>
+            <span>Поголема контрола.</span>
+          </div>
           <h2>Спремни да го тестирате бесплатно?</h2>
           <p>Регистрирајте го вашиот локал за неколку минути. Без картичка, без обврска.</p>
           <Link href="/signup" className="btn btn-red">
             Започни бесплатно
           </Link>
+          <p className="cta-sun">☼ Организирајте ја вашата прослава со помалку грижи. Повеќе време за убавите моменти! ☼</p>
         </div>
       </section>
 
