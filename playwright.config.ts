@@ -36,6 +36,9 @@ if (!anonKey || !serviceRoleKey) {
   throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY must be set (see .env.test.local).");
 }
 
+// The cron route needs a secret; the app and the test workers share this one.
+process.env.CRON_SECRET ??= "e2e-cron-secret";
+
 const PORT = Number(process.env.E2E_PORT ?? 3200);
 const baseURL = `http://127.0.0.1:${PORT}`;
 const isCI = !!process.env.CI;
@@ -70,6 +73,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey,
       SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+      CRON_SECRET: process.env.CRON_SECRET,
       NEXT_TELEMETRY_DISABLED: "1",
       LOG_SILENT: "1",
     },

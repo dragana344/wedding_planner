@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 import { GuestsClient } from "@/components/couple/GuestsClient";
 import type { Guest, GuestStats } from "@/lib/couple/guests";
 
@@ -464,5 +467,44 @@ describe("GuestsClient menu counts", () => {
     render(<GuestsClient initialGuests={[incomplete]} initialStats={makeStats({ menus: [{ id: CLASSIC, name: "Класично", count: 2 }] })} eventType="birthday" />);
     fireEvent.click(screen.getByRole("button", { name: "Детали за Борис" }));
     expect(within(screen.getByRole("dialog", { name: "Борис" })).queryByRole("button", { name: "Зачувај мени" })).not.toBeInTheDocument();
+  });
+
+  describe("new guest replies", () => {
+    const two = [makeGuest({ id: "g1", full_name: "Ана Петровска" }), makeGuest({ id: "g2", full_name: "Борис Илиев" })];
+    const upTo = "2026-10-30T10:00:00.123456+00:00";
+
+    it("badges only guests with an unseen reply and filters to them with Само нови", () => {
+      render(<GuestsClient initialGuests={two} initialStats={stats} eventType="other" newGuestIds={["g2"]} newestReplyAt={upTo} />);
+      expect(screen.getAllByText("Ново")).toHaveLength(1);
+      fireEvent.click(screen.getByLabelText("Само нови"));
+      expect(screen.queryByText("Ана Петровска")).toBeNull();
+      expect(screen.getByText("Борис Илиев")).toBeInTheDocument();
+    });
+
+    it("Означи ги како видени posts guest_replies with the newest reply time, then refreshes", async () => {
+      const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response));
+      vi.stubGlobal("fetch", fetchMock);
+      render(<GuestsClient initialGuests={two} initialStats={stats} eventType="other" newGuestIds={["g2"]} newestReplyAt={upTo} />);
+      fireEvent.click(screen.getByRole("button", { name: "Означи ги како видени" }));
+      await waitFor(() => expect(refresh).toHaveBeenCalled());
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe("/api/couple/changes/seen");
+      expect(JSON.parse(init.body as string)).toEqual({ section: "guest_replies", up_to: upTo });
+      vi.unstubAllGlobals();
+    });
+
+    it("still offers Означи ги како видени when a new reply has no guest row", () => {
+      render(<GuestsClient initialGuests={two} initialStats={stats} eventType="other" newGuestIds={[]} newestReplyAt={upTo} />);
+      expect(screen.queryByText("Ново")).toBeNull();
+      expect(screen.queryByLabelText("Само нови")).toBeNull();
+      expect(screen.getByRole("button", { name: "Означи ги како видени" })).toBeInTheDocument();
+    });
+
+    it("hides the badge, toggle and button when nothing is new", () => {
+      render(<GuestsClient initialGuests={two} initialStats={stats} eventType="other" newGuestIds={[]} newestReplyAt={null} />);
+      expect(screen.queryByText("Ново")).toBeNull();
+      expect(screen.queryByLabelText("Само нови")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Означи ги како видени" })).toBeNull();
+    });
   });
 });

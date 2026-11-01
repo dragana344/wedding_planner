@@ -6,6 +6,7 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
 import type { RoomWithSeatTotal, TableType } from "@/lib/venue/rooms";
 import type { MenuTemplateWithItemCount } from "@/lib/venue/menus";
+import { ChangeMark } from "./ChangeMark";
 import type { EventDetail } from "@/lib/venue/events";
 import { RESERVATION_STATUS_META, type Reservation } from "@/lib/venue/reservations";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
@@ -465,6 +466,7 @@ export function DashboardClient({
                     <span className="plan-time">{range ?? "Без време"}</span>
                     <span className="plan-name">
                       <b>{ev.couple_names}</b>
+                      <ChangeMark sections={ev.unseenSections} />
                       <span>
                         {[
                           type.label,
@@ -524,6 +526,7 @@ export function DashboardClient({
                     <span className="up-dot" style={{ background: type.color }} />
                     <span>
                       <b>{ev.couple_names}</b>
+                      <ChangeMark sections={ev.unseenSections} />
                       <span>
                         {new Date(`${ev.event_date}T00:00:00`).getDate()}{" "}
                         {MK_MONTHS[new Date(`${ev.event_date}T00:00:00`).getMonth()]}

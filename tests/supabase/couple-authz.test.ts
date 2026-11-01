@@ -70,6 +70,8 @@ import * as albumPhotoIdRoute from "@/app/api/couple/album/photos/[id]/route";
 import * as albumZipRoute from "@/app/api/couple/album/zip/route";
 import * as greetingIdRoute from "@/app/api/couple/greetings/[id]/route";
 import * as menuNumbersRoute from "@/app/api/couple/menu-numbers/route";
+import * as changesRoute from "@/app/api/couple/changes/route";
+import * as changesSeenRoute from "@/app/api/couple/changes/seen/route";
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -253,6 +255,11 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     event_id: event.id, first_name: text("first"), last_name: "Guest", message: text("greeting"),
   });
 
+  if (tag === "B") {
+    await insert("event_changes", { event_id: event.id, section: "rooms", side: "venue", changed_by: "Салата", field: "added", new_value: { name: SECRET } });
+    await insert("event_change_seen", { event_id: event.id, viewer: "couple", section: "menus", seen_up_to: new Date().toISOString() });
+  }
+
   return {
     eventId: event.id,
     roomId: room.id,
@@ -301,6 +308,8 @@ async function snapshotEvent(f: EventFixture): Promise<Record<string, Row[]>> {
     event_menu_submissions: await byEvent("event_menu_submissions"),
     event_photos: await byEvent("event_photos"),
     event_greetings: await byEvent("event_greetings"),
+    event_changes: await byEvent("event_changes"),
+    event_change_seen: await byEvent("event_change_seen", "event_id", "section"),
   };
 }
 
@@ -795,6 +804,28 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       DELETE: async () => {
         await call(locationsIdRoute.DELETE, { id: B.locationId }, "DELETE");
         expect(await adminRow("event_locations", B.locationId)).not.toBeNull();
+      },
+    },
+  },
+  "changes/route.ts": {
+    module: changesRoute,
+    methods: {
+      GET: async () => {
+        // B's venue-side change carries the secret; A must see none of it.
+        const res = await call(changesRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(res.json).toEqual({ unseen: {}, venueNumbersUnseen: null });
+      },
+    },
+  },
+  "changes/seen/route.ts": {
+    module: changesSeenRoute,
+    methods: {
+      POST: async () => {
+        const res = await call(changesSeenRoute.POST, NONE, "POST", { body: { section: "rooms", up_to: new Date().toISOString() } });
+        expect(res.status).toBe(200);
+        expect(res.json).toEqual({ ok: true });
+        expect((await admin.from("event_change_seen").select("event_id").eq("event_id", A.eventId).eq("viewer", "couple")).data).toHaveLength(1);
       },
     },
   },

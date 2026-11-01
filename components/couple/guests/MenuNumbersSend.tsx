@@ -3,12 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { diffMenuNumbers, type MenuNumbers, type MenuSubmission } from "@/lib/menu-numbers";
 import { formatVenueDateTime } from "@/lib/date";
+import type { TimelineStage } from "@/lib/menu-timeline";
 
 type State = {
   current: MenuNumbers;
   notDone: { id: string; full_name: string }[];
   latest: MenuSubmission | null;
   changedSinceLatest: boolean;
+  /** Where the event stands on the final-numbers timeline. */
+  stage?: TimelineStage;
+  /** Whether the "send the final numbers" banner shows (late events skip it). */
+  coupleReminder?: boolean;
 };
 
 /** "5.10.2026 9:05" style → "05.10.2026 09:05". */
@@ -63,10 +68,13 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
   if (!state || state.current.menus.length === 0) return null;
   const { current, notDone, latest, changedSinceLatest } = state;
   const blocked = notDone.length > 0;
+  // 25..16 days out with nothing sent: the venue is waiting for the numbers.
+  const remind = !latest && state.coupleReminder === true;
   const changes = latest && changedSinceLatest ? diffMenuNumbers(latest.numbers, current) : [];
 
   return (
     <div className="guests-summary-send">
+      {remind ? <p role="status" className="guests-summary-menu"><b>Испратете ги конечните бројки до салата</b></p> : null}
       {latest ? <p className="guests-summary-menu">{`Испратено на ${sentAtLabel(latest.sentAt)}`}</p> : null}
       {changedSinceLatest ? (
         <p className="guests-summary-menu">

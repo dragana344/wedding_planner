@@ -17,14 +17,14 @@ const rooms = [
   { id: "r2", venue_id: "v1", name: "Мала сала", width_cm: 1500, height_cm: 1000, seatTotal: 80 },
 ];
 
-function ev(id: string, name: string, roomIds: string[]): EventDetail {
+function ev(id: string, name: string, roomIds: string[], unseenSections: string[] = []): EventDetail {
   return {
     id, couple_names: name, event_date: "2027-06-01", start_time: "19:00", end_time: null, status: "confirmed", event_type: "wedding",
-    guest_count_estimate: 100, menus: [], room_ids: roomIds,
+    guest_count_estimate: 100, menus: [], room_ids: roomIds, unseenSections,
   } as unknown as EventDetail;
 }
 
-function renderDashboard() {
+function renderDashboard(unseen: string[] = []) {
   const layout = { fixedElements: [], layoutElements: [], tableTypes: [] };
   render(
     <DashboardClient
@@ -32,9 +32,9 @@ function renderDashboard() {
       rooms={rooms as never}
       roomLayouts={{ r1: layout, r2: layout } as never}
       menuTemplates={[]}
-      todayEvents={[ev("e1", "Ана и Марко", ["r1"]), ev("e2", "Роденден Петар", ["r2"])]}
+      todayEvents={[ev("e1", "Ана и Марко", ["r1"], unseen), ev("e2", "Роденден Петар", ["r2"])]}
       todayReservations={[]}
-      upcomingEvents={[ev("e3", "Свадба Илиевски", ["r1", "r2"])]}
+      upcomingEvents={[ev("e3", "Свадба Илиевски", ["r1", "r2"], unseen)]}
       weekCounts={[]}
       monthEventDays={{}}
       monthLabel="Јуни"
@@ -64,5 +64,17 @@ describe("dashboard hall filter (B6)", () => {
     fireEvent.click(within(screen.getByRole("group", { name: "Сала" })).getByRole("button", { name: "Голема сала" }));
     expect(screen.getByRole("link", { name: "Детали за салата" })).toHaveAttribute("href", "/venue/rooms/r1/floor-plan");
     expect(screen.getByRole("link", { name: "Нов настан во оваа сала" })).toHaveAttribute("href", "/venue/events/new?room=r1");
+  });
+});
+
+describe("dashboard change marks", () => {
+  it("shows ! on today and upcoming events with unseen sections", () => {
+    renderDashboard(["guest_count"]);
+    expect(screen.getAllByLabelText("Има промени од парот")).toHaveLength(2);
+  });
+
+  it("shows no ! without unseen sections", () => {
+    renderDashboard();
+    expect(screen.queryByLabelText("Има промени од парот")).toBeNull();
   });
 });

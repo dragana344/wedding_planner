@@ -35,6 +35,9 @@ export const EXPORTED_TABLES = [
   "event_seat_assignments",
   "event_photos",
   "event_greetings",
+  "event_changes",
+  "event_change_seen",
+  "event_couple_reminders",
 ] as const;
 
 const PAGE = 1000;
@@ -65,6 +68,12 @@ export type EventExport = {
   album_photos: (Row & { photo_url: string | null })[];
   /** Guests' greetings; `video_url` is a signed link valid for 7 days. */
   greetings: (Row & { video_url: string | null })[];
+  /** Changes to the event's details and who made them (0125); contact values included. */
+  change_log: Row[];
+  /** How far each side has seen the changes, and who pressed "Видено". */
+  change_seen: Row[];
+  /** The venue's reminders to send the menu numbers, and who sent them. */
+  couple_reminders: Row[];
 };
 
 export type VenueExport = {
@@ -150,7 +159,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, submissions, showcase, layout, seats, photos, greetings] =
+  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, submissions, showcase, layout, seats, photos, greetings, changeLog, changeSeen, reminders] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
       selectIn(client, "event_co_organizers", "event_id, side, username, created_at", byEvent, ids, [byEvent, "side"]),
@@ -167,6 +176,9 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       selectIn(client, "event_seat_assignments", "event_id, room_id, layout_element_id, seat_number, guest_id, guest_name", byEvent, ids, ["layout_element_id", "seat_number"]),
       selectIn(client, "event_photos", "*", byEvent, ids, ["created_at", "id"]),
       selectIn(client, "event_greetings", "*", byEvent, ids, ["created_at", "id"]),
+      selectIn(client, "event_changes", "*", byEvent, ids, ["changed_at", "id"]),
+      selectIn(client, "event_change_seen", "*", byEvent, ids, ["viewer", "section"]),
+      selectIn(client, "event_couple_reminders", "*", byEvent, ids, ["reminded_at", "id"]),
     ]);
   const mediaUrls = await signedUrls(client, [
     ...photos.map((p) => String(p.storage_path)),
@@ -213,6 +225,9 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     seats: groupBy(seats, byEvent),
     photos: groupBy(photos, byEvent),
     greetings: groupBy(greetings, byEvent),
+    changeLog: groupBy(changeLog, byEvent),
+    changeSeen: groupBy(changeSeen, byEvent),
+    reminders: groupBy(reminders, byEvent),
   };
 
   return events.map((event) => {
@@ -243,6 +258,9 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
         ...gr,
         video_url: gr.video_path ? (mediaUrls.get(String(gr.video_path)) ?? null) : null,
       })),
+      change_log: g.changeLog.get(id) ?? [],
+      change_seen: g.changeSeen.get(id) ?? [],
+      couple_reminders: g.reminders.get(id) ?? [],
     };
   });
 }

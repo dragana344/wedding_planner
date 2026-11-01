@@ -10,6 +10,9 @@ export type MenuSubmission = {
   numbers: MenuNumbers;
   seenAt: string | null;
   seenBy: string | null;
+  source: "couple" | "auto" | "venue";
+  /** Guests without a final answer when the numbers went out automatically. */
+  unanswered: number | null;
 };
 
 /** The menus whose count differs between two sets of numbers (a menu missing on one side counts as 0). */
@@ -44,6 +47,8 @@ export type MenuSubmissionRow = {
   total: number;
   seen_at: string | null;
   seen_by: string | null;
+  source: "couple" | "auto" | "venue";
+  unanswered: number | null;
 };
 
 /** Rebuilds a submission from its row; menus ordered by title ("mk"), then id. */
@@ -60,6 +65,8 @@ export function toMenuSubmission(row: MenuSubmissionRow): MenuSubmission {
     numbers: { menus, total: row.total },
     seenAt: row.seen_at,
     seenBy: row.seen_by,
+    source: row.source,
+    unanswered: row.unanswered,
   };
 }
 

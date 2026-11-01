@@ -42,6 +42,7 @@ function useNow() {
 export function PanelShell({
   venueName,
   lockedFeatures = [],
+  badges,
   brand,
   children,
 }: {
@@ -52,6 +53,8 @@ export function PanelShell({
    * §4.4). Locks the matching nav items and shows LockedBanner on their
    * pages. Defaults to none locked, so existing callers keep working. */
   lockedFeatures?: FeatureKey[];
+  /** Count badges on nav items, keyed by href. */
+  badges?: Partial<Record<string, number>>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -85,7 +88,7 @@ export function PanelShell({
           </div>
         </div>
 
-        <VenueNav activeHref={active.href} isLocked={isLocked} />
+        <VenueNav activeHref={active.href} isLocked={isLocked} badges={badges} />
 
         <Link className="quick" href={TABLE_RESERVATIONS_ENABLED ? "/venue/reservations" : "/venue/events/new"}>
           <b>

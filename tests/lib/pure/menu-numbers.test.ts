@@ -35,12 +35,14 @@ describe("menu numbers", () => {
       total: 8,
       seen_at: null,
       seen_by: null,
+      source: "couple",
+      unanswered: null,
     });
     expect(sub.numbers.menus.map((m) => m.id)).toEqual(["x", "y", "z"]);
     expect(sub.numbers.total).toBe(8);
     expect(hasUnseenMenuNumbers({ latest: sub })).toBe(true);
     expect(hasUnseenMenuNumbers({ latest: { ...sub, seenAt: "2026-10-30T11:00:00Z" } })).toBe(false);
     expect(hasUnseenMenuNumbers({ latest: null })).toBe(false);
-    expect(toMenuSubmission({ ...{ id: "s2", sent_at: "", sent_by: "", total: 0, seen_at: null, seen_by: null }, counts: null, menu_titles: null }).numbers.menus).toEqual([]);
+    expect(toMenuSubmission({ ...{ id: "s2", sent_at: "", sent_by: "", total: 0, seen_at: null, seen_by: null, source: "couple" as const, unanswered: null }, counts: null, menu_titles: null }).numbers.menus).toEqual([]);
   });
 });

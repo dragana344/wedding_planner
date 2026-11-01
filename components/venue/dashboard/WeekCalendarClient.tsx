@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
+import { ChangeMark } from "./ChangeMark";
 import type { EventDetail, EventStatus, EventType } from "@/lib/venue/events";
 import type { RoomWithSeatTotal } from "@/lib/venue/rooms";
 
@@ -369,7 +370,7 @@ export function WeekCalendarClient({
                       <span>
                         {range ? <b>{range}</b> : null}
                         <span>
-                          {type.label} — {ev.couple_names}
+                          {type.label} — {ev.couple_names} <ChangeMark sections={ev.unseenSections} />
                           <br />
                           {d.getDate()} {MK_MONTHS[d.getMonth()]}
                         </span>
@@ -461,6 +462,7 @@ function MonthGrid({
               {shown.map((ev) => (
                 <span key={ev.id} className="cal-month-chip" style={{ background: `${TYPE_META[ev.event_type].color}1f`, color: TYPE_META[ev.event_type].color }}>
                   {ev.couple_names}
+                  <ChangeMark sections={ev.unseenSections} />
                 </span>
               ))}
               {overflow > 0 ? <span className="cal-month-more">+{overflow}</span> : null}
@@ -553,7 +555,7 @@ function TimeGrid({
                   style={{ top, height, background: `${type.color}22`, borderLeftColor: type.color, color: type.color }}
                 >
                   <b>{formatTimeRange(ev.start_time, ev.end_time) ?? "Без време"}</b>
-                  <span>{ev.couple_names}</span>
+                  <span>{ev.couple_names} <ChangeMark sections={ev.unseenSections} /></span>
                   {height > 46 ? <span className="cal-event-sub">{[roomNames, ev.guest_count_estimate != null ? `${ev.guest_count_estimate} гости` : null].filter(Boolean).join(" · ")}</span> : null}
                 </Link>
               );

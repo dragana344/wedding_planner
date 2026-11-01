@@ -16,8 +16,8 @@ vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.Re
 
 const event: EventDetail = {
   id: "e1", couple_names: "Ана & Марко", event_date: "2027-06-12", start_time: null, end_time: null, status: "confirmed",
-  event_type: "wedding", guest_count_estimate: 100, menus: [], room_ids: [],
-  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null, hasUnseenSeatingChange: false,
+  event_type: "wedding", guest_count_estimate: 100, created_at: "2026-01-01T10:00:00Z", menus: [], room_ids: [],
+  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null, hasUnseenSeatingChange: false, unseenSections: [],
   menuNumbers: { latest: null, previous: null },
 };
 
@@ -60,8 +60,8 @@ describe("EventsClient deep link (B9 notifications)", () => {
   });
 
   it("Настани shows \"Нови бројки\" only while unseen", () => {
-    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null });
-    const unseen = { ...event, id: "u1", couple_names: "Нови", menuNumbers: { latest: sub(null), previous: null } };
+    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null });
+    const unseen = { ...event, id: "u1", couple_names: "Нови", unseenSections: ["menu_numbers" as const], menuNumbers: { latest: sub(null), previous: null } };
     const seen = { ...event, id: "u2", couple_names: "Видени", menuNumbers: { latest: sub("2026-06-15T10:00:00Z"), previous: null } };
     render(<ManagerElevationProvider><EventsClient venueId="v1" initialEvents={[seen]} rooms={[]} menuTemplates={[]} initialFilter="all" /></ManagerElevationProvider>);
     expect(screen.queryByText("Нови бројки")).not.toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("EventsClient deep link (B9 notifications)", () => {
   });
 
   it("an open event reflects refreshed data (Видено clears the highlight without closing)", async () => {
-    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null });
+    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null });
     const unseen = { ...event, menuNumbers: { latest: sub(null), previous: null } };
     const seen = { ...event, menuNumbers: { latest: sub("2026-06-15T10:00:00Z"), previous: null } };
     vi.spyOn(menuNumbersClient, "markMenuNumbersSeenViaApi").mockResolvedValue(undefined);

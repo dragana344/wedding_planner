@@ -22,7 +22,7 @@ export async function listMenuSubmissions(eventId: string, limit = 2): Promise<M
   const client = createServiceRoleClient();
   const { data, error } = await client
     .from("event_menu_submissions")
-    .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by")
+    .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered")
     .eq("event_id", eventId)
     .order("sent_at", { ascending: false })
     .order("id", { ascending: false })
@@ -52,7 +52,7 @@ export async function sendMenuNumbers(eventId: string): Promise<MenuSubmission> 
       menu_titles: Object.fromEntries(numbers.menus.map((m) => [m.id, m.name])),
       total: numbers.total,
     })
-    .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by")
+    .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered")
     .single();
   if (error) throw error;
   return toMenuSubmission(data as unknown as MenuSubmissionRow);

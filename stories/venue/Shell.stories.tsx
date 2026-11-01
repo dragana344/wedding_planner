@@ -27,8 +27,8 @@ export const TrialPlanLocked: Story = {
         <NotificationsList
           today="2026-10-06"
           items={[
-            { id: "1", at: "2026-10-06T08:12:00Z", kind: "rsvp_changed", eventId: EVENT_ID, title: "Пример содржина", detail: "Ова стои зад замаглувањето" },
-            { id: "2", at: "2026-10-05T15:40:00Z", kind: "event_created", eventId: EVENT_ID, title: "Пример содржина", detail: "Не може да се кликне ниту прочита" },
+            { id: "1", at: "2026-10-06T08:12:00Z", kind: "couple_change", color: "yellow", unseen: false, eventId: EVENT_ID, title: "Пример содржина", detail: "Ова стои зад замаглувањето" },
+            { id: "2", at: "2026-10-05T15:40:00Z", kind: "event_created", color: "blue", unseen: false, eventId: EVENT_ID, title: "Пример содржина", detail: "Не може да се кликне ниту прочита" },
           ]}
         />
       </div>
@@ -68,9 +68,9 @@ export const Notifications: Story = {
         <NotificationsList
           today="2026-10-06"
           items={[
-            { id: "1", at: "2026-10-06T08:12:00Z", kind: "rsvp_changed", eventId: EVENT_ID, title: "Одговор на поканата", detail: "Ана & Марко" },
-            { id: "2", at: "2026-10-05T15:40:00Z", kind: "event_created", eventId: EVENT_ID, title: "Нов настан", detail: "Крштевка — Петровски" },
-            { id: "3", at: "2026-10-03T11:05:00Z", kind: "password_regenerated", eventId: EVENT_ID, title: "Нова лозинка за парот", detail: "Ана & Марко" },
+            { id: "1", at: "2026-10-06T08:12:00Z", kind: "couple_change", color: "yellow", unseen: false, eventId: EVENT_ID, title: "Одговор на поканата", detail: "Ана & Марко" },
+            { id: "2", at: "2026-10-05T15:40:00Z", kind: "event_created", color: "blue", unseen: false, eventId: EVENT_ID, title: "Нов настан", detail: "Крштевка — Петровски" },
+            { id: "3", at: "2026-10-03T11:05:00Z", kind: "password_regenerated", color: "grey", unseen: false, eventId: EVENT_ID, title: "Нова лозинка за парот", detail: "Ана & Марко" },
           ]}
         />
       </div>

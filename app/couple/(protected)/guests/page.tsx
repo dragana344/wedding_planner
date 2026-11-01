@@ -10,6 +10,7 @@ import { getReminder } from "@/lib/couple/reminders";
 import { listCoOrganizers } from "@/lib/couple/co-organizers";
 import { COUPLE_ORGANIZER_SIDE_HEADER } from "@/lib/couple/session-verify";
 import { getEventFeatures } from "@/lib/entitlements/server";
+import { loadCoupleMarks } from "@/lib/couple/change-marks";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +20,24 @@ export default async function GuestsPage() {
   // A12: set by proxy.ts for a co-organizer's session only.
   const sideHeader = requestHeaders.get(COUPLE_ORGANIZER_SIDE_HEADER);
   const organizerSide = sideHeader === "bride" || sideHeader === "groom" ? sideHeader : null;
-  const [guests, stats, summary, invitation, reminder, features] = await Promise.all([
+  const [guests, stats, summary, invitation, reminder, features, newReplies] = await Promise.all([
     listGuests(eventId),
     getGuestStats(eventId),
     getEventSummary(eventId),
     getInvitation(eventId),
     getReminder(eventId),
     getEventFeatures(eventId),
+    // "Ново" is a hint: the list works without it.
+    loadCoupleMarks(eventId)
+      .then((m) => m.newReplies)
+      .catch((e) => {
+        console.error("Could not load the new guest replies", e);
+        return [];
+      }),
   ]);
+  const newGuestIds = [...new Set(newReplies.flatMap((r) => (r.guestId ? [r.guestId] : [])))];
+  // Newest first; the box clears up to this one.
+  const newestReplyAt = newReplies[0]?.at ?? null;
   // What the package includes (the routes refuse the rest; this only hides it).
   const sendingEnabled = features.personal_invite_links.enabled;
   const remindersEnabled = features.reminders.enabled;
@@ -52,6 +63,8 @@ export default async function GuestsPage() {
         organizerSide={organizerSide}
         sendingEnabled={sendingEnabled}
         greetingsEnabled={features.guest_greetings.enabled}
+        newGuestIds={newGuestIds}
+        newestReplyAt={newestReplyAt}
       />
       {remindersEnabled ? <ReminderPanel initial={reminder} guests={guests} share={share} organizerSide={organizerSide} /> : null}
       {coOrganizers ? <CoOrganizersPanel initial={coOrganizers} /> : null}

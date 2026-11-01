@@ -10,7 +10,7 @@ import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
-import { buildCoupleNavItems, matchCoupleNavItem, COUPLE_NAV_GROUP_LABELS } from "./nav";
+import { buildCoupleNavItems, matchCoupleNavItem, COUPLE_NAV_GROUP_LABELS, type CoupleNavDots } from "./nav";
 import { formatMkDate } from "@/lib/date";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
@@ -20,6 +20,7 @@ export function CoupleShell({
   eventDate,
   rooms,
   lockedFeatures = [],
+  dots,
   brand,
   children,
 }: {
@@ -32,12 +33,14 @@ export function CoupleShell({
    * §4.4). Locks the matching nav items and shows LockedBanner on their
    * pages. Defaults to none locked, so existing callers keep working. */
   lockedFeatures?: FeatureKey[];
+  /** Sections with something new for the couple. */
+  dots?: CoupleNavDots;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [mini, setMini] = useState(false);
   const { open: drawerOpen, toggle: toggleDrawer, close: closeDrawer, drawerRef, buttonRef } = useDrawer();
-  const navItems = buildCoupleNavItems(rooms);
+  const navItems = buildCoupleNavItems(rooms, dots);
   const active = matchCoupleNavItem(pathname, navItems);
   // Пакети has no nav entry (it is reached from a locked section), so it
   // needs its own heading instead of borrowing Почетна's.
@@ -87,6 +90,12 @@ export function CoupleShell({
                 >
                   <Icon name={item.icon} />
                   <span>{item.label}</span>
+                  {item.dot ? (
+                    <>
+                      <span className="unseen-dot" aria-hidden="true" style={{ marginLeft: 6 }} />
+                      <span className="sr-only"> (не е видено)</span>
+                    </>
+                  ) : null}
                   {isLocked(item.feature) ? (
                     <>
                       <span aria-hidden="true" style={{ marginLeft: 4 }}>

@@ -9,25 +9,40 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { StorageMeter } from "@/components/couple/StorageMeter";
 import { getStorageUsage } from "@/lib/media/album";
 import { formatMkDate } from "@/lib/date";
+import { ChangeNotice } from "@/components/couple/ChangeNotice";
+import { coupleNotice } from "@/lib/changes/couple-notice";
+import { loadCoupleMarks, NO_MARKS } from "@/lib/couple/change-marks";
 import { eventStartInstant, eventEndInstant } from "@/lib/couple/event-hero";
 
 export const dynamic = "force-dynamic";
 
 export default async function CoupleDashboardPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [summary, agendaItems, checklistItems, storage] = await Promise.all([
+  const [summary, agendaItems, checklistItems, storage, marks] = await Promise.all([
     getEventSummary(eventId),
     listAgendaItems(eventId),
     listChecklistItems(eventId),
     // The meter is optional here: if the plan cannot be read, it is left out.
     getStorageUsage(eventId).catch(() => null),
+    // The boxes are a hint: the page works without them.
+    loadCoupleMarks(eventId).catch((e) => {
+      console.error("Could not load the change marks", e);
+      return NO_MARKS;
+    }),
   ]);
+  const notices = (["date_time", "rooms", "guest_count", "contact"] as const).flatMap((section) => {
+    const notice = coupleNotice(section, marks.unseen[section]);
+    return notice ? [notice] : [];
+  });
   const checklistStats = computeChecklistStats(checklistItems);
   const upcomingAgenda = agendaItems.slice(0, 5);
   const openChecklist = checklistItems.filter((i) => !i.is_done).slice(0, 5);
 
   return (
     <main style={{ padding: "18px 22px 28px" }}>
+      {notices.map((n) => (
+        <ChangeNotice key={n.section} {...n} />
+      ))}
       <EventHeroCard
         coupleNames={summary.couple_names}
         eventDate={summary.event_date}

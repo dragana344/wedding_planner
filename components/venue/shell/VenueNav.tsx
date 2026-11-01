@@ -12,7 +12,7 @@ import type { FeatureKey } from "@/lib/entitlements/features";
  * render). Items tagged requiresElevation are dropped from the list
  * entirely rather than shown locked, so plain staff never see them.
  */
-export function VenueNav({ activeHref, isLocked }: { activeHref: string; isLocked: (feature?: FeatureKey) => boolean }) {
+export function VenueNav({ activeHref, isLocked, badges }: { activeHref: string; isLocked: (feature?: FeatureKey) => boolean; badges?: Partial<Record<string, number>> }) {
   const { managerName, isOwner } = useManagerElevation();
 
   const visibleItems = NAV_ITEMS.filter((item: NavItem) => {
@@ -37,6 +37,11 @@ export function VenueNav({ activeHref, isLocked }: { activeHref: string; isLocke
         >
           <Icon name={item.icon} />
           <span>{item.label}</span>
+          {(badges?.[item.href] ?? 0) > 0 ? (
+            <span className="nav-badge" aria-label={`${badges?.[item.href]} настани со промени`}>
+              {badges?.[item.href]}
+            </span>
+          ) : null}
           {item.ready ? null : <span className="soon-tag">Наскоро</span>}
           {item.ready && isLocked(item.feature) ? (
             <>

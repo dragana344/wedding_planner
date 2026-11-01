@@ -149,6 +149,26 @@ describe("couple menu numbers", () => {
     expect(after.current.total).toBe(0);
   });
 
+  it("GET carries the timeline stage: a reminder 23 days out, none once sent or far away", async () => {
+    const in23 = new Date(Date.now() + 23 * 86_400_000).toISOString().slice(0, 10);
+    const { data, error } = await admin.from("events").insert({ venue_id: venueId, couple_names: "Етапа", event_date: in23 }).select("id").single();
+    if (error) throw error;
+    const e = data.id as string;
+    await link(e, menuA);
+    const g = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1 });
+    await counts(g, { [menuA]: 1 });
+    const fresh = await (await GET(req("GET", e), { params: {} })).json();
+    expect(fresh.stage).toBe("couple_reminder");
+    // Created today, 23 days before the event: too late for the couple's 25-day reminder.
+    expect(fresh.coupleReminder).toBe(false);
+    await admin.from("events").update({ created_at: new Date(Date.now() - 5 * 86_400_000).toISOString() }).eq("id", e);
+    expect((await (await GET(req("GET", e), { params: {} })).json()).coupleReminder).toBe(true);
+    await sendMenuNumbers(e);
+    expect((await (await GET(req("GET", e), { params: {} })).json()).stage).toBe("none");
+    const far = await newEvent("Далеку");
+    expect((await (await GET(req("GET", far), { params: {} })).json()).stage).toBe("none");
+  });
+
   it("removing a menu after sending is a change and keeps the old snapshot titles", async () => {
     const e = await newEvent("Бришење мени");
     await link(e, menuA, menuB);

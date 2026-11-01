@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Guest, GuestSide, GuestStats, InvitationChannel, RsvpStatus } from "@/lib/couple/guests";
 import { STATUS_LABELS } from "@/lib/couple/guest-labels";
 import { isGuestDone } from "@/lib/couple/guest-menus";
@@ -55,6 +56,44 @@ function readFileText(file: File): Promise<string> {
   });
 }
 
+/** Видено for the guests' replies up to the newest one shown (its own component: the router is needed only while something is new). */
+function ClearNewButton({ upTo }: { upTo: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [newer, setNewer] = useState(false);
+
+  async function clear() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/couple/changes/seen", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ section: "guest_replies", up_to: upTo }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; newer?: boolean };
+      if (!res.ok) throw new Error(data.error ?? "Не успеа означувањето како видено.");
+      setNewer(data.newer === true);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не успеа означувањето како видено.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button type="button" className="btn btn-gold" disabled={busy} onClick={() => void clear()}>
+        Означи ги како видени
+      </button>
+      {newer ? <span role="status" style={{ fontSize: 13.5 }}>Има нови промени — освежете.</span> : null}
+      {error ? <span role="alert" style={{ color: "var(--bad)", fontSize: 13.5 }}>{error}</span> : null}
+    </>
+  );
+}
+
 export function GuestsClient({
   initialGuests,
   initialStats,
@@ -63,6 +102,8 @@ export function GuestsClient({
   organizerSide = null,
   sendingEnabled = true,
   greetingsEnabled = false,
+  newGuestIds = [],
+  newestReplyAt = null,
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
@@ -75,6 +116,10 @@ export function GuestsClient({
   sendingEnabled?: boolean;
   /** The package includes `guest_greetings`: show each guest's greeting in the details. */
   greetingsEnabled?: boolean;
+  /** Guests whose invitation-link reply the couple has not seen yet: they get a "Ново" badge. */
+  newGuestIds?: string[];
+  /** The newest of those replies' time, unchanged; Видено clears up to it. */
+  newestReplyAt?: string | null;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -93,6 +138,7 @@ export function GuestsClient({
   const [statusFilter, setStatusFilter] = useState<RsvpStatus | "">("");
   const [menuFilter, setMenuFilter] = useState<string>("");
   const [sentFilter, setSentFilter] = useState<SentFilter>("");
+  const [onlyNew, setOnlyNew] = useState(false);
   const [openGuestId, setOpenGuestId] = useState<string | null>(null);
   const closeDetail = useCallback(() => setOpenGuestId(null), []);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -263,16 +309,20 @@ export function GuestsClient({
   const menus = stats.menus;
   const menuIds = useMemo(() => menus.map((m) => m.id), [menus]);
 
+  const newIds = useMemo(() => new Set(newGuestIds), [newGuestIds]);
+  const hasNew = newIds.size > 0;
+
   const visibleGuests = useMemo(() => {
     const q = query.trim().toLowerCase();
     return guests.filter(
       (g) =>
+        (!(onlyNew && hasNew) || newIds.has(g.id)) &&
         (!q || g.full_name.toLowerCase().includes(q) || (g.phone ?? "").toLowerCase().includes(q) || (g.email ?? "").toLowerCase().includes(q)) &&
         (!statusFilter || g.rsvp_status === statusFilter) &&
         (!menuFilter || matchesMenuFilter(g, menuFilter, menuIds)) &&
         (!sentFilter || (sentFilter === "sent") === (g.invitation_sent_at !== null)),
     );
-  }, [guests, query, statusFilter, menuFilter, sentFilter, menuIds]);
+  }, [guests, query, statusFilter, menuFilter, sentFilter, menuIds, onlyNew, hasNew, newIds]);
 
   const openGuest = guests.find((g) => g.id === openGuestId) ?? null;
   const canSend = (g: Guest) => sendingEnabled && (!organizerSide || g.side === organizerSide);
@@ -305,6 +355,11 @@ export function GuestsClient({
           >
             {guest.full_name}
           </button>
+          {newIds.has(guest.id) ? (
+            <span className="change-mark" style={{ marginLeft: 8 }}>
+              Ново
+            </span>
+          ) : null}
           <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
             {guest.phone ?? "Нема телефон"} · {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
             {menuSummary(guest, menus) ? ` · ${menuSummary(guest, menus)}` : ""}
@@ -407,6 +462,14 @@ export function GuestsClient({
           <option value="sent">Испратени</option>
           <option value="unsent">Неиспратени</option>
         </select>
+        {hasNew ? (
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+            <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+            Само нови
+          </label>
+        ) : null}
+        {/* Also for replies no row shows (e.g. a deleted guest): the nav dot counts them, so they must be clearable. */}
+        {newestReplyAt ? <ClearNewButton upTo={newestReplyAt} /> : null}
         {sendingEnabled ? (
           <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
             Масовно праќање

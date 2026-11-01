@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 
 const reminders = vi.hoisted(() => ({ runDueReminders: vi.fn(async () => [{ eventId: "e1", sent: 3, failed: 1 }]) }));
 vi.mock("@/lib/couple/reminders", () => reminders);
+const autoSend = vi.hoisted(() => ({ runMenuAutoSend: vi.fn(async () => ({ sent: ["e1"] })) }));
+vi.mock("@/lib/couple/menu-auto-send", () => autoSend);
 
 import { GET } from "@/app/api/cron/reminders/route";
 import vercelConfig from "@/vercel.json";
@@ -43,6 +45,16 @@ describe("reminders cron (A10)", () => {
       }),
     );
     expect(reminders.runDueReminders).toHaveBeenLastCalledWith(expect.any(Date), "https://app.example.mk");
+  });
+
+  it("runs the menu auto-send, and a failure there does not stop the guest reminders", async () => {
+    process.env.CRON_SECRET = "s3cret";
+    expect((await GET(req("Bearer s3cret"))).status).toBe(200);
+    expect(autoSend.runMenuAutoSend).toHaveBeenCalledWith(expect.any(Date));
+    autoSend.runMenuAutoSend.mockRejectedValueOnce(new Error("boom"));
+    const res = await GET(req("Bearer s3cret"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ events: 1, sent: 3, failed: 1 });
   });
 
   // Hourly on Vercel Pro; once a day while the project is on the Hobby plan.

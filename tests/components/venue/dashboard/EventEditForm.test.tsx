@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { EventEditForm } from "@/components/venue/dashboard/EventEditForm";
 import { Modal } from "@/components/venue/dashboard/Modal";
 import { ManagerElevationContext } from "@/components/venue/shell/ManagerElevationContext";
+
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 // EventEditForm is reached from the events list for any staff member,
 // elevated or not — most of these tests exercise actual editing, so they
@@ -26,6 +29,7 @@ import * as menuNumbersClient from "@/lib/venue/menu-numbers-client";
 import * as menuUsageClient from "@/lib/venue/menu-usage-client";
 import * as menusLib from "@/lib/venue/menus";
 import * as customMenuClient from "@/lib/venue/custom-menu-client";
+import * as changesClient from "@/lib/venue/changes-client";
 import type { EventDetail } from "@/lib/venue/events";
 
 const baseEvent: EventDetail = {
@@ -37,6 +41,7 @@ const baseEvent: EventDetail = {
   status: "confirmed",
   event_type: "wedding",
   guest_count_estimate: 150,
+  created_at: "2026-01-01T10:00:00Z",
   menus: [],
   room_ids: [],
   hasShowcasePhotos: false,
@@ -47,6 +52,7 @@ const baseEvent: EventDetail = {
   total_price: null,
   deposit_paid: null,
   hasUnseenSeatingChange: false,
+  unseenSections: [],
   menuNumbers: { latest: null, previous: null },
 };
 
@@ -402,7 +408,7 @@ describe("EventEditForm custom menu", () => {
     const sub = (id: string, sentAt: string, menus: [string, string, number][], seenAt: string | null = null) => ({
       id, sentAt, sentBy: "Младенците",
       numbers: { menus: menus.map(([i, name, count]) => ({ id: i, name, count })), total: menus.reduce((s, m) => s + m[2], 0) },
-      seenAt, seenBy: seenAt ? "Марко" : null,
+      seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null,
     });
     const previous = sub("s1", "2026-06-10T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 22]], "2026-06-11T10:00:00Z");
     const latest = sub("s2", "2026-06-14T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 23]]);
@@ -455,5 +461,78 @@ describe("EventEditForm custom menu", () => {
       expect(screen.getByText("Посно: 22 → 23")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Видено" })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("EventEditForm change boxes", () => {
+  const futureEvent: EventDetail = { ...baseEvent, event_date: "2999-09-12" };
+  const guestChange = {
+    id: "c1", eventId: "e1", section: "guest_count" as const, side: "couple" as const, changedBy: null, field: "count",
+    oldValue: { count: 100 }, newValue: { count: 150 }, changedAt: "2026-10-30T10:00:00+00:00",
+  };
+
+  it("shows the couple's unseen guest-count change above the field", async () => {
+    mockSupportingCalls();
+    vi.spyOn(changesClient, "fetchEventChanges").mockResolvedValue({ changes: [guestChange], seen: {}, lastReminderAt: null });
+    renderForm({ event: futureEvent, onClose: () => {}, onChanged: () => {} });
+    expect(await screen.findByText(/Младенците · 30\.10\.2026 11:00 · 100 → 150/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Видено" })).toBeInTheDocument();
+  });
+
+  it("Видено refreshes the server data too, so the Настани badge updates", async () => {
+    mockSupportingCalls();
+    vi.spyOn(changesClient, "fetchEventChanges").mockResolvedValue({ changes: [guestChange], seen: {}, lastReminderAt: null });
+    const seen = vi.spyOn(changesClient, "markChangesSeenViaApi").mockResolvedValue({ newer: false });
+    router.refresh.mockClear();
+    const onChanged = vi.fn();
+    renderForm({ event: futureEvent, onClose: () => {}, onChanged });
+    fireEvent.click(await screen.findByRole("button", { name: "Видено" }));
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(seen).toHaveBeenCalledWith("e1", "guest_count", guestChange.changedAt, "test-manager-token");
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("shows no box for a change already seen", async () => {
+    mockSupportingCalls();
+    const spy = vi.spyOn(changesClient, "fetchEventChanges").mockResolvedValue({ changes: [guestChange], seen: { guest_count: "2026-10-30T10:00:00+00:00" }, lastReminderAt: null });
+    renderForm({ event: futureEvent, onClose: () => {}, onChanged: () => {} });
+    await waitFor(() => expect(spy).toHaveBeenCalledWith("e1", "test-manager-token"));
+    expect(screen.queryByText("Променето")).not.toBeInTheDocument();
+  });
+
+  it("renders no box and does not crash when the changes cannot be loaded", async () => {
+    mockSupportingCalls();
+    const spy = vi.spyOn(changesClient, "fetchEventChanges").mockRejectedValue(new Error("x"));
+    renderForm({ event: futureEvent, onClose: () => {}, onChanged: () => {} });
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(screen.queryByText("Променето")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Ana & Marko")).toBeInTheDocument();
+  });
+});
+
+describe("EventEditForm: numbers not sent yet", () => {
+  // 18 days out, created long ago: the venue's warning shows.
+  const d = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 18);
+  const soon: EventDetail = { ...baseEvent, event_date: d.toISOString().slice(0, 10), contact_phone: "070111222" };
+
+  it("shows a manager the couple's phone next to the warning", async () => {
+    mockSupportingCalls();
+    vi.spyOn(changesClient, "fetchEventChanges").mockResolvedValue({ changes: [], seen: {}, lastReminderAt: null });
+    renderForm({ event: soon, onClose: () => {}, onChanged: () => {} });
+    const warning = screen.getByText("Бројките уште не се испратени").closest("[role=status]") as HTMLElement;
+    expect(within(warning).getByText(/070111222/)).toBeInTheDocument();
+  });
+
+  it("never shows plain staff the phone", async () => {
+    mockSupportingCalls();
+    vi.spyOn(changesClient, "fetchEventChanges").mockResolvedValue({ changes: [], seen: {}, lastReminderAt: null });
+    render(
+      <ManagerElevationContext.Provider value={{ ...elevatedManagerValue, managerName: null, token: null }}>
+        <EventEditForm venueId="v1" rooms={[]} menuTemplates={[]} event={soon} onClose={() => {}} onChanged={() => {}} />
+      </ManagerElevationContext.Provider>,
+    );
+    expect(screen.getByText("Бројките уште не се испратени")).toBeInTheDocument();
+    expect(screen.queryByText(/070111222/)).not.toBeInTheDocument();
   });
 });

@@ -189,6 +189,27 @@ Created in `0119_event_menus_guest_counts.sql`.
 - **Export / erasure:** both are exported with their event (`lib/privacy/export.ts`). Counts cascade with `event_guests` on erasure; erasure clears `seen_by` (0122).
 - **Retention:** none defined, see DATA-007. Cascades with the event.
 
+### 2.7b Change marks: `event_changes`, `event_change_seen`, `event_couple_reminders`, `events.couple_first_login_at`, `event_menu_submissions.source`/`unanswered`
+Created in `0125_event_change_marks.sql` (`mark_change_seen` in 0126, `insert_auto_menu_submission` in 0127).
+
+| Table | Field | Personal? | Notes |
+|---|---|---|---|
+| `event_changes` | `section`, `side`, `field`, `changed_at` | Yes, in context (what changed in a person's event, and when) | log written by triggers; one row per changed field |
+| `event_changes` | `changed_by` | **Yes** (the venue manager's name, or the couple side `Младенците` / `Ко-организатор`) | cleared on erasure |
+| `event_changes` | `old_value`, `new_value` | Date, rooms, menus, guest count: yes, in context. **`contact`: direct contact data** (email, phone). **`finance`: financial data** | contact values are nulled on erasure |
+| `event_change_seen` | `viewer`, `section`, `seen_up_to` | Low | how far each side has seen, per section |
+| `event_change_seen` | `seen_by` | **Yes** (name of the manager or organizer who pressed Видено) | cleared on erasure |
+| `event_couple_reminders` | `reminded_at` | Low | the venue's "Потсети го парот" reminders |
+| `event_couple_reminders` | `reminded_by` | **Yes** (the venue manager's name) | rows deleted on erasure |
+| `events` | `couple_first_login_at` | Low | set by the couple login; marks for the couple only count after it |
+| `event_menu_submissions` | `source`, `unanswered` | No | who produced the numbers (couple, auto-send, venue) and how many guests had not answered |
+
+- **Subject:** couple (contact and finance values, names of organizers); venue manager (`changed_by`, `seen_by`, `reminded_by`).
+- **Purpose:** showing each side what the other changed since it last pressed Видено; reminding the couple to send the final menu numbers (25/20/15-day timeline, automatic send at 15 days by the cron).
+- **Access:** service role only (RLS on, no policies, no API-role grants). Venue staff see the section of a contact or finance change but never its values without manager elevation (the server redacts them); only a manager can press Видено. Couple routes are scoped to the session's event.
+- **Export / erasure:** all three tables are exported with their event (`lib/privacy/export.ts`). Erasure nulls contact `old_value`/`new_value`, `changed_by` and `seen_by`, and deletes `event_couple_reminders`; the erasure itself records no change rows.
+- **Retention:** none defined, see DATA-007. Cascade-deleted with the event.
+
 ### 2.8 Couple planning tools (free text, incidental personal data)
 
 | Table | Migration | Personal fields | Why it matters |

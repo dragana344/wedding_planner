@@ -34,4 +34,24 @@ describe("MenuNumbersSend", () => {
     // not just the reload before the dialog was ever opened.
     expect(screen.getByRole("button", { name: "Потврди и испрати" })).toBeDisabled();
   });
+
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+  ])("coupleReminder %s: reminder banner shown = %s when nothing was sent", async (coupleReminder, shown) => {
+    vi.stubGlobal("fetch", vi.fn(() => json({ ...stateWith([]), stage: "couple_reminder", coupleReminder })));
+    render(<MenuNumbersSend />);
+    await screen.findByRole("button", { name: "Испрати ги бројките до салата" });
+    const banner = screen.queryByText("Испратете ги конечните бројки до салата");
+    expect(Boolean(banner)).toBe(shown);
+  });
+
+  it("no banner once numbers were sent, whatever the stage", async () => {
+    const latest = { id: "s1", sentAt: "2026-10-05T09:05:00Z", sentBy: "x", numbers, seenAt: null, seenBy: null, source: "couple", unanswered: null };
+    vi.stubGlobal("fetch", vi.fn(() => json({ ...stateWith([]), latest, stage: "couple_reminder", coupleReminder: true })));
+    render(<MenuNumbersSend />);
+    await screen.findByText(/Испратено на/);
+    expect(screen.queryByText("Испратете ги конечните бројки до салата")).toBeNull();
+  });
 });

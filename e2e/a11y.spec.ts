@@ -58,6 +58,7 @@ test("couple panel and public invitation", async ({ page, anonPage }) => {
     ["/couple", "couple-home"],
     ["/couple/guests", "couple-guests"],
     ["/couple/invitation", "couple-invitation"],
+    ["/couple/notifications", "couple-notifications"],
   ] as const) {
     await page.goto(path);
     await audit(page, name);

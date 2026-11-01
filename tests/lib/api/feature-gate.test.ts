@@ -76,6 +76,7 @@ const UNGATED: Record<string, string> = {
   "app/api/couple/contact-info/route.ts": "the couple's own contact details, core account data",
   "app/api/couple/guest-count/route.ts": "the headcount the venue plans with, core to every event",
   "app/api/couple/menu-numbers/route.ts": "sending the guests' menu numbers to the venue is core to every event, like the headcount",
+  "app/api/couple/changes/seen/route.ts": "marking the venue's changes and guest replies as seen is core to every event, like the headcount",
   "app/api/couple/support/route.ts": "reporting a problem to the team must always work, not gated by plan",
 };
 

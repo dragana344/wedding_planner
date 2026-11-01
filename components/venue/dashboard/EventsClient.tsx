@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EventEditForm } from "./EventEditForm";
 import { useEventPrivateDetails } from "./useEventPrivateDetails";
-import { hasUnseenMenuNumbers } from "@/lib/menu-numbers";
+import { ChangeMark } from "./ChangeMark";
 import { Icon } from "@/components/venue/shell/Icon";
 import { Modal } from "./Modal";
 import { MenuDetailModal } from "./MenuDetailModal";
@@ -278,7 +278,8 @@ export function EventsClient({
                         {event.hasUnseenSeatingChange ? (
                           <span className="unseen-dot" title="Нова промена во распоредот на маси" aria-label="Нова промена во распоредот на маси" />
                         ) : null}
-                        {hasUnseenMenuNumbers(event.menuNumbers) ? <span className="ev-hint">Нови бројки</span> : null}
+                        <ChangeMark sections={event.unseenSections} />
+                        {event.unseenSections.includes("menu_numbers") ? <span className="ev-hint">Нови бројки</span> : null}
                       </div>
                       <div className="kind">{type.label}</div>
                       {event.guest_count_estimate != null ? (

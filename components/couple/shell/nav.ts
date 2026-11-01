@@ -17,15 +17,21 @@ export type CoupleNavItem = {
   /** Groups the sidebar into labelled sections (Почетна and Поддршка stay
    * ungrouped, at the top and bottom). Undefined renders with no group label. */
   group?: "planning" | "guests";
+  /** Something in this section is new to the couple (unseen venue changes, new guest replies). */
+  dot?: boolean;
 };
+
+/** Which nav sections carry a dot. */
+export type CoupleNavDots = { menu?: boolean; guests?: boolean; budget?: boolean; notifications?: boolean };
 
 /**
  * Seating gets one nav entry per room the event is assigned to — everything
  * else is a fixed section, mirroring the venue panel's sidebar shape.
  */
-export function buildCoupleNavItems(rooms: { id: string; name: string }[]): CoupleNavItem[] {
+export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots: CoupleNavDots = {}): CoupleNavItem[] {
   return [
     { href: "/couple", icon: "home", label: "Почетна", title: "ПОЧЕТНА", subtitle: "Преглед на вашиот настан", ready: true },
+    { href: "/couple/notifications", icon: "bell", label: "Известувања", title: "ИЗВЕСТУВАЊА", subtitle: "Промени од салата и одговори од гости", ready: true, group: "planning" as const, dot: dots.notifications },
     ...rooms.map((room) => ({
       href: `/couple/seating/${room.id}`,
       icon: "tables",
@@ -36,11 +42,11 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[]): Coup
       feature: "seating" as const,
       group: "planning" as const,
     })),
-    { href: "/couple/menu", icon: "menu", label: "Мени", title: "МЕНИ", subtitle: "Изберете го вашето мени", ready: true, group: "planning" as const },
+    { href: "/couple/menu", icon: "menu", label: "Мени", title: "МЕНИ", subtitle: "Изберете го вашето мени", ready: true, group: "planning" as const, dot: dots.menu },
     { href: "/couple/agenda", icon: "cal-dot", label: "Агенда", title: "АГЕНДА", subtitle: "Вашиот ден, испланиран", ready: true, feature: "agenda" as const, group: "planning" as const },
     { href: "/couple/locations", icon: "pin", label: "Локации", title: "ЛОКАЦИИ", subtitle: "Каде се случува сè", ready: true, feature: "locations" as const, group: "planning" as const },
-    { href: "/couple/guests", icon: "users", label: "Гости", title: "ГОСТИ", subtitle: "Список на гости и потврди", ready: true, group: "planning" as const },
-    { href: "/couple/budget", icon: "chart", label: "Буџет", title: "БУЏЕТ", subtitle: "Следете ги трошоците", ready: true, feature: "budget" as const, group: "planning" as const },
+    { href: "/couple/guests", icon: "users", label: "Гости", title: "ГОСТИ", subtitle: "Список на гости и потврди", ready: true, group: "planning" as const, dot: dots.guests },
+    { href: "/couple/budget", icon: "chart", label: "Буџет", title: "БУЏЕТ", subtitle: "Следете ги трошоците", ready: true, feature: "budget" as const, group: "planning" as const, dot: dots.budget },
     { href: "/couple/checklist", icon: "check", label: "Чеклиста", title: "ЧЕКЛИСТА", subtitle: "Задачи за планирање на свадбата", ready: true, feature: "checklist" as const, group: "planning" as const },
     { href: "/couple/notes", icon: "note", label: "Белешки", title: "БЕЛЕШКИ", subtitle: "Запишете било што, било кога", ready: true, feature: "notes" as const, group: "planning" as const },
     { href: "/couple/invitation", icon: "heart", label: "Покана", title: "ПОКАНА", subtitle: "Создадете и споделете ја вашата покана", ready: true, feature: "invitation" as const, group: "guests" as const },

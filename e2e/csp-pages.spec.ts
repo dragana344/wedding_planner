@@ -35,6 +35,7 @@ const COUPLE_PAGES = [
   "/couple/greetings",
   "/couple/messages",
   "/couple/album",
+  "/couple/notifications",
 ];
 
 test("public pages load without CSP violations", async ({ page }) => {

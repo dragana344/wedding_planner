@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { ImageLightbox } from "./ImageLightbox";
 import { MenuDetailModal } from "./MenuDetailModal";
 import { Modal } from "./Modal";
 import { PackageBuilder } from "./PackageBuilder";
 import { MenuNumbersSection } from "./MenuNumbersSection";
+import { ChangeBox } from "./ChangeBox";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
 import {
   type EventDetail,
@@ -41,6 +43,9 @@ import { listMenuItems, type MenuItem, type MenuTemplate } from "@/lib/venue/men
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { errorMessage } from "@/lib/venue/user-error";
+import { fetchEventChanges, type EventChangesData } from "@/lib/venue/changes-client";
+import { groupBySection, unseenChanges } from "@/lib/changes/rules";
+import { todayIn } from "@/lib/date";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
 
 /** Shown to plain staff instead of the couple's contacts and the money (0117). */
@@ -113,6 +118,7 @@ export function EventEditForm({
   const [regeneratedPassword, setRegeneratedPassword] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const { managerName, token: managerToken } = useManagerElevation();
+  const router = useRouter();
   // Final review finding (venue-manager-staff-login Plan 2): this form let
   // unelevated staff fill out every field and only learned they lacked
   // permission from a 403 at submit time — every write action here now
@@ -120,6 +126,36 @@ export function EventEditForm({
   // does, instead of surfacing that only after the fact.
   const canEdit = Boolean(managerName);
   const locked = readOnly || !canEdit;
+  // The couple's changes the venue has not seen; a failed load just shows no box.
+  const [changesData, setChangesData] = useState<EventChangesData | null>(null);
+  const [changesReload, setChangesReload] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    fetchEventChanges(event.id, managerToken)
+      .then((data) => {
+        if (!cancelled) setChangesData(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [event.id, managerToken, changesReload]);
+  const unseen = changesData
+    ? groupBySection(unseenChanges(changesData.changes, "venue", changesData.seen, { eventDate: event.event_date, today: todayIn(), coupleFirstLoginAt: null }))
+    : {};
+  const guestCountChanges = unseen.guest_count ?? [];
+  const contactChanges = unseen.contact ?? [];
+  // After Видено: reload this window, the events list and the server-rendered
+  // shell (the Настани badge counts what is unseen).
+  function handleChangesSeen() {
+    onChanged();
+    setChangesReload((n) => n + 1);
+    router.refresh();
+  }
+  function handleNumbersChanged() {
+    onChanged();
+    router.refresh();
+  }
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState(event.contact_email ?? "");
   const [contactEmail2, setContactEmail2] = useState(event.contact_email_2 ?? "");
@@ -506,7 +542,8 @@ export function EventEditForm({
             />
           </div>
 
-          <div className="ev-field">
+          <div className={guestCountChanges.length > 0 ? "ev-field ev-changed" : "ev-field"}>
+            <ChangeBox eventId={event.id} section="guest_count" changes={guestCountChanges} canConfirm={canEdit} token={managerToken} onSeen={handleChangesSeen} />
             <label className="lab-s" htmlFor="edit-guest-count">
               Број на гости
             </label>
@@ -668,7 +705,16 @@ export function EventEditForm({
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
       </form>
 
-      <MenuNumbersSection eventId={event.id} menuNumbers={event.menuNumbers} canConfirm={canEdit} token={managerToken} onChanged={onChanged} />
+      <MenuNumbersSection
+        eventId={event.id}
+        menuNumbers={event.menuNumbers}
+        eventDate={event.event_date}
+        createdAt={event.created_at}
+        menus={event.menus}
+        lastReminderAt={changesData?.lastReminderAt ?? null}
+        // Contacts are manager-only: plain staff never get the phone.
+        couplePhone={canEdit && privateLoaded ? event.contact_phone : null}
+        canConfirm={canEdit} token={managerToken} onChanged={handleNumbersChanged} />
 
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Финансии</legend>
@@ -720,8 +766,9 @@ export function EventEditForm({
         )}
       </fieldset>
 
-      <fieldset className="ev-fieldset">
+      <fieldset className={contactChanges.length > 0 ? "ev-fieldset ev-changed" : "ev-fieldset"}>
         <legend className="lab-s">Контакт на парот</legend>
+        <ChangeBox eventId={event.id} section="contact" changes={contactChanges} canConfirm={canEdit} token={managerToken} onSeen={handleChangesSeen} />
         {!canEdit ? (
           <p className="ev-hint">{PRIVATE_HINT}</p>
         ) : !privateLoaded ? (

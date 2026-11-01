@@ -4,6 +4,9 @@ import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
 import { parseCoupleContacts, type CoupleContactsInput } from "@/lib/venue/event-contacts";
 import { credentialsError } from "@/lib/venue/credentials";
 import { todayIn } from "@/lib/date";
+import { errorFields, log } from "@/lib/log";
+import { listUnseenSections } from "@/lib/venue/unseen-changes";
+import type { SeenSection } from "@/lib/changes/types";
 import { toMenuSubmission, type MenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
 
 export interface EventSummary {
@@ -74,6 +77,8 @@ export interface EventDetail {
   status: EventStatus;
   event_type: EventType;
   guest_count_estimate: number | null;
+  /** When the event was created: the menu-numbers timeline is counted from it. */
+  created_at: string;
   /** Every menu linked to the event (event_menu_templates), custom ones included. */
   menus: EventMenu[];
   room_ids: string[];
@@ -86,6 +91,8 @@ export interface EventDetail {
   deposit_paid: number | null;
   /** The couple confirmed a seating change staff hasn't opened yet. */
   hasUnseenSeatingChange: boolean;
+  /** Sections the couple changed (or numbers they sent) that the venue hasn't seen yet. */
+  unseenSections: SeenSection[];
   /** What the couple sent the venue: the newest sending and the one before it. */
   menuNumbers: { latest: MenuSubmission | null; previous: MenuSubmission | null };
 }
@@ -116,10 +123,11 @@ export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
 }
 
 const EVENT_DETAIL_COLUMNS =
-  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by)";
+  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered)";
 
 type EventDetailRow = {
   id: string;
+  created_at: string;
   couple_names: string;
   event_date: string;
   start_time: string | null;
@@ -195,6 +203,11 @@ export async function listEventsWithDetails(
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
   checkListBound(data, "events (details)");
+  // The "!" marks are decorative: a failing lookup must not take the list down.
+  const unseenByEvent = await listUnseenSections(venueId, client).catch((err) => {
+    log("error", "venue_unseen_change_sections failed", { venueId, ...errorFields(err) });
+    return new Map<string, SeenSection[]>();
+  });
 
   return ((data ?? []) as unknown as EventDetailRow[]).map((event) => {
     const layoutElements = (event.event_layout_elements ?? []) as unknown as {
@@ -217,6 +230,7 @@ export async function listEventsWithDetails(
       status: event.status as EventStatus,
       event_type: event.event_type as EventType,
       guest_count_estimate: event.guest_count_estimate,
+      created_at: event.created_at,
       menus: toEventMenus(event.event_menu_templates),
       room_ids: ((event.event_rooms ?? []) as { room_id: string }[]).map((r) => r.room_id),
       hasShowcasePhotos: ((event.event_showcase_photos ?? []) as { id: string }[]).length > 0,
@@ -227,6 +241,7 @@ export async function listEventsWithDetails(
       total_price: event.total_price ?? null,
       deposit_paid: event.deposit_paid ?? null,
       hasUnseenSeatingChange: event.seating_unseen_at !== null,
+      unseenSections: unseenByEvent.get(event.id) ?? [],
       menuNumbers: toMenuNumbers(event.event_menu_submissions),
     };
   });

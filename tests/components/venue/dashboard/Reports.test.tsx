@@ -130,14 +130,14 @@ describe("NotificationsList (B9)", () => {
       <NotificationsList
         today="2027-06-12"
         items={[
-          { id: "1", at: "2027-06-12T10:00:00Z", kind: "rsvp_changed", eventId: "e1", title: "Одговор на поканата: Ана & Марко", detail: "Без одговор → Доаѓа" },
-          { id: "2", at: "2027-06-10T09:00:00Z", kind: "event_created", eventId: "e1", title: "Нов настан: Ана & Марко", detail: "2027-06-12" },
+          { id: "1", at: "2027-06-12T10:00:00Z", kind: "couple_change", color: "yellow", unseen: false, eventId: "e1", title: "Број на гости · Ана & Марко", detail: "100 → 120" },
+          { id: "2", at: "2027-06-10T09:00:00Z", kind: "event_created", color: "blue", unseen: false, eventId: "e1", title: "Нов настан: Ана & Марко", detail: "2027-06-12" },
         ]}
       />,
     );
     const days = screen.getAllByRole("heading", { level: 3 });
     expect(days.map((d) => d.textContent)).toEqual(["Денес", "10 јуни 2027"]);
-    expect(screen.getByText("Без одговор → Доаѓа")).toBeInTheDocument();
+    expect(screen.getByText("100 → 120")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Ана & Марко/ })[0]).toHaveAttribute("href", "/venue/events?event=e1");
   });
 

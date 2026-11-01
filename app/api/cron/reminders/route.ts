@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { runMenuAutoSend } from "@/lib/couple/menu-auto-send";
 import { runDueReminders } from "@/lib/couple/reminders";
 import { errorFields, log } from "@/lib/log";
 import { safeEqual } from "@/lib/security/safe-equal";
@@ -12,6 +13,13 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || !safeEqual(request.headers.get("authorization"), `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  // Independent of the guest emails: it needs no mail setup.
+  try {
+    const { sent } = await runMenuAutoSend(new Date());
+    log("info", "menu_auto_send", { sent: sent.length });
+  } catch (err) {
+    log("error", "menu_auto_send_failed", errorFields(err));
   }
   try {
     const origin = resolveOrigin((name) => request.headers.get(name), process.env.NEXT_PUBLIC_SITE_URL);

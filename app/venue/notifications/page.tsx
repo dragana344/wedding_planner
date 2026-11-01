@@ -4,6 +4,7 @@ import { listVenueNotifications } from "@/lib/venue/notifications";
 import { startOfDaySkopjeIso, endOfDaySkopjeIso } from "@/lib/admin/audit-filters";
 import { parseNotificationsFilters, type NotificationsSearchParams } from "@/lib/venue/notifications-filters";
 import { todayIn } from "@/lib/date";
+import { isNotificationColor } from "@/lib/notification-colors";
 import { NotificationsList } from "@/components/venue/dashboard/NotificationsList";
 import { RangePanel } from "@/components/shared/RangePanel";
 
@@ -15,11 +16,19 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   // No venue: the layout decides (none → /login, blocked → BlockedScreen); render nothing.
   if (!venueId) return null;
 
-  const range = parseNotificationsFilters(await searchParams);
+  const params = await searchParams;
+  const range = parseNotificationsFilters(params);
+  const color = isNotificationColor(params.color) ? params.color : null;
+  // Legend links keep the range params, so a colour filter does not drop the period.
+  const keep: Record<string, string> = {};
+  if (range) {
+    keep.notifFrom = range.from;
+    keep.notifTo = range.to;
+  }
   const [items, ranged] = await Promise.all([
-    listVenueNotifications(supabase, venueId),
+    listVenueNotifications(supabase, venueId, 50, undefined, color ?? undefined),
     range
-      ? listVenueNotifications(supabase, venueId, 200, { from: startOfDaySkopjeIso(range.from), to: endOfDaySkopjeIso(range.to) })
+      ? listVenueNotifications(supabase, venueId, 200, { from: startOfDaySkopjeIso(range.from), to: endOfDaySkopjeIso(range.to) }, color ?? undefined)
       : Promise.resolve(null),
   ]);
   const today = todayIn();
@@ -49,7 +58,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           </div>
           <span className="count">последни {items.length}</span>
         </div>
-        <NotificationsList items={items} today={today} />
+        <NotificationsList items={items} today={today} legend={{ active: color, params: keep }} />
       </section>
     </div>
   );

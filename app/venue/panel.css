@@ -50,6 +50,18 @@
   --info-bg: #e8f0fd;
   --bad: #c93131; /* D2: 5.3:1 on white (was #dc3a3a, 4.5:1) */
   --bad-bg: #fdecec;
+  /* Notification colours (lib/notification-colors.ts): strong = borders and
+     dots, tint = chip background (text on it stays --ink, ≥ 4.5:1). */
+  --notif-yellow: #c9992f;
+  --notif-yellow-tint: #fbf2df;
+  --notif-green: #0f9d58;
+  --notif-green-tint: #e7f6ee;
+  --notif-blue: #2e6fd9;
+  --notif-blue-tint: #e8f0fd;
+  --notif-grey: #8a8f99;
+  --notif-grey-tint: #eeeff2;
+  --notif-red: #c93131;
+  --notif-red-tint: #fdecec;
   --free: #16a34a;
   --busy: #d93a3a;
   --off: #c4c8ce;
@@ -1296,6 +1308,45 @@
   height: 9px;
   border-radius: 50%;
   background: var(--gold);
+}
+/* "!" next to an event the couple changed. Doubled class so it beats the
+   generic span rules of the plan rows, upcoming rows and calendar events. */
+.vp .change-mark.change-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--gold-tint-2);
+  border: 1px solid var(--gold-lo);
+  color: var(--gold-text);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  flex: none;
+  vertical-align: middle;
+  font-family: inherit;
+  margin: 0 0 0 4px;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+.vp .nav .nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--gold);
+  color: var(--on-gold);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+.vp.mini .nav .nav-badge {
+  display: none;
 }
 /** A couple confirmed a seating change staff hasn't opened yet. */
 .vp .unseen-dot {
@@ -3612,6 +3663,97 @@
   margin: 16px 8px 6px;
 }
 
+/* Известувања: colour legend, coloured left border, unseen sign. */
+.vp .notif-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 8px 4px;
+}
+.vp .notif-legend a {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.vp .notif-legend a[aria-current="true"] {
+  font-weight: 700;
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+.vp .notif-legend a.notif-chip {
+  border-left-width: 6px;
+}
+.vp .plan-row[class*="notif-"] {
+  border-left: 4px solid var(--line);
+}
+.vp .notif-unseen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.vp .notif-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--gold-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.vp .notif-seen {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.vp .notif-seen [role="alert"] {
+  color: var(--bad);
+  font-size: 12.5px;
+}
+.vp .notif-seen [role="status"] {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.vp .plan-row.notif-yellow,
+.vp .notif-legend a.notif-yellow {
+  border-left-color: var(--notif-yellow);
+}
+.vp .notif-legend a.notif-yellow {
+  background: var(--notif-yellow-tint);
+}
+.vp .plan-row.notif-green,
+.vp .notif-legend a.notif-green {
+  border-left-color: var(--notif-green);
+}
+.vp .notif-legend a.notif-green {
+  background: var(--notif-green-tint);
+}
+.vp .plan-row.notif-blue,
+.vp .notif-legend a.notif-blue {
+  border-left-color: var(--notif-blue);
+}
+.vp .notif-legend a.notif-blue {
+  background: var(--notif-blue-tint);
+}
+.vp .plan-row.notif-grey,
+.vp .notif-legend a.notif-grey {
+  border-left-color: var(--notif-grey);
+}
+.vp .notif-legend a.notif-grey {
+  background: var(--notif-grey-tint);
+}
+.vp .plan-row.notif-red,
+.vp .notif-legend a.notif-red {
+  border-left-color: var(--notif-red);
+}
+.vp .notif-legend a.notif-red {
+  background: var(--notif-red-tint);
+}
+
 /* ---------- admin panel: simple data tables (Task 3.2) ----------
  * No comparable class existed in this file for a plain row/column table
  * (the venue dashboard's own lists use CSS-grid "row" divs tailored to each
@@ -4279,4 +4421,33 @@
   .vp .ev-wiz-opts.cols-2 {
     grid-template-columns: 1fr;
   }
+}
+
+/* Change marks: the couple's unseen changes (ChangeBox) and the highlighted field. */
+.vp .change-box {
+  border: 2px solid var(--gold);
+  background: var(--gold-tint);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+}
+.vp .change-box-label {
+  display: block;
+  color: var(--gold-text);
+  margin-bottom: 4px;
+}
+.vp .change-box-note {
+  margin: 6px 0 0;
+  color: var(--gold-text);
+}
+.vp .ev-changed {
+  border-color: var(--gold);
+}
+/* A plain field has no border of its own: a gold tint and ring around it
+   (box-shadow, so the grid layout does not move). */
+.vp .ev-field.ev-changed {
+  border-radius: 8px;
+  background: var(--gold-tint);
+  box-shadow: 0 0 0 6px var(--gold-tint), 0 0 0 8px var(--gold);
 }

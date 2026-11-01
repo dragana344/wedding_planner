@@ -13,6 +13,7 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     status: "confirmed",
     event_type: "wedding",
     guest_count_estimate: null,
+    created_at: "2026-01-01T10:00:00Z",
     menus: [],
     room_ids: [],
     hasShowcasePhotos: false,
@@ -23,6 +24,7 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     total_price: null,
     deposit_paid: null,
     hasUnseenSeatingChange: false,
+    unseenSections: [],
     menuNumbers: { latest: null, previous: null },
     ...partial,
   };
@@ -73,6 +75,7 @@ describe("peakConcurrentGuests", () => {
         start_time: "11:00",
         end_time: "15:00",
         guest_count_estimate: 500,
+        created_at: "2026-01-01T10:00:00Z",
         status: "cancelled",
       }),
     ];

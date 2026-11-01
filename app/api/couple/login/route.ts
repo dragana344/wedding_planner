@@ -4,7 +4,7 @@ import { INVALID_INPUT_ERROR, INVALID_JSON_ERROR, loginBody, parseInput } from "
 import { verifyCoupleLogin } from "@/lib/couple/auth";
 import { createCoupleSession } from "@/lib/couple/session-token";
 import { withRequestLog } from "@/lib/api/handler";
-import { logSecurityEvent } from "@/lib/log";
+import { errorFields, log, logSecurityEvent } from "@/lib/log";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -65,6 +65,11 @@ async function login(request: NextRequest) {
     logSecurityEvent("couple_login_blocked_venue", { event_id: result.eventId });
     return NextResponse.json({ error: BLOCKED_VENUE_MESSAGE }, { status: 403 });
   }
+
+  // Couple change marks only count after the first login. Co-organizers log in
+  // here too. A failure must not block the login: log it and carry on.
+  const { error: firstLoginError } = await createServiceRoleClient().rpc("record_couple_first_login", { p_event_id: result.eventId });
+  if (firstLoginError) log("error", "couple_first_login_record_failed", { event_id: result.eventId, ...errorFields(firstLoginError) });
 
   logSecurityEvent("couple_login_succeeded", { event_id: result.eventId, ...(result.side ? { organizer_side: result.side } : {}) });
 

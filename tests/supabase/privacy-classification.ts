@@ -28,6 +28,14 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_budget_items: { id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N },
   event_checklist_items: { id: N, event_id: N, title: P, due_date: C, is_done: N, created_at: N },
   event_checklist_subtasks: { id: N, checklist_item_id: N, title: P, is_done: N, created_at: N },
+  // 0125. old/new values are context (kept on erasure: the log is the event's
+  // history), except the contact section's, which erasure nulls explicitly.
+  // changed_by / seen_by / reminded_by name a manager or organizer.
+  event_changes: {
+    id: N, event_id: N, section: N, side: N, changed_by: P, field: N, old_value: C, new_value: C, changed_at: N,
+  },
+  event_change_seen: { event_id: N, viewer: N, section: N, seen_up_to: N, seen_by: P },
+  event_couple_reminders: { id: N, event_id: N, reminded_at: N, reminded_by: P },
   event_co_organizers: {
     id: N, event_id: N, side: P, username: P, password_hash: S, failed_attempts: N, locked_until: N, created_at: N,
   },
@@ -54,6 +62,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   // sent_by is always the fixed "Младенците"; seen_by is the venue manager's name.
   event_menu_submissions: {
     id: N, event_id: N, sent_at: N, sent_by: N, counts: C, menu_titles: N, total: C, seen_at: N, seen_by: P,
+    source: N, unanswered: C,
   },
   event_menu_templates: { event_id: N, menu_template_id: N },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },
@@ -72,6 +81,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
     deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
     seating_unseen_at: N,
+    // System flag (0125): whether the couple has ever logged in.
+    couple_first_login_at: N,
   },
   menu_items: {
     id: N, course: N, name: N, allergen_tags: N, is_vegetarian: N, is_vegan: N, created_at: N, price: N, photo_path: N,

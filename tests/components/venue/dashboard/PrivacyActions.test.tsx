@@ -88,6 +88,7 @@ const event: EventDetail = {
   status: "confirmed",
   event_type: "wedding",
   guest_count_estimate: 150,
+  created_at: "2026-01-01T10:00:00Z",
   menus: [],
   room_ids: [],
   hasShowcasePhotos: false,
@@ -98,6 +99,7 @@ const event: EventDetail = {
   total_price: null,
   deposit_paid: null,
   hasUnseenSeatingChange: false,
+  unseenSections: [],
   menuNumbers: { latest: null, previous: null },
 };
 
