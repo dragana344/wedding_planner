@@ -85,6 +85,60 @@ describe("EventEditForm", () => {
     expect(screen.getByRole("button", { name: /избриши ги личните податоци/i })).toBeInTheDocument();
   });
 
+  it("shows an at-a-glance summary (guests, rooms, menu portions, allergies) above the form", async () => {
+    mockSupportingCalls();
+    const { container } = renderForm({
+      event: {
+        ...baseEvent,
+        guest_count_estimate: 120,
+        room_ids: ["r1"],
+        menuNumbers: {
+          latest: {
+            id: "s1", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците",
+            numbers: { menus: [{ id: "m1", name: "Класично", count: 120 }], total: 120 },
+            seenAt: null, seenBy: null, source: "couple", unanswered: null,
+            allergySummary: "3 без кашкавал", allergyNotes: null,
+          },
+          previous: null,
+        },
+      },
+      rooms: [{ id: "r1", venue_id: "v1", name: "Голема сала", width_cm: 1000, height_cm: 800 }],
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    await screen.findByText("120 гости");
+    const glance = container.querySelector<HTMLElement>(".ev-glance")!;
+    expect(within(glance).getByText("120 гости")).toBeInTheDocument();
+    expect(within(glance).getByText("Голема сала")).toBeInTheDocument();
+    expect(within(glance).getByText("120 порции мени")).toBeInTheDocument();
+    expect(within(glance).getByText("Алергии: 3 без кашкавал")).toBeInTheDocument();
+  });
+
+  it("falls back to a note count when there's no couple summary, and shows nothing when there's no menu sent yet", async () => {
+    mockSupportingCalls();
+    const { container } = renderForm({
+      event: {
+        ...baseEvent,
+        guest_count_estimate: null,
+        menuNumbers: {
+          latest: {
+            id: "s1", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците",
+            numbers: { menus: [{ id: "m1", name: "Класично", count: 2 }], total: 2 },
+            seenAt: null, seenBy: null, source: "couple", unanswered: null,
+            allergySummary: null,
+            allergyNotes: [{ menuId: "m1", menuName: "Класично", notes: [{ guestId: "g1", guestName: "Ана", text: "без кашкавал" }] }],
+          },
+          previous: null,
+        },
+      },
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    await screen.findByText("Алергии: 1 белешки");
+    const glance = container.querySelector<HTMLElement>(".ev-glance")!;
+    expect(within(glance).queryByText(/^\d+ гости$/)).not.toBeInTheDocument();
+  });
+
   it("saves changes via updateEventViaApi and calls onChanged/onClose", async () => {
     mockSupportingCalls();
     const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
@@ -225,6 +279,22 @@ describe("EventEditForm", () => {
     );
   });
 
+  it("offers WhatsApp/Viber quick-contact for the couple's phone, and hides it when there's no number", async () => {
+    mockSupportingCalls();
+    renderForm({
+      event: { ...baseEvent, contact_email: "ana@example.mk", contact_phone: "070123456" },
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    const whatsapp = await screen.findByRole("link", { name: "WhatsApp" });
+    expect(whatsapp).toHaveAttribute("href", "https://wa.me/38970123456");
+    expect(screen.getByRole("link", { name: "Viber" })).toHaveAttribute("href", "viber://forward");
+
+    fireEvent.change(screen.getByLabelText("Телефон на парот"), { target: { value: "" } });
+    expect(screen.queryByRole("link", { name: "WhatsApp" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Viber" })).not.toBeInTheDocument();
+  });
+
   it("disables every write action for a plain staff member who is not elevated (final review finding)", async () => {
     mockSupportingCalls();
     render(
@@ -239,15 +309,20 @@ describe("EventEditForm", () => {
     expect(screen.queryByRole("button", { name: /избриши настан/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /генерирај нова лозинка/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Додади фотографија")).not.toBeInTheDocument();
-    // Contacts and money aren't even shown to plain staff (0117) — not just disabled.
+    // Contacts and money aren't even shown to plain staff (0117) — the whole
+    // section is gone, not disabled and not a "managers only" hint either
+    // (2026-11-02: staff shouldn't see that these sections exist at all,
+    // same as a sidebar item they have no access to).
     expect(screen.queryByLabelText("Email на парот")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Вкупна цена (МКД)")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Само за менаџери: најавете се како менаџер за да ги видите.")).toHaveLength(2);
-    // Security review minor finding: the erase-personal-data button used to
-    // render for anyone, elevated or not — reachable by plain staff, who'd
-    // only learn they lacked permission after typing the confirmation and
-    // hitting submit (the server already 403s via requireManagerElevation;
-    // this is the matching UI-side gate every other mutating section has).
+    expect(screen.queryByText("Контакт на парот")).not.toBeInTheDocument();
+    expect(screen.queryByText("Финансии")).not.toBeInTheDocument();
+    expect(screen.queryByText("Само за менаџери: најавете се како менаџер за да ги видите.")).not.toBeInTheDocument();
+    // Лични податоци keeps its hint instead of vanishing (unlike Контакт/
+    // Финансии above): erasure is destructive enough that staff should see
+    // why they can't use it, not have it unexplainedly disappear — the
+    // server also 403s the erase via requireManagerElevation regardless.
+    expect(screen.getByText("Лични податоци")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /избриши ги личните податоци/i })).not.toBeInTheDocument();
     expect(screen.getByText(/само менаџер или сопственик може да ги избрише личните податоци/i)).toBeInTheDocument();
   });
@@ -408,7 +483,7 @@ describe("EventEditForm custom menu", () => {
     const sub = (id: string, sentAt: string, menus: [string, string, number][], seenAt: string | null = null) => ({
       id, sentAt, sentBy: "Младенците",
       numbers: { menus: menus.map(([i, name, count]) => ({ id: i, name, count })), total: menus.reduce((s, m) => s + m[2], 0) },
-      seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null,
+      seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null, allergySummary: null, allergyNotes: null,
     });
     const previous = sub("s1", "2026-06-10T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 22]], "2026-06-11T10:00:00Z");
     const latest = sub("s2", "2026-06-14T10:00:00Z", [["a", "Класично", 180], ["b", "Посно", 23]]);

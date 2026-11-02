@@ -41,6 +41,7 @@ function makeStats(overrides: Partial<GuestStats> = {}): GuestStats {
     menus: [],
     notDone: [],
     invitationsSent: 0,
+    allergyNotes: [],
     ...overrides,
   };
 }

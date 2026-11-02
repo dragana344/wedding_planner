@@ -15,6 +15,8 @@ export type AuditEntry = {
   targetId?: string | null;
   requestId?: string | null;
   details?: Record<string, string | number | boolean | null>;
+  /** Which elevated manager did this, when the caller already re-verified elevation (0133). */
+  managerName?: string | null;
 };
 
 /** Writes one audit row. An audit failure is logged but never fails the user's action. */
@@ -30,6 +32,7 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
       target_id: entry.targetId ?? null,
       request_id: entry.requestId ?? null,
       details: entry.details ?? {},
+      manager_name: entry.managerName ?? null,
     });
   if (error) log("error", "audit_write_failed", { action: entry.action, ...errorFields(error) });
 }

@@ -60,7 +60,18 @@ describe("EventsClient deep link (B9 notifications)", () => {
   });
 
   it("Настани shows \"Нови бројки\" only while unseen", () => {
-    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null });
+    const sub = (seenAt: string | null) => ({
+      id: "s",
+      sentAt: "2026-06-14T10:00:00Z",
+      sentBy: "Младенците",
+      numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 },
+      seenAt,
+      seenBy: seenAt ? "Марко" : null,
+      source: "couple" as const,
+      unanswered: null,
+      allergySummary: null,
+      allergyNotes: null,
+    });
     const unseen = { ...event, id: "u1", couple_names: "Нови", unseenSections: ["menu_numbers" as const], menuNumbers: { latest: sub(null), previous: null } };
     const seen = { ...event, id: "u2", couple_names: "Видени", menuNumbers: { latest: sub("2026-06-15T10:00:00Z"), previous: null } };
     render(<ManagerElevationProvider><EventsClient venueId="v1" initialEvents={[seen]} rooms={[]} menuTemplates={[]} initialFilter="all" /></ManagerElevationProvider>);
@@ -71,7 +82,18 @@ describe("EventsClient deep link (B9 notifications)", () => {
   });
 
   it("an open event reflects refreshed data (Видено clears the highlight without closing)", async () => {
-    const sub = (seenAt: string | null) => ({ id: "s", sentAt: "2026-06-14T10:00:00Z", sentBy: "Младенците", numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 }, seenAt, seenBy: seenAt ? "Марко" : null, source: "couple" as const, unanswered: null });
+    const sub = (seenAt: string | null) => ({
+      id: "s",
+      sentAt: "2026-06-14T10:00:00Z",
+      sentBy: "Младенците",
+      numbers: { menus: [{ id: "a", name: "Класично", count: 2 }], total: 2 },
+      seenAt,
+      seenBy: seenAt ? "Марко" : null,
+      source: "couple" as const,
+      unanswered: null,
+      allergySummary: null,
+      allergyNotes: null,
+    });
     const unseen = { ...event, menuNumbers: { latest: sub(null), previous: null } };
     const seen = { ...event, menuNumbers: { latest: sub("2026-06-15T10:00:00Z"), previous: null } };
     vi.spyOn(menuNumbersClient, "markMenuNumbersSeenViaApi").mockResolvedValue(undefined);

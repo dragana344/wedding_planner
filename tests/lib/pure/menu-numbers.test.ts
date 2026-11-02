@@ -37,12 +37,48 @@ describe("menu numbers", () => {
       seen_by: null,
       source: "couple",
       unanswered: null,
+      allergy_summary: null,
+      allergy_notes: null,
     });
     expect(sub.numbers.menus.map((m) => m.id)).toEqual(["x", "y", "z"]);
     expect(sub.numbers.total).toBe(8);
     expect(hasUnseenMenuNumbers({ latest: sub })).toBe(true);
     expect(hasUnseenMenuNumbers({ latest: { ...sub, seenAt: "2026-10-30T11:00:00Z" } })).toBe(false);
     expect(hasUnseenMenuNumbers({ latest: null })).toBe(false);
-    expect(toMenuSubmission({ ...{ id: "s2", sent_at: "", sent_by: "", total: 0, seen_at: null, seen_by: null, source: "couple" as const, unanswered: null }, counts: null, menu_titles: null }).numbers.menus).toEqual([]);
+    expect(
+      toMenuSubmission({
+        id: "s2",
+        sent_at: "",
+        sent_by: "",
+        total: 0,
+        seen_at: null,
+        seen_by: null,
+        source: "couple" as const,
+        unanswered: null,
+        counts: null,
+        menu_titles: null,
+        allergy_summary: null,
+        allergy_notes: null,
+      }).numbers.menus,
+    ).toEqual([]);
+  });
+
+  it("carries the couple's allergy summary, or the raw per-guest notes when there is no summary", () => {
+    const withSummary = toMenuSubmission({
+      id: "s1", sent_at: "2026-10-30T10:00:00Z", sent_by: "Младенците", counts: { a: 3 }, menu_titles: { a: "Класично" }, total: 3,
+      seen_at: null, seen_by: null, source: "couple", unanswered: null,
+      allergy_summary: "3 класично без кашкавал", allergy_notes: null,
+    });
+    expect(withSummary.allergySummary).toBe("3 класично без кашкавал");
+    expect(withSummary.allergyNotes).toBeNull();
+
+    const withRawNotes = toMenuSubmission({
+      id: "s2", sent_at: "2026-10-30T10:00:00Z", sent_by: "Автоматски", counts: { a: 3 }, menu_titles: { a: "Класично" }, total: 3,
+      seen_at: null, seen_by: null, source: "auto", unanswered: 0,
+      allergy_summary: null,
+      allergy_notes: [{ menuId: "a", menuName: "Класично", notes: [{ guestId: "g1", guestName: "Ана", text: "без кашкавал" }] }],
+    });
+    expect(withRawNotes.allergySummary).toBeNull();
+    expect(withRawNotes.allergyNotes).toEqual([{ menuId: "a", menuName: "Класично", notes: [{ guestId: "g1", guestName: "Ана", text: "без кашкавал" }] }]);
   });
 });

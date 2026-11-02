@@ -99,6 +99,7 @@ export const guestStats: GuestStats = {
   menus: [{ id: "menu-1", name: "Класично", count: 3 }],
   notDone: [],
   invitationsSent: 2,
+  allergyNotes: [],
 };
 
 export const emptyStats: GuestStats = {
@@ -113,6 +114,7 @@ export const emptyStats: GuestStats = {
   menus: [],
   notDone: [],
   invitationsSent: 0,
+  allergyNotes: [],
 };
 
 /** Every feature on, no limits: the top plan. */

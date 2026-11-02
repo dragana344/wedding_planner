@@ -76,11 +76,13 @@ describe("POST /api/venue/events", () => {
     expect(data).toEqual([]);
   });
 
-  it("creates an event for an elevated manager", async () => {
+  it("creates an event for an elevated manager, attributing the couple-login creation to them (0133)", async () => {
     const res = await createRoute(req("/api/venue/events", "POST", validCreateBody, managerToken), { params: Promise.resolve({}) });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(typeof body.id).toBe("string");
+    const row = (await admin.from("audit_log").select("manager_name").eq("event_id", body.id).eq("action", "couple_credentials_created").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
   });
 
   it("refuses with no manager token", async () => {
@@ -103,7 +105,7 @@ describe("POST /api/venue/events", () => {
 });
 
 describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
-  it("updates an event for an elevated manager", async () => {
+  it("updates an event for an elevated manager, attributing it to them (0133)", async () => {
     const res = await updateRoute(
       req(`/api/venue/events/${eventId}`, "PATCH", {
         couple_names: "Изменет Пар", event_date: "2027-02-02", start_time: null, end_time: null,
@@ -112,6 +114,16 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
       ctx(eventId),
     );
     expect(res.status).toBe(200);
+    const row = (await admin.from("audit_log").select("manager_name").eq("event_id", eventId).eq("action", "event_updated").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
+  });
+
+  it("deletes an event and attributes it to the elevated manager (0133)", async () => {
+    const throwaway = (await admin.from("events").insert({ venue_id: venueId, couple_names: "За бришење", event_date: "2027-03-01" }).select("id").single()).data!.id;
+    const res = await deleteRoute(req(`/api/venue/events/${throwaway}`, "DELETE", undefined, managerToken), ctx(throwaway));
+    expect(res.status).toBe(200);
+    const row = (await admin.from("audit_log").select("manager_name").eq("event_id", throwaway).eq("action", "event_deleted").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
   });
 
   it("refuses an update with no manager token", async () => {
@@ -132,17 +144,30 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
 });
 
 describe("PATCH /api/venue/events/[eventId]/contact and /finance", () => {
-  it("updates contact info for an elevated manager", async () => {
+  it("updates contact info for an elevated manager, attributing it to them (0133) without leaking the new values into the log", async () => {
     const res = await contactRoute(
       req(`/api/venue/events/${eventId}/contact`, "PATCH", { contact_email: "new@example.com", contact_phone: "070999999", contact_email_2: null }, managerToken),
       ctx(eventId),
     );
     expect(res.status).toBe(200);
+    const row = (await admin.from("audit_log").select("*").eq("event_id", eventId).eq("action", "event_contact_updated").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
+    expect(JSON.stringify(row)).not.toContain("new@example.com");
   });
 
   it("refuses finance update with no manager token", async () => {
     const res = await financeRoute(req(`/api/venue/events/${eventId}/finance`, "PATCH", { total_price: 1000, deposit_paid: 200 }), ctx(eventId));
     expect(res.status).toBe(403);
+  });
+
+  it("updates finance info for an elevated manager, attributing it to them (0133)", async () => {
+    const res = await financeRoute(
+      req(`/api/venue/events/${eventId}/finance`, "PATCH", { total_price: 1500, deposit_paid: 300 }, managerToken),
+      ctx(eventId),
+    );
+    expect(res.status).toBe(200);
+    const row = (await admin.from("audit_log").select("manager_name").eq("event_id", eventId).eq("action", "event_finance_updated").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
   });
 
   it("refuses a deposit greater than the total price, even for an elevated manager (final review finding: only the form checked this)", async () => {

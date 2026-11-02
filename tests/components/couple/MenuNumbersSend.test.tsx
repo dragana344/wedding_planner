@@ -6,6 +6,7 @@ const numbers = { menus: [{ id: "m1", name: "Класично", count: 2 }], tot
 const stateWith = (notDone: { id: string; full_name: string }[]) => ({
   current: numbers,
   notDone,
+  allergyNotes: [],
   latest: null,
   changedSinceLatest: false,
 });

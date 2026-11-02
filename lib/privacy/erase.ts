@@ -12,7 +12,7 @@ import { errorFields, log, logSecurityEvent } from "@/lib/log";
 /** Placeholder written to events.couple_names by erase_event_personal_data. */
 export const ERASED_COUPLE_NAMES = "Избришани податоци";
 
-export type ErasureActor = { actorId?: string | null; requestId?: string | null };
+export type ErasureActor = { actorId?: string | null; requestId?: string | null; managerName?: string | null };
 
 async function drainStorage(context: string): Promise<void> {
   try {
@@ -37,6 +37,7 @@ export async function eraseEventPersonalData(eventId: string, actor: ErasureActo
     p_actor_id: actor.actorId ?? null,
     p_reason: "request",
     p_request_id: actor.requestId ?? null,
+    p_manager_name: actor.managerName ?? null,
   });
   if (error) throw error;
   if (!data) return false;

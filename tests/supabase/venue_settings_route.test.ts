@@ -90,6 +90,14 @@ describe("PATCH /api/venue/settings", () => {
     expect(await verifyLayoutLockPassword(venueId, "4321", staffClient)).toBe(true);
     // Only the caller's own venue changed.
     expect((await venue(otherVenueId)).name).toBe(`Settings Other ${stamp}`);
+
+    // Logged for the audit trail, attributed to the owner (0133) — but
+    // deliberately left out of lib/venue/notifications.ts's ACTIONS map,
+    // so none of these show up in Известувања (user's own call).
+    for (const action of ["venue_name_updated", "venue_profile_updated", "venue_brand_color_updated", "venue_layout_password_updated"]) {
+      const row = (await admin.from("audit_log").select("manager_name").eq("venue_id", venueId).eq("action", action).single()).data;
+      expect(row!.manager_name, action).toBe("Сопственик");
+    }
   });
 
   it("refuses a non-owner manager, plain staff and a made-up token", async () => {
@@ -137,6 +145,11 @@ describe("PATCH /api/venue/settings", () => {
     await admin.auth.admin.updateUserById(userId, { password: PASSWORD });
 
     expect((await patch({ field: "account_email", email: "new-owner@test.local" }, ownerToken)).status).toBe(200);
+
+    for (const action of ["venue_account_password_updated", "venue_account_email_updated"]) {
+      const row = (await admin.from("audit_log").select("manager_name").eq("venue_id", venueId).eq("action", action).single()).data;
+      expect(row!.manager_name, action).toBe("Сопственик");
+    }
   });
 
   it("explains a refused account change in Macedonian, never Supabase's English", async () => {
@@ -158,6 +171,8 @@ describe("DELETE /api/venue/settings/logo", () => {
     expect((await removeLogoRoute(logoRequest(), NO_PARAMS)).status).toBe(403);
     expect((await removeLogoRoute(logoRequest(ownerToken), NO_PARAMS)).status).toBe(200);
     expect((await venue()).logo_path).toBeNull();
+    const row = (await admin.from("audit_log").select("manager_name").eq("venue_id", venueId).eq("action", "venue_logo_removed").single()).data;
+    expect(row!.manager_name).toBe("Сопственик");
   });
 });
 

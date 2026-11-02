@@ -67,6 +67,22 @@ describe("venue notifications", () => {
     expect(await listVenueNotifications(staff, venueA, 2)).toHaveLength(2);
   });
 
+  it("shows which manager did it, when the audit row names one (0133)", async () => {
+    const deleted = await must(
+      admin.from("events").insert({ venue_id: venueA, couple_names: "Избришан пар", event_date: "2027-08-01" }).select("id").single(),
+    );
+    await must(
+      admin
+        .from("audit_log")
+        .insert({ actor_type: "staff", action: "event_deleted", venue_id: venueA, event_id: deleted.id, target_id: deleted.id, details: { event_date: "2027-08-01" }, manager_name: "Марко" }),
+    );
+    const list = await listVenueNotifications(staff, venueA);
+    const item = list.find((n) => n.kind === "event_deleted")!;
+    expect(item.detail).toBe("2027-08-01 · од Марко");
+    // The existing export row (seeded in beforeAll) has no manager_name — detail stays plain.
+    expect(list.find((n) => n.kind === "data_exported")!.detail).toBeNull();
+  });
+
   it("an explicit range narrows results to just that window", async () => {
     const old = await must(
       admin
@@ -119,7 +135,7 @@ describe("venue notifications: the couple's changes and menu numbers", () => {
   });
 
   it("shows an auto-sent submission green with the incomplete text, unseen until seen", async () => {
-    await must(admin.rpc("insert_auto_menu_submission", { p_event_id: eventA, p_counts: {}, p_titles: {}, p_total: 70, p_unanswered: 12 }));
+    await must(admin.rpc("insert_auto_menu_submission", { p_event_id: eventA, p_counts: {}, p_titles: {}, p_total: 70, p_unanswered: 12, p_allergy_notes: null }));
     const item = (await listVenueNotifications(staff, venueA)).find((n) => n.kind === "menu_numbers")!;
     expect(item).toMatchObject({ color: "green", unseen: true, title: "Бројки за мени · Ана & Марко" });
     expect(item.detail).toContain("Испратено автоматски — непотполно");
@@ -137,7 +153,7 @@ describe("venue notifications: scoped to the venue", () => {
   it("never shows another venue's couple changes or menu numbers", async () => {
     const other = (await must(admin.from("events").insert({ venue_id: venueB, couple_names: "Туѓи промени", event_date: "2027-07-01" }).select("id").single())).id;
     await must(admin.rpc("couple_set_guest_count", { p_event_id: other, p_count: 55, p_changed_by: null }));
-    await must(admin.rpc("insert_auto_menu_submission", { p_event_id: other, p_counts: {}, p_titles: {}, p_total: 33, p_unanswered: 1 }));
+    await must(admin.rpc("insert_auto_menu_submission", { p_event_id: other, p_counts: {}, p_titles: {}, p_total: 33, p_unanswered: 1, p_allergy_notes: null }));
     const list = await listVenueNotifications(staff, venueA, 200);
     expect(list.some((n) => n.eventId === other)).toBe(false);
     expect(JSON.stringify(list)).not.toContain("Туѓи промени");
@@ -170,5 +186,23 @@ describe("venue notifications: colour filter runs before the limit", () => {
     const green = await listVenueNotifications(staff, venueA, 2, undefined, "green");
     expect(green).toHaveLength(2);
     expect(green.every((n) => n.color === "green")).toBe(true);
+  });
+});
+
+describe("venue notifications: filter by manager (0133)", () => {
+  it("shows only the actions one named manager did, and drops events/couple items entirely", async () => {
+    await must(admin.from("audit_log").insert([
+      { actor_type: "staff", action: "event_updated", venue_id: venueA, event_id: eventA, target_id: eventA, details: {}, manager_name: "Ана" },
+      { actor_type: "staff", action: "manager_added", venue_id: venueA, details: {}, manager_name: "Ана" },
+      { actor_type: "staff", action: "event_deleted", venue_id: venueA, event_id: eventA, target_id: eventA, details: {}, manager_name: "Горан" },
+    ]));
+    await must(admin.rpc("couple_set_guest_count", { p_event_id: eventA, p_count: 77, p_changed_by: null }));
+
+    const ana = await listVenueNotifications(staff, venueA, 50, undefined, undefined, "Ана");
+    expect(ana.map((n) => n.kind).sort()).toEqual(["event_updated", "manager_added"]);
+    expect(ana.every((n) => n.kind !== "event_created" && n.kind !== "couple_change")).toBe(true);
+
+    const goran = await listVenueNotifications(staff, venueA, 50, undefined, undefined, "Горан");
+    expect(goran.map((n) => n.kind)).toEqual(["event_deleted"]);
   });
 });

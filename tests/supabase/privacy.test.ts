@@ -182,6 +182,11 @@ async function auditRows(filter: Record<string, string>) {
 async function remainingPersonalData(eventId: string, checklistId: string): Promise<string[]> {
   const leftovers: string[] = [];
   for (const [table, columns] of Object.entries(COLUMN_CLASSIFICATION)) {
+    // audit_log is append-only (0042) and deliberately excluded from erasure
+    // everywhere else in this file (see the venue-account-deletion test
+    // below) — manager_name (0133) is personal but, like actor_id, is never
+    // nulled, by the same design.
+    if (table === "audit_log") continue;
     const sensitive = Object.entries(columns)
       .filter(([, c]) => c === "personal" || c === "secret")
       .map(([name]) => name);
@@ -238,7 +243,7 @@ describe("export (DATA-005)", () => {
       admin.rpc("create_co_organizer", { p_event_id: eventA.eventId, p_side: "bride", p_username: `co-${eventA.tag}`, p_password: "long-enough-password" }),
     );
 
-    const data = await exportVenueData(a.venueId, { actorId: staff.userId });
+    const data = await exportVenueData(a.venueId, { actorId: staff.userId, managerName: "Горан" });
     const json = JSON.stringify(data);
     for (const text of [
       `Couple ${eventA.tag}`, `${eventA.tag}@couple.test`, `user-${eventA.tag}`, `Guest ${eventA.tag}`, `Allergy ${eventA.tag}`,
@@ -268,7 +273,7 @@ describe("export (DATA-005)", () => {
     expect(json).not.toContain("invite_token");
 
     const [row] = await auditRows({ venue_id: a.venueId, action: "privacy_export" });
-    expect(row).toMatchObject({ actor_type: "staff", actor_id: staff.userId });
+    expect(row).toMatchObject({ actor_type: "staff", actor_id: staff.userId, manager_name: "Горан" });
     expect(JSON.stringify(row)).not.toContain(eventA.tag);
   });
 
@@ -319,6 +324,15 @@ describe("event erasure (DATA-005)", () => {
 
   it("returns false for an unknown event", async () => {
     expect(await eraseEventPersonalData(randomUUID())).toBe(false);
+  });
+
+  it("attributes the erasure to the manager who did it, when the gated route passes one (0133)", async () => {
+    const v = await newVenue("ME");
+    const target = await seedEvent(v, `me${stamp}`);
+    expect(await eraseEventPersonalData(target.eventId, { managerName: "Ана" })).toBe(true);
+    const rows = await auditRows({ event_id: target.eventId, action: "event_personal_data_erased" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].manager_name).toBe("Ана");
   });
 
   it("succeeds when seating is locked and a layout element carries a label (critical fix, migration 0049)", async () => {
@@ -522,6 +536,8 @@ describe("venue privacy routes (DATA-006)", () => {
     const body = await res.json();
     expect(body.venue.id).toBe(v.venueId);
     expect(JSON.stringify(body)).toContain(`Guest ${seeded.tag}`);
+    const [row] = await auditRows({ venue_id: v.venueId, action: "privacy_export" });
+    expect(row.manager_name).toBe("Власник");
   });
 
   it("erase-event needs the exact couple names and only works on the caller's own events", async () => {
@@ -544,6 +560,8 @@ describe("venue privacy routes (DATA-006)", () => {
     const ok = await eraseRoute(postOwner("/api/venue/privacy/erase-event", { event_id: mine.eventId, confirm: ` Couple ${mine.tag} ` }), { params: {} });
     expect(ok.status).toBe(200);
     expect(await remainingPersonalData(mine.eventId, mine.checklistId)).toEqual([]);
+    const [row] = await auditRows({ event_id: mine.eventId, action: "event_personal_data_erased" });
+    expect(row.manager_name).toBe("Власник");
   });
 
   it("delete-account needs the exact venue name", async () => {

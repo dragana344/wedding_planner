@@ -10,6 +10,7 @@ import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 import type { ImageExtension } from "@/lib/image-type";
 import { NOT_AUTHENTICATED_ERROR, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR } from "@/lib/api/schemas";
+import { recordAudit } from "@/lib/audit";
 
 // Step 2 of a logo upload (owner-only, spec D4): the bytes must be a PNG,
 // JPG or WEBP of at most 5 MB; then it becomes the venue's logo and the
@@ -21,7 +22,8 @@ export const POST = withPublic(
   async ({ request, body }) => {
     const venueId = await getCurrentVenueId(await createServerSupabaseClient());
     if (!venueId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
-    if (!(await requireOwnerElevation(request, venueId))) return NextResponse.json({ error: OWNER_REQUIRED_ERROR }, { status: 403 });
+    const owner = await requireOwnerElevation(request, venueId);
+    if (!owner) return NextResponse.json({ error: OWNER_REQUIRED_ERROR }, { status: 403 });
 
     const client = createServiceRoleClient();
     const path = await acceptVenuePhotoUpload(venueId, body.path, {
@@ -40,6 +42,8 @@ export const POST = withPublic(
       throw err;
     }
     await drainStorageCleanupQueue().catch(() => {}); // the replaced logo; the hourly cron retries on failure
+    // Logged for the audit trail only, same as the rest of Поставки (not shown in Известувања).
+    await recordAudit({ action: "venue_logo_updated", actorType: "staff", venueId, managerName: owner.managerName });
     return NextResponse.json({ url: venueLogoUrl(client, path) });
   },
   {

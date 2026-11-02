@@ -18,6 +18,7 @@ const stats: GuestStats = {
   ],
   notDone: [],
   invitationsSent: 0,
+  allergyNotes: [],
 };
 const current = { menus: stats.menus, total: 4 };
 const latestOf = (numbers = current) => ({ id: "s1", sentAt: "2026-10-05T07:05:00Z", sentBy: "Младенците", numbers, seenAt: null, seenBy: null });
@@ -30,7 +31,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("GuestsSummary send numbers", () => {
   it("send disabled with the not-done names", async () => {
-    mockGet({ current, notDone: [{ id: "g", full_name: "Борис" }, { id: "h", full_name: "Васил" }], latest: null, changedSinceLatest: false });
+    mockGet({ current, notDone: [{ id: "g", full_name: "Борис" }, { id: "h", full_name: "Васил" }], allergyNotes: [], latest: null, changedSinceLatest: false });
     render(<GuestsSummary stats={stats} canSendNumbers />);
     const btn = await screen.findByRole("button", { name: "Испрати ги бројките до салата" });
     expect(btn).toBeDisabled();
@@ -38,7 +39,7 @@ describe("GuestsSummary send numbers", () => {
   });
 
   it("enabled when everyone is done, confirm shows numbers", async () => {
-    mockGet({ current, notDone: [], latest: null, changedSinceLatest: false });
+    mockGet({ current, notDone: [], allergyNotes: [], latest: null, changedSinceLatest: false });
     render(<GuestsSummary stats={stats} canSendNumbers />);
     fireEvent.click(await screen.findByRole("button", { name: "Испрати ги бројките до салата" }));
     expect(screen.getByText("Класично: 3")).toBeInTheDocument();
@@ -49,27 +50,31 @@ describe("GuestsSummary send numbers", () => {
   it("posts on confirm, then re-fetches and shows when it was sent", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ current, notDone: [], latest: null, changedSinceLatest: false }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ current, notDone: [], allergyNotes: [], latest: null, changedSinceLatest: false }) })
       .mockResolvedValueOnce({ ok: true, json: async () => latestOf() })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ current, notDone: [], latest: latestOf(), changedSinceLatest: false }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ current, notDone: [], allergyNotes: [], latest: latestOf(), changedSinceLatest: false }) });
     global.fetch = fetchMock;
     render(<GuestsSummary stats={stats} canSendNumbers />);
     fireEvent.click(await screen.findByRole("button", { name: "Испрати ги бројките до салата" }));
     fireEvent.click(screen.getByRole("button", { name: "Потврди и испрати" }));
     expect(await screen.findByText("Испратено на 05.10.2026 09:05")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/couple/menu-numbers", { method: "POST" });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/couple/menu-numbers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allergy_summary: null }),
+    });
   });
 
   it("with changes: lists them and offers the updated send", async () => {
     const old = { menus: [{ id: "m1", name: "Класично", count: 3 }, { id: "m2", name: "Посно", count: 0 }], total: 3 };
-    mockGet({ current, notDone: [], latest: latestOf(old), changedSinceLatest: true });
+    mockGet({ current, notDone: [], allergyNotes: [], latest: latestOf(old), changedSinceLatest: true });
     render(<GuestsSummary stats={stats} canSendNumbers />);
     expect(await screen.findByText("Има промени од последното испраќање: Посно +1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Испрати ажурирани бројки" })).toBeEnabled();
   });
 
   it("changed but no per-menu difference: says so without a dangling list", async () => {
-    mockGet({ current, notDone: [], latest: latestOf(current), changedSinceLatest: true });
+    mockGet({ current, notDone: [], allergyNotes: [], latest: latestOf(current), changedSinceLatest: true });
     render(<GuestsSummary stats={stats} canSendNumbers />);
     expect(await screen.findByText("Има промени од последното испраќање.")).toBeInTheDocument();
     expect(screen.queryByText(/испраќање:/)).not.toBeInTheDocument();

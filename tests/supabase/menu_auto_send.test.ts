@@ -41,14 +41,15 @@ async function newEvent(name: string, daysAway: number, createdDaysAgo = 100, me
   return data.id;
 }
 
-async function guest(eventId: string, name: string, status: string, counts: Record<string, number> = {}) {
-  const { data, error } = await admin.from("event_guests").insert({ event_id: eventId, full_name: name, rsvp_status: status, party_size: 2 }).select("id").single();
+async function guest(eventId: string, name: string, status: string, counts: Record<string, number> = {}, allergies: string | null = null): Promise<string> {
+  const { data, error } = await admin.from("event_guests").insert({ event_id: eventId, full_name: name, rsvp_status: status, party_size: 2, allergies }).select("id").single();
   if (error) throw error;
   const rows = Object.entries(counts).map(([menu_template_id, count]) => ({ guest_id: data.id, menu_template_id, count }));
   if (rows.length) {
     const { error: e2 } = await admin.from("event_guest_menu_counts").insert(rows);
     if (e2) throw e2;
   }
+  return data.id;
 }
 
 beforeAll(async () => {
@@ -64,17 +65,22 @@ afterAll(async () => {
 describe("runMenuAutoSend", () => {
   it("sends once with the confirmed numbers and the unanswered count; a second run does nothing", async () => {
     const e = await newEvent("Автоматски", 10);
-    await guest(e, "Ана", "confirmed", { [menuA]: 1, [menuB]: 1 });
+    const anaId = await guest(e, "Ана", "confirmed", { [menuA]: 1, [menuB]: 1 }, "без кашкавал");
     await guest(e, "Бојан", "later");
     await guest(e, "Вера", "declined");
 
     expect((await runMenuAutoSend(new Date())).sent).toContain(e);
     const [sub] = await listMenuSubmissions(e);
-    expect(sub).toMatchObject({ sentBy: "Автоматски", source: "auto", unanswered: 1, seenAt: null });
+    expect(sub).toMatchObject({ sentBy: "Автоматски", source: "auto", unanswered: 1, seenAt: null, allergySummary: null });
     expect(sub.numbers.total).toBe(2);
     expect(sub.numbers.menus).toEqual([
       { id: menuA, name: "Класично", count: 1 },
       { id: menuB, name: "Посно", count: 1 },
+    ]);
+    // Auto-send means the couple never finished, so it's always the raw fallback, never a summary.
+    expect(sub.allergyNotes).toEqual([
+      { menuId: menuA, menuName: "Класично", notes: [{ guestId: anaId, guestName: "Ана", text: "без кашкавал" }] },
+      { menuId: menuB, menuName: "Посно", notes: [{ guestId: anaId, guestName: "Ана", text: "без кашкавал" }] },
     ]);
 
     expect((await runMenuAutoSend(new Date())).sent).not.toContain(e);
@@ -83,7 +89,7 @@ describe("runMenuAutoSend", () => {
 
   it("the insert itself refuses an event that already has a submission", async () => {
     const e = await newEvent("Гонка", 5);
-    const args = { p_event_id: e, p_counts: { [menuA]: 1 }, p_titles: { [menuA]: "Класично" }, p_total: 1, p_unanswered: 0 };
+    const args = { p_event_id: e, p_counts: { [menuA]: 1 }, p_titles: { [menuA]: "Класично" }, p_total: 1, p_unanswered: 0, p_allergy_notes: null };
     expect((await admin.rpc("insert_auto_menu_submission", args)).data).toBe(true);
     expect((await admin.rpc("insert_auto_menu_submission", args)).data).toBe(false);
   });

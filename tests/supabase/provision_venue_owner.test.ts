@@ -18,7 +18,7 @@ describe("provision_venue — owner creation", () => {
     createdUserIds.push(user.user!.id);
 
     const { data: venueId, error } = await admin.rpc("provision_venue", {
-      p_user_id: user.user!.id, p_venue_name: "Owner Test Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123",
+      p_user_id: user.user!.id, p_venue_name: "Owner Test Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123", p_address: null, p_room_names: [],
     });
     expect(error).toBeNull();
     createdVenueIds.push(venueId as string);
@@ -35,12 +35,72 @@ describe("provision_venue — owner creation", () => {
     if (userError) throw userError;
     createdUserIds.push(user.user!.id);
 
-    const first = await admin.rpc("provision_venue", { p_user_id: user.user!.id, p_venue_name: "Retry Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123" });
+    const first = await admin.rpc("provision_venue", {
+      p_user_id: user.user!.id, p_venue_name: "Retry Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123", p_address: null, p_room_names: [],
+    });
     createdVenueIds.push(first.data as string);
-    const second = await admin.rpc("provision_venue", { p_user_id: user.user!.id, p_venue_name: "Retry Venue Again", p_owner_name: "someone-else", p_owner_password: "whatever-pass-1" });
+    const second = await admin.rpc("provision_venue", {
+      p_user_id: user.user!.id,
+      p_venue_name: "Retry Venue Again",
+      p_owner_name: "someone-else",
+      p_owner_password: "whatever-pass-1",
+      p_address: "Retry street 1",
+      p_room_names: ["Should not be created"],
+    });
     expect(second.data).toBe(first.data); // same venue id returned, no second venue created
 
     const { data: managers } = await admin.from("venue_managers").select("name").eq("venue_id", first.data as string);
     expect(managers).toHaveLength(1); // still just the original owner, "someone-else" was never inserted
+
+    const { data: venue } = await admin.from("venues").select("address").eq("id", first.data as string).single();
+    expect(venue!.address).toBeNull(); // the retry's address was never applied either
+    const { data: rooms } = await admin.from("rooms").select("id").eq("venue_id", first.data as string);
+    expect(rooms).toHaveLength(0); // nor was its room
+  });
+
+  it("creates the address and the given rooms, skipping blank names", async () => {
+    const { data: user, error: userError } = await admin.auth.admin.createUser({
+      email: `provision-address-rooms-${stamp}@test.local`,
+      password: "pw-doesnt-matter-1",
+      email_confirm: true,
+    });
+    if (userError) throw userError;
+    createdUserIds.push(user.user!.id);
+
+    const { data: venueId, error } = await admin.rpc("provision_venue", {
+      p_user_id: user.user!.id,
+      p_venue_name: "Address Rooms Venue",
+      p_owner_name: "owner",
+      p_owner_password: "owner-pass-123",
+      p_address: "  ул. Македонија бр. 10, Скопје  ",
+      p_room_names: ["Голема сала", "  ", "Тераса", ""],
+    });
+    expect(error).toBeNull();
+    createdVenueIds.push(venueId as string);
+
+    const { data: venue } = await admin.from("venues").select("address").eq("id", venueId as string).single();
+    expect(venue!.address).toBe("ул. Македонија бр. 10, Скопје"); // trimmed
+
+    const { data: rooms } = await admin.from("rooms").select("name").eq("venue_id", venueId as string).order("name");
+    expect(rooms).toEqual([{ name: "Голема сала" }, { name: "Тераса" }]); // blank entries skipped
+  });
+
+  it("leaves address null when omitted, same as before this field existed", async () => {
+    const { data: user, error: userError } = await admin.auth.admin.createUser({
+      email: `provision-no-address-${stamp}@test.local`,
+      password: "pw-doesnt-matter-1",
+      email_confirm: true,
+    });
+    if (userError) throw userError;
+    createdUserIds.push(user.user!.id);
+
+    const { data: venueId, error } = await admin.rpc("provision_venue", {
+      p_user_id: user.user!.id, p_venue_name: "No Address Venue", p_owner_name: "owner", p_owner_password: "owner-pass-123", p_address: null, p_room_names: [],
+    });
+    expect(error).toBeNull();
+    createdVenueIds.push(venueId as string);
+
+    const { data: venue } = await admin.from("venues").select("address").eq("id", venueId as string).single();
+    expect(venue!.address).toBeNull();
   });
 });

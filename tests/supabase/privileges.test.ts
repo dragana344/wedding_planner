@@ -114,10 +114,17 @@ describe("SECURITY DEFINER functions (SEC-006)", () => {
     expect(rows[0].ok).toBe(false);
   });
 
-  it("revokes regenerate_event_password from authenticated — only the manager-elevation-gated route (service_role) can call it (migration 0102)", async () => {
-    const { rows } = await db.query(`select has_function_privilege('authenticated', 'public.regenerate_event_password(uuid, text)', 'EXECUTE') as ok`);
+  it("revokes regenerate_event_password from authenticated — only the manager-elevation-gated route (service_role) can call it (migration 0102, 0133)", async () => {
+    const { rows } = await db.query(`select has_function_privilege('authenticated', 'public.regenerate_event_password(uuid, text, text)', 'EXECUTE') as ok`);
     expect(rows[0].ok).toBe(false);
-    const { rows: serviceRows } = await db.query(`select has_function_privilege('service_role', 'public.regenerate_event_password(uuid, text)', 'EXECUTE') as ok`);
+    const { rows: serviceRows } = await db.query(`select has_function_privilege('service_role', 'public.regenerate_event_password(uuid, text, text)', 'EXECUTE') as ok`);
+    expect(serviceRows[0].ok).toBe(true);
+  });
+
+  it("revokes delete_event_as_manager from authenticated — only the manager-elevation-gated DELETE route (service_role) can call it (migration 0133)", async () => {
+    const { rows } = await db.query(`select has_function_privilege('authenticated', 'public.delete_event_as_manager(uuid, uuid, text)', 'EXECUTE') as ok`);
+    expect(rows[0].ok).toBe(false);
+    const { rows: serviceRows } = await db.query(`select has_function_privilege('service_role', 'public.delete_event_as_manager(uuid, uuid, text)', 'EXECUTE') as ok`);
     expect(serviceRows[0].ok).toBe(true);
   });
 

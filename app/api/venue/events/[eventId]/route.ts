@@ -7,6 +7,7 @@ import { updateEvent, deleteEvent, EventNotFoundError, PastEventError } from "@/
 import { requireManagerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, updateEventBody, uuid } from "@/lib/api/schemas";
+import { recordAudit } from "@/lib/audit";
 
 const MANAGER_REQUIRED_ERROR = "Потребна е најава како менаџер.";
 const paramsSchema = z.object({ eventId: uuid });
@@ -23,6 +24,7 @@ export const PATCH = withPublic(
       // the signed-in staff session's own writes to a few unguarded columns
       // (migration 0096), so the actual write uses the service-role client.
       await updateEvent(params.eventId, venueId, body, createServiceRoleClient());
+      await recordAudit({ action: "event_updated", actorType: "staff", venueId, eventId: params.eventId, targetId: params.eventId, managerName: manager.managerName });
       return NextResponse.json({ ok: true });
     } catch (err) {
       if (err instanceof EventNotFoundError) return NextResponse.json({ error: err.message }, { status: 404 });
@@ -47,7 +49,7 @@ export const DELETE = withPublic(
       // (migration 0096), so the actual write uses the service-role client
       // — which bypasses RLS entirely, so venueId must be checked explicitly
       // here instead of relying on is_venue_staff_for to scope the delete.
-      await deleteEvent(params.eventId, venueId, createServiceRoleClient());
+      await deleteEvent(params.eventId, venueId, createServiceRoleClient(), manager.managerName);
       return NextResponse.json({ ok: true });
     } catch (err) {
       if (err instanceof EventNotFoundError) return NextResponse.json({ error: err.message }, { status: 404 });

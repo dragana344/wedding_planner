@@ -22,8 +22,13 @@ const VENUE_KIND_COLORS: Record<string, NotificationColor> = {
   menu_numbers: "green",
   event_created: "blue",
   event_deleted: "blue",
+  event_updated: "blue",
+  event_contact_updated: "blue",
+  event_finance_updated: "blue",
   credentials_created: "grey",
   password_regenerated: "grey",
+  manager_added: "grey",
+  manager_removed: "grey",
   data_erased: "red",
   data_exported: "red",
 };

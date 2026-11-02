@@ -52,7 +52,7 @@ describe("SignupForm", () => {
         // The venue name and the owner's manager-login details ride along for
         // the confirm-email path (lib/venue/pending-signup.ts).
         options: {
-          data: { venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123" },
+          data: { venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123", address: "", room_names: [] },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       })
@@ -60,10 +60,51 @@ describe("SignupForm", () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/venue/signup",
-        expect.objectContaining({ method: "POST", body: JSON.stringify({ venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123" }) })
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ venue_name: "Демо Локал", owner_name: "Марко Марковски", owner_password: "manager-pass-123", address: "", room_names: [] }),
+        })
       )
     );
     await waitFor(() => expect(locationHref).toBe("/venue?tour=1"));
+  });
+
+  it("sends the trimmed address and room names, skipping blank rows", async () => {
+    mockSignUp.mockResolvedValue({ data: { session: {} }, error: null });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ venue_id: "v1" }) });
+
+    render(<SignupForm />);
+
+    fireEvent.change(screen.getByLabelText(/име на локалот/i), { target: { value: "Демо Локал" } });
+    fireEvent.change(screen.getByLabelText(/адреса на локалот/i), { target: { value: "  ул. Македонија бр. 10  " } });
+    fireEvent.change(screen.getByPlaceholderText(/пр\. Голема сала, Тераса/i), { target: { value: "Голема сала" } });
+    fireEvent.click(screen.getByRole("button", { name: /додади уште една просторија/i }));
+    const roomInputs = screen.getAllByPlaceholderText(/пр\. Голема сала, Тераса/i);
+    expect(roomInputs).toHaveLength(2);
+    fireEvent.change(roomInputs[1], { target: { value: "  " } }); // left blank, should be dropped
+    fireEvent.change(screen.getByLabelText(/име \(за менаџерска најава\)/i), { target: { value: "Марко Марковски" } });
+    fireEvent.change(screen.getByLabelText(/менаџерска лозинка/i), { target: { value: "manager-pass-123" } });
+    fireEvent.change(screen.getByLabelText(/^е-пошта$/i), { target: { value: "owner@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^лозинка$/i), { target: { value: "strong-password-123" } });
+    fireEvent.click(screen.getByRole("button", { name: /регистрирај се/i }));
+
+    await waitFor(() =>
+      expect(mockSignUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ data: expect.objectContaining({ address: "ул. Македонија бр. 10", room_names: ["Голема сала"] }) }),
+        })
+      )
+    );
+  });
+
+  it("removes a room row when its ✕ button is clicked", () => {
+    render(<SignupForm />);
+    fireEvent.click(screen.getByRole("button", { name: /додади уште една просторија/i }));
+    expect(screen.getAllByPlaceholderText(/пр\. Голема сала, Тераса/i)).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: /отстрани просторија/i })[0]);
+    expect(screen.getAllByPlaceholderText(/пр\. Голема сала, Тераса/i)).toHaveLength(1);
+    // Down to one row, no remove button left — it would empty the list entirely.
+    expect(screen.queryByRole("button", { name: /отстрани просторија/i })).not.toBeInTheDocument();
   });
 
   it("shows the Supabase error inline when signUp fails, without calling the provisioning route", async () => {

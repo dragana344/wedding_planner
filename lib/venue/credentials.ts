@@ -32,11 +32,13 @@ export async function createEventCredentials(
 export async function regenerateEventPassword(
   eventId: string,
   password: string,
-  client: SupabaseClient = resolveSupabaseClient()
+  client: SupabaseClient = resolveSupabaseClient(),
+  managerName?: string | null
 ): Promise<void> {
   const { error } = await client.rpc("regenerate_event_password", {
     p_event_id: eventId,
     p_password: password,
+    p_manager_name: managerName ?? null,
   });
   if (error) throw error;
 }

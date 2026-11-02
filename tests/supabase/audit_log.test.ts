@@ -67,15 +67,16 @@ describe("audit log (SEC-018)", () => {
     // /api/venue/events/[eventId]/regenerate-password route, which calls it
     // with a service-role client after independently verifying manager
     // elevation. auth.uid() is null under service_role, so the trigger
-    // falls back to actor_type 'system' — the audit-log-by-manager-name
-    // gap (spec D7) this leaves open is a known, still-deferred item.
+    // falls back to actor_type 'system'. The route itself passes the
+    // elevated manager's name through (0133, tested below); this call
+    // leaves it unset, same as any direct RPC call outside that route.
     const eventId = await newEvent();
     expect((await admin.rpc("create_event_credentials", { p_event_id: eventId, p_username: `audit-regen-${stamp}`, p_password: "long-enough-1" })).error).toBeNull();
     expect((await admin.rpc("regenerate_event_password", { p_event_id: eventId, p_password: "long-enough-2" })).error).toBeNull();
 
     const rows = await auditRows({ event_id: eventId, action: "couple_password_regenerated" });
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ actor_type: "system", actor_id: null, venue_id: venueId });
+    expect(rows[0]).toMatchObject({ actor_type: "system", actor_id: null, venue_id: venueId, manager_name: null });
   });
 
   it("records an event deletion, without personal data", async () => {
@@ -88,6 +89,39 @@ describe("audit log (SEC-018)", () => {
     const rows = await auditRows({ event_id: eventId, action: "event_deleted" });
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows[0])).not.toContain("Audit & Test");
+  });
+
+  it("attributes each gated action to the specific manager who did it, when one is passed (0133)", async () => {
+    // The audit-log-by-manager-name gap (spec D7): a venue with 2+ managers
+    // could only ever see "a manager did this". The gated API routes
+    // already re-verify elevation before every one of these calls, so they
+    // now pass the elevated manager's own name straight into the same RPC
+    // call that performs the write (never a separate round trip — see the
+    // migration's own header for why).
+    const { data: fullEventId, error: fullError } = await admin.rpc("create_event_full", {
+      p_venue_id: venueId, p_couple_names: "Манаџер & Тест", p_event_date: "2027-10-01",
+      p_start_time: null, p_end_time: null, p_event_type: "wedding", p_status: "preparation",
+      p_guest_count_estimate: null, p_room_ids: [], p_contact_email: "m@example.com", p_contact_email_2: null,
+      p_contact_phone: "070111222", p_total_price: null, p_deposit_paid: null,
+      p_username: `audit-full-${stamp}`, p_password: "long-enough-1", p_menu_template_ids: [],
+      p_manager_name: "Марко",
+    });
+    expect(fullError).toBeNull();
+    const [created] = await auditRows({ event_id: fullEventId as string, action: "couple_credentials_created" });
+    expect(created.manager_name).toBe("Марко");
+
+    const credEvent = await newEvent();
+    expect((await admin.rpc("create_event_credentials", { p_event_id: credEvent, p_username: `audit-regen2-${stamp}`, p_password: "long-enough-1" })).error).toBeNull();
+    expect((await admin.rpc("regenerate_event_password", { p_event_id: credEvent, p_password: "long-enough-2", p_manager_name: "Ана" })).error).toBeNull();
+    const [regen] = await auditRows({ event_id: credEvent, action: "couple_password_regenerated" });
+    expect(regen.manager_name).toBe("Ана");
+
+    const deleteEvent = await newEvent();
+    expect((await admin.rpc("delete_event_as_manager", { p_event_id: deleteEvent, p_venue_id: venueId, p_manager_name: "Петар" })).data).toBe(true);
+    const [deleted] = await auditRows({ event_id: deleteEvent, action: "event_deleted" });
+    expect(deleted.manager_name).toBe("Петар");
+    // Deleting an event that doesn't belong to this venue (or doesn't exist) reports no row deleted.
+    expect((await admin.rpc("delete_event_as_manager", { p_event_id: deleteEvent, p_venue_id: venueId, p_manager_name: "Петар" })).data).toBe(false);
   });
 
   it("cannot be changed or deleted by staff or even the service role", async () => {

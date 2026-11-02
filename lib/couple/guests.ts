@@ -56,7 +56,16 @@ export interface GuestStats {
   /** Guests the couple still has to hear from or finish choosing menus for, by name. */
   notDone: { id: string; full_name: string }[];
   invitationsSent: number;
+  /**
+   * Done, confirmed guests' allergy notes, grouped by the menu they chose —
+   * the raw material for the couple's own summary (or the venue's fallback
+   * when the couple doesn't write one). Never combines or parses the text
+   * itself; menus with no notes are left out.
+   */
+  allergyNotes: AllergyMenuGroup[];
 }
+
+export type AllergyMenuGroup = { menuId: string; menuName: string; notes: { guestId: string; guestName: string; text: string }[] };
 
 /** Where a guest sits, from the seating plan (Session 3's `guest_seat()`). */
 export interface GuestSeat {
@@ -258,6 +267,18 @@ export async function getGuestStats(eventId: string): Promise<GuestStats> {
       .filter((g) => isGuestDone(g, menuIds))
       .reduce((sum, g) => sum + (menuIds.length === 1 ? g.party_size : (g.menu_counts[id] ?? 0)), 0),
   }));
+  const noteWorthy = attending.filter((g) => isGuestDone(g, menuIds) && g.allergies && g.allergies.trim());
+  const allergyNotes: AllergyMenuGroup[] = menus
+    .map(({ id, name }) => ({
+      menuId: id,
+      menuName: name,
+      // Single menu: every done, confirmed guest is on it, same as `count` above.
+      notes: noteWorthy
+        .filter((g) => menuIds.length === 1 || (g.menu_counts[id] ?? 0) > 0)
+        .map((g) => ({ guestId: g.id, guestName: g.full_name, text: g.allergies!.trim() })),
+    }))
+    .filter((g) => g.notes.length > 0);
+
   return {
     total: guests.length,
     confirmed: attending.length,
@@ -273,6 +294,7 @@ export async function getGuestStats(eventId: string): Promise<GuestStats> {
       .map((g) => ({ id: g.id, full_name: g.full_name }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name, "mk")),
     invitationsSent: guests.filter((g) => g.invitation_sent_at !== null).length,
+    allergyNotes,
   };
 }
 

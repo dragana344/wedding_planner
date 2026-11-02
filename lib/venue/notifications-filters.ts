@@ -5,7 +5,7 @@
 import { isValidCalendarDate } from "@/lib/admin/audit-filters";
 import { todayIn } from "@/lib/date";
 
-export type NotificationsSearchParams = Partial<Record<"notifFrom" | "notifTo" | "color", string>>;
+export type NotificationsSearchParams = Partial<Record<"notifFrom" | "notifTo" | "color" | "manager", string>>;
 
 export type DateRange = { from: string; to: string };
 

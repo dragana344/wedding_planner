@@ -34,7 +34,14 @@ async function signup(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const result = await provisionVenueForUser(user.id, parsed.data.venue_name.trim(), parsed.data.owner_name.trim(), parsed.data.owner_password);
+    const result = await provisionVenueForUser(
+      user.id,
+      parsed.data.venue_name.trim(),
+      parsed.data.owner_name.trim(),
+      parsed.data.owner_password,
+      parsed.data.address,
+      parsed.data.room_names
+    );
     // The signup form states that registering accepts the Terms (incl. the
     // DPA). If this fails the route errors and the client's retry records it
     // (provisioning returns the same venue).

@@ -20,7 +20,10 @@ const S = "secret" as const;
 const N = "none" as const;
 
 export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> = {
-  audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N },
+  // manager_name (0133): which elevated manager performed a gated action — names a person, same as event_changes.changed_by,
+  // but audit_log is append-only (0042) so, unlike that table, it is never nulled by erasure — same accepted exception
+  // already applied to this table's actor_id, and why both are left out of privacy.test.ts's blanket erasure checks below.
+  audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N, manager_name: P },
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
   event_albums: { event_id: N, public_token: S, retention_notice_sent_at: N, created_at: N },
@@ -60,9 +63,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_locations: { id: N, event_id: N, label: P, address: P, map_url: P, sort_order: N, created_at: N },
   event_guest_menu_counts: { guest_id: N, menu_template_id: N, count: P },
   // sent_by is always the fixed "Младенците"; seen_by is the venue manager's name.
+  // allergy_summary/allergy_notes (0131) carry guest-identifying dietary/health info.
   event_menu_submissions: {
     id: N, event_id: N, sent_at: N, sent_by: N, counts: C, menu_titles: N, total: C, seen_at: N, seen_by: P,
-    source: N, unanswered: C,
+    source: N, unanswered: C, allergy_summary: P, allergy_notes: P,
   },
   event_menu_templates: { event_id: N, menu_template_id: N },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },

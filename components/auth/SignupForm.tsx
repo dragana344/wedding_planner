@@ -12,6 +12,9 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
+  const [address, setAddress] = useState("");
+  // Both optional, so a venue can leave this empty or skip straight past it.
+  const [roomNames, setRoomNames] = useState<string[]>([""]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Set when the account was created but the email still has to be confirmed.
@@ -26,11 +29,18 @@ export function SignupForm() {
       // The venue name and the owner's manager-login details travel in the
       // user's metadata so the venue can be opened on the first sign-in
       // when the email has to be confirmed first (lib/venue/pending-signup.ts).
+      const cleanRoomNames = roomNames.map((n) => n.trim()).filter(Boolean);
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { venue_name: venueName.trim(), owner_name: ownerName.trim(), owner_password: ownerPassword },
+          data: {
+            venue_name: venueName.trim(),
+            owner_name: ownerName.trim(),
+            owner_password: ownerPassword,
+            address: address.trim(),
+            room_names: cleanRoomNames,
+          },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       });
@@ -50,13 +60,13 @@ export function SignupForm() {
         return;
       }
 
-      let response = await provisionVenue(venueName, ownerName, ownerPassword);
+      let response = await provisionVenue(venueName, ownerName, ownerPassword, address.trim(), cleanRoomNames);
       if (!response.ok && response.status !== 401) {
         // A transient failure right after signUp shouldn't strand a
         // freshly-created account — retry once before giving up.
         // (A 401 is not transient — the session is missing/invalid both
         // times — so retrying it would just waste a round-trip.)
-        response = await provisionVenue(venueName, ownerName, ownerPassword);
+        response = await provisionVenue(venueName, ownerName, ownerPassword, address.trim(), cleanRoomNames);
       }
       if (!response.ok) {
         const { error: message } = await response.json();
@@ -105,6 +115,47 @@ export function SignupForm() {
           onChange={(e) => setVenueName(e.target.value)}
           required
         />
+      </div>
+      <div className="auth-field">
+        <label className="lab-s" htmlFor="signup-address">
+          Адреса на локалот <span style={{ fontWeight: 400, color: "var(--muted)" }}>(незадолжително)</span>
+        </label>
+        <input
+          id="signup-address"
+          className="fld"
+          placeholder="пр. ул. Македонија бр. 10, Скопје"
+          autoComplete="street-address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+      </div>
+      <div className="auth-field">
+        <label className="lab-s">
+          Простории <span style={{ fontWeight: 400, color: "var(--muted)" }}>(незадолжително — можете да додадете и подоцна)</span>
+        </label>
+        {roomNames.map((value, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input
+              className="fld"
+              placeholder="пр. Голема сала, Тераса"
+              value={value}
+              onChange={(e) => setRoomNames((rooms) => rooms.map((r, j) => (j === i ? e.target.value : r)))}
+            />
+            {roomNames.length > 1 ? (
+              <button
+                type="button"
+                className="btn"
+                aria-label="Отстрани просторија"
+                onClick={() => setRoomNames((rooms) => rooms.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            ) : null}
+          </div>
+        ))}
+        <button type="button" className="auth-link" style={{ marginTop: 0 }} onClick={() => setRoomNames((rooms) => [...rooms, ""])}>
+          + Додади уште една просторија
+        </button>
       </div>
       <div className="auth-field">
         <label className="lab-s" htmlFor="signup-owner-name">

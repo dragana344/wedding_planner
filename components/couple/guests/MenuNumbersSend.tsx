@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { diffMenuNumbers, type MenuNumbers, type MenuSubmission } from "@/lib/menu-numbers";
+import { diffMenuNumbers, type AllergyNoteGroup, type MenuNumbers, type MenuSubmission } from "@/lib/menu-numbers";
 import { formatVenueDateTime } from "@/lib/date";
 import type { TimelineStage } from "@/lib/menu-timeline";
 
 type State = {
   current: MenuNumbers;
   notDone: { id: string; full_name: string }[];
+  /** Done, confirmed guests' allergy notes by menu — reference for the summary box below. */
+  allergyNotes: AllergyNoteGroup[];
   latest: MenuSubmission | null;
   changedSinceLatest: boolean;
   /** Where the event stands on the final-numbers timeline. */
@@ -29,6 +31,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
 export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
   const [state, setState] = useState<State | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [allergySummary, setAllergySummary] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +40,7 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
       const res = await fetch("/api/couple/menu-numbers");
       if (!res.ok) return;
       const data = (await res.json()) as State;
-      if (Array.isArray(data?.current?.menus) && Array.isArray(data.notDone)) setState(data);
+      if (Array.isArray(data?.current?.menus) && Array.isArray(data.notDone) && Array.isArray(data.allergyNotes)) setState(data);
     } catch {
       // Nothing to show without the numbers; the guest list works regardless.
     }
@@ -51,10 +54,15 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/couple/menu-numbers", { method: "POST" });
+      const res = await fetch("/api/couple/menu-numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allergy_summary: allergySummary.trim() || null }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Не успеа испраќањето на бројките.");
       setConfirming(false);
+      setAllergySummary("");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не успеа испраќањето на бројките.");
@@ -66,7 +74,7 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
   }
 
   if (!state || state.current.menus.length === 0) return null;
-  const { current, notDone, latest, changedSinceLatest } = state;
+  const { current, notDone, allergyNotes, latest, changedSinceLatest } = state;
   const blocked = notDone.length > 0;
   // 25..16 days out with nothing sent: the venue is waiting for the numbers.
   const remind = !latest && state.coupleReminder === true;
@@ -95,6 +103,36 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
             ))}
           </ul>
           <p>{`Вкупно: ${current.total}`}</p>
+          {allergyNotes.length > 0 ? (
+            <div style={{ margin: "10px 0" }}>
+              <p className="guests-summary-menu">
+                <b>Алергии кај гостите</b>
+              </p>
+              <ul>
+                {allergyNotes.map((g) => (
+                  <li key={g.menuId}>
+                    {g.menuName}: {g.notes.map((n) => `${n.guestName} — ${n.text}`).join("; ")}
+                  </li>
+                ))}
+              </ul>
+              <label htmlFor="menu-numbers-allergy-summary" className="guests-summary-menu" style={{ display: "block", marginTop: 6 }}>
+                Резиме за салата (пр. „3 класично без кашкавал, 2 посно без риба“) — незадолжително
+              </label>
+              <textarea
+                id="menu-numbers-allergy-summary"
+                value={allergySummary}
+                onChange={(e) => setAllergySummary(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                style={{ width: "100%" }}
+              />
+              <p className="guests-summary-menu">
+                {allergySummary.trim()
+                  ? "Салата ќе го добие ова резиме."
+                  : "Ако го оставите празно, салата ќе ги добие белешките на гостите погоре, онака како што се внесени."}
+              </p>
+            </div>
+          ) : null}
           <button type="button" className="btn btn-primary" disabled={busy || blocked} onClick={() => void send()}>
             Потврди и испрати
           </button>{" "}

@@ -36,7 +36,7 @@ export const POST = withPublic(
       if (!event || event.venue_id !== venueId) {
         return NextResponse.json({ error: "Настанот не е пронајден." }, { status: 404 });
       }
-      await regenerateEventPassword(params.eventId, body.password, serviceClient);
+      await regenerateEventPassword(params.eventId, body.password, serviceClient, manager.managerName);
       logSecurityEvent("event_password_regenerated", { venue_id: venueId, event_id: params.eventId, manager_id: manager.managerId });
       return NextResponse.json({ ok: true });
     } catch (err) {

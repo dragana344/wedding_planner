@@ -7,6 +7,7 @@ import { updateEventContactInfo, EventNotFoundError, PastEventError } from "@/li
 import { requireManagerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, updateEventContactBody, uuid } from "@/lib/api/schemas";
+import { recordAudit } from "@/lib/audit";
 
 const MANAGER_REQUIRED_ERROR = "Потребна е најава како менаџер.";
 const paramsSchema = z.object({ eventId: uuid });
@@ -24,6 +25,8 @@ export const PATCH = withPublic(
       // (migration 0096), so the actual write uses the service-role client
       // — which bypasses RLS entirely, so venueId is checked explicitly.
       await updateEventContactInfo(params.eventId, venueId, body, createServiceRoleClient());
+      // Never the new email/phone itself — same "no personal data in the log" rule as every other audit entry.
+      await recordAudit({ action: "event_contact_updated", actorType: "staff", venueId, eventId: params.eventId, targetId: params.eventId, managerName: manager.managerName });
       return NextResponse.json({ ok: true });
     } catch (err) {
       if (err instanceof EventNotFoundError) return NextResponse.json({ error: err.message }, { status: 404 });

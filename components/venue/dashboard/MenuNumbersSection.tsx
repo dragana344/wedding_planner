@@ -116,6 +116,22 @@ export function MenuNumbersSection({
           <p style={{ margin: "6px 0 0" }}>
             <b>Вкупно — {latest.numbers.total}</b>
           </p>
+          {latest.allergySummary ? (
+            <p className="ev-hint" style={{ marginTop: 6 }}>
+              <b>Алергии:</b> {latest.allergySummary}
+            </p>
+          ) : latest.allergyNotes && latest.allergyNotes.length > 0 ? (
+            <div style={{ marginTop: 6 }}>
+              <p className="ev-hint" style={{ margin: 0 }}>
+                <b>Алергии (белешки на гостите):</b>
+              </p>
+              {latest.allergyNotes.map((g) => (
+                <p className="ev-hint" key={g.menuId} style={{ margin: 0 }}>
+                  {g.menuName}: {g.notes.map((n) => `${n.guestName} — ${n.text}`).join("; ")}
+                </p>
+              ))}
+            </div>
+          ) : null}
           {latest.source === "auto" ? (
             <p className="ev-hint">
               Испратено автоматски — непотполно

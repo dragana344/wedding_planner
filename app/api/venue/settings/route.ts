@@ -10,6 +10,7 @@ import { getVenueFeatures } from "@/lib/entitlements/server";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic, withRequestLog } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, NAME_MAX } from "@/lib/api/schemas";
 import { authErrorMessage } from "@/lib/auth-messages";
+import { recordAudit } from "@/lib/audit";
 
 // Поставки is owner-only (spec D4), and since 0107 staff have no UPDATE on
 // venues at all — the owner-elevation check here is the write's real
@@ -88,7 +89,15 @@ export const PATCH = withPublic(
     const supabase = await createServerSupabaseClient();
     const venueId = await getCurrentVenueId(supabase);
     if (!venueId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
-    if (!(await requireOwnerElevation(request, venueId))) return NextResponse.json({ error: OWNER_REQUIRED_ERROR }, { status: 403 });
+    const owner = await requireOwnerElevation(request, venueId);
+    if (!owner) return NextResponse.json({ error: OWNER_REQUIRED_ERROR }, { status: 403 });
+
+    // Logged for the audit trail only — deliberately left out of
+    // lib/venue/notifications.ts's ACTIONS map, so none of these eight
+    // settings actions show up in Известувања (user's own call, 2026-11-02).
+    // Never the new value itself, same rule as every other audit entry.
+    const audit = (action: string, targetId: string | null = null) =>
+      recordAudit({ action, actorType: "staff", venueId, targetId, managerName: owner.managerName });
 
     // account_email/account_password call Supabase Auth directly with this
     // request's own session (the shared login). Its errors are English, so
@@ -96,19 +105,30 @@ export const PATCH = withPublic(
     if (body.field === "account_email") {
       const { error } = await supabase.auth.updateUser({ email: body.email });
       if (error) return NextResponse.json({ error: accountErrorMessage(error) }, { status: 400 });
+      await audit("venue_account_email_updated");
       return NextResponse.json({ ok: true });
     }
     if (body.field === "account_password") {
       const { error } = await supabase.auth.updateUser({ password: body.password });
       if (error) return NextResponse.json({ error: accountErrorMessage(error) }, { status: 400 });
+      await audit("venue_account_password_updated");
       return NextResponse.json({ ok: true });
     }
 
     const client = createServiceRoleClient();
-    if (body.field === "name") await updateVenueName(venueId, body.name, client);
-    else if (body.field === "profile") await updateVenueProfile(venueId, { address: body.address, phone: body.phone }, client);
-    else if (body.field === "brand_color") await updateVenueBrandColor(venueId, body.color, client);
-    else await setLayoutLockPassword(venueId, body.password, client);
+    if (body.field === "name") {
+      await updateVenueName(venueId, body.name, client);
+      await audit("venue_name_updated");
+    } else if (body.field === "profile") {
+      await updateVenueProfile(venueId, { address: body.address, phone: body.phone }, client);
+      await audit("venue_profile_updated");
+    } else if (body.field === "brand_color") {
+      await updateVenueBrandColor(venueId, body.color, client);
+      await audit("venue_brand_color_updated");
+    } else {
+      await setLayoutLockPassword(venueId, body.password, client);
+      await audit("venue_layout_password_updated");
+    }
     return NextResponse.json({ ok: true });
   },
   {

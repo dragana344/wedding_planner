@@ -18,6 +18,11 @@ export type NotificationKind =
   | "credentials_created"
   | "password_regenerated"
   | "event_deleted"
+  | "event_updated"
+  | "event_contact_updated"
+  | "event_finance_updated"
+  | "manager_added"
+  | "manager_removed"
   | "data_erased"
   | "data_exported"
   | "couple_change"
@@ -43,20 +48,40 @@ export interface VenueNotification {
   seenAction?: SeenAction;
 }
 
+// manager_password_changed and the eight venue-settings actions (name,
+// profile, brand color, layout password, account email/password, logo set/
+// removed) are deliberately left out of this map — they are still written
+// to audit_log (0133's manager_name attribution applies to them too), but
+// the user asked for them to never show up here (2026-11-02).
 const ACTIONS: Record<string, { kind: NotificationKind; title: string }> = {
   couple_credentials_created: { kind: "credentials_created", title: "Креирана најава за парот" },
   couple_password_regenerated: { kind: "password_regenerated", title: "Нова лозинка за парот" },
   event_deleted: { kind: "event_deleted", title: "Избришан настан" },
+  event_updated: { kind: "event_updated", title: "Изменет настан" },
+  event_contact_updated: { kind: "event_contact_updated", title: "Изменет контакт на парот" },
+  event_finance_updated: { kind: "event_finance_updated", title: "Изменети финансии" },
+  manager_added: { kind: "manager_added", title: "Додаден менаџер" },
+  manager_removed: { kind: "manager_removed", title: "Отстранет менаџер" },
   event_personal_data_erased: { kind: "data_erased", title: "Избришани лични податоци" },
   privacy_export: { kind: "data_exported", title: "Извоз на податоци" },
 };
 
-type AuditRow = { id: number | string; occurred_at: string; action: string; event_id: string | null; details: Record<string, unknown> | null };
+type AuditRow = {
+  id: number | string;
+  occurred_at: string;
+  action: string;
+  event_id: string | null;
+  details: Record<string, unknown> | null;
+  /** Which elevated manager did this — null for actions outside manager elevation, or venues with only one manager (0133). */
+  manager_name: string | null;
+};
 
+/** The event date (event_deleted) and/or which manager did it, joined for display. */
 function detailFor(row: AuditRow): string | null {
   const d = row.details ?? {};
-  if (row.action === "event_deleted" && typeof d.event_date === "string") return d.event_date;
-  return null;
+  const parts = [row.action === "event_deleted" && typeof d.event_date === "string" ? d.event_date : null, row.manager_name ? `од ${row.manager_name}` : null];
+  const joined = parts.filter(Boolean).join(" · ");
+  return joined || null;
 }
 
 export async function listVenueNotifications(
@@ -64,20 +89,25 @@ export async function listVenueNotifications(
   venueId: string,
   limit = 50,
   range?: { from: string; to: string },
-  color?: NotificationColor
+  color?: NotificationColor,
+  managerName?: string
 ): Promise<VenueNotification[]> {
   // The colour filter applies before the merge-sort-limit, so a colour shows
   // its own newest `limit` items, not the reds among the newest overall.
   const actions = Object.keys(ACTIONS).filter((a) => !color || venueKindColor(ACTIONS[a].kind) === color);
   const wantAudit = actions.length > 0;
-  const wantEvents = !color || venueKindColor("event_created") === color;
-  const wantCouple = !color || color === "yellow" || color === "green";
+  // "What did manager X do" only ever applies to audit_log rows: new-event
+  // and couple-change/menu-numbers items were never a manager's own action,
+  // so a manager filter drops both kinds entirely rather than guessing.
+  const wantEvents = !managerName && (!color || venueKindColor("event_created") === color);
+  const wantCouple = !managerName && (!color || color === "yellow" || color === "green");
   const none = { data: [] as never[], error: null };
   let auditQuery = client
     .from("audit_log")
-    .select("id, occurred_at, action, event_id, details")
+    .select("id, occurred_at, action, event_id, details, manager_name")
     .eq("venue_id", venueId)
     .in("action", actions);
+  if (managerName) auditQuery = auditQuery.eq("manager_name", managerName);
   let eventsQuery = client.from("events").select("id, couple_names, event_date, created_at").eq("venue_id", venueId);
   if (range) {
     auditQuery = auditQuery.gte("occurred_at", range.from).lte("occurred_at", range.to);

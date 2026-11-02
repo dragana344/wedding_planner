@@ -33,7 +33,7 @@ export const POST = withPublic(
       // (migration 0096), so the actual write uses the service-role client.
       const event = await createEventWithCustomMenu(
         createServiceRoleClient(),
-        { ...input, venue_id: venueId },
+        { ...input, venue_id: venueId, managerName: manager.managerName },
         customMenu ? { name: customMenu.name, itemIds: customMenu.item_ids } : null,
       );
       return NextResponse.json(event);

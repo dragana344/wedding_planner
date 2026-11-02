@@ -16,15 +16,20 @@ export async function provisionVenueForUser(
   userId: string,
   venueName: string,
   ownerName: string,
-  ownerPassword: string
+  ownerPassword: string,
+  address?: string | null,
+  roomNames?: string[]
 ): Promise<{ venue_id: string }> {
-  // REL-005: venue + staff row + owner manager row in one transaction
-  // (migration 0041, extended by 0096 for the owner).
+  // REL-005: venue + staff row + owner manager row + optional address and
+  // first rooms, all in one transaction (migration 0041, extended by 0096
+  // for the owner and 0130 for address/rooms).
   const { data, error } = await createServiceRoleClient().rpc("provision_venue", {
     p_user_id: userId,
     p_venue_name: venueName,
     p_owner_name: ownerName,
     p_owner_password: ownerPassword,
+    p_address: address ?? null,
+    p_room_names: roomNames ?? [],
   });
   if (error) throw error;
   return { venue_id: data as string };

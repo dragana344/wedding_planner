@@ -28,7 +28,11 @@ export const POST = withPublic(
       return NextResponse.json({ error: "Потврдата не се совпаѓа со имињата на настанот." }, { status: 400 });
     }
 
-    await eraseEventPersonalData(event.id, { actorId: staff.userId, requestId: request.headers.get(REQUEST_ID_HEADER) });
+    await eraseEventPersonalData(event.id, {
+      actorId: staff.userId,
+      requestId: request.headers.get(REQUEST_ID_HEADER),
+      managerName: manager.managerName,
+    });
     return NextResponse.json({ ok: true });
   },
   { body: privacyEraseEventBody, fallbackError: "Не успеа бришењето на личните податоци." },

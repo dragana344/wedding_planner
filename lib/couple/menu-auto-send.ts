@@ -40,7 +40,7 @@ export async function runMenuAutoSend(now: Date): Promise<{ sent: string[] }> {
     if (stage !== "auto_send" || daysUntil(event.event_date, today) < 0) continue;
 
     try {
-      const { numbers, notDone } = await currentMenuNumbers(event.id);
+      const { numbers, notDone, allergyNotes } = await currentMenuNumbers(event.id);
       if (numbers.menus.length === 0) continue;
       const { data: inserted, error: insertError } = await client.rpc("insert_auto_menu_submission", {
         p_event_id: event.id,
@@ -48,6 +48,10 @@ export async function runMenuAutoSend(now: Date): Promise<{ sent: string[] }> {
         p_titles: Object.fromEntries(numbers.menus.map((m) => [m.id, m.name])),
         p_total: numbers.total,
         p_unanswered: notDone.length,
+        // An auto-send means the couple never finished, so there's no couple
+        // summary to speak of — only ever the raw fallback, same as a manual
+        // send the couple left blank.
+        p_allergy_notes: allergyNotes.length > 0 ? allergyNotes : null,
       });
       if (insertError) throw insertError;
       if (inserted) sent.push(event.id);

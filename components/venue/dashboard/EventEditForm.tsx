@@ -10,6 +10,7 @@ import { PackageBuilder } from "./PackageBuilder";
 import { MenuNumbersSection } from "./MenuNumbersSection";
 import { ChangeBox } from "./ChangeBox";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
+import { internationalPhone } from "@/lib/couple/invite-share";
 import {
   type EventDetail,
   type UpdateEventInput,
@@ -47,9 +48,6 @@ import { fetchEventChanges, type EventChangesData } from "@/lib/venue/changes-cl
 import { groupBySection, unseenChanges } from "@/lib/changes/rules";
 import { todayIn } from "@/lib/date";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
-
-/** Shown to plain staff instead of the couple's contacts and the money (0117). */
-const PRIVATE_HINT = "Само за менаџери: најавете се како менаџер за да ги видите.";
 
 function PrivateLoading({ failed, onRetry }: { failed: boolean; onRetry?: () => void }) {
   if (!failed) return <p className="ev-hint">Се вчитува...</p>;
@@ -424,11 +422,16 @@ export function EventEditForm({
     }
   }
 
+  const glanceRoomNames = event.room_ids
+    .map((id) => rooms.find((r) => r.id === id)?.name)
+    .filter((name): name is string => Boolean(name))
+    .join(", ");
+
   return (
     <div className="ev-sections">
-      <div className="modal-head">
+      <div className="modal-head ev-head">
         <h2>{event.couple_names}</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="ev-head-actions">
           {readOnly ? (
             <span className="ev-hint">Само за преглед</span>
           ) : !canEdit ? (
@@ -475,11 +478,28 @@ export function EventEditForm({
               <Icon name="trash" size="sm" /> Избриши настан
             </button>
           ) : null}
-
-          <button onClick={onClose} aria-label="Затвори" className="modal-close">
-            <Icon name="x" size="sm" />
-          </button>
         </div>
+
+        <button onClick={onClose} aria-label="Затвори" className="modal-close">
+          <Icon name="x" size="sm" />
+        </button>
+      </div>
+
+      <div className="ev-glance">
+        {event.guest_count_estimate != null ? (
+          <span className="pill p-info">{`${event.guest_count_estimate} гости`}</span>
+        ) : null}
+        {glanceRoomNames ? <span className="pill p-info">{glanceRoomNames}</span> : null}
+        {event.menuNumbers.latest ? (
+          <span className="pill p-info">{`${event.menuNumbers.latest.numbers.total} порции мени`}</span>
+        ) : null}
+        {event.menuNumbers.latest?.allergySummary ? (
+          <span className="pill p-warn ev-glance-note" title={event.menuNumbers.latest.allergySummary}>
+            {`Алергии: ${event.menuNumbers.latest.allergySummary}`}
+          </span>
+        ) : event.menuNumbers.latest?.allergyNotes?.length ? (
+          <span className="pill p-warn">{`Алергии: ${event.menuNumbers.latest.allergyNotes.reduce((n, g) => n + g.notes.length, 0)} белешки`}</span>
+        ) : null}
       </div>
 
       <form id="event-edit-form" onSubmit={handleSave} className="ev-form">
@@ -512,6 +532,32 @@ export function EventEditForm({
           </div>
 
           <div className="ev-field">
+            <label className="lab-s" htmlFor="edit-start-time">
+              Почеток
+            </label>
+            <input
+              id="edit-start-time"
+              className="fld"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+          </div>
+
+          <div className="ev-field">
+            <label className="lab-s" htmlFor="edit-end-time">
+              Крај
+            </label>
+            <input
+              id="edit-end-time"
+              className="fld"
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
+          </div>
+
+          <div className="ev-field">
             <label className="lab-s" htmlFor="edit-event-type">
               Вид на настан
             </label>
@@ -527,19 +573,6 @@ export function EventEditForm({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="edit-start-time">
-              Почеток
-            </label>
-            <input
-              id="edit-start-time"
-              className="fld"
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
           </div>
 
           <div className={guestCountChanges.length > 0 ? "ev-field ev-changed" : "ev-field"}>
@@ -575,78 +608,57 @@ export function EventEditForm({
             </select>
           </div>
 
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="edit-end-time">
-              Крај
-            </label>
-            <input
-              id="edit-end-time"
-              className="fld"
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
-
-          <div className="ev-field">
-            <span className="lab-s" id="edit-menus-label">Мени</span>
-            <div role="group" aria-labelledby="edit-menus-label" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {menuTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  className="btn btn-ghost"
-                  aria-pressed={menuIds.includes(template.id)}
-                  disabled={locked}
-                  onClick={() => toggleMenu(template.id)}
-                  style={menuIds.includes(template.id) ? { fontWeight: 700, outline: "2px solid currentColor" } : undefined}
-                >
-                  {template.name}
-                </button>
-              ))}
-              {extraMenus.map((menu) => (
-                <button
-                  key={menu.id}
-                  type="button"
-                  className="btn btn-ghost"
-                  aria-pressed={menuIds.includes(menu.id)}
-                  disabled={locked}
-                  onClick={() => toggleMenu(menu.id)}
-                  style={menuIds.includes(menu.id) ? { fontWeight: 700, outline: "2px solid currentColor" } : undefined}
-                >
-                  {menu.name}
-                </button>
-              ))}
-              {menuTemplates.length === 0 && extraMenus.length === 0 ? <span>Без мени</span> : null}
+          <div className="ev-field ev-field-wide ev-menus">
+            <div className="ev-menus-head">
+              <span className="lab-s" id="edit-menus-label">Мени</span>
+              {menuIds.length > 0 ? (
+                <span className="ev-hint">{menuIds.length === 1 ? "1 избрано" : `${menuIds.length} избрани`}</span>
+              ) : null}
             </div>
-            {menuIds.map((id) => {
-              const name = menuName(id);
-              if (!name) return null;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setViewingMenuId(id)}
-                  className="btn btn-ghost"
-                  style={{ padding: "4px 10px", marginTop: 6, marginRight: 6 }}
-                >
-                  Погледни мени: {name}
+            <div role="group" aria-labelledby="edit-menus-label" className="ev-menu-chips">
+              {[...menuTemplates.map((t) => ({ id: t.id, name: t.name, isCustom: false })), ...extraMenus].map((menu) => {
+                const on = menuIds.includes(menu.id);
+                return (
+                  <div key={menu.id} className={on ? "ev-menu-chip is-on" : "ev-menu-chip"}>
+                    <button
+                      type="button"
+                      className="ev-menu-toggle"
+                      aria-pressed={on}
+                      disabled={locked}
+                      onClick={() => toggleMenu(menu.id)}
+                    >
+                      <span className="ev-menu-box">
+                        <Icon name="tick" size="sm" />
+                      </span>
+                      {menu.isCustom ? <Icon name="sparkles" size="sm" className="ev-menu-custom" /> : null}
+                      {menu.name}
+                    </button>
+                    {on ? (
+                      <button
+                        type="button"
+                        className="ev-menu-view"
+                        title="Погледни мени"
+                        onClick={() => setViewingMenuId(menu.id)}
+                      >
+                        <Icon name="eye" size="sm" />
+                        <span className="sr-only">Погледни мени: {menu.name}</span>
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {canEdit && !readOnly && customMenuEnabled !== false ? (
+                <button type="button" className="ev-menu-add" onClick={openCustomMenuBuilder}>
+                  {customMenu ? "Уреди сопствено мени" : "+ Сопствено мени"}
                 </button>
-              );
-            })}
-            {canEdit && !readOnly ? (
-              <div style={{ marginTop: 6 }}>
-                {customMenuEnabled === false ? (
-                  <LockedBanner audience="venue" />
-                ) : (
-                  <button type="button" className="btn btn-ghost" onClick={openCustomMenuBuilder}>
-                    {customMenu ? "Уреди сопствено мени" : "+ Сопствено мени"}
-                  </button>
-                )}
-                {customMenuError ? (
-                  <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: "6px 0 0" }}>{customMenuError}</p>
-                ) : null}
-              </div>
+              ) : null}
+            </div>
+            {menuTemplates.length === 0 && extraMenus.length === 0 ? (
+              <p className="ev-hint">Без мени</p>
+            ) : null}
+            {canEdit && !readOnly && customMenuEnabled === false ? <LockedBanner audience="venue" /> : null}
+            {customMenuError ? (
+              <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{customMenuError}</p>
             ) : null}
             {removedMenuIds
               .filter((id) => (menuUsage?.[id] ?? 0) > 0)
@@ -716,11 +728,10 @@ export function EventEditForm({
         couplePhone={canEdit && privateLoaded ? event.contact_phone : null}
         canConfirm={canEdit} token={managerToken} onChanged={handleNumbersChanged} />
 
+      {!canEdit ? null : (
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Финансии</legend>
-        {!canEdit ? (
-          <p className="ev-hint">{PRIVATE_HINT}</p>
-        ) : !privateLoaded ? (
+        {!privateLoaded ? (
           <PrivateLoading failed={privateFailed} onRetry={onRetryPrivate} />
         ) : (
           <form onSubmit={handleSaveFinance}>
@@ -765,13 +776,13 @@ export function EventEditForm({
           </form>
         )}
       </fieldset>
+      )}
 
+      {!canEdit ? null : (
       <fieldset className={contactChanges.length > 0 ? "ev-fieldset ev-changed" : "ev-fieldset"}>
         <legend className="lab-s">Контакт на парот</legend>
         <ChangeBox eventId={event.id} section="contact" changes={contactChanges} canConfirm={canEdit} token={managerToken} onSeen={handleChangesSeen} />
-        {!canEdit ? (
-          <p className="ev-hint">{PRIVATE_HINT}</p>
-        ) : !privateLoaded ? (
+        {!privateLoaded ? (
           <PrivateLoading failed={privateFailed} onRetry={onRetryPrivate} />
         ) : (
           <form onSubmit={handleSaveContactInfo}>
@@ -810,6 +821,16 @@ export function EventEditForm({
                 />
               </div>
             </div>
+            {internationalPhone(contactPhone) ? (
+              <div style={{ display: "flex", gap: 10, margin: "6px 0 0" }}>
+                <a className="btn btn-ghost" href={`https://wa.me/${internationalPhone(contactPhone)}`} target="_blank" rel="noopener noreferrer">
+                  WhatsApp
+                </a>
+                <a className="btn btn-ghost" href="viber://forward" target="_blank" rel="noopener noreferrer">
+                  Viber
+                </a>
+              </div>
+            ) : null}
             </fieldset>
             {contactError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 10px" }}>{contactError}</p> : null}
             {locked ? null : (
@@ -818,6 +839,25 @@ export function EventEditForm({
               </button>
             )}
           </form>
+        )}
+      </fieldset>
+      )}
+
+      <fieldset className="ev-fieldset">
+        <legend className="lab-s">Пристап за паровите</legend>
+        <p style={{ fontSize: 13.5, margin: "0 0 8px" }}>
+          Корисничко име: <b>{isLoadingUsername ? "Се вчитува..." : username}</b>
+        </p>
+        {regeneratedPassword ? (
+          <p style={{ fontSize: 13.5, fontWeight: 700, color: "var(--gold-lo)", margin: "0 0 8px" }}>
+            Нова лозинка (се прикажува само еднаш): {regeneratedPassword}
+          </p>
+        ) : null}
+        {regenerateError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 8px" }}>{regenerateError}</p> : null}
+        {locked ? null : (
+          <button type="button" onClick={handleRegeneratePassword} disabled={isRegenerating} className="btn btn-ghost">
+            {isRegenerating ? "Се генерира..." : "Генерирај нова лозинка"}
+          </button>
         )}
       </fieldset>
 
@@ -876,37 +916,17 @@ export function EventEditForm({
         )}
       </fieldset>
 
-      <fieldset className="ev-fieldset">
-        <legend className="lab-s">Пристап за паровите</legend>
-        <p style={{ fontSize: 13.5, margin: "0 0 8px" }}>
-          Корисничко име: <b>{isLoadingUsername ? "Се вчитува..." : username}</b>
-        </p>
-        {regeneratedPassword ? (
-          <p style={{ fontSize: 13.5, fontWeight: 700, color: "var(--gold-lo)", margin: "0 0 8px" }}>
-            Нова лозинка (се прикажува само еднаш): {regeneratedPassword}
-          </p>
-        ) : null}
-        {regenerateError ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: "0 0 8px" }}>{regenerateError}</p> : null}
-        {locked ? null : (
-          <button type="button" onClick={handleRegeneratePassword} disabled={isRegenerating} className="btn btn-ghost">
-            {isRegenerating ? "Се генерира..." : "Генерирај нова лозинка"}
-          </button>
-        )}
-      </fieldset>
-
+      {/* Unlike Финансии/Контакт (hidden entirely for plain staff), this one
+          keeps a hint instead: erasure is a destructive, security-sensitive
+          action, so staff should see it exists and why they can't use it,
+          not have it vanish unexplained (security review finding).
+          Gated on canEdit specifically, not the combined `locked` (which also
+          folds in readOnly/past-event) — erase is deliberately still available
+          on past events, same as deleting the whole event above. The server
+          also requires manager elevation (app/api/venue/privacy/erase-event). */}
       <fieldset className="ev-fieldset">
         <legend className="lab-s">Лични податоци</legend>
         {!canEdit ? (
-          // Gated on !canEdit specifically, not the combined `locked` (which
-          // also folds in readOnly/past-event) — erase is deliberately still
-          // available on past events, same as deleting the whole event
-          // above ("staff choice, never automatic"). The server already
-          // requires manager elevation for this endpoint
-          // (requireManagerElevation in app/api/venue/privacy/erase-event);
-          // this is purely a UI-consistency fix (security review minor
-          // finding) so unelevated staff don't get to fill out a destructive
-          // confirmation form only to have it rejected at submit, unlike
-          // every other mutating section on this page.
           <p className="ev-hint">Само менаџер или сопственик може да ги избрише личните податоци.</p>
         ) : confirmingErase ? (
           <form onSubmit={handleErasePersonalData}>

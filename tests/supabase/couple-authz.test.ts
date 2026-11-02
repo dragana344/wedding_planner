@@ -839,7 +839,7 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       },
       POST: async () => {
         // A has no menus, so nothing is sent; B's submissions stay as they were.
-        const res = await call(menuNumbersRoute.POST, NONE, "POST");
+        const res = await call(menuNumbersRoute.POST, NONE, "POST", { body: {} });
         expect(res.status).toBe(400);
         expect((await admin.from("event_menu_submissions").select("id").eq("event_id", A.eventId)).data).toEqual([]);
       },

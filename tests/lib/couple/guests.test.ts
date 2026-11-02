@@ -92,6 +92,9 @@ describe("lib/couple/guests", () => {
     await admin.from("event_guest_menu_counts").insert({ guest_id: byName("C").id, menu_template_id: classic, count: 1 });
     await admin.from("event_guests").update({ party_size: 3 }).eq("id", byName("C").id);
 
+    // A split their party across both menus, and wrote an allergy note: it should show under both.
+    await admin.from("event_guests").update({ allergies: "без лушпести мекотели" }).eq("id", byName("A").id);
+
     const stats = await getGuestStats(eventId);
     expect(stats).toMatchObject({ total: 5, confirmed: 3, totalAttending: 9, childrenAttending: 1, invitationsSent: 2 });
     expect(stats.menus).toEqual([
@@ -100,6 +103,10 @@ describe("lib/couple/guests", () => {
     ]);
     // C confirmed without counts, and the invited guest; A and B are done, D declined.
     expect(stats.notDone.map((g) => g.full_name)).toEqual(["Б-покана", "C"]);
+    expect(stats.allergyNotes).toEqual([
+      { menuId: classic, menuName: "Класично", notes: [{ guestId: byName("A").id, guestName: "A", text: "без лушпести мекотели" }] },
+      { menuId: posno, menuName: "Посно", notes: [{ guestId: byName("A").id, guestName: "A", text: "без лушпести мекотели" }] },
+    ]);
 
     await admin.from("venues").delete().eq("id", venueId);
   });
@@ -124,12 +131,15 @@ describe("lib/couple/guests", () => {
   it("with one menu every confirmed guest's party counts toward it", async () => {
     const { venueId, eventId, ids } = await eventWithMenus("Guests One Menu Venue", ["Единствено"]);
     await admin.from("event_guests").insert([
-      { event_id: eventId, full_name: "A", rsvp_status: "confirmed", party_size: 3 },
+      { event_id: eventId, full_name: "A", rsvp_status: "confirmed", party_size: 3, allergies: "вегетаријанец" },
       { event_id: eventId, full_name: "D", rsvp_status: "declined", party_size: 2 },
     ], { defaultToNull: false });
     const stats = await getGuestStats(eventId);
     expect(stats.menus).toEqual([{ id: ids[0], name: "Единствено", count: 3 }]);
     expect(stats.notDone).toEqual([]);
+    // One menu: no choice needed, so A's note counts toward it without any event_guest_menu_counts row.
+    const a = (await listGuests(eventId)).find((g) => g.full_name === "A")!;
+    expect(stats.allergyNotes).toEqual([{ menuId: ids[0], menuName: "Единствено", notes: [{ guestId: a.id, guestName: "A", text: "вегетаријанец" }] }]);
 
     // CSV: one column per menu, the party size for confirmed guests.
     const csv = guestsToCsv(await listGuests(eventId), stats.menus);

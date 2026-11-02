@@ -7,6 +7,7 @@ import { requireOwnerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { uuid } from "@/lib/api/schemas";
 import { logSecurityEvent } from "@/lib/log";
+import { recordAudit } from "@/lib/audit";
 
 const OWNER_REQUIRED_ERROR = "Потребна е најава како сопственик.";
 const paramsSchema = z.object({ managerId: uuid });
@@ -21,6 +22,7 @@ export const DELETE = withPublic(
     try {
       await removeManager(venueId, params.managerId);
       logSecurityEvent("manager_removed", { venue_id: venueId, manager_id: params.managerId, removed_by: owner.managerId });
+      await recordAudit({ action: "manager_removed", actorType: "staff", venueId, targetId: params.managerId, managerName: owner.managerName });
       return NextResponse.json({ ok: true });
     } catch (err) {
       return errorResponse(err, "Менаџерот не можеше да се отстрани.", request);

@@ -1,11 +1,17 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 /** Opens the caller's venue. Idempotent on the server (see lib/venue/provisioning.ts). */
-export function provisionVenue(venueName: string, ownerName: string, ownerPassword: string): Promise<Response> {
+export function provisionVenue(
+  venueName: string,
+  ownerName: string,
+  ownerPassword: string,
+  address?: string,
+  roomNames?: string[]
+): Promise<Response> {
   return fetch("/api/venue/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ venue_name: venueName, owner_name: ownerName, owner_password: ownerPassword }),
+    body: JSON.stringify({ venue_name: venueName, owner_name: ownerName, owner_password: ownerPassword, address, room_names: roomNames }),
   });
 }
 
@@ -28,6 +34,8 @@ export async function finishPendingSignup(supabase: SupabaseClient, user: User |
   const { data: staffRow, error } = await supabase.from("venue_staff").select("venue_id").eq("user_id", user.id).maybeSingle();
   if (error || staffRow) return false;
 
-  const response = await provisionVenue(venueName, ownerName, ownerPassword);
+  const address = typeof user.user_metadata?.address === "string" ? user.user_metadata.address : undefined;
+  const roomNames = Array.isArray(user.user_metadata?.room_names) ? user.user_metadata.room_names.filter((n: unknown) => typeof n === "string") : undefined;
+  const response = await provisionVenue(venueName, ownerName, ownerPassword, address, roomNames);
   return response.ok;
 }

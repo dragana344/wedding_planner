@@ -87,12 +87,14 @@ describe("POST /api/venue/events/[eventId]/regenerate-password", () => {
     expect(resWithToken.status).toBe(404);
   });
 
-  it("regenerates the password for an elevated manager", async () => {
+  it("regenerates the password for an elevated manager, attributed to them (0133)", async () => {
     const res = await regenerateRoute(req(eventId, { password: "fresh-password-1" }), ctx(eventId));
     expect(res.status).toBe(403); // sanity: no token
     const ok = await regenerateRoute(req(eventId, { password: "fresh-password-1" }, managerToken), ctx(eventId));
     expect(ok.status).toBe(200);
     const verify = await admin.rpc("verify_event_credentials", { p_username: "postoechki-par", p_password: "fresh-password-1" });
     expect(verify.data?.[0]?.event_id).toBe(eventId);
+    const row = (await admin.from("audit_log").select("manager_name").eq("event_id", eventId).eq("action", "couple_password_regenerated").single()).data;
+    expect(row!.manager_name).toBe("Тест Менаџер");
   });
 });

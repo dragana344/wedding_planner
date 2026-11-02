@@ -31,24 +31,51 @@ function Legend({ active, params }: { active: NotificationColor | null; params: 
   );
 }
 
+function managerHref(params: Record<string, string>, manager?: string): string {
+  const qs = new URLSearchParams(params);
+  if (manager) qs.set("manager", manager);
+  const text = qs.toString();
+  return text ? `${BASE_PATH}?${text}` : BASE_PATH;
+}
+
+/** "What did manager X do" — only shown when the venue has more than one manager (0133). */
+function ManagerFilter({ active, options, params }: { active: string | null; options: string[]; params: Record<string, string> }) {
+  return (
+    <nav className="notif-legend" aria-label="Филтер по менаџер">
+      <Link href={managerHref(params)} aria-current={active === null ? "true" : undefined}>Сите менаџери</Link>
+      {options.map((name) => (
+        <Link key={name} href={managerHref(params, name)} aria-current={active === name ? "true" : undefined}>
+          {name}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 /**
  * Известувања (B9): recent activity grouped by the venue's local day. With
- * `legend`, the colour legend (filter links) is shown on top.
+ * `legend`, the colour legend (filter links) is shown on top; with
+ * `managerFilter`, so is "what did manager X do" (only passed once the
+ * venue has 2+ managers — see the page).
  */
 export function NotificationsList({
   items,
   today,
   legend,
+  managerFilter,
 }: {
   items: VenueNotification[];
   today: string;
   legend?: { active: NotificationColor | null; params: Record<string, string> };
+  managerFilter?: { active: string | null; options: string[]; params: Record<string, string> };
 }) {
   const legendNav = legend ? <Legend active={legend.active} params={legend.params} /> : null;
+  const managerNav = managerFilter ? <ManagerFilter active={managerFilter.active} options={managerFilter.options} params={managerFilter.params} /> : null;
   if (items.length === 0) {
     return (
       <>
         {legendNav}
+        {managerNav}
         <p className="ev-hint" style={{ padding: 20 }}>Сè уште нема известувања.</p>
       </>
     );
@@ -61,6 +88,7 @@ export function NotificationsList({
   return (
     <div className="s3-notifications">
       {legendNav}
+      {managerNav}
       {Array.from(days, ([day, list]) => (
         <section key={day}>
           <h3 className="s3-notif-day">{day === today ? "Денес" : DAY.format(new Date(`${day}T12:00:00Z`)).replace(/\s*г\.?$/, "")}</h3>

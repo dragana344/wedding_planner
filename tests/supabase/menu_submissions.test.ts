@@ -60,10 +60,11 @@ async function counts(guestId: string, c: Record<string, number>) {
   }
 }
 
-function req(method: string, eventId: string, side?: string) {
+function req(method: string, eventId: string, side?: string, body?: unknown) {
   const headers: Record<string, string> = { "x-couple-event-id": eventId };
   if (side) headers["x-couple-organizer-side"] = side;
-  return new NextRequest("http://localhost/api/couple/menu-numbers", { method, headers });
+  if (method === "POST") headers["content-type"] = "application/json";
+  return new NextRequest("http://localhost/api/couple/menu-numbers", { method, headers, body: method === "POST" ? JSON.stringify(body ?? {}) : undefined });
 }
 
 beforeAll(async () => {
@@ -180,6 +181,69 @@ describe("couple menu numbers", () => {
     const body = await (await GET(req("GET", e), { params: {} })).json();
     expect(body.changedSinceLatest).toBe(true);
     expect(body.latest.numbers.menus.map((m: { name: string }) => m.name)).toEqual(["Класично", "Посно"]);
+  });
+
+  it("GET exposes allergy notes grouped by menu, only for done guests who actually wrote one", async () => {
+    const e = await newEvent("Алергии преглед");
+    await link(e, menuA, menuB);
+    const withNote = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1, allergies: "без кашкавал" });
+    await counts(withNote, { [menuA]: 1 });
+    const noNote = await guest(e, "Борис", { rsvp_status: "confirmed", party_size: 1 });
+    await counts(noNote, { [menuA]: 1 });
+    const notDoneGuest = await guest(e, "Вера", { rsvp_status: "confirmed", party_size: 1, allergies: "без риба" });
+    await counts(notDoneGuest, {}); // not done: no menu choice yet, so excluded even though they wrote a note
+
+    const body = await (await GET(req("GET", e), { params: {} })).json();
+    expect(body.allergyNotes).toEqual([{ menuId: menuA, menuName: "Класично", notes: [{ guestId: withNote, guestName: "Ана", text: "без кашкавал" }] }]);
+  });
+
+  it("sends the couple's own allergy summary, dropping any raw notes", async () => {
+    const e = await newEvent("Резиме за алергии");
+    await link(e, menuA);
+    const g = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1, allergies: "без кашкавал" });
+    await counts(g, { [menuA]: 1 });
+
+    const res = await POST(req("POST", e, undefined, { allergy_summary: "  1 класично без кашкавал  " }), { params: {} });
+    expect(res.status).toBe(200);
+    const sent = (await res.json()) as { allergySummary: string | null; allergyNotes: unknown };
+    expect(sent.allergySummary).toBe("1 класично без кашкавал"); // trimmed
+    expect(sent.allergyNotes).toBeNull();
+  });
+
+  it("falls back to the raw grouped notes when the couple leaves the summary blank", async () => {
+    const e = await newEvent("Без резиме");
+    await link(e, menuA);
+    const g = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1, allergies: "без кашкавал" });
+    await counts(g, { [menuA]: 1 });
+
+    const res = await POST(req("POST", e), { params: {} });
+    const sent = (await res.json()) as { allergySummary: string | null; allergyNotes: { menuId: string; menuName: string; notes: { guestName: string; text: string }[] }[] | null };
+    expect(sent.allergySummary).toBeNull();
+    expect(sent.allergyNotes).toEqual([{ menuId: menuA, menuName: "Класично", notes: [{ guestId: g, guestName: "Ана", text: "без кашкавал" }] }]);
+  });
+
+  it("neither field is set when nobody attending wrote an allergy note", async () => {
+    const e = await newEvent("Без алергии");
+    await link(e, menuA);
+    const g = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1 });
+    await counts(g, { [menuA]: 1 });
+
+    const sent = await sendMenuNumbers(e);
+    expect(sent.allergySummary).toBeNull();
+    expect(sent.allergyNotes).toBeNull();
+  });
+
+  it("a later guest edit doesn't change an already-sent submission's allergy info (it's a snapshot, like the counts)", async () => {
+    const e = await newEvent("Снимка алергии");
+    await link(e, menuA);
+    const g = await guest(e, "Ана", { rsvp_status: "confirmed", party_size: 1, allergies: "без кашкавал" });
+    await counts(g, { [menuA]: 1 });
+    const sent = await sendMenuNumbers(e);
+    expect(sent.allergyNotes).toHaveLength(1);
+
+    await admin.from("event_guests").update({ allergies: "без глутен" }).eq("id", g);
+    const [latest] = await listMenuSubmissions(e);
+    expect(latest.allergyNotes![0].notes[0].text).toBe("без кашкавал"); // unchanged
   });
 });
 

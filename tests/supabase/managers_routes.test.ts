@@ -115,10 +115,13 @@ describe("owner-only manager routes", () => {
     expect(res.status).toBe(403);
   });
 
-  it("POST adds a manager for the owner", async () => {
+  it("POST adds a manager for the owner, attributed to them (0133)", async () => {
     const { POST: addRoute } = await import("@/app/api/venue/managers/route");
     const res = await addRoute(req(ownerToken, { name: "Route Added", password: "route-added-pass-1" }), { params: Promise.resolve({}) });
     expect(res.status).toBe(200);
+    const added = await res.json();
+    const row = (await admin.from("audit_log").select("manager_name").eq("target_id", added.id).eq("action", "manager_added").single()).data;
+    expect(row!.manager_name).toBe("Власник");
   });
 
   it("DELETE refuses a non-owner manager", async () => {
@@ -127,5 +130,16 @@ describe("owner-only manager routes", () => {
     headers.set(MANAGER_TOKEN_HEADER, managerToken);
     const res = await removeRoute(new NextRequest("http://localhost/api/venue/managers/x", { method: "DELETE", headers }), { params: Promise.resolve({ managerId: routesOwnerId }) });
     expect(res.status).toBe(403);
+  });
+
+  it("DELETE removes a manager for the owner, attributed to them (0133)", async () => {
+    const { id: throwaway } = await addManager(routesVenueId, "За Бришење (route)", "route-delete-pass-1");
+    const { DELETE: removeRoute } = await import("@/app/api/venue/managers/[managerId]/route");
+    const headers = new Headers();
+    headers.set(MANAGER_TOKEN_HEADER, ownerToken);
+    const res = await removeRoute(new NextRequest(`http://localhost/api/venue/managers/${throwaway}`, { method: "DELETE", headers }), { params: Promise.resolve({ managerId: throwaway }) });
+    expect(res.status).toBe(200);
+    const row = (await admin.from("audit_log").select("manager_name").eq("target_id", throwaway).eq("action", "manager_removed").single()).data;
+    expect(row!.manager_name).toBe("Власник");
   });
 });

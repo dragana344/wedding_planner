@@ -7,6 +7,7 @@ import { verifyVenueManager } from "@/lib/venue/manager-elevation";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, changeManagerPasswordBody } from "@/lib/api/schemas";
 import { logSecurityEvent } from "@/lib/log";
+import { recordAudit } from "@/lib/audit";
 
 const CURRENT_PASSWORD_WRONG_ERROR = "Тековната лозинка не е точна.";
 
@@ -27,6 +28,9 @@ export const POST = withPublic(
     try {
       await changeManagerPassword(manager.managerId, body.newPassword);
       logSecurityEvent("manager_password_changed", { venue_id: venueId, manager_id: manager.managerId });
+      // Logged for the audit trail; deliberately left out of lib/venue/notifications.ts's
+      // ACTIONS map so it never shows up in Известувања (user's own call, 2026-11-02).
+      await recordAudit({ action: "manager_password_changed", actorType: "staff", venueId, targetId: manager.managerId, managerName: manager.managerName });
       return NextResponse.json({ ok: true });
     } catch (err) {
       return errorResponse(err, "Лозинката не можеше да се смени.", request);

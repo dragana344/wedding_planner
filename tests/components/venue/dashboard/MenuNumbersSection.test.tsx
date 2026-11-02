@@ -19,7 +19,7 @@ const menus: EventDetail["menus"] = [
 const submission = (over: Partial<MenuSubmission>): MenuSubmission => ({
   id: "s1", sentAt: "2026-10-20T08:00:00Z", sentBy: "Младенците",
   numbers: { menus: [{ id: "m1", name: "Класично", count: 80 }], total: 80 },
-  seenAt: "2026-10-21T08:00:00Z", seenBy: "Марко", source: "couple", unanswered: null, ...over,
+  seenAt: "2026-10-21T08:00:00Z", seenBy: "Марко", source: "couple", unanswered: null, allergySummary: null, allergyNotes: null, ...over,
 });
 
 function renderSection(props: Partial<React.ComponentProps<typeof MenuNumbersSection>> = {}) {

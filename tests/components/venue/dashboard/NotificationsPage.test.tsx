@@ -6,6 +6,8 @@ vi.mock("@/lib/venue/current-venue", () => ({ getCurrentVenueId: vi.fn(async () 
 
 const listVenueNotifications = vi.fn();
 vi.mock("@/lib/venue/notifications", () => ({ listVenueNotifications: (...args: unknown[]) => listVenueNotifications(...args) }));
+// Only shown once there are 2+ managers (see the page); empty here keeps these tests focused on the notification list itself.
+vi.mock("@/lib/venue/managers", () => ({ listManagers: vi.fn(async () => []) }));
 
 import NotificationsPage from "@/app/venue/notifications/page";
 
@@ -36,6 +38,7 @@ describe("venue NotificationsPage", () => {
       "v1",
       200,
       expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
+      undefined,
       undefined
     );
   });
@@ -44,8 +47,8 @@ describe("venue NotificationsPage", () => {
     const red = { ...item, id: "n3", kind: "data_exported" as const, color: "red" as const, title: "Извоз на податоци" };
     listVenueNotifications.mockResolvedValueOnce([red]).mockResolvedValueOnce([red]);
     render(await NotificationsPage({ searchParams: Promise.resolve({ color: "red", notifFrom: "2028-01-01", notifTo: "2028-01-31" }) }));
-    expect(listVenueNotifications).toHaveBeenNthCalledWith(1, {}, "v1", 50, undefined, "red");
-    expect(listVenueNotifications).toHaveBeenNthCalledWith(2, {}, "v1", 200, expect.objectContaining({ from: expect.any(String) }), "red");
+    expect(listVenueNotifications).toHaveBeenNthCalledWith(1, {}, "v1", 50, undefined, "red", undefined);
+    expect(listVenueNotifications).toHaveBeenNthCalledWith(2, {}, "v1", 200, expect.objectContaining({ from: expect.any(String) }), "red", undefined);
     const link = screen.getByRole("link", { name: "Приватност" });
     expect(link).toHaveAttribute("aria-current", "true");
     expect(link.getAttribute("href")).toBe("/venue/notifications?notifFrom=2028-01-01&notifTo=2028-01-31&color=red");

@@ -84,7 +84,7 @@ export type VenueExport = {
   events: EventExport[];
 };
 
-export type ExportActor = { actorId?: string | null; requestId?: string | null };
+export type ExportActor = { actorId?: string | null; requestId?: string | null; managerName?: string | null };
 
 // Explicit column lists for the tables that also hold data we must not hand
 // out (secrets) or that is bulky and not personal (layout JSON).
@@ -280,6 +280,7 @@ export async function exportEventData(eventId: string, actor: ExportActor = {}):
     eventId,
     targetId: eventId,
     requestId: actor.requestId,
+    managerName: actor.managerName,
     details: { scope: "event" },
   });
   return result;
@@ -326,6 +327,7 @@ export async function exportVenueData(venueId: string, actor: ExportActor = {}):
     venueId,
     targetId: venueId,
     requestId: actor.requestId,
+    managerName: actor.managerName,
     details: { scope: "venue", events: events.length },
   });
   return result;

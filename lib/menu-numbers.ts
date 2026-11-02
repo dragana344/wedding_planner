@@ -3,6 +3,9 @@
 
 export type MenuNumbers = { menus: { id: string; name: string; count: number }[]; total: number };
 
+/** A done guest's allergy note, grouped under the menu they chose. Never combined or parsed — just grouped. */
+export type AllergyNoteGroup = { menuId: string; menuName: string; notes: { guestId: string; guestName: string; text: string }[] };
+
 export type MenuSubmission = {
   id: string;
   sentAt: string;
@@ -13,6 +16,13 @@ export type MenuSubmission = {
   source: "couple" | "auto" | "venue";
   /** Guests without a final answer when the numbers went out automatically. */
   unanswered: number | null;
+  /**
+   * Allergy info, strict either/or: the couple's own free-text summary, or
+   * (only when they left it blank) the raw per-guest notes grouped by menu.
+   * Both null when nobody attending had a note to carry.
+   */
+  allergySummary: string | null;
+  allergyNotes: AllergyNoteGroup[] | null;
 };
 
 /** The menus whose count differs between two sets of numbers (a menu missing on one side counts as 0). */
@@ -49,6 +59,8 @@ export type MenuSubmissionRow = {
   seen_by: string | null;
   source: "couple" | "auto" | "venue";
   unanswered: number | null;
+  allergy_summary: string | null;
+  allergy_notes: AllergyNoteGroup[] | null;
 };
 
 /** Rebuilds a submission from its row; menus ordered by title ("mk"), then id. */
@@ -67,6 +79,8 @@ export function toMenuSubmission(row: MenuSubmissionRow): MenuSubmission {
     seenBy: row.seen_by,
     source: row.source,
     unanswered: row.unanswered,
+    allergySummary: row.allergy_summary,
+    allergyNotes: row.allergy_notes,
   };
 }
 

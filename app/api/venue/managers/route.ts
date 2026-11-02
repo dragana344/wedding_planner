@@ -6,6 +6,7 @@ import { requireOwnerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, addManagerBody } from "@/lib/api/schemas";
 import { logSecurityEvent } from "@/lib/log";
+import { recordAudit } from "@/lib/audit";
 
 const OWNER_REQUIRED_ERROR = "Потребна е најава како сопственик.";
 
@@ -29,6 +30,7 @@ export const POST = withPublic(
     try {
       const manager = await addManager(venueId, body.name, body.password);
       logSecurityEvent("manager_added", { venue_id: venueId, manager_id: manager.id, added_by: owner.managerId });
+      await recordAudit({ action: "manager_added", actorType: "staff", venueId, targetId: manager.id, managerName: owner.managerName });
       return NextResponse.json(manager);
     } catch (err) {
       return errorResponse(err, "Менаџерот не можеше да се додаде.", request);

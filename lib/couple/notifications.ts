@@ -61,7 +61,7 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
     listGuestReplies(eventId),
     client
       .from("event_menu_submissions")
-      .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered")
+      .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes")
       .eq("event_id", eventId)
       .order("sent_at", { ascending: false })
       .order("id", { ascending: false }),

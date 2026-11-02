@@ -1637,6 +1637,16 @@
   gap: 22px;
   max-width: 720px;
 }
+.vp .ev-glance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vp .ev-glance-note {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---------- shared modal shell ---------- */
 .vp .modal-backdrop {
@@ -1705,6 +1715,158 @@
 .vp .modal-close:hover {
   color: var(--ink);
   border-color: var(--gold);
+}
+
+/* ---------- event window: header + menu chips ---------- */
+.vp .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.vp .ev-head {
+  align-items: center;
+  margin-bottom: 0;
+}
+.vp .modal-head > .ev-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vp .ev-menus {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vp .ev-menus-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vp .ev-menu-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vp .ev-menu-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.vp .ev-menu-chip:hover {
+  border-color: var(--gold);
+}
+.vp .ev-menu-chip.is-on {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+}
+.vp .ev-menu-toggle,
+.vp .ev-menu-view,
+.vp .ev-menu-add {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.vp .ev-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 999px;
+}
+.vp .ev-menu-chip.is-on .ev-menu-toggle {
+  padding-right: 10px;
+}
+.vp .ev-menu-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.vp .ev-menu-box {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid #d4d4da;
+  background: var(--surface);
+  color: transparent;
+}
+.vp .ev-menu-box .i {
+  width: 11px;
+  height: 11px;
+}
+.vp .ev-menu-chip.is-on .ev-menu-box {
+  border-color: var(--gold-lo);
+  background: var(--gold-lo);
+  color: #fff;
+}
+.vp .ev-menu-custom {
+  color: var(--gold-lo);
+}
+.vp .ev-menu-view {
+  display: grid;
+  place-items: center;
+  padding: 0 12px 0 10px;
+  border-left: 1px solid var(--gold-tint-2);
+  border-radius: 0 999px 999px 0;
+  color: var(--gold-lo);
+}
+.vp .ev-menu-view:hover {
+  background: var(--gold-tint-2);
+}
+.vp .ev-menu-add {
+  padding: 7px 14px;
+  border: 1px dashed #cfcfd6;
+  border-radius: 999px;
+  color: var(--gold-lo);
+  font-weight: 700;
+}
+.vp .ev-menu-add:hover {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+}
+.vp .ev-menu-toggle:focus-visible,
+.vp .ev-menu-view:focus-visible,
+.vp .ev-menu-add:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .vp .modal-panel {
+    padding: 18px 16px;
+  }
+  .vp .ev-head {
+    flex-wrap: wrap;
+  }
+  .vp .ev-head h2 {
+    flex: 1 1 0;
+  }
+  .vp .modal-head > .ev-head-actions {
+    order: 3;
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  .vp .ev-head-actions > .btn {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
 }
 
 .vp .qb-layout {

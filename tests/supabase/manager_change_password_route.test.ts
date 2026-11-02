@@ -59,10 +59,12 @@ describe("POST /api/venue/managers/change-password", () => {
     expect(verify.data![0].error_code).toBeNull();
   });
 
-  it("changes the password when the current one is correct", async () => {
+  it("changes the password when the current one is correct, and logs it attributed to them (0133, not shown in Известувања)", async () => {
     const res = await changePasswordRoute(req(managerToken, { currentPassword: "original-pass-123", newPassword: "freshly-changed-1" }), { params: Promise.resolve({}) });
     expect(res.status).toBe(200);
     const verify = await admin.rpc("verify_venue_manager", { p_venue_id: venueId, p_name: "Менаџер Рут", p_password: "freshly-changed-1" });
     expect(verify.data![0].error_code).toBeNull();
+    const row = (await admin.from("audit_log").select("manager_name").eq("target_id", managerId).eq("action", "manager_password_changed").single()).data;
+    expect(row!.manager_name).toBe("Менаџер Рут");
   });
 });

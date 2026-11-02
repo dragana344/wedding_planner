@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       const data = await exportVenueData(staff.venueId, {
         actorId: staff.userId,
         requestId: request.headers.get(REQUEST_ID_HEADER),
+        managerName: owner.managerName,
       });
       if (!data) return NextResponse.json({ error: "Локалот не е пронајден." }, { status: 404 });
       const date = new Date().toISOString().slice(0, 10);

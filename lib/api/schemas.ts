@@ -242,6 +242,9 @@ export const reminderBody = z.object({
   enabled: z.boolean(),
 });
 
+/** The couple's optional free-text allergy summary, sent along with the final menu numbers. */
+export const menuNumbersSendBody = z.object({ allergy_summary: optionalText(2000) });
+
 /** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
 export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
 
@@ -553,6 +556,9 @@ export const venueSignupBody = z.object(
       .string({ error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
       .min(8, { error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
       .max(200),
+    // Both optional: a venue can skip them at signup and add everything later from Settings.
+    address: optionalText(300),
+    room_names: z.array(z.string().trim().min(1).max(NAME_MAX)).max(20).optional(),
   },
   { error: VENUE_NAME_REQUIRED_ERROR },
 );

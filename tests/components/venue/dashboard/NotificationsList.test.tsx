@@ -50,6 +50,24 @@ describe("NotificationsList", () => {
     expect(screen.getByRole("link", { name: "Сите" }).getAttribute("href")).toBe("/venue/notifications?notifFrom=2028-01-01");
   });
 
+  it("shows the manager filter as links that keep other params, marks the active one, and clears with Сите менаџери (0133)", () => {
+    render(
+      <NotificationsList
+        items={[base]}
+        today="2028-01-01"
+        managerFilter={{ active: "Ана", options: ["Ана", "Горан"], params: { notifFrom: "2028-01-01", color: "red" } }}
+      />,
+    );
+    const ana = screen.getByRole("link", { name: "Ана" });
+    expect(ana).toHaveAttribute("aria-current", "true");
+    expect(decodeURIComponent(ana.getAttribute("href")!)).toBe("/venue/notifications?notifFrom=2028-01-01&color=red&manager=Ана");
+    const goran = screen.getByRole("link", { name: "Горан" });
+    expect(goran).not.toHaveAttribute("aria-current");
+    expect(decodeURIComponent(goran.getAttribute("href")!)).toBe("/venue/notifications?notifFrom=2028-01-01&color=red&manager=Горан");
+    const all = screen.getByRole("link", { name: "Сите менаџери" });
+    expect(all.getAttribute("href")).toBe("/venue/notifications?notifFrom=2028-01-01&color=red");
+  });
+
   it("gives each row its colour class and the unseen sign only when unseen", () => {
     const { container } = render(<NotificationsList items={[base, change]} today="2028-01-01" />);
     const rows = container.querySelectorAll(".plan-row");

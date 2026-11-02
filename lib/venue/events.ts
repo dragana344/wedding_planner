@@ -123,7 +123,7 @@ export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
 }
 
 const EVENT_DETAIL_COLUMNS =
-  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered)";
+  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
 
 type EventDetailRow = {
   id: string;
@@ -354,6 +354,8 @@ export interface CreateEventInput {
    * `authenticated` grant was revoked (0111) since it let any staff session
    * mint a couple login with a password of their own choosing. */
   credentials: { username: string; password: string };
+  /** Which elevated manager created this event, for the couple-credentials audit row (0133). */
+  managerName?: string | null;
 }
 
 export async function createEvent(input: CreateEventInput, client: SupabaseClient = resolveSupabaseClient()): Promise<{ id: string }> {
@@ -398,6 +400,7 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     p_username: input.credentials.username,
     p_password: input.credentials.password,
     p_menu_template_ids: input.menu_template_ids,
+    p_manager_name: input.managerName ?? null,
   });
   // The couple's login is created inside create_event_full (0112): a taken
   // username must still say so, not "the event could not be saved".
@@ -508,10 +511,19 @@ export async function updateEvent(
 
 // The routes call these with the service-role client, which bypasses RLS —
 // so venueId is required: it is what scopes the write to the caller's venue.
-export async function deleteEvent(eventId: string, venueId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<void> {
-  const { data, error } = await client.from("events").delete().eq("id", eventId).eq("venue_id", venueId).select("id");
+export async function deleteEvent(
+  eventId: string,
+  venueId: string,
+  client: SupabaseClient = resolveSupabaseClient(),
+  managerName?: string | null
+): Promise<void> {
+  const { data, error } = await client.rpc("delete_event_as_manager", {
+    p_event_id: eventId,
+    p_venue_id: venueId,
+    p_manager_name: managerName ?? null,
+  });
   if (error) throw error;
-  if (!data || data.length === 0) throw new EventNotFoundError();
+  if (!data) throw new EventNotFoundError();
 }
 
 export interface EventContactInfo {

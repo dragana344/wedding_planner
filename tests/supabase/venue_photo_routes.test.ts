@@ -154,6 +154,8 @@ describe("venue logo (two-step upload)", () => {
     expect((await res.json()).url).toContain(`${venueId}/logo-`);
     const { data: venue } = await admin.from("venues").select("logo_path").eq("id", venueId).single();
     expect(venue!.logo_path).toMatch(new RegExp(`^${venueId}/logo-\\d+\\.png$`));
+    const row = (await admin.from("audit_log").select("manager_name").eq("venue_id", venueId).eq("action", "venue_logo_updated").single()).data;
+    expect(row!.manager_name).toBe("Сопственик");
   });
 
   it("deletes the just-moved file instead of leaving it orphaned when recording it fails (final review finding — showcase photos already did this, the logo route didn't)", async () => {
