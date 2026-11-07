@@ -8,6 +8,8 @@ import {
   findConflictingTables,
   createReservation,
   updateReservationStatus,
+  updateReservationTables,
+  getReservationForEvent,
   getTableAvailability,
   deleteReservation,
 } from "@/lib/venue/reservations";
@@ -309,7 +311,7 @@ describe("lib/venue/reservations", () => {
     expect(nextDay.id).toBeTruthy();
   });
 
-  it("getTableAvailability tiers a table as reserved within 1h of an upcoming booking, limited within 3h, and free beyond that", async () => {
+  it("getTableAvailability flags a table reserved only while genuinely occupied, with no advance-warning lead time", async () => {
     await createReservation(
       {
         venue_id: venueId,
@@ -324,21 +326,14 @@ describe("lib/venue/reservations", () => {
       admin
     );
 
-    // More than 3 hours before (10:00) — plenty of room, not flagged at all.
+    // Well before (10:00) — free, no flag at all.
     const wellBefore = await getTableAvailability(roomId, "2026-12-01", "10:00", [tableAId], null, admin);
     expect(wellBefore.reserved).not.toContain(tableAId);
-    expect(wellBefore.limited).not.toContain(tableAId);
 
-    // 2 hours before (12:00) — within the default 3h duration, but not
-    // imminent: bookable, flagged yellow ("limited").
-    const twoHoursBefore = await getTableAvailability(roomId, "2026-12-01", "12:00", [tableAId], null, admin);
-    expect(twoHoursBefore.limited).toContain(tableAId);
-    expect(twoHoursBefore.reserved).not.toContain(tableAId);
-
-    // 30 minutes before (13:30) — too close to fit anything: red.
-    const imminent = await getTableAvailability(roomId, "2026-12-01", "13:30", [tableAId], null, admin);
-    expect(imminent.reserved).toContain(tableAId);
-    expect(imminent.limited).not.toContain(tableAId);
+    // 30 minutes before the booking starts (13:30) — still free: the venue
+    // decides how it wants to work, no automatic lead-time blocking.
+    const justBefore = await getTableAvailability(roomId, "2026-12-01", "13:30", [tableAId], null, admin);
+    expect(justBefore.reserved).not.toContain(tableAId);
 
     // During the reservation's own occupied window (15:00, no end_time so
     // it defaults to a 3h span ending 17:00) — genuinely occupied: red.
@@ -348,7 +343,6 @@ describe("lib/venue/reservations", () => {
     // After the reservation's default window has elapsed (17:00) — free.
     const afterStay = await getTableAvailability(roomId, "2026-12-01", "17:00", [tableAId], null, admin);
     expect(afterStay.reserved).not.toContain(tableAId);
-    expect(afterStay.limited).not.toContain(tableAId);
   });
 
   it("deleteReservation permanently removes the reservation and its table assignments, freeing the table immediately", async () => {
@@ -378,7 +372,6 @@ describe("lib/venue/reservations", () => {
 
     const afterDelete = await getTableAvailability(roomId, "2026-12-05", "13:00", [tableAId], null, admin);
     expect(afterDelete.reserved).not.toContain(tableAId);
-    expect(afterDelete.limited).not.toContain(tableAId);
   });
 
   it("deletes the orphaned reservations row if the reservation_tables insert fails", async () => {
@@ -406,5 +399,84 @@ describe("lib/venue/reservations", () => {
       .eq("guest_name", "Orphan Test")
       .eq("date", "2026-11-21");
     expect(leftover ?? []).toEqual([]);
+  });
+
+  describe("updateReservationTables (Project B §3)", () => {
+    it("replaces a reservation's tables outright", async () => {
+      const reservation = await createReservation(
+        {
+          venue_id: venueId,
+          room_id: roomId,
+          guest_name: "Table Swap",
+          phone: "070130130",
+          date: "2026-12-10",
+          start_time: "18:00",
+          party_size: 4,
+          table_ids: [tableAId],
+        },
+        admin,
+      );
+
+      const updated = await updateReservationTables(reservation.id, roomId, "2026-12-10", "18:00", null, [tableBId], admin);
+      expect(updated.table_ids).toEqual([tableBId]);
+
+      const cleared = await updateReservationTables(reservation.id, roomId, "2026-12-10", "18:00", null, [], admin);
+      expect(cleared.table_ids).toEqual([]);
+    });
+
+    it("re-checks conflicts, excluding the reservation's own current tables", async () => {
+      const other = await createReservation(
+        {
+          venue_id: venueId,
+          room_id: roomId,
+          guest_name: "Other Party",
+          phone: "070131131",
+          date: "2026-12-11",
+          start_time: "18:00",
+          party_size: 2,
+          table_ids: [tableBId],
+        },
+        admin,
+      );
+      const mine = await createReservation(
+        {
+          venue_id: venueId,
+          room_id: roomId,
+          guest_name: "My Party",
+          phone: "070132132",
+          date: "2026-12-11",
+          start_time: "18:00",
+          party_size: 2,
+          table_ids: [tableAId],
+        },
+        admin,
+      );
+
+      // Claiming the already-held table conflicts.
+      await expect(updateReservationTables(mine.id, roomId, "2026-12-11", "18:00", null, [tableBId], admin)).rejects.toThrow();
+      // Re-claiming its own table is never a conflict with itself.
+      const unchanged = await updateReservationTables(mine.id, roomId, "2026-12-11", "18:00", null, [tableAId], admin);
+      expect(unchanged.table_ids).toEqual([tableAId]);
+
+      await deleteReservation(other.id, admin);
+      await deleteReservation(mine.id, admin);
+    });
+  });
+
+  describe("getReservationForEvent (Project B §1)", () => {
+    it("finds the one reservation linked to an event, and null for an unlinked one", async () => {
+      const { data: event } = await admin.from("events").insert({ venue_id: venueId, couple_names: "Mini Lookup", event_date: "2026-12-12" }).select("id").single();
+      expect(await getReservationForEvent(event!.id, admin)).toBeNull();
+
+      const { data: linked } = await admin
+        .from("reservations")
+        .insert({ venue_id: venueId, room_id: roomId, event_id: event!.id, guest_name: "Mini Lookup", phone: "070133133", date: "2026-12-12", start_time: "17:00", party_size: 8 })
+        .select("id")
+        .single();
+
+      const found = await getReservationForEvent(event!.id, admin);
+      expect(found?.id).toBe(linked!.id);
+      expect(found?.event_id).toBe(event!.id);
+    });
   });
 });

@@ -326,6 +326,40 @@ describe("event erasure (DATA-005)", () => {
     expect(await eraseEventPersonalData(randomUUID())).toBe(false);
   });
 
+  it("anonymizes a mini-event's own linked reservation, keeping its table claim (Project B §1)", async () => {
+    const v = await newVenue(`mini${stamp}`);
+    const { data: event } = await admin
+      .rpc("create_event_full", {
+        p_venue_id: v.venueId,
+        p_couple_names: `Mini Erase ${stamp}`,
+        p_event_date: "2027-06-01",
+        p_start_time: "18:00",
+        p_end_time: null,
+        p_event_type: "birthday",
+        p_status: "preparation",
+        p_guest_count_estimate: 10,
+        p_room_ids: [v.roomId],
+        p_contact_email: "mini@example.mk",
+        p_contact_email_2: null,
+        p_contact_phone: "070 999 888",
+        p_total_price: null,
+        p_deposit_paid: null,
+        p_username: `mini-erase-${stamp}`,
+        p_password: "a-strong-password-1",
+        p_menu_template_ids: null,
+        p_seating_mode: "mini",
+      })
+      .single();
+    const eventId = event as unknown as string;
+
+    expect(await eraseEventPersonalData(eventId)).toBe(true);
+
+    const reservation = await must(
+      admin.from("reservations").select("venue_id, room_id, guest_name, phone, email, date").eq("event_id", eventId).single(),
+    );
+    expect(reservation).toMatchObject({ venue_id: v.venueId, room_id: v.roomId, guest_name: "Избришани податоци", phone: "", email: null, date: "2027-06-01" });
+  });
+
   it("attributes the erasure to the manager who did it, when the gated route passes one (0133)", async () => {
     const v = await newVenue("ME");
     const target = await seedEvent(v, `me${stamp}`);

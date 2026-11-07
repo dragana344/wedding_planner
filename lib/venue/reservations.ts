@@ -28,6 +28,8 @@ export interface Reservation {
   /** Which staff member (waiter/barista) took the booking — "Келнер" on the form. */
   server_name: string | null;
   table_ids: string[];
+  /** Project B §1: set only for the one reservation that is a mini-event's table claim. */
+  event_id: string | null;
 }
 
 export interface ReservationInput {
@@ -65,7 +67,7 @@ export const RESERVATION_STATUS_META: Record<
 const INACTIVE_STATUSES: ReservationStatus[] = ["cancelled", "completed"];
 
 const RESERVATION_COLUMNS =
-  "id, venue_id, room_id, guest_name, phone, email, date, start_time, end_time, party_size, status, event_type, note, server_name, reservation_tables(layout_element_id)";
+  "id, venue_id, room_id, guest_name, phone, email, date, start_time, end_time, party_size, status, event_type, note, server_name, event_id, reservation_tables(layout_element_id)";
 
 interface ReservationRow {
   id: string;
@@ -82,6 +84,7 @@ interface ReservationRow {
   event_type: EventType | null;
   note: string | null;
   server_name: string | null;
+  event_id: string | null;
   reservation_tables: { layout_element_id: string }[] | null;
 }
 
@@ -101,8 +104,19 @@ function mapRow(row: ReservationRow): Reservation {
     event_type: row.event_type,
     note: row.note,
     server_name: row.server_name,
+    event_id: row.event_id,
     table_ids: (row.reservation_tables ?? []).map((t) => t.layout_element_id),
   };
+}
+
+/** The one reservation that is this mini-event's table claim, or null (a `full` event has none at all). */
+export async function getReservationForEvent(
+  eventId: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<Reservation | null> {
+  const { data, error } = await client.from("reservations").select(RESERVATION_COLUMNS).eq("event_id", eventId).maybeSingle();
+  if (error) throw error;
+  return data ? mapRow(data) : null;
 }
 
 export async function listReservations(
@@ -155,13 +169,6 @@ export async function listReservationsForRoom(
 
 /** How long a table stays reserved when a booking has no explicit end time. */
 const DEFAULT_RESERVATION_MINUTES = 180;
-
-/**
- * How close to an upcoming reservation's start a candidate time has to be
- * before the floor plan calls the table "reserved" (red) rather than merely
- * "limited" (yellow) — see `getTableAvailability`.
- */
-const PROXIMITY_BLOCK_MINUTES = 60;
 
 function toMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -288,21 +295,20 @@ export async function findConflictingTables(
 }
 
 export interface TableAvailability {
-  /** Genuinely occupied right now, or an upcoming reservation starts within
-   * PROXIMITY_BLOCK_MINUTES — shown red on the floor plan. */
+  /** Genuinely occupied at the candidate instant — shown red on the floor plan. */
   reserved: string[];
-  /** Free at the selected time, but an upcoming reservation starts within
-   * DEFAULT_RESERVATION_MINUTES — shown yellow: bookable, but tight. */
-  limited: string[];
 }
 
 /**
  * Purely advisory, floor-plan-facing table status for a candidate (date,
  * startTime) — NOT used to gate submission (createReservation always runs
- * its own accurate findConflictingTables check regardless of this). This
- * only tiers what's already free into "reserved soon" vs "free with room to
- * spare", so staff aren't misled into thinking a table is wide open when
- * another party is due in the next couple of hours.
+ * its own accurate findConflictingTables check regardless of this). Flags
+ * only tables genuinely occupied right at that instant — no advance-warning
+ * lead time: "when a table is reserved we reserve it and don't add hours in
+ * which it cannot be used" (explicitly rejected for the whole seating
+ * system, not just one project — spec §9 of the 2026-11-02 seating-remodel
+ * design). A table a party is due at in ten minutes is shown free until
+ * that minute actually arrives; the venue decides how it wants to work.
  */
 export async function getTableAvailability(
   roomId: string,
@@ -320,28 +326,18 @@ export async function getTableAvailability(
   const candidateStart = absoluteSpan(date, startTime, null).s;
 
   const reserved = new Set<string>();
-  const limited = new Set<string>();
   for (const r of existing) {
     if (excludeReservationId && r.id === excludeReservationId) continue;
     const rSpan = absoluteSpan(r.date, r.start_time, r.end_time);
     const occupiedNow = candidateStart >= rSpan.s && candidateStart < rSpan.e;
-    const minutesUntilStart = rSpan.s - candidateStart;
     for (const tableId of r.table_ids) {
       if (!tableIds.includes(tableId)) continue;
-      // A seated party occupies the table on its own day — no tiering.
-      if (
-        (r.status === "seated" && r.date === date) ||
-        occupiedNow ||
-        (minutesUntilStart >= 0 && minutesUntilStart < PROXIMITY_BLOCK_MINUTES)
-      ) {
-        reserved.add(tableId);
-      } else if (minutesUntilStart >= 0 && minutesUntilStart < DEFAULT_RESERVATION_MINUTES) {
-        limited.add(tableId);
-      }
+      // A seated party occupies the table on its own day regardless of the
+      // assumed window; otherwise only the real, current overlap counts.
+      if ((r.status === "seated" && r.date === date) || occupiedNow) reserved.add(tableId);
     }
   }
-  for (const tableId of Array.from(reserved)) limited.delete(tableId);
-  return { reserved: Array.from(reserved), limited: Array.from(limited) };
+  return { reserved: Array.from(reserved) };
 }
 
 const TABLE_CONFLICT_MESSAGE = "Една или повеќе од избраните маси се веќе резервирани за тоа време.";
@@ -406,6 +402,43 @@ export async function createReservation(
     .select(RESERVATION_COLUMNS)
     .eq("id", reservation.id)
     .single();
+  if (fetchError) throw fetchError;
+  return mapRow(data);
+}
+
+/**
+ * Replaces a reservation's table assignment outright — the Маси tab (Project
+ * B §3), where staff add or remove tables as a mini-event's guest count
+ * changes, same re-check-then-replace shape as createReservation. Re-checks
+ * conflicts excluding the reservation's own current tables, so a table it
+ * already holds is never reported as conflicting with itself.
+ */
+export async function updateReservationTables(
+  reservationId: string,
+  roomId: string,
+  date: string,
+  startTime: string,
+  endTime: string | null,
+  tableIds: string[],
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<Reservation> {
+  const conflicts = await findConflictingTables(roomId, date, startTime, endTime, tableIds, reservationId, client);
+  if (conflicts.length > 0) throw new Error(TABLE_CONFLICT_MESSAGE);
+
+  const { error: deleteError } = await client.from("reservation_tables").delete().eq("reservation_id", reservationId);
+  if (deleteError) throw deleteError;
+
+  if (tableIds.length > 0) {
+    const { error: insertError } = await client
+      .from("reservation_tables")
+      .insert(tableIds.map((layout_element_id) => ({ reservation_id: reservationId, layout_element_id })));
+    if (insertError) {
+      if (insertError.code === "23P01" || insertError.code === "40P01") throw new Error(TABLE_CONFLICT_MESSAGE);
+      throw insertError;
+    }
+  }
+
+  const { data, error: fetchError } = await client.from("reservations").select(RESERVATION_COLUMNS).eq("id", reservationId).single();
   if (fetchError) throw fetchError;
   return mapRow(data);
 }

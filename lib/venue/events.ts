@@ -8,6 +8,7 @@ import { errorFields, log } from "@/lib/log";
 import { listUnseenSections } from "@/lib/venue/unseen-changes";
 import type { SeenSection } from "@/lib/changes/types";
 import { toMenuSubmission, type MenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
+import type { SnapshotElement } from "@/lib/venue/room-presets";
 
 export interface EventSummary {
   id: string;
@@ -89,12 +90,14 @@ export interface EventDetail {
   contact_phone: string | null;
   total_price: number | null;
   deposit_paid: number | null;
-  /** The couple confirmed a seating change staff hasn't opened yet. */
-  hasUnseenSeatingChange: boolean;
   /** Sections the couple changed (or numbers they sent) that the venue hasn't seen yet. */
   unseenSections: SeenSection[];
   /** What the couple sent the venue: the newest sending and the one before it. */
   menuNumbers: { latest: MenuSubmission | null; previous: MenuSubmission | null };
+  /** Project A §4: null follows venues.couple_seating_self_edit_enabled; true/false overrides it for this event. */
+  seating_self_edit_enabled: boolean | null;
+  /** Project B §1: 'mini' claims part of a room's capacity (a linked reservations row), 'full' claims the whole room. */
+  seating_mode: "full" | "mini";
 }
 
 /**
@@ -123,7 +126,7 @@ export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
 }
 
 const EVENT_DETAIL_COLUMNS =
-  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_unseen_at, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
+  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_self_edit_enabled, seating_mode, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
 
 type EventDetailRow = {
   id: string;
@@ -135,7 +138,8 @@ type EventDetailRow = {
   status: string;
   event_type: string;
   guest_count_estimate: number | null;
-  seating_unseen_at: string | null;
+  seating_self_edit_enabled: boolean | null;
+  seating_mode: string;
   event_rooms: { room_id: string }[] | null;
   event_showcase_photos: { id: string }[] | null;
   event_layout_elements: unknown;
@@ -230,6 +234,8 @@ export async function listEventsWithDetails(
       status: event.status as EventStatus,
       event_type: event.event_type as EventType,
       guest_count_estimate: event.guest_count_estimate,
+      seating_self_edit_enabled: event.seating_self_edit_enabled,
+      seating_mode: event.seating_mode as "full" | "mini",
       created_at: event.created_at,
       menus: toEventMenus(event.event_menu_templates),
       room_ids: ((event.event_rooms ?? []) as { room_id: string }[]).map((r) => r.room_id),
@@ -240,20 +246,10 @@ export async function listEventsWithDetails(
       contact_phone: event.contact_phone ?? null,
       total_price: event.total_price ?? null,
       deposit_paid: event.deposit_paid ?? null,
-      hasUnseenSeatingChange: event.seating_unseen_at !== null,
       unseenSections: unseenByEvent.get(event.id) ?? [],
       menuNumbers: toMenuNumbers(event.event_menu_submissions),
     };
   });
-}
-
-/** Clears the "new change" dot for this event — called when staff opens its seating page. */
-export async function markSeatingSeen(
-  eventId: string,
-  client: SupabaseClient = resolveSupabaseClient()
-): Promise<void> {
-  const { error } = await client.from("events").update({ seating_unseen_at: null }).eq("id", eventId);
-  if (error) throw error;
 }
 
 export interface EventBasic {
@@ -261,6 +257,8 @@ export interface EventBasic {
   venue_id: string;
   couple_names: string;
   event_date: string;
+  guest_count_estimate: number | null;
+  seating_mode: "full" | "mini";
 }
 
 export async function getEventById(
@@ -269,7 +267,7 @@ export async function getEventById(
 ): Promise<EventBasic | null> {
   const { data, error } = await client
     .from("events")
-    .select("id, venue_id, couple_names, event_date")
+    .select("id, venue_id, couple_names, event_date, guest_count_estimate, seating_mode")
     .eq("id", eventId)
     .maybeSingle();
   if (error) throw error;
@@ -356,6 +354,13 @@ export interface CreateEventInput {
   credentials: { username: string; password: string };
   /** Which elevated manager created this event, for the couple-credentials audit row (0133). */
   managerName?: string | null;
+  /** Project A §1: 'full' claims the whole room; 'mini' (Project B) shares capacity. Defaults to 'full' (see migration 0136's note on the column default). */
+  seating_mode?: "full" | "mini";
+  /** The manager's chosen starting layout per room (a saved preset's
+   * snapshot, or one built from scratch), keyed by room_id — resolved in
+   * the wizard before submit. Omitted keeps create_event_full's old
+   * behaviour of auto-copying the room's live template (0141). */
+  room_layouts?: Record<string, SnapshotElement[]>;
 }
 
 export async function createEvent(input: CreateEventInput, client: SupabaseClient = resolveSupabaseClient()): Promise<{ id: string }> {
@@ -401,6 +406,8 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     p_password: input.credentials.password,
     p_menu_template_ids: input.menu_template_ids,
     p_manager_name: input.managerName ?? null,
+    p_seating_mode: input.seating_mode ?? "full",
+    p_room_layouts: input.room_layouts ?? null,
   });
   // The couple's login is created inside create_event_full (0112): a taken
   // username must still say so, not "the event could not be saved".
@@ -421,6 +428,8 @@ export interface UpdateEventInput {
    * never the full list, so a menu added elsewhere meanwhile survives the save. */
   added_menu_ids: string[];
   removed_menu_ids: string[];
+  /** Project A §4: null follows the venue-wide switch; true/false overrides it. */
+  seating_self_edit_enabled: boolean | null;
 }
 
 /** Thrown by the gated-route write helpers below when the eventId/venueId
@@ -507,6 +516,15 @@ export async function updateEvent(
   });
   if (error) throw error;
   if (!found) throw new EventNotFoundError();
+
+  // Project A §4: a plain column, no room/menu diffing involved — a direct
+  // follow-up update rather than another update_event_full parameter.
+  const { error: selfEditError } = await supabase
+    .from("events")
+    .update({ seating_self_edit_enabled: input.seating_self_edit_enabled })
+    .eq("id", eventId)
+    .eq("venue_id", venueId);
+  if (selfEditError) throw selfEditError;
 }
 
 // The routes call these with the service-role client, which bypasses RLS —
@@ -623,6 +641,59 @@ export interface SameDayEvent {
  * form can warn before a hall is booked twice for the same day. Advisory
  * only: two events may share a hall on purpose (lunch and dinner).
  */
+/**
+ * Project B §5: a plain informational flag for Резервации — never a gate.
+ * Whether a `full`-mode event (which claims the whole room) is booked in
+ * this room on this date.
+ */
+export async function hasFullEventOnDate(
+  roomId: string,
+  date: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("event_rooms")
+    .select("room_id, events!inner(event_date, seating_mode, status)")
+    .eq("room_id", roomId)
+    .eq("events.event_date", date)
+    .eq("events.seating_mode", "full")
+    .neq("events.status", "cancelled")
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Dates within [fromDate, toDate] where each of `roomIds` already has a
+ * `full`-mode event (room already fully claimed that day), grouped by
+ * room_id — for the event-wizard's date step to ring each date per the
+ * room(s) it's already booked for, same advisory spirit as
+ * hasFullEventOnDate/findSameDayRoomEvents: never a gate, just a heads-up.
+ */
+export async function listFullyBookedDatesByRoom(
+  roomIds: string[],
+  fromDate: string,
+  toDate: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<Record<string, string[]>> {
+  if (roomIds.length === 0) return {};
+  const { data, error } = await client
+    .from("event_rooms")
+    .select("room_id, events!inner(event_date, seating_mode, status)")
+    .in("room_id", roomIds)
+    .eq("events.seating_mode", "full")
+    .neq("events.status", "cancelled")
+    .gte("events.event_date", fromDate)
+    .lte("events.event_date", toDate);
+  if (error) throw error;
+  const byRoom: Record<string, Set<string>> = {};
+  for (const row of data ?? []) {
+    const date = (row.events as unknown as { event_date: string }).event_date;
+    (byRoom[row.room_id as string] ??= new Set()).add(date);
+  }
+  return Object.fromEntries(Object.entries(byRoom).map(([roomId, dates]) => [roomId, Array.from(dates).sort()]));
+}
+
 export async function findSameDayRoomEvents(
   venueId: string,
   date: string,

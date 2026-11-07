@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { saveAccountEmail, saveAccountPassword, saveLayoutLockPassword, saveVenueName } from "@/lib/venue/settings-client";
+import { saveAccountEmail, saveAccountPassword, saveCoupleSeatingSelfEdit, saveLayoutLockPassword, saveVenueName } from "@/lib/venue/settings-client";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
 import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
@@ -17,6 +17,7 @@ type SettingsData = {
   email: string;
   profile?: { address: string | null; phone: string | null; logoUrl: string | null };
   branding?: { color: string | null; enabled: boolean };
+  coupleSeatingSelfEditEnabled: boolean;
 };
 
 async function fetchSettingsData(managerToken: string, signal?: AbortSignal): Promise<SettingsData> {
@@ -52,6 +53,10 @@ export function SettingsClient() {
   const [layoutPasswordStatus, setLayoutPasswordStatus] = useState<string | null>(null);
   const [isSavingLayoutPassword, setIsSavingLayoutPassword] = useState(false);
 
+  const [selfEditEnabled, setSelfEditEnabled] = useState(true);
+  const [selfEditStatus, setSelfEditStatus] = useState<string | null>(null);
+  const [isSavingSelfEdit, setIsSavingSelfEdit] = useState(false);
+
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // DATA-006: data export and account deletion.
@@ -76,6 +81,7 @@ export function SettingsClient() {
         setVenueName(d.venueName);
         setSavedVenueName(d.venueName);
         setEmail(d.email);
+        setSelfEditEnabled(d.coupleSeatingSelfEditEnabled);
       })
       .catch((err) => {
         if (err?.name === "AbortError") return; // superseded by a newer token
@@ -142,6 +148,20 @@ export function SettingsClient() {
       setLayoutPasswordStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingLayoutPassword(false);
+    }
+  }
+
+  async function handleToggleSelfEdit(enabled: boolean) {
+    setSelfEditStatus(null);
+    setIsSavingSelfEdit(true);
+    try {
+      await saveCoupleSeatingSelfEdit(enabled, managerToken);
+      setSelfEditEnabled(enabled);
+      setSelfEditStatus("Зачувано.");
+    } catch (err) {
+      setSelfEditStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
+    } finally {
+      setIsSavingSelfEdit(false);
     }
   }
 
@@ -335,6 +355,29 @@ export function SettingsClient() {
       </section>
 
       <ManagersSection />
+
+      <section className="panel">
+        <div className="panel-h">
+          <h2 className="panel-t">Распоред на седење</h2>
+        </div>
+        <div className="ev-form" style={{ padding: "16px 20px" }}>
+          <label className="ev-check">
+            <input
+              type="checkbox"
+              checked={selfEditEnabled}
+              onChange={(e) => handleToggleSelfEdit(e.target.checked)}
+              disabled={isSavingSelfEdit}
+            />
+            Паровите можат сами да го уредуваат својот распоред на седење
+          </label>
+          <p className="ev-hint" style={{ margin: 0 }}>
+            Кога е исклучено, парот гледа само преглед на тековниот распоред и порака да контактира со локалот — важи
+            за сите настани со полн капацитет, освен ако конкретен настан има свое поставување во уредувањето на
+            настанот.
+          </p>
+          {selfEditStatus ? <p className="muted" style={{ margin: 0 }}>{selfEditStatus}</p> : null}
+        </div>
+      </section>
 
       <section className="panel">
         <div className="panel-h">

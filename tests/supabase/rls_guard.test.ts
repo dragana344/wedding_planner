@@ -21,6 +21,7 @@ const STAFF_TABLES = [
   "event_showcase_photos",
   "room_fixed_elements",
   "room_layout_elements",
+  "room_layout_presets",
   "event_layout_elements",
   "event_seat_assignments",
   "reservations",
@@ -61,6 +62,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "support_tickets",
   "venue_managers",
   "venue_manager_elevations",
+  "event_seating_proposals",
 ];
 
 let db: Client;

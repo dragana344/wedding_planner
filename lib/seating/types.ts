@@ -38,3 +38,20 @@ export interface SeatInput {
 export function tableTitle(table: Pick<SeatTable, "label" | "number">): string {
   return table.label ?? `Маса ${table.number}`;
 }
+
+// Project A §5: client-safe view of a row in event_seating_proposals (no
+// snapshot — the browser only needs to list/approve/reject, never render the
+// raw layout snapshot directly).
+export type ProposedBy = "venue" | "couple";
+export type ProposalStatus = "pending" | "approved" | "rejected" | "superseded";
+
+export interface SeatingProposalView {
+  id: string;
+  proposed_by: ProposedBy;
+  status: ProposalStatus;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  responded_at: string | null;
+  responded_by: string | null;
+}

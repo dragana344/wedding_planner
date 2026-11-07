@@ -326,6 +326,40 @@ describe("FloorPlanCanvas zoom", () => {
   });
 });
 
+describe("FloorPlanCanvas watermark (Project C)", () => {
+  it("renders the venue's logo faintly behind the plan when given one, and nothing when not", () => {
+    renderCanvas({ watermarkUrl: "https://cdn.example/logo.png" });
+    const watermark = screen.getByTestId("floor-plan-watermark");
+    expect(watermark).toHaveAttribute("href", "https://cdn.example/logo.png");
+    expect(watermark).toHaveAttribute("opacity", "0.1");
+  });
+
+  it("renders no watermark element without a logo", () => {
+    renderCanvas();
+    expect(screen.queryByTestId("floor-plan-watermark")).not.toBeInTheDocument();
+  });
+});
+
+describe("FloorPlanCanvas chair rendering (round and rectangular tables)", () => {
+  it("draws one chair mark per seat around a round table's rim when seatCount is given", () => {
+    renderCanvas({ elements: [{ ...table, seatCount: 6 }] });
+    const group = screen.getByTestId("floor-plan-element-t1").closest("g")!;
+    expect(group.querySelectorAll("rect")).toHaveLength(6);
+  });
+
+  it("draws no chairs without a seatCount", () => {
+    renderCanvas({ elements: [table] });
+    const group = screen.getByTestId("floor-plan-element-t1").closest("g")!;
+    expect(group.querySelectorAll("rect")).toHaveLength(0);
+  });
+
+  it("draws chairs around a rectangular table's sides too, when seatCount is set", () => {
+    renderCanvas({ elements: [{ ...lockedWall, seatCount: 6 }] });
+    const group = screen.getByTestId("floor-plan-element-w1").closest("g")!;
+    expect(group.querySelectorAll("rect")).toHaveLength(7); // the table itself + 6 chairs
+  });
+});
+
 describe("FloorPlanCanvas background pan (touch)", () => {
   it("dragging the empty floor scrolls the plan and the page instead of doing nothing", () => {
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});

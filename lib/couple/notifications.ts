@@ -54,7 +54,7 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
   const today = todayIn();
   const now = new Date();
 
-  const [changes, seen, firstLogin, replies, submissions, reminders] = await Promise.all([
+  const [changes, seen, firstLogin, replies, submissions, reminders, seatingProposals] = await Promise.all([
     listEventChanges(eventId),
     getSeen(eventId, "couple"),
     getCoupleFirstLogin(eventId),
@@ -66,9 +66,15 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
       .order("sent_at", { ascending: false })
       .order("id", { ascending: false }),
     client.from("event_couple_reminders").select("id, reminded_at").eq("event_id", eventId),
+    client
+      .from("event_seating_proposals")
+      .select("id, proposed_by, status, note, created_at, responded_at")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: false }),
   ]);
   if (submissions.error) throw new Error(`Could not load the menu numbers: ${submissions.error.message}`);
   if (reminders.error) throw new Error(`Could not load the reminders: ${reminders.error.message}`);
+  if (seatingProposals.error) throw new Error(`Could not load the seating proposals: ${seatingProposals.error.message}`);
 
   const out: CoupleNotification[] = [];
 
@@ -131,6 +137,19 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
   }
   for (const r of reminders.data ?? []) {
     out.push({ id: `rem-${r.id}`, at: r.reminded_at as string, kind: "reminder", title: VENUE_REMINDER_TEXT, detail: null, unseen: false });
+  }
+
+  // Project A §5: the venue sending a layout is always couple-facing news;
+  // the couple's own sent layout only becomes couple-facing news once the
+  // venue has actually responded to it (a still-pending one is just "I sent
+  // this," nothing happened yet to tell them about).
+  for (const p of seatingProposals.data ?? []) {
+    if (p.proposed_by === "venue") {
+      out.push({ id: `seat-${p.id}`, at: p.created_at as string, kind: "venue_change", title: "Салата испрати распоред на седење", detail: null, unseen: false });
+    } else if (p.status !== "pending") {
+      const title = p.status === "approved" ? "Салата го одобри вашиот распоред" : "Салата го одби вашиот распоред";
+      out.push({ id: `seat-${p.id}`, at: (p.responded_at as string) ?? (p.created_at as string), kind: "venue_change", title, detail: (p.note as string | null) ?? null, unseen: false });
+    }
   }
 
   return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));

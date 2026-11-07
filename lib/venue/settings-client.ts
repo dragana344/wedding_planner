@@ -52,6 +52,11 @@ export async function saveAccountPassword(password: string, managerToken: string
   await patch({ field: "account_password", password }, managerToken);
 }
 
+/** Project A §4: the owner-level self-editing switch. */
+export async function saveCoupleSeatingSelfEdit(enabled: boolean, managerToken: string | null): Promise<void> {
+  await patch({ field: "couple_seating_self_edit_enabled", enabled }, managerToken);
+}
+
 /** Uploads a new logo and returns its public URL (the server re-checks the file). */
 export async function uploadLogo(file: File, managerToken: string | null): Promise<string> {
   return (await uploadVenuePhoto<{ url: string }>("/api/venue/settings/logo", file, managerToken, "Не успеа прикачувањето на логото.")).url;

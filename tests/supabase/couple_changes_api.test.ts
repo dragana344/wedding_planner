@@ -87,7 +87,11 @@ describe("GET /api/couple/changes", () => {
     // an older up_to never moves the position back
     const res = await (await seen(e, "menus", ago(5 * DAY))).json();
     expect(res).toEqual({ ok: true, newer: true });
-    expect((await getSeen(e, "couple")).menus).toBe(new Date(t1).toISOString().replace("Z", "+00:00"));
+    // Compared by value, not as raw strings: Postgres trims trailing zeros
+    // off the fractional seconds it returns (e.g. ".81" for ".810"), so a
+    // literal string match fails for roughly 1 run in 10, whenever t1's
+    // millisecond component happens to end in a zero (CI flake, 2026-11-02).
+    expect(new Date((await getSeen(e, "couple")).menus!).getTime()).toBe(new Date(t1).getTime());
     expect((await getChanges(e)).unseen.menus).toHaveLength(1);
   });
 

@@ -34,6 +34,59 @@ function formatDate(iso: string): string {
 
 type Loader = (roomId: string) => Promise<{ layout: EventLayoutElement[]; tables: SeatTable[] }>;
 
+/**
+ * Project C: per-table menu breakdown, but only where it's genuinely mixed
+ * — a table everyone shares one menu needs no note. event_guest_menu_counts
+ * is per guest *party*, not per seat, so a party's breakdown is counted once
+ * per table it actually sits at, never once per seat it holds there.
+ */
+async function tableMenuNotes(service: SupabaseClient, eventId: string, roomId: string): Promise<Map<string, string>> {
+  const { data: seats, error } = await service
+    .from("event_seat_assignments")
+    .select("layout_element_id, guest_id")
+    .eq("event_id", eventId)
+    .eq("room_id", roomId)
+    .not("guest_id", "is", null);
+  if (error) throw error;
+  const rows = (seats ?? []) as { layout_element_id: string; guest_id: string }[];
+  if (rows.length === 0) return new Map();
+
+  const tableGuests = new Map<string, Set<string>>();
+  for (const s of rows) {
+    const set = tableGuests.get(s.layout_element_id) ?? new Set<string>();
+    set.add(s.guest_id);
+    tableGuests.set(s.layout_element_id, set);
+  }
+
+  const guestIds = [...new Set(rows.map((s) => s.guest_id))];
+  const { data: counts, error: countsError } = await service
+    .from("event_guest_menu_counts")
+    .select("guest_id, count, menu_templates(name)")
+    .in("guest_id", guestIds);
+  if (countsError) throw countsError;
+
+  const byGuest = new Map<string, { name: string; count: number }[]>();
+  for (const row of counts ?? []) {
+    const tpl = row.menu_templates as { name: string } | { name: string }[] | null;
+    const name = Array.isArray(tpl) ? tpl[0]?.name : tpl?.name;
+    if (!name) continue;
+    const list = byGuest.get(row.guest_id as string) ?? [];
+    list.push({ name, count: row.count as number });
+    byGuest.set(row.guest_id as string, list);
+  }
+
+  const notes = new Map<string, string>();
+  for (const [tableId, guestSet] of tableGuests) {
+    const totals = new Map<string, number>();
+    for (const guestId of guestSet) {
+      for (const m of byGuest.get(guestId) ?? []) totals.set(m.name, (totals.get(m.name) ?? 0) + m.count);
+    }
+    if (totals.size < 2) continue;
+    notes.set(tableId, [...totals.entries()].map(([name, count]) => `${name} ${count}`).join(", "));
+  }
+  return notes;
+}
+
 async function build(client: SupabaseClient, eventId: string, origin: string, load: Loader): Promise<PrintData> {
   const service = createServiceRoleClient();
   const { data: event, error } = await client
@@ -62,12 +115,13 @@ async function build(client: SupabaseClient, eventId: string, origin: string, lo
   const printRooms: PrintRoom[] = [];
   const cards: QrCard[] = [];
   for (const room of rooms) {
-    const [{ layout, tables }, fixed, tableTypes] = await Promise.all([
+    const [{ layout, tables }, fixed, tableTypes, menuNotes] = await Promise.all([
       load(room.id),
       listFixedElements(room.id, client),
       listTableTypes(room.id, client),
+      tableMenuNotes(service, eventId, room.id),
     ]);
-    printRooms.push(buildPrintRoom(room, layout, fixed, tables, tableTypes));
+    printRooms.push(buildPrintRoom(room, layout, fixed, tables, tableTypes, menuNotes));
     const present = new Set(layout.map((el) => el.id));
     for (const t of [...tables].sort((a, b) => a.number - b.number)) {
       if (!qrLocked && present.has(t.elementId)) cards.push({ id: t.elementId, title: tableTitle(t), room: room.name, svg: qr });

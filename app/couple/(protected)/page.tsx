@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { getEventSummary } from "@/lib/couple/dashboard";
+import { getMiniEventTables } from "@/lib/couple/mini-event";
 import { listAgendaItems } from "@/lib/couple/agenda";
 import { listChecklistItems, computeChecklistStats } from "@/lib/couple/checklist";
 import { EventHeroCard } from "@/components/couple/EventHeroCard";
@@ -30,6 +31,10 @@ export default async function CoupleDashboardPage() {
       return NO_MARKS;
     }),
   ]);
+  // Project B §3: a mini-event never gets a seating editor — this read-only
+  // line is the entire "seating" story for one, so it's only ever fetched
+  // when actually needed.
+  const miniTables = summary.seating_mode === "mini" ? await getMiniEventTables(eventId) : null;
   const notices = (["date_time", "rooms", "guest_count", "contact"] as const).flatMap((section) => {
     const notice = coupleNotice(section, marks.unseen[section]);
     return notice ? [notice] : [];
@@ -53,6 +58,15 @@ export default async function CoupleDashboardPage() {
         venueName={summary.venue_name}
         guestCount={summary.guest_count_estimate}
       />
+
+      {miniTables ? (
+        <p className="ev-hint" style={{ margin: "0 0 16px" }}>
+          {miniTables.tableLabels.length > 0
+            ? `Вашите маси во ${miniTables.roomName}: ${miniTables.tableLabels.join(", ")}.`
+            : `Локалот сè уште не доделил маси во ${miniTables.roomName}.`}{" "}
+          За промени, контактирајте го локалот.
+        </p>
+      ) : null}
 
       {/* C5: the album's space, once guests have started sharing. */}
       {storage && storage.photoBytes + storage.videoBytes > 0 && (

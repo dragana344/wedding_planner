@@ -79,12 +79,21 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, event_id: N, room_id: N, layout_element_id: N, seat_number: N, guest_id: N, guest_name: P, updated_at: N,
   },
   event_showcase_photos: { id: N, event_id: N, photo_path: P, created_at: N },
+  // snapshot can carry a guest-naming table label, same reasoning as event_layout_elements.label (P);
+  // created_by/responded_by are manager names (P, like every other manager-name column this session);
+  // note is a manager's own free-text reason, same C treatment as venues.blocked_reason.
+  event_seating_proposals: {
+    id: N, event_id: N, room_id: N, proposed_by: N, snapshot: P, status: N, note: C,
+    created_by: P, created_at: N, responded_at: N, responded_by: P,
+  },
   events: {
     id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, created_at: N,
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
     deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
-    seating_unseen_at: N,
+    // Project A (0136/0137): seating_mode/self_edit are plain venue config; seating_baseline is a frozen
+    // copy of the room's own standard layout at creation, same N classification as room_layout_elements.label.
+    seating_mode: N, seating_baseline: N, seating_self_edit_enabled: N,
     // System flag (0125): whether the couple has ever logged in.
     couple_first_login_at: N,
   },
@@ -106,6 +115,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     // The venue staff member (waiter/barista) who took the booking, not the
     // dining guest — outside the scope of this guest's export/erasure.
     server_name: N,
+    // Project B §1: links a mini-event's table claim to its event — the FK
+    // itself names nothing; guest_name/phone above are what carry the
+    // couple's identity (erase_event_personal_data anonymizes them there).
+    event_id: N,
   },
   room_fixed_elements: {
     id: N, room_id: N, element_type: N, x_cm: N, y_cm: N, width_cm: N, height_cm: N, rotation_deg: N, label: N, created_at: N,
@@ -114,7 +127,9 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, room_id: N, element_type: N, table_type_id: N, x_cm: N, y_cm: N, width_cm: N, length_cm: N, rotation_deg: N,
     label: N, created_at: N, group_id: N, table_role: N,
   },
-  rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N },
+  // snapshot holds the same shape as room_fixed_elements/room_layout_elements, both N — no guest data, room presets are venue-owned.
+  room_layout_presets: { id: N, room_id: N, name: N, snapshot: N, created_at: N, updated_at: N },
+  rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N, layout_history: N },
   storage_cleanup_queue: { id: N, bucket: N, path: N, queued_at: N },
   support_tickets: {
     id: N, venue_id: N, event_id: N, submitted_by: N, name: P, problem: P, description: P, status: N,
@@ -135,5 +150,6 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, name: P, created_at: N, layout_lock_password_hash: S, terms_version: N, terms_accepted_at: N,
     address: P, phone: P, logo_path: N, brand_color: N,
     plan_id: N, blocked_at: N, blocked_reason: C,
+    couple_seating_self_edit_enabled: N,
   },
 };

@@ -31,8 +31,8 @@ export type CoupleNavDots = { menu?: boolean; guests?: boolean; budget?: boolean
 export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots: CoupleNavDots = {}): CoupleNavItem[] {
   return [
     { href: "/couple", icon: "home", label: "Почетна", title: "ПОЧЕТНА", subtitle: "Преглед на вашиот настан", ready: true },
-    { href: "/couple/notifications", icon: "bell", label: "Известувања", title: "ИЗВЕСТУВАЊА", subtitle: "Промени од салата и одговори од гости", ready: true, group: "planning" as const, dot: dots.notifications },
-    ...rooms.map((room) => ({
+    { href: "/couple/notifications", icon: "bell", label: "Известувања", title: "ИЗВЕСТУВАЊА", subtitle: "Промени од салата и одговори од гости", ready: true, dot: dots.notifications },
+    ...rooms.map((room, index) => ({
       href: `/couple/seating/${room.id}`,
       icon: "tables",
       label: rooms.length > 1 ? `Распоред — ${room.name}` : "Распоред",
@@ -40,7 +40,7 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots:
       subtitle: room.name,
       ready: true,
       feature: "seating" as const,
-      group: "planning" as const,
+      group: index === 0 ? ("planning" as const) : undefined,
     })),
     { href: "/couple/menu", icon: "menu", label: "Мени", title: "МЕНИ", subtitle: "Изберете го вашето мени", ready: true, group: "planning" as const, dot: dots.menu },
     { href: "/couple/agenda", icon: "cal-dot", label: "Агенда", title: "АГЕНДА", subtitle: "Вашиот ден, испланиран", ready: true, feature: "agenda" as const, group: "planning" as const },

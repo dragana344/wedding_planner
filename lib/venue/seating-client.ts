@@ -5,6 +5,7 @@
 // lib/venue/events-client.ts. No "server-only": imported from client components.
 import type { SeatingActions } from "@/components/venue/dashboard/EventSeatingPage";
 import type { EventLayoutElement } from "@/lib/venue/floorplan";
+import type { SeatingProposalView } from "@/lib/seating/types";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { staffLayoutActions } from "@/lib/venue/floorplan-history";
 import { reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
@@ -23,9 +24,18 @@ export type SeatingOp =
   | { op: "ungroup"; room_id: string; group_id: string };
 
 async function send<T>(eventId: string, body: SeatingOp, managerToken: string | null): Promise<T> {
+  return post<T>(`/api/venue/events/${eventId}/seating`, body, managerToken);
+}
+
+type ProposalOp =
+  | { op: "send"; room_id: string }
+  | { op: "approve"; proposal_id: string }
+  | { op: "reject"; proposal_id: string; note: string | null };
+
+async function post<T>(url: string, body: unknown, managerToken: string | null): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (managerToken) headers[MANAGER_TOKEN_HEADER] = managerToken;
-  const response = await fetch(`/api/venue/events/${eventId}/seating`, { method: "POST", headers, body: JSON.stringify(body) });
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     // A 403 means the server no longer honours this token (expired or
@@ -69,5 +79,21 @@ export function venueSeatingClientActions(eventId: string, managerToken: string 
     group: (_eventId, roomId, elementIds) => op({ op: "group", room_id: roomId, element_ids: elementIds }),
     ungroup: (_eventId, roomId, groupId) => op({ op: "ungroup", room_id: roomId, group_id: groupId }),
     getRoomSeating: reads.getRoomSeating,
+    sendProposal: (eventId2, roomId) =>
+      post<SeatingProposalView>(`/api/venue/events/${eventId2}/seating/proposals`, { op: "send", room_id: roomId } satisfies ProposalOp, managerToken),
+    listProposals: async (eventId2, roomId) => {
+      const response = await fetch(`/api/venue/events/${eventId2}/seating/proposals?room_id=${roomId}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Предлозите не успеаа да се вчитаат.");
+      return data as SeatingProposalView[];
+    },
+    approveProposal: (proposalId) =>
+      post<void>(`/api/venue/events/${eventId}/seating/proposals`, { op: "approve", proposal_id: proposalId } satisfies ProposalOp, managerToken),
+    rejectProposal: (proposalId, note) =>
+      post<void>(
+        `/api/venue/events/${eventId}/seating/proposals`,
+        { op: "reject", proposal_id: proposalId, note } satisfies ProposalOp,
+        managerToken,
+      ),
   };
 }

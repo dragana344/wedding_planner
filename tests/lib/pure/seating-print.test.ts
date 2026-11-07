@@ -64,4 +64,11 @@ describe("buildPrintRoom", () => {
     const withWall = buildPrintRoom(room, [], [{ ...fixed[0], id: "w", element_type: "wall" }], [], types);
     expect(withWall.items).toEqual([]);
   });
+
+  it("Project C: annotates a table with its menu note, and leaves tables without one unset", () => {
+    const withNote = buildPrintRoom(room, layout, fixed, tables, types, new Map([["t2", "Посно 1"]]));
+    const byId = Object.fromEntries(withNote.items.map((i) => [i.id, i]));
+    expect(byId.t2.menuNote).toBe("Посно 1");
+    expect(byId.t1.menuNote).toBeUndefined();
+  });
 });

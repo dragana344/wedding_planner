@@ -2,17 +2,27 @@ import type { EventType, EventStatus } from "./events";
 import { depositExceedsTotal, DEPOSIT_OVER_TOTAL_ERROR } from "./events";
 import { parseCoupleContacts } from "./event-contacts";
 import { transliterateToSlug } from "./transliterate";
+import type { SnapshotElement } from "./room-presets";
 
-export const WIZARD_STEP_COUNT = 8;
+export const WIZARD_STEP_COUNT = 9;
+
+export type SeatingMode = "full" | "mini";
 
 export interface WizardState {
   type: EventType | null;
+  /** Project A §1: chosen explicitly, before anything else about the event. */
+  seatingMode: SeatingMode | null;
   name: string;
   date: string;
   startTime: string;
   endTime: string;
   guestCount: number;
   roomIds: string[];
+  /** Project A/event-wizard: each selected full-capacity room's resolved
+   * starting layout (a saved preset's elements, or ones built from scratch
+   * in the wizard), keyed by room_id. A room without an entry here isn't
+   * resolved yet — validateStep's room step blocks on that. Unused in mini mode. */
+  roomLayouts: Record<string, SnapshotElement[]>;
   menuTemplateIds: string[];
   /** The event's own menu, built here and created together with the event. */
   customMenu: { name: string; itemIds: string[] } | null;
@@ -31,12 +41,14 @@ export interface WizardState {
 export function initialWizardState(presetRoomIds: string[] = []): WizardState {
   return {
     type: null,
+    seatingMode: null,
     name: "",
     date: "",
     startTime: "",
     endTime: "",
     guestCount: 120,
     roomIds: presetRoomIds,
+    roomLayouts: {},
     menuTemplateIds: [],
     customMenu: null,
     totalPrice: "",
@@ -68,17 +80,31 @@ export function validateStep(step: number, state: WizardState): string | null {
     case 0:
       return state.type ? null : "Изберете тип на настан";
     case 1:
+      return state.seatingMode ? null : "Изберете начин на седење";
+    case 2:
       if (state.name.trim()) return null;
       return state.type === "wedding" ? "Внесете ги имињата на младенците" : "Внесете име на прославата";
-    case 2:
-      return state.date ? null : "Изберете датум";
+    case 3:
+      if (!state.date) return "Изберете датум";
+      // Project B §2: a mini-event's table claim is a reservation, which
+      // needs a concrete start time — a full event can still leave it for later.
+      if (state.seatingMode === "mini" && !state.startTime) return "Изберете почетно време";
+      return null;
     case 5:
-      return depositExceedsTotal(state.totalPrice, state.depositPaid) ? DEPOSIT_OVER_TOTAL_ERROR : null;
+      // Project B §2: a mini-event claims exactly one room; a full event may skip this step.
+      if (state.seatingMode === "mini" && state.roomIds.length !== 1) return "Изберете една сала";
+      // Every full-capacity room needs its starting layout resolved (picked or built) before moving on.
+      if (state.seatingMode === "full" && state.roomIds.some((id) => !state.roomLayouts[id])) {
+        return "Изберете или создајте распоред за секоја избрана сала";
+      }
+      return null;
     case 6:
+      return depositExceedsTotal(state.totalPrice, state.depositPaid) ? DEPOSIT_OVER_TOTAL_ERROR : null;
+    case 7:
       if (!state.username.trim()) return "Внесете корисничко име";
       if (state.password.length < 10) return "Лозинката треба да има најмалку 10 знаци";
       return null;
-    case 7: {
+    case 8: {
       const result = parseCoupleContacts({
         contact_email: state.contactEmail,
         contact_phone: state.contactPhone,
@@ -96,12 +122,13 @@ export function wizardWho(type: EventType | null): string {
   return type === "wedding" ? "младенците" : "организаторите";
 }
 
-/** [title, subtitle] for each of the 8 steps, worded around the event type where it reads better. */
+/** [title, subtitle] for each of the 9 steps, worded around the event type where it reads better. */
 export function wizardStepTitles(type: EventType | null): [string, string][] {
   const who = wizardWho(type);
   const isWedding = type === "wedding";
   return [
     ["Каков настан славиме?", "Изберете го типот на прославата"],
+    ["Цел простор или дел од него?", "Ова одлучува како ќе работи седењето за овој настан"],
     [isWedding ? "Кои се младенците?" : "Како се вика прославата?", "Ова име ќе стои на врвот на нивната страница"],
     ["Кога е големиот ден?", "Датум и време на почеток и крај"],
     ["Колку гости очекувате?", "Отприлика е доволно, бројот може да се смени подоцна"],

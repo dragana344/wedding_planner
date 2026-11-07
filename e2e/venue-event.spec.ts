@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, elevateAsOwner, futureDate, signUpVenue } from "./helpers";
+import { adminClient, createEventWithCouple, elevateAsOwner, pickFutureCalendarDate, signUpVenue } from "./helpers";
 
 // Flow 2: the venue creates an event together with the couple's login.
 test("venue creates an event with couple credentials", async ({ page }) => {
@@ -42,11 +42,12 @@ test("new event in a two-hall venue offers both halls on the rooms step", async 
   await elevateAsOwner(page, venue);
   await expect(page.getByRole("heading", { name: "Каков настан славиме?" })).toBeVisible();
   await page.getByRole("button", { name: "Свадба" }).click();
+  await page.getByRole("button", { name: "Цел простор" }).click();
 
   await expect(page.getByLabel("Имиња на младенците")).toBeVisible();
   await page.getByLabel("Имиња на младенците").fill("Проверка на сали");
   await page.getByRole("button", { name: "Понатаму" }).click();
-  await page.getByLabel("Датум").fill(futureDate());
+  await pickFutureCalendarDate(page);
   await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
 

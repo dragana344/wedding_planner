@@ -4,7 +4,14 @@ import { ReservationsClient } from "@/components/venue/dashboard/ReservationsCli
 import * as floorplan from "@/lib/venue/floorplan";
 import * as rooms from "@/lib/venue/rooms";
 import * as reservations from "@/lib/venue/reservations";
+import * as events from "@/lib/venue/events";
+import * as eventsClient from "@/lib/venue/events-client";
 import type { Reservation } from "@/lib/venue/reservations";
+
+vi.mock("@/components/venue/shell/ManagerElevationContext", () => ({
+  useManagerElevation: () => ({ managerName: "Тест Менаџер", isOwner: false, token: "test-token" }),
+  reportElevationRejected: vi.fn(),
+}));
 
 const room = { id: "r1", venue_id: "v1", name: "Hall", width_cm: 2000, height_cm: 1500, tableTypeCount: 1, seatTotal: 8 };
 
@@ -23,6 +30,7 @@ const base: Reservation = {
   event_type: "wedding",
   note: null,
   server_name: "Ивана",
+  event_id: null,
   table_ids: ["t1"],
 };
 
@@ -48,8 +56,9 @@ function mockFloorPlan() {
   vi.spyOn(rooms, "listTableTypes").mockResolvedValue([
     { id: "tt1", room_id: "r1", name: "Round-8", shape: "round", seats: 8, width_cm: 150, length_cm: 150, quantity: 5 },
   ]);
-  vi.spyOn(reservations, "getTableAvailability").mockResolvedValue({ reserved: [], limited: [] });
+  vi.spyOn(reservations, "getTableAvailability").mockResolvedValue({ reserved: [] });
   vi.spyOn(reservations, "listReservationsForRoom").mockResolvedValue([]);
+  vi.spyOn(events, "hasFullEventOnDate").mockResolvedValue(false);
 }
 
 describe("ReservationsClient", () => {
@@ -71,6 +80,7 @@ describe("ReservationsClient", () => {
       event_type: null,
       note: null,
       server_name: "Стефан",
+      event_id: null,
       table_ids: ["t1"],
     });
 
@@ -125,24 +135,24 @@ describe("ReservationsClient", () => {
     expect(await screen.findByText(/веќе резервирани/i)).toBeInTheDocument();
   });
 
-  it("marks a table red when it is genuinely reserved (occupied now / imminent), and yellow when only limited", async () => {
+  it("marks a table red only while getTableAvailability reports it genuinely occupied, with no advance-warning tier", async () => {
     mockFloorPlan();
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
     // getTableAvailability reports t1 as "reserved" once the start time is
-    // changed to 01:00, and "limited" for the initial 11:00 default.
+    // changed to 01:00, and free for the initial 11:00 default.
     const availabilitySpy = vi
       .spyOn(reservations, "getTableAvailability")
       .mockImplementation(async (_roomId, _date, startTime) => {
-        if (startTime === "01:00") return { reserved: ["t1"], limited: [] };
-        return { reserved: [], limited: ["t1"] };
+        if (startTime === "01:00") return { reserved: ["t1"] };
+        return { reserved: [] };
       });
 
     const { container } = render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
     await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toBeInTheDocument());
     await waitFor(() => expect(availabilitySpy).toHaveBeenCalled());
 
-    // Default start time (11:00) is reported "limited" — table renders yellow.
-    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#EAB308"));
+    // Default start time (11:00) is reported free — table renders green.
+    await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#16A34A"));
 
     // Switching to 01:00 is reported "reserved" — table renders red.
     const timeInput = container.querySelector('input[type="time"]');
@@ -182,6 +192,35 @@ describe("ReservationsClient", () => {
     await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("res1"));
     expect(confirmSpy).toHaveBeenCalledWith("Да се откаже резервацијата на Ana Ivanova? Ова не може да се врати.");
     expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument();
+  });
+
+  it("tags a mini-event's row, and cancelling it deletes the event instead of just the reservation (Project B §6)", async () => {
+    mockFloorPlan();
+    const miniRow = { ...base, id: "mini1", event_id: "e1", guest_name: "Iva's Birthday" };
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([miniRow]);
+    const deleteReservationSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
+    const deleteEventSpy = vi.spyOn(eventsClient, "deleteEventViaApi").mockResolvedValue();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[miniRow]} rooms={[room]} />);
+    await screen.findByText("Iva's Birthday");
+    expect(screen.getByText("Мини настан")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
+    await waitFor(() => expect(deleteEventSpy).toHaveBeenCalledWith("e1", "test-token"));
+    expect(deleteReservationSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText("Iva's Birthday")).not.toBeInTheDocument();
+  });
+
+  it("shows how many of the room's tables are taken today, and a non-blocking note when a full event is booked (Project B §4/§5)", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+    vi.spyOn(reservations, "listReservationsForRoom").mockResolvedValue([base]);
+    vi.spyOn(events, "hasFullEventOnDate").mockResolvedValue(true);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[]} rooms={[room]} />);
+    expect(await screen.findByText("1 од 1 маси зафатени денес")).toBeInTheDocument();
+    expect(await screen.findByText("Овој датум има настан со целосен капацитет во оваа сала.")).toBeInTheDocument();
   });
 
   it("keeps the reservation when the cancel question is declined", async () => {

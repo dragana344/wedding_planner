@@ -210,11 +210,15 @@ describe("0105 — plain staff are read-only on event seating through RLS", () =
     expect(error).not.toBeNull();
   });
 
-  it("refuses rewriting the undo history, but still marks seating as seen", async () => {
+  it("refuses rewriting the undo history, and has no other direct write left on events", async () => {
     const { error: historyError } = await staffClient.from("events").update({ layout_history: {} }).eq("id", eventId);
     expect(historyError).not.toBeNull();
-    const { error: seenError } = await staffClient.from("events").update({ seating_unseen_at: null }).eq("id", eventId);
-    expect(seenError).toBeNull();
+    // seating_unseen_at (the one column staff kept a direct write grant for)
+    // was removed in the Project A seating remodel (migration 0136): seating
+    // changes now go through event_seating_proposals, so staff has no
+    // direct column-write grant left on events at all.
+    const { error: snapshotError } = await staffClient.from("events").update({ layout_undo_snapshot: null }).eq("id", eventId);
+    expect(snapshotError).not.toBeNull();
   });
 
   it("refuses the staff layout RPCs", async () => {

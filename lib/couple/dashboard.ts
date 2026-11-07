@@ -18,6 +18,8 @@ export interface CoupleEventSummary {
   event_type: string;
   guest_count_estimate: number | null;
   venue_name: string;
+  /** Project B §1: 'mini' never gets a seating editor — see lib/couple/mini-event.ts. */
+  seating_mode: "full" | "mini";
   rooms: { id: string; name: string }[];
   seatedCount: number;
   /** Titles of the menus set for the event, in the order of getEventMenus. */
@@ -40,7 +42,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   const { data: event, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
+      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, seating_mode, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
     )
     .eq("id", eventId)
     .single();
@@ -82,6 +84,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     event_type: event.event_type,
     guest_count_estimate: event.guest_count_estimate,
     venue_name: venue?.name ?? "Непознат локал",
+    seating_mode: event.seating_mode as "full" | "mini",
     rooms,
     seatedCount,
     menus: eventMenus.map((m) => m.name),

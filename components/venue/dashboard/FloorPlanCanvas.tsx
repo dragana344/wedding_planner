@@ -33,6 +33,8 @@ export interface CanvasElement {
   occupancy?: "free" | "partial" | "full";
   /** Small second line under the label, e.g. "7/10". */
   badge?: string;
+  /** Round tables only: draws a ring of small chair marks around the rim when set. Purely visual. */
+  seatCount?: number;
 }
 
 interface DragInfo {
@@ -94,6 +96,99 @@ function wrapLabel(label: string, maxWidthPx: number, fontSize: number): string[
   return line2 ? [line1, line2] : [line1];
 }
 
+/** Chair size scales with the table's own footprint, not the zoom level, so
+ * a big banquet table gets visibly bigger chairs than a small 2-top. */
+function chairSize(refPx: number): { w: number; h: number; gap: number } {
+  const w = Math.max(7, Math.min(22, refPx * 0.42));
+  return { w, h: w * 0.65, gap: Math.max(2, refPx * 0.07) };
+}
+
+function chairRect(key: number, cx: number, cy: number, w: number, h: number, angleDeg: number, color: string) {
+  return (
+    <rect
+      key={key}
+      x={cx - w / 2}
+      y={cy - h / 2}
+      width={w}
+      height={h}
+      rx={2}
+      fill={color}
+      fillOpacity={0.85}
+      stroke={color}
+      strokeWidth={0.75}
+      transform={angleDeg ? `rotate(${angleDeg} ${cx} ${cy})` : undefined}
+      pointerEvents="none"
+    />
+  );
+}
+
+/** A ring of chair marks around a round table's rim, radially oriented and
+ * tinted to match the table's own status color (like the table "blooming"
+ * into its seats), the same visual language the reference photo uses. */
+function renderChairsCircle(cx: number, cy: number, radiusPx: number, seatCount: number, color: string) {
+  if (!seatCount || seatCount <= 0) return null;
+  const { w: chairW, h: chairH, gap: gapPx } = chairSize(radiusPx);
+  return Array.from({ length: seatCount }, (_, i) => {
+    const angleDeg = (360 / seatCount) * i - 90;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const chairCx = cx + (radiusPx + gapPx + chairH / 2) * Math.cos(angleRad);
+    const chairCy = cy + (radiusPx + gapPx + chairH / 2) * Math.sin(angleRad);
+    return chairRect(i, chairCx, chairCy, chairW, chairH, angleDeg + 90, color);
+  });
+}
+
+/** Same idea for a rectangular table: chairs spread along all four sides,
+ * allocated in proportion to each side's length. */
+function renderChairsRect(x: number, y: number, width: number, height: number, seatCount: number, color: string) {
+  if (!seatCount || seatCount <= 0) return null;
+  const { w: chairW, h: chairH, gap: gapPx } = chairSize(Math.min(width, height));
+  const sides = [
+    { len: width, dir: "top" as const },
+    { len: height, dir: "right" as const },
+    { len: width, dir: "bottom" as const },
+    { len: height, dir: "left" as const },
+  ];
+  const perimeter = 2 * (width + height);
+  const raw = sides.map((s) => (seatCount * s.len) / perimeter);
+  const counts = raw.map(Math.floor);
+  const remainder = seatCount - counts.reduce((a, b) => a + b, 0);
+  const byFraction = raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < remainder; k++) counts[byFraction[k].i]++;
+
+  const chairs: React.ReactNode[] = [];
+  let key = 0;
+  sides.forEach((side, sideIdx) => {
+    const n = counts[sideIdx];
+    for (let j = 0; j < n; j++) {
+      const t = (j + 0.5) / n;
+      let cx: number;
+      let cy: number;
+      let angleDeg: number;
+      if (side.dir === "top") {
+        cx = x + t * width;
+        cy = y - gapPx - chairH / 2;
+        angleDeg = 0;
+      } else if (side.dir === "bottom") {
+        cx = x + t * width;
+        cy = y + height + gapPx + chairH / 2;
+        angleDeg = 0;
+      } else if (side.dir === "left") {
+        cx = x - gapPx - chairH / 2;
+        cy = y + t * height;
+        angleDeg = 90;
+      } else {
+        cx = x + width + gapPx + chairH / 2;
+        cy = y + t * height;
+        angleDeg = 90;
+      }
+      chairs.push(chairRect(key++, cx, cy, chairW, chairH, angleDeg, color));
+    }
+  });
+  return chairs;
+}
+
 function boxesOverlap(a: LiveGeometry, b: LiveGeometry): boolean {
   return (
     a.x_cm < b.x_cm + b.width_cm &&
@@ -131,6 +226,7 @@ export function FloorPlanCanvas({
   onToggleSelect,
   groups = [],
   zoom = 1,
+  watermarkUrl = null,
 }: {
   widthCm: number;
   heightCm: number;
@@ -147,6 +243,8 @@ export function FloorPlanCanvas({
   groups?: CanvasGroup[];
   /** Display scale (B4 zoom buttons); geometry stays in centimetres. */
   zoom?: number;
+  /** Project C: the venue's own logo, faint behind the floor plan. */
+  watermarkUrl?: string | null;
 }) {
   const pxPerCm = PX_PER_CM * zoom;
 
@@ -346,14 +444,49 @@ export function FloorPlanCanvas({
         panRef.current = { x: e.clientX, y: e.clientY, scroller: scrollParent(canvasRef.current?.parentElement ?? null) };
       }}
       // touch-none: on touch/tablet, pointer events drive drags; the browser must not pan.
-      className="touch-none rounded-lg border border-neutral-200 bg-neutral-50"
+      className="touch-none rounded-xl border border-[#e8ddc3] bg-[#faf7f0]"
     >
       <defs>
-        <pattern id="floor-plan-grid" width={gridStepPx} height={gridStepPx} patternUnits="userSpaceOnUse">
-          <path d={`M ${gridStepPx} 0 L 0 0 0 ${gridStepPx}`} fill="none" stroke="#e4e7eb" strokeWidth={1} />
+        <pattern id="floor-plan-wood" width={120} height={40} patternUnits="userSpaceOnUse">
+          <rect width={120} height={40} fill="#f7ecd8" />
+          <rect width={120} height={40} fill="none" stroke="#ecdcbb" strokeWidth={1} />
+          <line x1={40} y1={0} x2={40} y2={40} stroke="#efe0c2" strokeWidth={0.75} />
+          <line x1={80} y1={0} x2={80} y2={40} stroke="#efe0c2" strokeWidth={0.75} />
         </pattern>
+        <pattern id="floor-plan-grid" width={gridStepPx} height={gridStepPx} patternUnits="userSpaceOnUse">
+          <path d={`M ${gridStepPx} 0 L 0 0 0 ${gridStepPx}`} fill="none" stroke="#2e2617" strokeWidth={0.5} strokeOpacity={0.05} />
+        </pattern>
+        <filter id="floor-plan-shadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#2e2617" floodOpacity="0.12" />
+        </filter>
       </defs>
+      <rect width="100%" height="100%" fill="url(#floor-plan-wood)" pointerEvents="none" />
       <rect width="100%" height="100%" fill="url(#floor-plan-grid)" pointerEvents="none" />
+      <rect
+        x={3}
+        y={3}
+        width={Math.max(0, widthCm * pxPerCm - 6)}
+        height={Math.max(0, heightCm * pxPerCm - 6)}
+        fill="none"
+        stroke="#c9992f"
+        strokeWidth={1.5}
+        strokeOpacity={0.4}
+        rx={8}
+        pointerEvents="none"
+      />
+      {watermarkUrl ? (
+        <image
+          data-testid="floor-plan-watermark"
+          href={watermarkUrl}
+          x="25%"
+          y="25%"
+          width="50%"
+          height="50%"
+          preserveAspectRatio="xMidYMid meet"
+          opacity={0.1}
+          pointerEvents="none"
+        />
+      ) : null}
 
       {groups.map((g) => (
         <g key={g.id} data-testid={`floor-plan-group-${g.id}`} pointerEvents="none">
@@ -388,11 +521,14 @@ export function FloorPlanCanvas({
           "data-highlighted": el.highlighted ? "true" : undefined,
           "data-occupancy": el.occupancy,
           fill: el.color,
-          stroke: isOverlapping ? "#dc2626" : el.highlighted ? "#B8913A" : isSelected ? "#171717" : "none",
-          strokeWidth: isOverlapping || el.highlighted ? 3 : isSelected ? 2 : 0,
+          stroke: isOverlapping ? "#dc2626" : el.highlighted ? "#B8913A" : isSelected ? "#171717" : el.seatCount ? "#ffffff" : "none",
+          strokeWidth: isOverlapping || el.highlighted ? 3 : isSelected ? 2 : el.seatCount ? 3 : 0,
           strokeDasharray: isOverlapping ? "4 2" : undefined,
           style: { cursor: el.locked ? "default" : mode === "select" ? "pointer" : "grab" },
+          filter: "url(#floor-plan-shadow)",
         };
+        const radiusPx = (geometry.width_cm / 2) * pxPerCm;
+        const numberFontSize = Math.min(20, Math.max(12, radiusPx * 0.5));
 
         return (
           <g
@@ -401,15 +537,31 @@ export function FloorPlanCanvas({
             transform={rotationDeg ? `rotate(${rotationDeg} ${centerX} ${centerY})` : undefined}
           >
             {el.shape === "circle" ? (
-              <circle cx={centerX} cy={centerY} r={(geometry.width_cm / 2) * pxPerCm} {...shapeProps} />
+              <>
+                {el.seatCount ? renderChairsCircle(centerX, centerY, radiusPx, el.seatCount, el.color) : null}
+                <circle cx={centerX} cy={centerY} r={radiusPx} {...shapeProps} />
+              </>
             ) : (
-              <rect
-                x={geometry.x_cm * pxPerCm}
-                y={geometry.y_cm * pxPerCm}
-                width={geometry.width_cm * pxPerCm}
-                height={geometry.height_cm * pxPerCm}
-                {...shapeProps}
-              />
+              <>
+                {el.seatCount
+                  ? renderChairsRect(
+                      geometry.x_cm * pxPerCm,
+                      geometry.y_cm * pxPerCm,
+                      geometry.width_cm * pxPerCm,
+                      geometry.height_cm * pxPerCm,
+                      el.seatCount,
+                      el.color,
+                    )
+                  : null}
+                <rect
+                  x={geometry.x_cm * pxPerCm}
+                  y={geometry.y_cm * pxPerCm}
+                  width={geometry.width_cm * pxPerCm}
+                  height={geometry.height_cm * pxPerCm}
+                  rx={Math.min(6, Math.min(geometry.width_cm, geometry.height_cm) * pxPerCm * 0.08)}
+                  {...shapeProps}
+                />
+              </>
             )}
             {labelLines.length === 1 ? (
               <text
@@ -417,14 +569,15 @@ export function FloorPlanCanvas({
                 y={centerY}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize={11}
+                fontSize={/^\d+$/.test(labelLines[0]) ? numberFontSize : 11}
+                fontWeight={/^\d+$/.test(labelLines[0]) ? 700 : 600}
                 fill="#ffffff"
                 pointerEvents="none"
               >
                 {labelLines[0]}
               </text>
             ) : labelLines.length > 1 ? (
-              <text x={centerX} y={centerY} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#ffffff" pointerEvents="none">
+              <text x={centerX} y={centerY} textAnchor="middle" dominantBaseline="middle" fontSize={11} fontWeight={600} fill="#ffffff" pointerEvents="none">
                 {labelLines.map((line, i) => (
                   <tspan key={i} x={centerX} dy={i === 0 ? -((labelLines.length - 1) * LABEL_LINE_HEIGHT_PX) / 2 : LABEL_LINE_HEIGHT_PX}>
                     {line}

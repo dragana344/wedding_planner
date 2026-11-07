@@ -87,4 +87,35 @@ describe("print data", () => {
     expect(open.qrLocked).toBe(false);
     expect(open.cards.length).toBeGreaterThan(0);
   });
+
+  it("Project C: flags a table whose seated guests aren't all on the same menu, and leaves a single-menu table unflagged", async () => {
+    await must(admin.from("events").update({ seating_draft: {} }).eq("id", eventId));
+    const { data: layout } = await admin.from("event_layout_elements").select("id, x_cm").eq("event_id", eventId).eq("element_type", "table");
+    const [tableA, tableB] = layout!.sort((a, b) => a.x_cm - b.x_cm);
+
+    const classic = await must(admin.from("menu_templates").insert({ venue_id: venueId, name: "Класично" }).select("id").single());
+    const posno = await must(admin.from("menu_templates").insert({ venue_id: venueId, name: "Посно" }).select("id").single());
+    await must(admin.from("event_menu_templates").insert([
+      { event_id: eventId, menu_template_id: classic.id },
+      { event_id: eventId, menu_template_id: posno.id },
+    ]));
+
+    // Table A: a party of 4, split 3 classic / 1 posno — mixed, worth flagging.
+    const partyA = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство А", party_size: 4 }).select("id").single());
+    await must(admin.from("event_guest_menu_counts").insert([
+      { guest_id: partyA.id, menu_template_id: classic.id, count: 3 },
+      { guest_id: partyA.id, menu_template_id: posno.id, count: 1 },
+    ]));
+    await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: roomId, layout_element_id: tableA.id, seat_number: 1, guest_id: partyA.id }));
+
+    // Table B: a party entirely on one menu — not worth flagging.
+    const partyB = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство Б", party_size: 2 }).select("id").single());
+    await must(admin.from("event_guest_menu_counts").insert({ guest_id: partyB.id, menu_template_id: classic.id, count: 2 }));
+    await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: roomId, layout_element_id: tableB.id, seat_number: 1, guest_id: partyB.id }));
+
+    const data = await venuePrintData(admin, eventId, "https://kadesum.mk");
+    const byId = Object.fromEntries(data.rooms[0].items.map((i) => [i.id, i]));
+    expect(byId[tableA.id].menuNote).toBe("Класично 3, Посно 1");
+    expect(byId[tableB.id].menuNote).toBeUndefined();
+  });
 });

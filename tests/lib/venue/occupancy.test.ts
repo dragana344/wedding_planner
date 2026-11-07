@@ -13,6 +13,7 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     status: "confirmed",
     event_type: "wedding",
     guest_count_estimate: null,
+    seating_self_edit_enabled: null, seating_mode: "full",
     created_at: "2026-01-01T10:00:00Z",
     menus: [],
     room_ids: [],
@@ -23,7 +24,6 @@ function ev(partial: Partial<EventDetail>): EventDetail {
     contact_phone: null,
     total_price: null,
     deposit_paid: null,
-    hasUnseenSeatingChange: false,
     unseenSections: [],
     menuNumbers: { latest: null, previous: null },
     ...partial,
@@ -125,6 +125,7 @@ function res(partial: Partial<Reservation>): Reservation {
     event_type: null,
     note: null,
     server_name: null,
+    event_id: null,
     table_ids: ["t1"],
     ...partial,
   };

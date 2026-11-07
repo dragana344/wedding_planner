@@ -4,6 +4,8 @@ import { PrintButton } from "./PrintButton";
 
 const GOLD = "#B8913A";
 const INK = "#5B4A3A";
+/** Project C: the printed plan's real selling point — which table needs a different dish. */
+const MENU_NOTE_COLOR = "#B13A3A";
 
 function Item({ item, scale }: { item: PrintItem; scale: number }) {
   const cx = item.x + item.w / 2;
@@ -50,11 +52,18 @@ function Item({ item, scale }: { item: PrintItem; scale: number }) {
     </text>
   );
 
+  const menuNote = item.menuNote ? (
+    <text x={cx} y={item.y + item.h + stroke * 7} textAnchor="middle" fontSize={Math.min(item.w, item.h) * 0.16} fill={MENU_NOTE_COLOR}>
+      {item.menuNote}
+    </text>
+  ) : null;
+
   if (item.shape === "circle") {
     return (
       <g transform={transform}>
         <ellipse cx={cx} cy={cy} rx={item.w / 2} ry={item.h / 2} fill="#FFFDF8" stroke={GOLD} strokeWidth={stroke} />
         {text}
+        {menuNote}
       </g>
     );
   }
@@ -74,6 +83,7 @@ function Item({ item, scale }: { item: PrintItem; scale: number }) {
         />
       ) : null}
       {text}
+      {menuNote}
     </g>
   );
 }

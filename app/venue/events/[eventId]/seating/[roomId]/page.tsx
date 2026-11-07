@@ -1,13 +1,14 @@
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
-import { getEventById, markSeatingSeen } from "@/lib/venue/events";
+import { getEventById } from "@/lib/venue/events";
 import { todayIn } from "@/lib/date";
 import { getRoomById, listTableTypes } from "@/lib/venue/rooms";
 import { listFixedElements, listEventLayoutElements } from "@/lib/venue/floorplan";
 import { VenueEventSeating } from "@/components/venue/dashboard/VenueEventSeating";
 import { getRoomSeatingForStaff } from "@/lib/seating/read";
 import { eventHasFeature } from "@/lib/entitlements/server";
+import { getVenueLogoUrl } from "@/lib/venue/venue-profile";
 
 export default async function EventSeatingRoute({
   params,
@@ -22,6 +23,11 @@ export default async function EventSeatingRoute({
   const event = await getEventById(eventId, supabase);
   const room = await getRoomById(roomId, supabase);
   if (!event || !room || event.venue_id !== venueId || room.venue_id !== venueId) notFound();
+  // Project B §3: a mini-event never gets a seating editor — its tables are
+  // assigned from the "Маси" tab (EventEditForm → MiniEventTablesTab), not
+  // this event_layout_elements-based page. Reaching it directly (e.g. a
+  // stale link) is a plain 404, same as any unassigned room.
+  if (event.seating_mode === "mini") notFound();
 
   const { data: eventRoomLink, error: eventRoomLinkError } = await supabase
     .from("event_rooms")
@@ -32,14 +38,14 @@ export default async function EventSeatingRoute({
   if (eventRoomLinkError) throw eventRoomLinkError;
   if (!eventRoomLink) notFound();
 
-  const [fixedElements, layoutElements, tableTypes, seating] = await Promise.all([
+  const [fixedElements, layoutElements, tableTypes, seating, logoUrl] = await Promise.all([
     listFixedElements(room.id, supabase),
     listEventLayoutElements(event.id, room.id, supabase),
     listTableTypes(room.id, supabase),
     getRoomSeatingForStaff(supabase, event.id, room.id),
+    getVenueLogoUrl(venueId, supabase),
   ]);
   const canPrintQr = await eventHasFeature(event.id, "print_qr");
-  await markSeatingSeen(event.id, supabase);
 
   return (
     <VenueEventSeating
@@ -56,6 +62,8 @@ export default async function EventSeatingRoute({
       // page seating editor was fully unlocked.
       pastEvent={event.event_date < todayIn()}
       printLinks={{ plan: `/venue/events/${event.id}/print/plan`, qr: canPrintQr ? `/venue/events/${event.id}/print/qr` : undefined }}
+      guestCountEstimate={event.guest_count_estimate}
+      logoUrl={logoUrl}
     />
   );
 }

@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { staffLayoutActions } from "@/lib/venue/floorplan-history";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
+import { approveSeatingProposal, listSeatingProposals } from "@/lib/seating/proposals";
 
 // What the seating route runs server-side with its service-role client.
 const venueHistoryActions = staffLayoutActions(createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } }));
@@ -109,7 +110,7 @@ describe("I3: table types shrinking or going away", () => {
     expect((await seatsOf(eventId)).map((s) => s.seat_number)).toEqual([1]);
   });
 
-  it("frees the seats of a deleted type, and the couple can still confirm a draft that used it", async () => {
+  it("frees the seats of a deleted type, and the couple can still send (then the venue approve) a draft that used it (Project A §5: send no longer writes live directly)", async () => {
     const eventId = await newEvent();
     const type = await tableType(10);
     const tableId = randomUUID();
@@ -121,20 +122,23 @@ describe("I3: table types shrinking or going away", () => {
     await must(admin.from("table_types").delete().eq("id", type));
     expect(await seatsOf(eventId)).toEqual([]);
     await coupleSeatingActionsFor(eventId).confirm!(eventId, roomId);
+    const [proposal] = await listSeatingProposals(eventId, roomId, admin);
+    expect(proposal).toMatchObject({ proposed_by: "couple", status: "pending" });
+    await approveSeatingProposal(proposal.id, "Тест Менаџер", admin);
     const live = await must(admin.from("event_layout_elements").select("id, table_type_id").eq("event_id", eventId));
     expect(live).toEqual([{ id: tableId, table_type_id: null }]);
   });
 });
 
-describe("I4: confirming hands the room back to the live layout", () => {
-  it("clears the room's draft, so staff's later tables are numbered and seatable", async () => {
+describe("I4: approving a sent proposal hands the room back to the live layout", () => {
+  it("staff's later tables are still numbered and seatable after an approval", async () => {
     const eventId = await newEvent();
     const type = await tableType(10);
     const actions = coupleSeatingActionsFor(eventId);
     await actions.addElement({ event_id: eventId, room_id: roomId, element_type: "table", table_type_id: type, x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150 });
     await actions.confirm!(eventId, roomId);
-    const ev = await must(admin.from("events").select("seating_draft").eq("id", eventId).single());
-    expect(ev.seating_draft).not.toHaveProperty(roomId);
+    const [proposal] = await listSeatingProposals(eventId, roomId, admin);
+    await approveSeatingProposal(proposal.id, "Тест Менаџер", admin);
     const staffTable = await liveTable(eventId, type);
     const tables = await must(admin.rpc("event_room_tables", { p_event_id: eventId, p_room_id: roomId }));
     expect((tables as { element_id: string }[]).map((t) => t.element_id)).toContain(staffTable);

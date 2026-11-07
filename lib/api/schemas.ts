@@ -406,6 +406,23 @@ const eventDate = z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).refine((v) => 
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 }, { error: EVENT_DATE_INVALID_ERROR });
 
+// A room's starting table layout, resolved by the manager in the wizard
+// (0141) — either a saved preset's snapshot or one built from scratch.
+// Mirrors SnapshotElement (lib/venue/room-presets.ts); no id/room_id, since
+// create_event_full mints fresh ids keyed by the room_layouts object's key.
+const roomLayoutElementShape = z.object({
+  element_type: z.enum(["table", "stage", "dance_floor", "bar_movable", "music", "photo_stage", "other"]),
+  table_type_id: uuid.nullable(),
+  x_cm: z.number(),
+  y_cm: z.number(),
+  width_cm: z.number().positive(),
+  length_cm: z.number().positive(),
+  rotation_deg: z.number(),
+  label: z.string().nullable(),
+  group_id: uuid.nullable(),
+  table_role: z.enum(["guest", "couple", "head"]),
+});
+
 export const createEventBody = z
   .object(
     {
@@ -418,6 +435,9 @@ export const createEventBody = z
       guest_count_estimate: z.number().int().min(0).nullable().optional(),
       room_ids: z.array(uuid).max(50),
       menu_template_ids: z.array(uuid).max(20),
+      // Project A §1: chosen explicitly by the creation wizard; the column itself keeps a 'full' default (migration 0136's note).
+      seating_mode: z.enum(["full", "mini"]).optional(),
+      room_layouts: z.record(uuid, z.array(roomLayoutElementShape).max(200)).optional(),
       contacts: z.object(eventContactsShape),
       credentials: z.object(eventCredentialsShape),
       // Optional, set in the same insert as the rest of the event (security
@@ -450,6 +470,8 @@ export const updateEventBody = z.object(
     room_ids: z.array(uuid).max(50),
     added_menu_ids: z.array(uuid).max(20),
     removed_menu_ids: z.array(uuid).max(20),
+    // Project A §4: null follows the venue-wide switch; true/false overrides it for this event.
+    seating_self_edit_enabled: z.boolean().nullable(),
   },
   { error: EVENT_INPUT_REQUIRED_ERROR },
 );

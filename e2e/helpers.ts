@@ -24,6 +24,15 @@ export function futureDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Picks a future date on the event-wizard's date-step calendar (0144 —
+ * it dropped the native input for a calendar-only picker): next month, day
+ * 1 — a single click of navigation, reliably in the future regardless of
+ * what day "today" is. Called while that step is showing. */
+export async function pickFutureCalendarDate(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Следен месец" }).click();
+  await page.getByRole("button", { name: "1", exact: true }).click();
+}
+
 export type VenueAccount = {
   venueName: string;
   email: string;
@@ -108,13 +117,14 @@ export async function createEventWithCouple(
   await page.getByRole("link", { name: "ДОДАДИ НАСТАН" }).click();
   await page.waitForURL("**/venue/events/new");
 
-  // The new-event wizard (2026-10-20 redesign): type first (auto-advances),
-  // then name, date, and straight through the optional steps to credentials
-  // and contact.
+  // The new-event wizard (2026-10-20 redesign, seating-mode step added Project
+  // A §1): type first (auto-advances), then seating mode (auto-advances), then
+  // name, date, and straight through the optional steps to credentials/contact.
   await page.getByRole("button", { name: "Свадба" }).click();
+  await page.getByRole("button", { name: "Цел простор" }).click();
   await page.getByLabel("Имиња на младенците").fill(couple.coupleNames);
   await page.getByRole("button", { name: "Понатаму" }).click();
-  await page.getByLabel("Датум").fill(futureDate());
+  await pickFutureCalendarDate(page);
   await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
   // rooms/menu: optional; the packages to offer (menus must already exist for the venue).

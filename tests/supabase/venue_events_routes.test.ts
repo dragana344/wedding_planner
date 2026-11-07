@@ -109,13 +109,25 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${eventId}`, "PATCH", {
         couple_names: "Изменет Пар", event_date: "2027-02-02", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: 50, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
+        status: "confirmed", event_type: "wedding", guest_count_estimate: 50, room_ids: [], added_menu_ids: [], removed_menu_ids: [], seating_self_edit_enabled: null,
       }, managerToken),
       ctx(eventId),
     );
     expect(res.status).toBe(200);
     const row = (await admin.from("audit_log").select("manager_name").eq("event_id", eventId).eq("action", "event_updated").single()).data;
     expect(row!.manager_name).toBe("Тест Менаџер");
+  });
+
+  it("saves the per-event self-editing override (Project A §4)", async () => {
+    const res = await updateRoute(
+      req(`/api/venue/events/${eventId}`, "PATCH", {
+        couple_names: "Изменет Пар", event_date: "2027-02-02", start_time: null, end_time: null,
+        status: "confirmed", event_type: "wedding", guest_count_estimate: 50, room_ids: [], added_menu_ids: [], removed_menu_ids: [], seating_self_edit_enabled: false,
+      }, managerToken),
+      ctx(eventId),
+    );
+    expect(res.status).toBe(200);
+    expect((await admin.from("events").select("seating_self_edit_enabled").eq("id", eventId).single()).data!.seating_self_edit_enabled).toBe(false);
   });
 
   it("deletes an event and attributes it to the elevated manager (0133)", async () => {
@@ -130,7 +142,7 @@ describe("PATCH/DELETE /api/venue/events/[eventId]", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${eventId}`, "PATCH", {
         couple_names: "X", event_date: "2027-02-02", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
+        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [], seating_self_edit_enabled: null,
       }),
       ctx(eventId),
     );
@@ -214,7 +226,7 @@ describe("Past events are read-only server-side (security review fix)", () => {
     const res = await updateRoute(
       req(`/api/venue/events/${pastEventId}`, "PATCH", {
         couple_names: "X", event_date: "2000-01-01", start_time: null, end_time: null,
-        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [],
+        status: "confirmed", event_type: "wedding", guest_count_estimate: null, room_ids: [], added_menu_ids: [], removed_menu_ids: [], seating_self_edit_enabled: null,
       }, managerToken),
       ctx(pastEventId),
     );

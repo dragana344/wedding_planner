@@ -26,6 +26,12 @@ export interface PrintItem {
   text: string;
   /** Tall narrow zones read top to bottom, like "Музика" on the sample. */
   vertical: boolean;
+  /** Project C: only set when this table's seated guests aren't all on the
+   * same menu — e.g. "Посно 1" — the printed plan's actual selling point
+   * (knowing which table needs the different dish), per the client's own
+   * example. Per-table, not per-seat: a guest party's menu breakdown is
+   * recorded per party, not per individual seat. */
+  menuNote?: string;
 }
 
 export interface PrintRoom {
@@ -51,6 +57,7 @@ export function buildPrintRoom(
   fixed: FixedElement[],
   tables: SeatTable[],
   tableTypes: Pick<TableType, "id" | "shape">[],
+  menuNotes: Map<string, string> = new Map(),
 ): PrintRoom {
   const byElement = new Map(tables.map((t) => [t.elementId, t]));
   const items: PrintItem[] = [];
@@ -68,6 +75,7 @@ export function buildPrintRoom(
         shape,
         text: named ? (seat?.label ?? el.label ?? MOVABLE_LABELS.table) : tableText(seat, el.label ?? "•"),
         vertical: false,
+        menuNote: menuNotes.get(el.id),
       });
     } else if (el.element_type === "dance_floor") {
       items.push({ ...base, kind: "floor", shape: "circle", text: "", vertical: false });

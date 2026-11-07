@@ -26,7 +26,10 @@ export type NotificationKind =
   | "data_erased"
   | "data_exported"
   | "couple_change"
-  | "menu_numbers";
+  | "menu_numbers"
+  | "seating_sent"
+  | "seating_approved"
+  | "seating_rejected";
 
 /** What "Видено" on a notification confirms (manager only). */
 export type SeenAction = {
@@ -60,6 +63,9 @@ const ACTIONS: Record<string, { kind: NotificationKind; title: string }> = {
   event_updated: { kind: "event_updated", title: "Изменет настан" },
   event_contact_updated: { kind: "event_contact_updated", title: "Изменет контакт на парот" },
   event_finance_updated: { kind: "event_finance_updated", title: "Изменети финансии" },
+  seating_sent: { kind: "seating_sent", title: "Парот испрати распоред на седење" },
+  seating_approved: { kind: "seating_approved", title: "Парот го одобри распоредот" },
+  seating_rejected: { kind: "seating_rejected", title: "Парот го одби распоредот" },
   manager_added: { kind: "manager_added", title: "Додаден менаџер" },
   manager_removed: { kind: "manager_removed", title: "Отстранет менаџер" },
   event_personal_data_erased: { kind: "data_erased", title: "Избришани лични податоци" },

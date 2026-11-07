@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Cormorant_Garamond } from "next/font/google";
-import { findSameDayRoomEvents } from "@/lib/venue/events";
+import { findSameDayRoomEvents, listFullyBookedDatesByRoom } from "@/lib/venue/events";
+import { monthRange } from "@/lib/venue/calendar-grid";
 import { createEventViaApi, fetchNewEventCustomMenuEnabled } from "@/lib/venue/events-client";
 import { listMenuItems, type MenuItem } from "@/lib/venue/menus";
 import { Modal } from "@/components/venue/dashboard/Modal";
@@ -25,9 +26,11 @@ import {
   wizardStepTitles,
   WIZARD_STEP_COUNT,
   type WizardState,
+  type SeatingMode,
 } from "@/lib/venue/event-wizard";
 import {
   EventTypeStep,
+  SeatingModeStep,
   NameStep,
   DateTimeStep,
   GuestsStep,
@@ -39,6 +42,8 @@ import {
 } from "./EventWizardSteps";
 import { EventWizardPreview } from "./EventWizardPreview";
 import { EventWizardSuccess } from "./EventWizardSuccess";
+import { EventRoomLayoutModal } from "./EventRoomLayoutModal";
+import type { SnapshotElement } from "@/lib/venue/room-presets";
 
 // Cyrillic subset: couple/event names are routinely Macedonian Cyrillic.
 const cormorant = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: "400", style: ["normal", "italic"] });
@@ -76,6 +81,35 @@ export function NewEventWizard({
   // The dish pool for the custom-menu builder; null while it is closed.
   const [customMenuDishes, setCustomMenuDishes] = useState<MenuItem[] | null>(null);
   const [customMenuError, setCustomMenuError] = useState<string | null>(null);
+  // The room currently resolving its starting layout (Modal open), or null.
+  const [layoutRoomId, setLayoutRoomId] = useState<string | null>(null);
+  // roomId -> dates, in the date-step calendar's currently visible month,
+  // where that room already has a full-capacity event — advisory ring-out
+  // only. Rooms aren't picked yet at the date step (it comes first), so
+  // this covers the whole venue's rooms rather than a selection.
+  const [bookedDatesByRoom, setBookedDatesByRoom] = useState<Record<string, string[]>>({});
+  const [calendarMonth, setCalendarMonth] = useState<[number, number] | null>(null);
+  function handleCalendarMonthChange(year: number, month: number) {
+    setCalendarMonth([year, month]);
+  }
+  useEffect(() => {
+    if (!calendarMonth || rooms.length === 0) {
+      setBookedDatesByRoom({});
+      return;
+    }
+    let cancelled = false;
+    const [fromDate, toDate] = monthRange(calendarMonth[0], calendarMonth[1]);
+    listFullyBookedDatesByRoom(rooms.map((r) => r.id), fromDate, toDate)
+      .then((byRoom) => {
+        if (!cancelled) setBookedDatesByRoom(byRoom);
+      })
+      .catch(() => {
+        if (!cancelled) setBookedDatesByRoom({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarMonth, rooms]);
 
   function toggleMenu(menuTemplateId: string) {
     update({
@@ -84,6 +118,48 @@ export function NewEventWizard({
         : [...wizard.menuTemplateIds, menuTemplateId],
     });
   }
+
+  function toggleRoom(roomId: string) {
+    const turningOn = !wizard.roomIds.includes(roomId);
+    update({
+      roomIds:
+        wizard.seatingMode === "mini"
+          ? turningOn
+            ? [roomId]
+            : []
+          : turningOn
+            ? [...wizard.roomIds, roomId]
+            : wizard.roomIds.filter((id) => id !== roomId),
+      // Dropping a room drops its resolved layout too; a freshly picked one
+      // gets auto-offered the layout resolver by the effect below.
+      roomLayouts:
+        wizard.seatingMode === "mini"
+          ? wizard.roomLayouts
+          : turningOn
+            ? wizard.roomLayouts
+            : Object.fromEntries(Object.entries(wizard.roomLayouts).filter(([id]) => id !== roomId)),
+    });
+  }
+
+  function handleRoomLayoutResolved(roomId: string, elements: SnapshotElement[]) {
+    update({ roomLayouts: { ...wizard.roomLayouts, [roomId]: elements } });
+    setLayoutRoomId(null);
+  }
+
+  // Each selected full-capacity room gets offered the layout resolver
+  // exactly once — whether it was manually toggled on here, or came
+  // pre-checked (a single-hall venue's convenience pre-select). Closing
+  // without resolving must not re-trigger it; the room's own "Избери
+  // распоред"/"Промени" button still opens it again on request.
+  const autoOfferedRoomsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (step !== 5 || wizard.seatingMode !== "full") return;
+    const unresolved = wizard.roomIds.find((id) => !wizard.roomLayouts[id] && !autoOfferedRoomsRef.current.has(id));
+    if (unresolved) {
+      autoOfferedRoomsRef.current.add(unresolved);
+      setLayoutRoomId(unresolved);
+    }
+  }, [step, wizard.seatingMode, wizard.roomIds, wizard.roomLayouts]);
   const { token: managerToken } = useManagerElevation();
 
   useEffect(() => {
@@ -153,6 +229,16 @@ export function NewEventWizard({
     }, TYPE_SELECT_ADVANCE_DELAY_MS);
   }
 
+  function selectSeatingMode(seatingMode: SeatingMode) {
+    update({ seatingMode });
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    advanceTimer.current = setTimeout(() => {
+      setStep(2);
+      setMaxStepReached((m) => Math.max(m, 2));
+      setError(null);
+    }, TYPE_SELECT_ADVANCE_DELAY_MS);
+  }
+
   async function handleSubmit() {
     setError(null);
     for (let i = 0; i < WIZARD_STEP_COUNT; i++) {
@@ -205,9 +291,11 @@ export function NewEventWizard({
           start_time: wizard.startTime || null,
           end_time: wizard.endTime || null,
           event_type: wizard.type ?? "other",
+          seating_mode: wizard.seatingMode ?? "full",
           status: wizard.status,
           guest_count_estimate: wizard.guestCount,
           room_ids: wizard.roomIds,
+          ...(wizard.seatingMode === "full" ? { room_layouts: wizard.roomLayouts } : {}),
           menu_template_ids: wizard.menuTemplateIds,
           ...(wizard.customMenu ? { custom_menu: { name: wizard.customMenu.name, item_ids: wizard.customMenu.itemIds } } : {}),
           contacts: contacts.data,
@@ -275,27 +363,33 @@ export function NewEventWizard({
           <p className="ev-wiz-sub">{subtitle}</p>
 
           {step === 0 ? <EventTypeStep selected={wizard.type} onSelect={selectType} /> : null}
-          {step === 1 ? <NameStep type={wizard.type} name={wizard.name} onChange={(name) => update(nameChanged(wizard, name))} /> : null}
-          {step === 2 ? (
+          {step === 1 ? <SeatingModeStep selected={wizard.seatingMode} onSelect={selectSeatingMode} /> : null}
+          {step === 2 ? <NameStep type={wizard.type} name={wizard.name} onChange={(name) => update(nameChanged(wizard, name))} /> : null}
+          {step === 3 ? (
             <DateTimeStep
               date={wizard.date}
               startTime={wizard.startTime}
               endTime={wizard.endTime}
+              rooms={rooms}
+              bookedDatesByRoom={bookedDatesByRoom}
               onDateChange={(date) => update({ date })}
               onStartChange={(startTime) => update({ startTime })}
               onEndChange={(endTime) => update({ endTime })}
+              onCalendarMonthChange={handleCalendarMonthChange}
             />
           ) : null}
-          {step === 3 ? <GuestsStep guestCount={wizard.guestCount} onChange={(guestCount) => update({ guestCount })} /> : null}
-          {step === 4 ? (
+          {step === 4 ? <GuestsStep guestCount={wizard.guestCount} onChange={(guestCount) => update({ guestCount })} /> : null}
+          {step === 5 ? (
             <RoomsMenuStep
               rooms={rooms}
               menuTemplates={menuTemplates}
               selectedRoomIds={wizard.roomIds}
               menuTemplateIds={wizard.menuTemplateIds}
-              onToggleRoom={(roomId) =>
-                update({ roomIds: wizard.roomIds.includes(roomId) ? wizard.roomIds.filter((id) => id !== roomId) : [...wizard.roomIds, roomId] })
-              }
+              singleRoom={wizard.seatingMode === "mini"}
+              seatingMode={wizard.seatingMode}
+              roomLayouts={wizard.roomLayouts}
+              onOpenRoomLayout={setLayoutRoomId}
+              onToggleRoom={toggleRoom}
               onToggleMenu={toggleMenu}
               onClearMenus={() => update({ menuTemplateIds: [], customMenu: null })}
               onViewMenu={setViewingMenuIndex}
@@ -306,7 +400,7 @@ export function NewEventWizard({
               onRemoveCustomMenu={() => update({ customMenu: null })}
             />
           ) : null}
-          {step === 5 ? (
+          {step === 6 ? (
             <PriceStep
               totalPrice={wizard.totalPrice}
               depositPaid={wizard.depositPaid}
@@ -314,7 +408,7 @@ export function NewEventWizard({
               onDepositChange={(depositPaid) => update({ depositPaid })}
             />
           ) : null}
-          {step === 6 ? (
+          {step === 7 ? (
             <CredentialsStep
               username={wizard.username}
               usernameTouched={wizard.usernameTouched}
@@ -324,7 +418,7 @@ export function NewEventWizard({
               onGenerate={() => update({ password: generateRandomPassword() })}
             />
           ) : null}
-          {step === 7 ? (
+          {step === 8 ? (
             <ContactStep
               email={wizard.contactEmail}
               email2={wizard.contactEmail2}
@@ -342,15 +436,17 @@ export function NewEventWizard({
           {error}
         </p>
 
-        {step === 0 ? (
-          <p style={{ margin: "14px 0 0", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>Кликнете на типот за да продолжите</p>
+        {step === 0 || step === 1 ? (
+          <p style={{ margin: "14px 0 0", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+            {step === 0 ? "Кликнете на типот за да продолжите" : "Кликнете на начинот на седење за да продолжите"}
+          </p>
         ) : (
           <div className="ev-wiz-foot">
             <button type="button" className="btn btn-ghost" onClick={() => goToStep(Math.max(0, step - 1))}>
               <Icon name="left" size="sm" /> Назад
             </button>
             <div className="ev-wiz-foot-right">
-              {step === 5 ? (
+              {step === 6 ? (
                 <button type="button" className="btn btn-ghost" onClick={() => goToStep(step + 1)}>
                   Прескокни
                 </button>
@@ -388,6 +484,24 @@ export function NewEventWizard({
             onChanged={() => undefined}
           />
         </Modal>
+      ) : null}
+
+      {layoutRoomId ? (
+        (() => {
+          const room = rooms.find((r) => r.id === layoutRoomId);
+          if (!room) return null;
+          return (
+            <EventRoomLayoutModal
+              roomId={room.id}
+              roomName={room.name}
+              widthCm={room.width_cm}
+              heightCm={room.height_cm}
+              initialElements={wizard.roomLayouts[room.id]}
+              onResolved={(elements) => handleRoomLayoutResolved(room.id, elements)}
+              onClose={() => setLayoutRoomId(null)}
+            />
+          );
+        })()
       ) : null}
 
       {viewingMenuIndex !== null ? (

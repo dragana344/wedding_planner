@@ -293,3 +293,101 @@ describe("EventSeatingPage view-only (staff without a manager login, past events
     expect(a.undo).not.toHaveBeenCalled();
   });
 });
+
+describe("EventSeatingPage guest-count mismatch flag (Project A §6)", () => {
+  it("flags when the guest estimate exceeds the room's current capacity", () => {
+    renderPage(actions(), { guestCountEstimate: 10 });
+    expect(screen.getByText("Бројот на гости (10) го надминува капацитетот на тековниот распоред (4).")).toBeInTheDocument();
+  });
+
+  it("shows nothing when the estimate fits, or is unknown", () => {
+    renderPage(actions(), { guestCountEstimate: 4 });
+    expect(screen.queryByText(/го надминува капацитетот/)).not.toBeInTheDocument();
+  });
+});
+
+describe("EventSeatingPage send/approve/reject (Project A §5)", () => {
+  const proposal = {
+    id: "p1",
+    proposed_by: "venue" as const,
+    status: "pending" as const,
+    note: null,
+    created_by: "Менаџер",
+    created_at: "2026-11-02T10:00:00.000Z",
+    responded_at: null,
+    responded_by: null,
+  };
+
+  it("couple side: sends the draft via confirm, lists an incoming venue proposal and approves it", async () => {
+    const a = actions({
+      confirm: vi.fn().mockResolvedValue(undefined),
+      listProposals: vi.fn().mockResolvedValue([proposal]),
+      approveProposal: vi.fn().mockResolvedValue(undefined),
+      rejectProposal: vi.fn().mockResolvedValue(undefined),
+    });
+    renderPage(a);
+
+    expect(await screen.findByText(/Салата испрати распоред на/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Испрати распоред на локалот" }));
+    await waitFor(() => expect(a.confirm).toHaveBeenCalledWith("e1", "r1"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Одобри" }));
+    await waitFor(() => expect(a.approveProposal).toHaveBeenCalledWith("p1"));
+  });
+
+  it("venue side: sends the live layout via sendProposal and can reject an incoming couple proposal with a note", async () => {
+    const coupleProposal = { ...proposal, proposed_by: "couple" as const, created_by: null };
+    const a = actions({
+      sendProposal: vi.fn().mockResolvedValue(coupleProposal),
+      listProposals: vi.fn().mockResolvedValue([coupleProposal]),
+      approveProposal: vi.fn().mockResolvedValue(undefined),
+      rejectProposal: vi.fn().mockResolvedValue(undefined),
+    });
+    renderPage(a);
+
+    expect(await screen.findByText(/Парот испрати распоред на/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Испрати распоред на парот" }));
+    await waitFor(() => expect(a.sendProposal).toHaveBeenCalledWith("e1", "r1"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Одбиј" }));
+    fireEvent.change(screen.getByPlaceholderText("Причина (опционално)"), { target: { value: "Премногу маси" } });
+    fireEvent.click(screen.getByRole("button", { name: "Потврди одбивање" }));
+    await waitFor(() => expect(a.rejectProposal).toHaveBeenCalledWith("p1", "Премногу маси"));
+  });
+
+  it("shows the couple's rejection note alongside a rejected proposal", async () => {
+    const rejected = {
+      ...proposal,
+      status: "rejected" as const,
+      responded_at: "2026-11-02T11:00:00.000Z",
+      responded_by: null,
+      note: "Не одговара на распоредот",
+    };
+    const a = actions({ sendProposal: vi.fn(), listProposals: vi.fn().mockResolvedValue([rejected]) });
+    renderPage(a);
+
+    expect(await screen.findByText(/Распоред од салата одбиен/)).toBeInTheDocument();
+    expect(screen.getByText(/Не одговара на распоредот/)).toBeInTheDocument();
+  });
+
+  it("hides the whole send/approve/reject block in view-only mode", () => {
+    const a = actions({
+      confirm: vi.fn(),
+      listProposals: vi.fn().mockResolvedValue([proposal]),
+    });
+    renderPage(a, { viewOnly: true, viewOnlyNotice: "Само преглед" });
+    expect(screen.queryByRole("button", { name: /Испрати распоред/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("EventSeatingPage logo watermark (Project C)", () => {
+  it("passes logoUrl through to the floor plan, and renders no watermark without one", () => {
+    renderPage(actions(), { logoUrl: "https://cdn.example/logo.png" });
+    expect(screen.getByTestId("floor-plan-watermark")).toHaveAttribute("href", "https://cdn.example/logo.png");
+  });
+
+  it("renders no watermark when logoUrl is absent", () => {
+    renderPage(actions());
+    expect(screen.queryByTestId("floor-plan-watermark")).not.toBeInTheDocument();
+  });
+});

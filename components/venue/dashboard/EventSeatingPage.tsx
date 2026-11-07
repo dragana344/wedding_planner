@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { FloorPlanCanvas, type CanvasElement, type CanvasGroup } from "./FloorPlanCanvas";
+import { FloorPlanCanvas, PX_PER_CM, type CanvasElement, type CanvasGroup } from "./FloorPlanCanvas";
+import { fitZoom } from "@/lib/seating/zoom-to-fit";
 import {
   FIXED_TYPE_COLORS,
   MOVABLE_TYPE_COLORS,
@@ -23,9 +24,27 @@ import { occupancyOf, OCCUPANCY_COLORS, OCCUPANCY_LABELS, type Occupancy } from 
 import { tableTitle, type RoomSeating, type SeatInput } from "@/lib/seating/types";
 import { errorMessage } from "@/lib/venue/user-error";
 import { openSpot } from "@/lib/venue/open-spot";
+import type { SeatingProposalView } from "@/lib/seating/types";
 
 const PALETTE_BUTTON_CLASS =
   "rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:text-neutral-700";
+
+function formatProposalDate(iso: string): string {
+  return new Date(iso).toLocaleString("mk-MK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Project A §5: one line summarising a proposal for either side's list. */
+function proposalSummary(p: SeatingProposalView): string {
+  const from = p.proposed_by === "venue" ? "Салата" : "Парот";
+  if (p.status === "pending") return `${from} испрати распоред на ${formatProposalDate(p.created_at)}.`;
+  const who = p.responded_by ? ` (${p.responded_by})` : "";
+  if (p.status === "approved") return `Распоред од ${from.toLowerCase()} одобрен${who} на ${formatProposalDate(p.responded_at!)}.`;
+  if (p.status === "rejected") {
+    const reason = p.note?.trim() ? ` — „${p.note.trim()}“` : "";
+    return `Распоред од ${from.toLowerCase()} одбиен${who} на ${formatProposalDate(p.responded_at!)}.${reason}`;
+  }
+  return `Распоред од ${from.toLowerCase()} од ${formatProposalDate(p.created_at)} (застарен).`;
+}
 
 export interface SeatingActions {
   listFixedElements: (roomId: string) => Promise<FixedElement[]>;
@@ -45,8 +64,17 @@ export interface SeatingActions {
    * rather than the shared live layout, and the confirm toggle renders.
    * Absent for staff, whose edits stay live and unaffected either way. */
   getConfirmedAt?: (eventId: string, roomId: string) => Promise<string | null>;
+  /** Couple only: sends the current draft to the venue as a pending proposal (Project A §5). */
   confirm?: (eventId: string, roomId: string) => Promise<void>;
   unconfirm?: (eventId: string, roomId: string) => Promise<void>;
+  /** Couple only: copies the event's frozen baseline (§3) into the draft. */
+  resetToBaseline?: (eventId: string, roomId: string) => Promise<EventLayoutElement[]>;
+  /** Venue only: sends the current live layout to the couple as a pending proposal (§5). */
+  sendProposal?: (eventId: string, roomId: string) => Promise<SeatingProposalView>;
+  /** Both sides: list this room's send/approve/reject history (§5). */
+  listProposals?: (eventId: string, roomId: string) => Promise<SeatingProposalView[]>;
+  approveProposal?: (proposalId: string) => Promise<void>;
+  rejectProposal?: (proposalId: string, note: string | null) => Promise<void>;
   /** Multi-step history (0072). Absent: only the single legacy undo. */
   redo?: (eventId: string, roomId: string) => Promise<EventLayoutElement[]>;
   getHistoryState?: (eventId: string, roomId: string) => Promise<{ canUndo: boolean; canRedo: boolean }>;
@@ -76,6 +104,8 @@ export function EventSeatingPage({
   viewOnly = false,
   viewOnlyNotice,
   printLinks,
+  guestCountEstimate = null,
+  logoUrl = null,
 }: {
   eventId: string;
   eventName: string;
@@ -102,6 +132,10 @@ export function EventSeatingPage({
   viewOnlyNotice?: string;
   /** B7: the printable A4 plan and per-table QR cards. */
   printLinks?: { plan: string; qr?: string };
+  /** Project A §6: flags when it exceeds this room's current seat capacity. */
+  guestCountEstimate?: number | null;
+  /** Project C: the venue's own logo, watermarked over the floor plan. */
+  logoUrl?: string | null;
 }) {
   const [fixedElements] = useState(initialFixedElements);
   const [layoutElements, setLayoutElements] = useState(initialLayoutElements);
@@ -110,8 +144,12 @@ export function EventSeatingPage({
   const [canUndo, setCanUndo] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmedAt, setConfirmedAt] = useState<string | null>(null);
-  const [isTogglingConfirm, setIsTogglingConfirm] = useState(false);
+  const [isResettingBaseline, setIsResettingBaseline] = useState(false);
+  const [proposals, setProposals] = useState<SeatingProposalView[]>([]);
+  const [isSendingProposal, setIsSendingProposal] = useState(false);
+  const [respondingProposalId, setRespondingProposalId] = useState<string | null>(null);
+  const [rejectingProposalId, setRejectingProposalId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
   const [seating, setSeating] = useState<RoomSeating | null>(initialSeating ?? null);
   const [showAllTables, setShowAllTables] = useState(false);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
@@ -119,6 +157,16 @@ export function EventSeatingPage({
   const [groupMode, setGroupMode] = useState(false);
   const [groupPick, setGroupPick] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  // Project C: a wide room starts zoomed to fit the visible width instead of
+  // overflowing into a horizontal scrollbar at 100% — once per room, not a
+  // live resize behaviour; the manual +/- buttons still work from there.
+  useEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el) return;
+    setZoom(fitZoom(room.width_cm, PX_PER_CM, el.clientWidth));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id]);
   // A refused save (e.g. another device saved first) reloads the list and says why.
   const [seatNotice, setSeatNotice] = useState<string | null>(null);
   const [seatVersion, setSeatVersion] = useState(0);
@@ -126,6 +174,10 @@ export function EventSeatingPage({
 
   async function refreshHistory() {
     if (actions.getHistoryState) setHistory(await actions.getHistoryState(eventId, room.id));
+  }
+
+  async function refreshProposals() {
+    if (actions.listProposals) setProposals(await actions.listProposals(eventId, room.id));
   }
 
   async function refresh() {
@@ -157,9 +209,7 @@ export function EventSeatingPage({
     if (skipInitialization) {
       setCanUndo(true);
       refreshHistory();
-      if (actions.getConfirmedAt) {
-        actions.getConfirmedAt(eventId, room.id).then(setConfirmedAt);
-      }
+      refreshProposals();
       return;
     }
     (async () => {
@@ -168,44 +218,76 @@ export function EventSeatingPage({
       await actions.captureSnapshot(eventId, room.id);
       setCanUndo(true);
       await refreshHistory();
-      if (actions.getConfirmedAt) {
-        setConfirmedAt(await actions.getConfirmedAt(eventId, room.id));
-      }
+      await refreshProposals();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, room.id]);
 
-  // Confirming always pushes the current draft to the venue, whether this is
-  // the first confirm or a re-confirm after editing an already-confirmed
-  // layout — the couple needs a direct way to push a change, not an
-  // unconfirm-then-confirm dance (confirmedAt used to stay stale and stuck
-  // showing "confirmed" after an edit, with no re-confirm action at all).
-  async function handleConfirm() {
-    if (!actions.confirm) return;
+  // Project A §3: couple-only — copies the event's frozen baseline into the draft.
+  async function handleResetToBaseline() {
+    if (!actions.resetToBaseline) return;
+    if (!window.confirm("Да се врати распоредот на првично договорениот? Вашите последни промени во нацрт-распоредот ќе се изгубат (можете да ги вратите со „← Врати“).")) return;
     setError(null);
-    setIsTogglingConfirm(true);
+    setIsResettingBaseline(true);
     try {
-      await actions.confirm(eventId, room.id);
-      setConfirmedAt(await actions.getConfirmedAt!(eventId, room.id));
+      setLayoutElements(await actions.resetToBaseline(eventId, room.id));
+      await refreshHistory();
+      if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
     } catch (err) {
-      setError(errorMessage(err, "Не успеа потврдувањето на распоредот. Обидете се повторно."));
+      setError(errorMessage(err, "Не успеа враќањето на првичниот распоред. Обидете се повторно."));
     } finally {
-      setIsTogglingConfirm(false);
+      setIsResettingBaseline(false);
     }
   }
 
-  // Hides the layout from the venue again (keeps editing the same draft).
-  async function handleUnconfirm() {
-    if (!actions.unconfirm) return;
+  // Project A §5: either side sends its current working copy (couple: draft
+  // via actions.confirm; venue: live layout via actions.sendProposal) as a
+  // new pending proposal for the other side to review.
+  async function handleSendProposal() {
     setError(null);
-    setIsTogglingConfirm(true);
+    setIsSendingProposal(true);
     try {
-      await actions.unconfirm(eventId, room.id);
-      setConfirmedAt(null);
+      if (actions.confirm) {
+        await actions.confirm(eventId, room.id);
+      } else if (actions.sendProposal) {
+        await actions.sendProposal(eventId, room.id);
+      }
+      await refreshProposals();
     } catch (err) {
-      setError(errorMessage(err, "Не успеа ажурирањето на потврдата. Обидете се повторно."));
+      setError(errorMessage(err, "Не успеа испраќањето на распоредот. Обидете се повторно."));
     } finally {
-      setIsTogglingConfirm(false);
+      setIsSendingProposal(false);
+    }
+  }
+
+  async function handleApproveProposal(proposalId: string) {
+    if (!actions.approveProposal) return;
+    setError(null);
+    setRespondingProposalId(proposalId);
+    try {
+      await actions.approveProposal(proposalId);
+      await refresh();
+      await refreshProposals();
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа одобрувањето на распоредот. Обидете се повторно."));
+    } finally {
+      setRespondingProposalId(null);
+    }
+  }
+
+  async function handleRejectProposal(proposalId: string) {
+    if (!actions.rejectProposal) return;
+    setError(null);
+    setRespondingProposalId(proposalId);
+    try {
+      await actions.rejectProposal(proposalId, rejectNote.trim() || null);
+      setRejectingProposalId(null);
+      setRejectNote("");
+      await refreshProposals();
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа одбивањето на распоредот. Обидете се повторно."));
+    } finally {
+      setRespondingProposalId(null);
     }
   }
 
@@ -527,6 +609,7 @@ export function EventSeatingPage({
         rotationDeg: el.rotation_deg,
         locked: viewOnly,
         highlighted: showAllTables && el.id === highlightedId,
+        seatCount: el.element_type === "table" ? tableType?.seats : undefined,
       };
     }),
   ];
@@ -548,9 +631,14 @@ export function EventSeatingPage({
       )}
       <h1 className="mb-1 font-display text-3xl text-neutral-900">{room.name} — Распоред на маси</h1>
       <p className="mb-1 text-sm text-neutral-500">{eventName}</p>
-      <p className="mb-6 text-sm font-medium text-neutral-900">
+      <p className="mb-2 text-sm font-medium text-neutral-900">
         <span className="inline-flex items-center rounded-full bg-lilac-light px-3 py-1">{seatedCount} седишта</span>
       </p>
+      {guestCountEstimate !== null && guestCountEstimate > seatedCount ? (
+        <p className="mb-6 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          Бројот на гости ({guestCountEstimate}) го надминува капацитетот на тековниот распоред ({seatedCount}).
+        </p>
+      ) : null}
 
       {viewOnly && viewOnlyNotice ? (
         <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
@@ -596,6 +684,11 @@ export function EventSeatingPage({
         <button type="button" onClick={handleRevert} className={PALETTE_BUTTON_CLASS}>
           Врати на стандарден распоред
         </button>
+        {actions.resetToBaseline ? (
+          <button type="button" onClick={handleResetToBaseline} disabled={isResettingBaseline} className={PALETTE_BUTTON_CLASS}>
+            {isResettingBaseline ? "Се враќа..." : "Врати на договорениот распоред"}
+          </button>
+        ) : null}
         {actions.group ? (
           groupMode ? (
             <>
@@ -661,35 +754,78 @@ export function EventSeatingPage({
         </div>
       ) : null}
 
-      {actions.confirm ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      {!viewOnly && (actions.confirm || actions.sendProposal) ? (
+        <div className="mb-3 space-y-2">
           <button
             type="button"
-            onClick={handleConfirm}
-            disabled={isTogglingConfirm}
-            className={
-              confirmedAt
-                ? "rounded-full bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                : "rounded-full bg-lilac-dark px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            }
+            onClick={handleSendProposal}
+            disabled={isSendingProposal}
+            className="rounded-full bg-lilac-dark px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isTogglingConfirm ? "Се зачувува..." : confirmedAt ? "✓ Потврди ги промените" : "Потврди распоред"}
+            {isSendingProposal ? "Се испраќа..." : actions.confirm ? "Испрати распоред на локалот" : "Испрати распоред на парот"}
           </button>
-          {confirmedAt && actions.unconfirm ? (
-            <button
-              type="button"
-              onClick={handleUnconfirm}
-              disabled={isTogglingConfirm}
-              className="text-sm text-neutral-500 underline hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Сокриј го распоредот од локалот
-            </button>
+          {actions.listProposals && proposals.length > 0 ? (
+            <ul className="space-y-1.5">
+              {proposals.map((p) => {
+                const incoming = p.status === "pending" && p.proposed_by !== (actions.confirm ? "couple" : "venue");
+                return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-2 text-sm text-neutral-700">
+                    <span>{proposalSummary(p)}</span>
+                    {incoming && actions.approveProposal ? (
+                      <button
+                        type="button"
+                        onClick={() => handleApproveProposal(p.id)}
+                        disabled={respondingProposalId === p.id}
+                        className="rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Одобри
+                      </button>
+                    ) : null}
+                    {incoming && actions.rejectProposal ? (
+                      rejectingProposalId === p.id ? (
+                        <>
+                          <input
+                            type="text"
+                            value={rejectNote}
+                            onChange={(e) => setRejectNote(e.target.value)}
+                            placeholder="Причина (опционално)"
+                            className="rounded-full border border-neutral-200 px-3 py-1 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRejectProposal(p.id)}
+                            disabled={respondingProposalId === p.id}
+                            className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Потврди одбивање
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectingProposalId(null);
+                              setRejectNote("");
+                            }}
+                            className="text-xs text-neutral-500 underline"
+                          >
+                            Откажи
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRejectingProposalId(p.id)}
+                          disabled={respondingProposalId === p.id}
+                          className="rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700 hover:border-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Одбиј
+                        </button>
+                      )
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           ) : null}
-          {confirmedAt ? (
-            <span className="text-sm text-neutral-500">Локалот го гледа овој распоред. Направивте промени? Потврдете повторно.</span>
-          ) : (
-            <span className="text-sm text-neutral-500">Локалот сѐ уште не го гледа овој распоред.</span>
-          )}
         </div>
       ) : null}
 
@@ -724,7 +860,7 @@ export function EventSeatingPage({
         )}
       </div>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1 overflow-x-auto">
+      <div ref={canvasWrapRef} className="min-w-0 flex-1 overflow-x-auto">
         <FloorPlanCanvas
           widthCm={room.width_cm}
           heightCm={room.height_cm}
@@ -743,6 +879,7 @@ export function EventSeatingPage({
           onToggleSelect={toggleGroupPick}
           groups={groupOutlines}
           zoom={zoom}
+          watermarkUrl={logoUrl}
         />
       </div>
       {selectedTable ? (
@@ -803,10 +940,13 @@ export function EventSeatingPage({
       ) : null}
       </div>
       {seating ? (
-        <ul aria-label="Легенда" className="mt-3 flex flex-wrap gap-4 text-sm text-neutral-600">
+        <ul aria-label="Легенда" className="mt-3 flex flex-wrap gap-2 text-sm text-neutral-600">
           {(Object.keys(OCCUPANCY_COLORS) as Occupancy[]).map((o) => (
-            <li key={o} className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ background: OCCUPANCY_COLORS[o] }} />
+            <li
+              key={o}
+              className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs shadow-sm"
+            >
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: OCCUPANCY_COLORS[o] }} />
               {OCCUPANCY_LABELS[o]}
             </li>
           ))}

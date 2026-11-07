@@ -4,7 +4,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentVenueId } from "@/lib/venue/current-venue";
 import { requireOwnerElevation } from "@/lib/venue/manager-guard";
-import { getVenueProfile, updateVenueBrandColor, updateVenueName, updateVenueProfile, venueLogoUrl } from "@/lib/venue/venue-profile";
+import {
+  getVenueProfile,
+  updateVenueBrandColor,
+  updateVenueCoupleSeatingSelfEdit,
+  updateVenueName,
+  updateVenueProfile,
+  venueLogoUrl,
+} from "@/lib/venue/venue-profile";
 import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { getVenueFeatures } from "@/lib/entitlements/server";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic, withRequestLog } from "@/lib/api/handler";
@@ -56,12 +63,19 @@ export async function GET(request: Request) {
       // Branding (0087) is read on its own and never fails the request: a
       // database without the column yet simply omits the branding section.
       const branding = await readBranding(venueId);
+      const { data: seatingRow, error: seatingError } = await createServiceRoleClient()
+        .from("venues")
+        .select("couple_seating_self_edit_enabled")
+        .eq("id", venueId)
+        .single();
+      if (seatingError) throw seatingError;
 
       return NextResponse.json({
         venueName: profile.name,
         email: user?.email ?? "",
         profile: { address: profile.address, phone: profile.phone, logoUrl: venueLogoUrl(supabase, profile.logo_path) },
         branding: branding ?? undefined,
+        coupleSeatingSelfEditEnabled: seatingRow.couple_seating_self_edit_enabled as boolean,
       });
     } catch (err) {
       return errorResponse(err, "Поставките не можеа да се вчитаат.", request);
@@ -82,6 +96,8 @@ const settingsBody = z.discriminatedUnion("field", [
   // above is the real gate, not just the page.
   z.object({ field: z.literal("account_email"), email: z.string().trim().email().max(320) }),
   z.object({ field: z.literal("account_password"), password: z.string().min(6).max(200) }),
+  // Project A §4: the owner-level self-editing switch.
+  z.object({ field: z.literal("couple_seating_self_edit_enabled"), enabled: z.boolean() }),
 ]);
 
 export const PATCH = withPublic(
@@ -125,6 +141,9 @@ export const PATCH = withPublic(
     } else if (body.field === "brand_color") {
       await updateVenueBrandColor(venueId, body.color, client);
       await audit("venue_brand_color_updated");
+    } else if (body.field === "couple_seating_self_edit_enabled") {
+      await updateVenueCoupleSeatingSelfEdit(venueId, body.enabled, client);
+      await audit("venue_couple_seating_self_edit_updated");
     } else {
       await setLayoutLockPassword(venueId, body.password, client);
       await audit("venue_layout_password_updated");

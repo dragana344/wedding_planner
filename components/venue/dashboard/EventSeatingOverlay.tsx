@@ -9,6 +9,7 @@ import { getRoomSeatingForStaff } from "@/lib/seating/read";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import type { RoomSeating } from "@/lib/seating/types";
 import { errorMessage } from "@/lib/venue/user-error";
+import { getVenueLogoUrl } from "@/lib/venue/venue-profile";
 
 /**
  * Full-size overlay for editing one room's seating for an event, opened from
@@ -23,13 +24,17 @@ export function EventSeatingOverlay({
   eventId,
   eventName,
   room,
+  venueId,
   pastEvent = false,
+  guestCountEstimate = null,
   onClose,
 }: {
   eventId: string;
   eventName: string;
   room: Room;
+  venueId: string;
   pastEvent?: boolean;
+  guestCountEstimate?: number | null;
   onClose: () => void;
 }) {
   const [data, setData] = useState<{
@@ -37,6 +42,7 @@ export function EventSeatingOverlay({
     layoutElements: EventLayoutElement[];
     tableTypes: TableType[];
     seating: RoomSeating;
+    logoUrl: string | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +53,10 @@ export function EventSeatingOverlay({
       listEventLayoutElements(eventId, room.id),
       listTableTypes(room.id),
       getRoomSeatingForStaff(resolveSupabaseClient(), eventId, room.id),
+      getVenueLogoUrl(venueId),
     ])
-      .then(([fixedElements, layoutElements, tableTypes, seating]) => {
-        if (!cancelled) setData({ fixedElements, layoutElements, tableTypes, seating });
+      .then(([fixedElements, layoutElements, tableTypes, seating, logoUrl]) => {
+        if (!cancelled) setData({ fixedElements, layoutElements, tableTypes, seating, logoUrl });
       })
       .catch((err) => {
         if (!cancelled) {
@@ -59,7 +66,7 @@ export function EventSeatingOverlay({
     return () => {
       cancelled = true;
     };
-  }, [eventId, room.id]);
+  }, [eventId, room.id, venueId]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -97,6 +104,8 @@ export function EventSeatingOverlay({
               initialTableTypes={data.tableTypes}
               initialSeating={data.seating}
               pastEvent={pastEvent}
+              guestCountEstimate={guestCountEstimate}
+              logoUrl={data.logoUrl}
               printLinks={{ plan: `/venue/events/${eventId}/print/plan`, qr: `/venue/events/${eventId}/print/qr` }}
               onBack={onClose}
               backLabel="← Затвори"

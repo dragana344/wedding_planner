@@ -48,7 +48,7 @@ export function EventWizardPreview({
       .filter((name): name is string => Boolean(name)),
     ...(state.customMenu ? [state.customMenu.name] : []),
   ];
-  const menuNames = maxStepReached >= 4 ? (pickedMenuNames.length > 0 ? pickedMenuNames.join(", ") : "Без мени") : "";
+  const menuNames = maxStepReached >= 5 ? (pickedMenuNames.length > 0 ? pickedMenuNames.join(", ") : "Без мени") : "";
   const timeValue = state.startTime ? `${state.startTime}${state.endTime ? ` – ${state.endTime}` : ""}` : "";
   const total = Number(state.totalPrice) || 0;
   const deposit = Number(state.depositPaid) || 0;
@@ -68,9 +68,14 @@ export function EventWizardPreview({
           <span className="ev-wiz-preview-div-line" />
         </div>
         <div className="ev-wiz-preview-list">
+          <PreviewRow
+            icon={state.seatingMode === "mini" ? "users" : "home"}
+            value={state.seatingMode ? (state.seatingMode === "mini" ? "Мини настан" : "Цел простор") : ""}
+            placeholder="Седење"
+          />
           <PreviewRow icon="cal" value={state.date ? formatMkDateWithWeekday(state.date) : ""} placeholder="Датум" />
           <PreviewRow icon="clock" value={timeValue} placeholder="Време" />
-          <PreviewRow icon="users" value={maxStepReached >= 3 ? `~${state.guestCount} гости` : ""} placeholder="Гости" />
+          <PreviewRow icon="users" value={maxStepReached >= 4 ? `~${state.guestCount} гости` : ""} placeholder="Гости" />
           <PreviewRow icon="building" value={roomNames} placeholder="Простории" />
           <PreviewRow icon="menu" value={menuNames} placeholder="Мени" />
           <PreviewRow icon="coin" value={priceValue} placeholder="Цена" />

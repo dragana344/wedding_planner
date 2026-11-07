@@ -65,6 +65,8 @@ import * as seatingRedoRoute from "@/app/api/couple/seating/redo/route";
 import * as seatingHistoryRoute from "@/app/api/couple/seating/history/route";
 import * as seatingGroupRoute from "@/app/api/couple/seating/group/route";
 import * as seatingUndoRoute from "@/app/api/couple/seating/undo/route";
+import * as seatingProposalsRoute from "@/app/api/couple/seating/proposals/route";
+import * as seatingResetBaselineRoute from "@/app/api/couple/seating/reset-baseline/route";
 import * as albumPhotosRoute from "@/app/api/couple/album/photos/route";
 import * as albumPhotoIdRoute from "@/app/api/couple/album/photos/[id]/route";
 import * as albumZipRoute from "@/app/api/couple/album/zip/route";
@@ -981,6 +983,49 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         const res = await call(seatingRevertRoute.POST, NONE, "POST", { body: { room_id: B.roomId } });
         expect(res.status).toBe(400);
         const own = await call(seatingRevertRoute.POST, NONE, "POST", { body: { room_id: A.roomId } });
+        expect(own.status).toBe(200);
+      },
+    },
+  },
+  "seating/reset-baseline/route.ts": {
+    module: seatingResetBaselineRoute,
+    methods: {
+      POST: async () => {
+        await resetASeating();
+        const res = await call(seatingResetBaselineRoute.POST, NONE, "POST", { body: { room_id: B.roomId } });
+        expect(res.status).toBe(400);
+        const own = await call(seatingResetBaselineRoute.POST, NONE, "POST", { body: { room_id: A.roomId } });
+        expect(own.status).toBe(200);
+      },
+    },
+  },
+  "seating/proposals/route.ts": {
+    module: seatingProposalsRoute,
+    methods: {
+      GET: async () => {
+        await resetASeating();
+        const res = await call(seatingProposalsRoute.GET, NONE, "GET", { query: { room_id: B.roomId } });
+        expect(res.status).toBe(400);
+        const own = await call(seatingProposalsRoute.GET, NONE, "GET", { query: { room_id: A.roomId } });
+        expect(own.status).toBe(200);
+      },
+      POST: async () => {
+        const { data: bProposal, error: bError } = await admin
+          .from("event_seating_proposals")
+          .insert({ event_id: B.eventId, room_id: B.roomId, proposed_by: "venue", snapshot: { elements: [] } })
+          .select("id")
+          .single();
+        if (bError) throw bError;
+        const res = await call(seatingProposalsRoute.POST, NONE, "POST", { body: { proposal_id: bProposal!.id, action: "approve" } });
+        expect(res.status).toBe(400);
+
+        const { data: aProposal, error: aError } = await admin
+          .from("event_seating_proposals")
+          .insert({ event_id: A.eventId, room_id: A.roomId, proposed_by: "venue", snapshot: { elements: [] } })
+          .select("id")
+          .single();
+        if (aError) throw aError;
+        const own = await call(seatingProposalsRoute.POST, NONE, "POST", { body: { proposal_id: aProposal!.id, action: "approve" } });
         expect(own.status).toBe(200);
       },
     },

@@ -24,10 +24,10 @@ describe("couple nav dots", () => {
     expect(screen.getByRole("link", { name: "Буџет" })).toBeInTheDocument();
   });
 
-  it("puts Известувања first in the planning group, with a dot when flagged", () => {
+  it("puts Известувања right after Почетна, ungrouped, with a dot when flagged", () => {
     const items = buildCoupleNavItems([{ id: "r1", name: "Сала" }], { notifications: true });
-    const planning = items.filter((i) => i.group === "planning");
-    expect(planning[0]).toMatchObject({ label: "Известувања", href: "/couple/notifications", icon: "bell", dot: true });
+    expect(items[1]).toMatchObject({ label: "Известувања", href: "/couple/notifications", icon: "bell", dot: true });
+    expect(items[1].group).toBeUndefined();
     expect(items.filter((i) => i.dot).map((i) => i.label)).toEqual(["Известувања"]);
   });
 

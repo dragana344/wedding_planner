@@ -44,6 +44,7 @@ interface VenueFixture {
   showcasePhotoId: string;
   fixedElementId: string;
   roomLayoutElementId: string;
+  roomLayoutPresetId: string;
   eventLayoutElementId: string;
   seatAssignmentId: string;
   reservationId: string;
@@ -138,6 +139,11 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     width_cm: 180,
     length_cm: 180,
   });
+  const preset = await one<{ id: string }>("room_layout_presets", {
+    room_id: room.id,
+    name: `${RUN} Preset ${tag}`,
+    snapshot: { fixed: [], elements: [] },
+  });
   const seatAssignment = await one<{ id: string }>("event_seat_assignments", {
     event_id: event.id,
     room_id: room.id,
@@ -169,6 +175,7 @@ async function createVenueFixture(tag: "A" | "B"): Promise<VenueFixture> {
     showcasePhotoId: photo.id,
     fixedElementId: fixed.id,
     roomLayoutElementId: roomLayout.id,
+    roomLayoutPresetId: preset.id,
     eventLayoutElementId: eventLayout.id,
     seatAssignmentId: seatAssignment.id,
     reservationId: reservation.id,
@@ -303,6 +310,12 @@ const CASES: TableCase[] = [
     inserts: (_own, other) => [
       { room_id: other.roomId, element_type: "stage", x_cm: 0, y_cm: 0, width_cm: 100, length_cm: 100 },
     ],
+  },
+  {
+    table: "room_layout_presets",
+    key: (f) => ({ id: f.roomLayoutPresetId }),
+    update: () => ({ name: "hijacked" }),
+    inserts: (_own, other) => [{ room_id: other.roomId, name: `${RUN} stray preset`, snapshot: { fixed: [], elements: [] } }],
   },
   {
     table: "event_layout_elements",
@@ -585,19 +598,19 @@ describe("RLS isolation (TEST-003)", () => {
       // events (Plan 2, migration 0096): guest_count_estimate and the rest
       // of the "business" columns are no longer staff-writable directly —
       // only the gated /api/venue/events routes (service role) write them
-      // now. Staff keeps direct write access to the few columns the
-      // per-event seating editor marks on view (seating_unseen_at; since
-      // 0105 every layout write goes through the gated seating route),
-      // narrowed by column grant rather than by RLS policy.
+      // now. The one column staff used to keep direct write access to
+      // (seating_unseen_at, narrowed by column grant rather than RLS) was
+      // removed with it in the Project A seating remodel (migration 0136):
+      // seating changes now go through event_seating_proposals, so staff
+      // has no direct column-write grant left on events at all.
       const { error: gatedColumnError } = await staffA.from("events").update({ guest_count_estimate: 120 }).eq("id", A.eventId);
       expect(gatedColumnError?.code).toBe("42501");
 
-      const { data: updatedEvents } = await staffA
+      const { error: noDirectWriteError } = await staffA
         .from("events")
-        .update({ seating_unseen_at: null })
-        .eq("id", A.eventId)
-        .select("id");
-      expect(updatedEvents).toHaveLength(1);
+        .update({ layout_history: {} })
+        .eq("id", A.eventId);
+      expect(noDirectWriteError?.code).toBe("42501");
 
       // venues (0107): Поставки is owner-only, so even renaming the own
       // venue goes through the owner-gated /api/venue/settings route now.

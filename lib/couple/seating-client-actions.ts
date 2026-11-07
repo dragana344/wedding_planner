@@ -55,6 +55,25 @@ export const coupleSeatingClientActions: SeatingActions = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ room_id: roomId }),
     }).then(jsonOrThrow),
+  resetToBaseline: (_eventId, roomId) =>
+    fetch("/api/couple/seating/reset-baseline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: roomId }),
+    }).then(jsonOrThrow),
+  listProposals: (_eventId, roomId) => fetch(`/api/couple/seating/proposals?room_id=${roomId}`).then(jsonOrThrow),
+  approveProposal: (proposalId) =>
+    fetch("/api/couple/seating/proposals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposal_id: proposalId, action: "approve" }),
+    }).then(jsonOrThrow),
+  rejectProposal: (proposalId, note) =>
+    fetch("/api/couple/seating/proposals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposal_id: proposalId, action: "reject", note }),
+    }).then(jsonOrThrow),
   captureSnapshot: async () => {
     // Never actually invoked: the couple seating page passes skipInitialization
     // to EventSeatingPage, so its mount effect never calls this. Implemented

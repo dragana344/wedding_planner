@@ -275,9 +275,6 @@ export function EventsClient({
                     <div style={{ minWidth: 0 }}>
                       <div className="ttl" style={{ display: "flex", alignItems: "center", gap: 7 }}>
                         {event.couple_names}
-                        {event.hasUnseenSeatingChange ? (
-                          <span className="unseen-dot" title="Нова промена во распоредот на маси" aria-label="Нова промена во распоредот на маси" />
-                        ) : null}
                         <ChangeMark sections={event.unseenSections} />
                         {event.unseenSections.includes("menu_numbers") ? <span className="ev-hint">Нови бројки</span> : null}
                       </div>

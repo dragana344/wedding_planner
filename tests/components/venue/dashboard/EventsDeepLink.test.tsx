@@ -16,8 +16,8 @@ vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.Re
 
 const event: EventDetail = {
   id: "e1", couple_names: "Ана & Марко", event_date: "2027-06-12", start_time: null, end_time: null, status: "confirmed",
-  event_type: "wedding", guest_count_estimate: 100, created_at: "2026-01-01T10:00:00Z", menus: [], room_ids: [],
-  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null, hasUnseenSeatingChange: false, unseenSections: [],
+  event_type: "wedding", guest_count_estimate: 100, seating_self_edit_enabled: null, seating_mode: "full", created_at: "2026-01-01T10:00:00Z", menus: [], room_ids: [],
+  hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null, unseenSections: [],
   menuNumbers: { latest: null, previous: null },
 };
 

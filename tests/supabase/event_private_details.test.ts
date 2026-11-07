@@ -81,7 +81,7 @@ describe("0117 — plain staff can't read contacts or money", () => {
   });
 
   it("still reads everything else, and the events list works without the private fields", async () => {
-    const { data, error } = await staffClient.from("events").select("id, couple_names, event_date, status, seating_unseen_at").eq("id", eventId);
+    const { data, error } = await staffClient.from("events").select("id, couple_names, event_date, status, seating_mode").eq("id", eventId);
     expect(error).toBeNull();
     expect(data).toHaveLength(1);
     const [event] = await listEventsWithDetails(venueId, staffClient);

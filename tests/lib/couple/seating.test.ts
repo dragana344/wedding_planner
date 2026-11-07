@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { coupleSeatingActionsFor } from "@/lib/couple/seating";
+import { approveSeatingProposal, listSeatingProposals } from "@/lib/seating/proposals";
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -179,7 +180,7 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
-  it("keeps draft edits private until confirmed, then pushes them to event_layout_elements", async () => {
+  it("keeps draft edits private until confirmed and approved, then pushes them to event_layout_elements (Project A §5: confirm sends a proposal, it no longer writes live directly)", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Confirm Flow Venue" }).select().single();
     const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Room" }).select().single();
     const { data: event } = await admin
@@ -212,6 +213,13 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     const confirmedAt = await actions.getConfirmedAt!(event!.id, room!.id);
     expect(confirmedAt).not.toBeNull();
 
+    // Sent, but still not live: a pending proposal, not yet approved.
+    const { data: stillPrivate } = await admin.from("event_layout_elements").select("id").eq("event_id", event!.id);
+    expect(stillPrivate).toHaveLength(0);
+    const [proposal] = await listSeatingProposals(event!.id, room!.id, admin);
+    expect(proposal).toMatchObject({ proposed_by: "couple", status: "pending" });
+    await approveSeatingProposal(proposal.id, "Тест Менаџер", admin);
+
     const { data: afterConfirm } = await admin
       .from("event_layout_elements")
       .select("id, x_cm, y_cm")
@@ -240,6 +248,9 @@ describe("lib/couple/seating: coupleSeatingActionsFor", () => {
     expect(afterUnconfirm!.x_cm).toBe(0);
 
     await actions.confirm!(event!.id, room!.id);
+    const [reProposal] = await listSeatingProposals(event!.id, room!.id, admin);
+    expect(reProposal.status).toBe("pending"); // a fresh send, independent of the first (already-approved) one
+    await approveSeatingProposal(reProposal.id, "Тест Менаџер", admin);
     const { data: afterReconfirm } = await admin
       .from("event_layout_elements")
       .select("x_cm, y_cm")

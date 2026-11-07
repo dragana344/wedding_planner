@@ -41,6 +41,7 @@ const baseEvent: EventDetail = {
   status: "confirmed",
   event_type: "wedding",
   guest_count_estimate: 150,
+  seating_self_edit_enabled: null, seating_mode: "full",
   created_at: "2026-01-01T10:00:00Z",
   menus: [],
   room_ids: [],
@@ -51,7 +52,6 @@ const baseEvent: EventDetail = {
   contact_phone: null,
   total_price: null,
   deposit_paid: null,
-  hasUnseenSeatingChange: false,
   unseenSections: [],
   menuNumbers: { latest: null, previous: null },
 };
@@ -367,6 +367,26 @@ describe("EventEditForm", () => {
     expect(screen.getByLabelText("Голема сала")).toBeDisabled();
     const open = screen.getByRole("button", { name: /отвори седење/i });
     expect(open).toBeEnabled();
+  });
+
+  it("a mini-event shows a Маси button instead of Отвори седење, and hides the self-editing toggle (Project B §3)", async () => {
+    mockSupportingCalls();
+    const hall = { id: "r1", venue_id: "v1", name: "Голема сала", width_cm: 2000, height_cm: 1500 } as React.ComponentProps<typeof EventEditForm>["rooms"][number];
+    render(
+      <ManagerElevationProvider>
+        <EventEditForm
+          venueId="v1"
+          rooms={[hall]}
+          menuTemplates={[]}
+          event={{ ...baseEvent, room_ids: ["r1"], seating_mode: "mini" }}
+          onClose={() => {}}
+          onChanged={() => {}}
+        />
+      </ManagerElevationProvider>,
+    );
+    expect(screen.queryByRole("button", { name: /отвори седење/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Маси" })).toBeInTheDocument();
+    expect(screen.queryByText("Самостојно уредување на седење (пар)")).not.toBeInTheDocument();
   });
 });
 

@@ -10,6 +10,7 @@ import { PackageBuilder } from "./PackageBuilder";
 import { MenuNumbersSection } from "./MenuNumbersSection";
 import { ChangeBox } from "./ChangeBox";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
+import { MiniEventTablesTab } from "./MiniEventTablesTab";
 import { internationalPhone } from "@/lib/couple/invite-share";
 import {
   type EventDetail,
@@ -104,6 +105,7 @@ export function EventEditForm({
   const [status, setStatus] = useState<EventStatus>(event.status);
   const [eventType, setEventType] = useState<EventType>(event.event_type);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(event.room_ids);
+  const [seatingSelfEditEnabled, setSeatingSelfEditEnabled] = useState<boolean | null>(event.seating_self_edit_enabled);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -165,6 +167,7 @@ export function EventEditForm({
   const [isSavingFinance, setIsSavingFinance] = useState(false);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [seatingRoom, setSeatingRoom] = useState<Room | null>(null);
+  const [showMiniTables, setShowMiniTables] = useState(false);
   // DATA-006: erase this event's couple and guest data (typed confirmation).
   const [confirmingErase, setConfirmingErase] = useState(false);
   const [eraseConfirm, setEraseConfirm] = useState("");
@@ -369,6 +372,7 @@ export function EventEditForm({
         event_type: eventType,
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
+        seating_self_edit_enabled: seatingSelfEditEnabled,
         ...diffMenus(),
       };
       await updateEventViaApi(event.id, input, managerToken);
@@ -697,7 +701,12 @@ export function EventEditForm({
                       />
                       {room.name}
                     </label>
-                    {canEditSeating ? (
+                    {canEditSeating && event.seating_mode === "mini" ? (
+                      <button type="button" className="ev-room-toggle" onClick={() => setShowMiniTables(true)}>
+                        <Icon name="tables" size="sm" />
+                        Маси
+                      </button>
+                    ) : canEditSeating ? (
                       <button
                         type="button"
                         className="ev-room-toggle"
@@ -714,8 +723,34 @@ export function EventEditForm({
           </div>
         </fieldset>
 
+        {event.seating_mode === "full" ? (
+          <fieldset className="ev-fieldset" disabled={locked}>
+            <legend className="lab-s">Самостојно уредување на седење (пар)</legend>
+            <div className="ev-form-grid">
+              <div className="ev-field">
+                <select
+                  className="fld"
+                  value={seatingSelfEditEnabled === null ? "venue" : seatingSelfEditEnabled ? "on" : "off"}
+                  onChange={(e) => setSeatingSelfEditEnabled(e.target.value === "venue" ? null : e.target.value === "on")}
+                >
+                  <option value="venue">Следи поставка на локалот</option>
+                  <option value="on">Вклучено за овој настан</option>
+                  <option value="off">Исклучено за овој настан</option>
+                </select>
+              </div>
+            </div>
+            <p className="ev-hint">Кога е исклучено, парот гледа само преглед на тековниот распоред.</p>
+          </fieldset>
+        ) : null}
+
         {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
       </form>
+
+      {showMiniTables ? (
+        <Modal title="Маси" onClose={() => setShowMiniTables(false)}>
+          <MiniEventTablesTab eventId={event.id} />
+        </Modal>
+      ) : null}
 
       <MenuNumbersSection
         eventId={event.id}
@@ -1018,7 +1053,9 @@ export function EventEditForm({
           eventId={event.id}
           eventName={event.couple_names}
           room={seatingRoom}
+          venueId={venueId}
           pastEvent={readOnly}
+          guestCountEstimate={event.guest_count_estimate}
           onClose={() => setSeatingRoom(null)}
         />
       ) : null}

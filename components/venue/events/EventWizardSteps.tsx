@@ -6,9 +6,17 @@ import { STATUS_OPTIONS } from "@/lib/venue/event-display";
 import { formatDen } from "@/lib/money";
 import { formatPrice } from "@/lib/venue/menu-display";
 import type { EventType, EventStatus } from "@/lib/venue/events";
+import type { SeatingMode } from "@/lib/venue/event-wizard";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuTemplate, MenuItem } from "@/lib/venue/menus";
 import { LockedBanner } from "@/components/entitlements/LockedBanner";
+import { EventDatePicker } from "./EventDatePicker";
+import { formatMkDateWithWeekday } from "@/lib/date";
+
+const SEATING_MODE_META: Record<SeatingMode, { icon: string; label: string; description: string }> = {
+  full: { icon: "home", label: "Цел простор", description: "Настанот го зафаќа целиот простор (свадба, голема прослава)." },
+  mini: { icon: "users", label: "Мини настан", description: "Настанот зафаќа само дел од капацитетот — просторот работи нормално покрај него." },
+};
 
 export type MenuTemplateWithItems = MenuTemplate & { items: MenuItem[] };
 
@@ -51,6 +59,31 @@ export function EventTypeStep({ selected, onSelect }: { selected: EventType | nu
   );
 }
 
+export function SeatingModeStep({ selected, onSelect }: { selected: SeatingMode | null; onSelect: (mode: SeatingMode) => void }) {
+  return (
+    <div className="ev-wiz-types">
+      {(Object.entries(SEATING_MODE_META) as [SeatingMode, (typeof SEATING_MODE_META)[SeatingMode]][]).map(([key, meta]) => (
+        <button
+          key={key}
+          type="button"
+          className={`ev-wiz-ty${selected === key ? " on" : ""}`}
+          aria-pressed={selected === key}
+          onClick={() => onSelect(key)}
+          style={{ maxWidth: 220 }}
+        >
+          <span className="ev-wiz-ty-ic">
+            <Icon name={meta.icon} size="lg" />
+          </span>
+          {meta.label}
+          <span style={{ display: "block", fontSize: 12, color: "var(--muted)", fontWeight: 400, marginTop: 4 }}>
+            {meta.description}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function NameStep({
   type,
   name,
@@ -82,36 +115,72 @@ export function DateTimeStep({
   date,
   startTime,
   endTime,
+  rooms,
+  bookedDatesByRoom,
   onDateChange,
   onStartChange,
   onEndChange,
+  onCalendarMonthChange,
 }: {
   date: string;
   startTime: string;
   endTime: string;
+  /** The venue's rooms — rooms aren't picked yet at this step, so the calendar rings every room's bookings, not just a chosen one's. */
+  rooms?: Room[];
+  /** roomId -> booked dates, in the calendar's currently visible month, where that room has a full-capacity event. */
+  bookedDatesByRoom?: Record<string, string[]>;
   onDateChange: (value: string) => void;
   onStartChange: (value: string) => void;
   onEndChange: (value: string) => void;
+  /** Fires when the calendar's visible month changes, so the parent can fetch that month's booked dates. */
+  onCalendarMonthChange?: (year: number, month: number) => void;
 }) {
+  // A plain string comparison is enough here: both are "HH:MM", and an end
+  // time that sorts at or before the start time only happens when the
+  // event runs past midnight into the next day.
+  const endsNextDay = Boolean(startTime && endTime && endTime <= startTime);
+  // formatMkDateWithWeekday's weekday is lowercase (matches its other use in
+  // EventWizardPreview's running list) — capitalized here only, to read as
+  // its own heading rather than mid-sentence.
+  const dateSummary = date ? formatMkDateWithWeekday(date) : "Изберете датум подолу";
   return (
-    <div className="ev-form-grid">
-      <div className="ev-field ev-field-wide">
-        <label className="lab-s" htmlFor="ev-wiz-date">
-          Датум <span className="req">*</span>
-        </label>
-        <input id="ev-wiz-date" className="fld" type="date" value={date} onChange={(e) => onDateChange(e.target.value)} />
+    <div className="ev-dt">
+      <div className="ev-dt-summary">
+        <Icon name="cal" />
+        <div>
+          <p className="lab-s">Датум</p>
+          <p className="ev-dt-summary-val">{dateSummary.charAt(0).toUpperCase() + dateSummary.slice(1)}</p>
+        </div>
       </div>
-      <div className="ev-field">
-        <label className="lab-s" htmlFor="ev-wiz-start">
-          Почеток
-        </label>
-        <input id="ev-wiz-start" className="fld" type="time" value={startTime} onChange={(e) => onStartChange(e.target.value)} />
-      </div>
-      <div className="ev-field">
-        <label className="lab-s" htmlFor="ev-wiz-end">
-          Крај
-        </label>
-        <input id="ev-wiz-end" className="fld" type="time" value={endTime} onChange={(e) => onEndChange(e.target.value)} />
+      <div className="ev-dt-cols">
+        <div className="ev-dt-cal-col">
+          <EventDatePicker
+            value={date}
+            onChange={onDateChange}
+            rooms={rooms ?? []}
+            bookedDatesByRoom={bookedDatesByRoom ?? {}}
+            onMonthChange={onCalendarMonthChange ?? (() => {})}
+          />
+        </div>
+        <div className="ev-dt-time-col">
+          <div className="ev-field">
+            <label className="lab-s" htmlFor="ev-wiz-start">
+              <Icon name="clock" size="sm" /> Почеток
+            </label>
+            <input id="ev-wiz-start" className="fld" type="time" value={startTime} onChange={(e) => onStartChange(e.target.value)} />
+          </div>
+          <div className="ev-field">
+            <label className="lab-s" htmlFor="ev-wiz-end">
+              <Icon name="clock" size="sm" /> Крај
+            </label>
+            <input id="ev-wiz-end" className="fld" type="time" value={endTime} onChange={(e) => onEndChange(e.target.value)} />
+          </div>
+          {endsNextDay ? (
+            <p className="ev-dt-hint">
+              <Icon name="help" size="sm" /> Завршува следниот ден
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -161,6 +230,10 @@ export function RoomsMenuStep({
   customMenuError,
   onOpenCustomMenu,
   onRemoveCustomMenu,
+  singleRoom,
+  seatingMode,
+  roomLayouts,
+  onOpenRoomLayout,
 }: {
   rooms: Room[];
   menuTemplates: MenuTemplateWithItems[];
@@ -178,6 +251,13 @@ export function RoomsMenuStep({
   customMenuError: string | null;
   onOpenCustomMenu: () => void;
   onRemoveCustomMenu: () => void;
+  /** Project B §2: a mini-event claims exactly one room — picking another swaps the choice instead of adding to it. */
+  singleRoom?: boolean;
+  /** 'mini' events never get this section at all — they have no seating concept (Project B §3). */
+  seatingMode?: SeatingMode | null;
+  /** Which selected rooms already have a resolved starting layout. */
+  roomLayouts?: Record<string, unknown[]>;
+  onOpenRoomLayout?: (roomId: string) => void;
 }) {
   const noMenu = menuTemplateIds.length === 0 && !customMenu;
   return (
@@ -185,6 +265,11 @@ export function RoomsMenuStep({
       <p className="lab-s" style={{ marginBottom: 10 }}>
         ПРОСТОРИИ
       </p>
+      {singleRoom ? (
+        <p className="ev-hint" style={{ marginBottom: 10 }}>
+          Мини настанот дели простор со други резервации — изберете само една сала.
+        </p>
+      ) : null}
       {rooms.length === 0 ? (
         <p className="ev-hint" style={{ marginBottom: 20 }}>
           Нема дефинирани простории за овој локал.
@@ -205,6 +290,32 @@ export function RoomsMenuStep({
           })}
         </div>
       )}
+      {seatingMode === "full" && selectedRoomIds.length > 0 ? (
+        <div style={{ marginBottom: 20 }}>
+          <p className="lab-s" style={{ marginBottom: 10 }}>
+            РАСПОРЕД НА МАСИ
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {selectedRoomIds.map((roomId) => {
+              const room = rooms.find((r) => r.id === roomId);
+              const resolved = Boolean(roomLayouts?.[roomId]);
+              return (
+                <div key={roomId} className={`ev-wiz-opt-row${resolved ? " on" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px" }}>
+                  <span>
+                    {room?.name ?? roomId}
+                    <span className="ev-wiz-opt-sub" style={{ display: "block" }}>
+                      {resolved ? "Распоредот е избран" : "Треба да изберете распоред"}
+                    </span>
+                  </span>
+                  <button type="button" className="btn btn-ghost" onClick={() => onOpenRoomLayout?.(roomId)}>
+                    {resolved ? "Промени" : "Избери распоред"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       <p className="lab-s" style={{ marginBottom: 10 }}>
         МЕНИ
       </p>

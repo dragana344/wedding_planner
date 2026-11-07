@@ -63,6 +63,13 @@ export function venueLogoUrl(client: SupabaseClient, logoPath: string | null): s
   return client.storage.from(LOGO_BUCKET).getPublicUrl(logoPath).data.publicUrl;
 }
 
+/** Project C: the watermark every live seating view (not just printing) now carries. */
+export async function getVenueLogoUrl(venueId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<string | null> {
+  const { data, error } = await client.from("venues").select("logo_path").eq("id", venueId).maybeSingle();
+  if (error) throw error;
+  return venueLogoUrl(client, data?.logo_path ?? null);
+}
+
 export const VENUE_PHONE_ERROR = "Внесете важечки телефонски број.";
 
 /** Digits with the usual separators, e.g. "+389 70 123 456" or "(02) 3123-456". */
@@ -132,6 +139,17 @@ export async function updateVenueBrandColor(
   const value = color === null ? null : normalizeBrandColor(color);
   if (color !== null && value === null) throw new Error(BRAND_COLOR_ERROR);
   const { data, error } = await client.from("venues").update({ brand_color: value }).eq("id", venueId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
+}
+
+/** Project A §4: the owner-level switch — false always wins over a per-event override. */
+export async function updateVenueCoupleSeatingSelfEdit(
+  venueId: string,
+  enabled: boolean,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  const { data, error } = await client.from("venues").update({ couple_seating_self_edit_enabled: enabled }).eq("id", venueId).select("id");
   if (error) throw error;
   if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
 }

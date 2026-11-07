@@ -103,6 +103,7 @@ describe("SECURITY DEFINER functions (SEC-006)", () => {
       "public.is_venue_staff_for(uuid)",
       "public.get_event_username(uuid)",
       "public.verify_venue_layout_password(uuid, text)",
+      "public.restore_room_layout(uuid, jsonb, jsonb)",
     ]) {
       const { rows } = await db.query(`select has_function_privilege('authenticated', $1, 'EXECUTE') as ok`, [fn]);
       expect(rows[0].ok, fn).toBe(true);

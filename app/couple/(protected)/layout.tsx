@@ -31,7 +31,15 @@ export default async function CoupleLayout({ children }: { children: React.React
   const lockedFeatures = FEATURE_KEYS.filter((k) => !features[k].enabled);
 
   return (
-    <CoupleShell coupleNames={summary.couple_names} eventDate={summary.event_date} rooms={summary.rooms} lockedFeatures={lockedFeatures} dots={dots} brand={brand}>
+    <CoupleShell
+      coupleNames={summary.couple_names}
+      eventDate={summary.event_date}
+      // Project B §3: a mini-event never gets a seating editor — no "Распоред" nav item.
+      rooms={summary.seating_mode === "mini" ? [] : summary.rooms}
+      lockedFeatures={lockedFeatures}
+      dots={dots}
+      brand={brand}
+    >
       {children}
     </CoupleShell>
   );

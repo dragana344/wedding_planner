@@ -40,7 +40,10 @@ describe("changeManagerPassword", () => {
     for (let i = 0; i < 5; i++) {
       await admin.rpc("verify_venue_manager", { p_venue_id: venueId, p_name: "Заклучен", p_password: "wrong" });
     }
-    const locked = await admin.rpc("verify_venue_manager", { p_venue_id: venueId, p_name: "Заклучен", p_password: "orig-pass-123" });
+    // The original password already works through a lock (0134); this
+    // checks the lock is genuinely active for further wrong guesses before
+    // a reset clears it below.
+    const locked = await admin.rpc("verify_venue_manager", { p_venue_id: venueId, p_name: "Заклучен", p_password: "still wrong" });
     expect(locked.data![0].error_code).toBe("locked");
 
     await changeManagerPassword(lockedManagerId, "unlocked-password-1");

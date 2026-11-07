@@ -6,6 +6,61 @@ import { ManagerElevationProvider } from "@/components/venue/shell/ManagerElevat
 import * as events from "@/lib/venue/events";
 import * as eventsClient from "@/lib/venue/events-client";
 import * as menusLib from "@/lib/venue/menus";
+import { formatMkDate } from "@/lib/date";
+
+// The room-layout resolver (event-wizard, 0141) fetches a room's saved
+// presets/fixed elements/table types as soon as a full-capacity room is
+// selected — mocked empty here so it resolves instantly with "no presets",
+// letting a test drive the "+ Нов распоред" → "Готово" → "Продолжи без
+// зачувување" path generically via resolveRoomLayoutModalsIfAny below.
+vi.mock("@/lib/venue/room-presets", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  listRoomPresets: vi.fn().mockResolvedValue([]),
+  getRoomPresetSnapshot: vi.fn(),
+  saveRoomPresetFromElements: vi.fn(),
+}));
+vi.mock("@/lib/venue/floorplan", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  listFixedElements: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/venue/rooms", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  listTableTypes: vi.fn().mockResolvedValue([]),
+}));
+
+/** Resolves every room-layout modal the wizard auto-opens (one per
+ * full-capacity room picked), always via "create new, empty, don't save" —
+ * the specific layout content doesn't matter to these tests. */
+async function resolveRoomLayoutModalsIfAny() {
+  while (screen.queryByRole("heading", { name: /^Распоред за/ })) {
+    await userEvent.click(screen.getByRole("button", { name: /нов распоред/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Готово" }));
+    await userEvent.click(screen.getByRole("button", { name: /продолжи без зачувување/i }));
+  }
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** The date step (0144) dropped the native input for a calendar-only
+ * picker — clicks `day` in whatever month it currently shows. No month
+ * navigation is needed: nothing requires a future date, only a confirm
+ * dialog on submit for a past one (see pickPastDate below). */
+async function pickDate(day: number): Promise<string> {
+  const now = new Date();
+  await userEvent.click(screen.getByRole("button", { name: String(day) }));
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(day)}`;
+}
+
+/** Navigates the date-step calendar back one month and picks day 1 — reliably in the past, for the past-date confirmation test. */
+async function pickPastDate(): Promise<string> {
+  const now = new Date();
+  await userEvent.click(screen.getByRole("button", { name: "Претходен месец" }));
+  await userEvent.click(screen.getByRole("button", { name: "1" }));
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${prevMonth.getFullYear()}-${pad2(prevMonth.getMonth() + 1)}-01`;
+}
 
 function renderWizard(props: Partial<React.ComponentProps<typeof NewEventWizard>> & Pick<React.ComponentProps<typeof NewEventWizard>, "rooms" | "menuTemplates" | "onCreated">) {
   return render(
@@ -25,10 +80,11 @@ beforeEach(() => {
 /** From the type grid to the rooms/menu step (step 5). */
 async function goToMenuStep() {
   await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+  await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
   await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
   await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-  await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+  await pickDate(15);
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 }
@@ -45,29 +101,37 @@ async function finishFromMenuStep() {
   await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 }
 
-/** Drives the wizard from the type grid through every step, filling the minimum required fields, stopping right before the final submit click. */
+/** Drives the wizard from the type grid through every step, filling the
+ * minimum required fields, stopping right before the final submit click.
+ * Returns the ISO date actually picked, for callers that need to assert
+ * on it. Picks a date reliably in the past when `pastDate` is set (for the
+ * past-date confirmation test); otherwise day 15 of whatever month the
+ * calendar opens to — no field requires a future date, only a confirm
+ * dialog at submit for a past one. */
 async function fillThroughToSubmit(opts: {
   type: RegExp;
   name: string;
-  date: string;
+  pastDate?: boolean;
   username?: string;
   password?: string;
   email?: string;
   phone?: string;
-}) {
+}): Promise<string> {
   await userEvent.click(screen.getByRole("button", { name: opts.type }));
+  await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
   await waitFor(() => expect(screen.getByLabelText(/имиња на младенците|име на прославата/i)).toBeInTheDocument());
 
   await userEvent.type(screen.getByLabelText(/имиња на младенците|име на прославата/i), opts.name);
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
-  await userEvent.type(screen.getByLabelText(/^датум/i), opts.date);
+  const date = opts.pastDate ? await pickPastDate() : await pickDate(15);
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
   // guests step: default 120 is already valid, just continue
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
-  // rooms/menu step: nothing required, continue
+  // rooms/menu step: resolve any auto-opened room-layout modal, then continue
+  await resolveRoomLayoutModalsIfAny();
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
   // price step: skip
@@ -86,6 +150,7 @@ async function fillThroughToSubmit(opts: {
 
   if (opts.email) await userEvent.type(screen.getByLabelText("Email на парот"), opts.email);
   if (opts.phone) await userEvent.type(screen.getByLabelText("Телефон на парот"), opts.phone);
+  return date;
 }
 
 describe("NewEventWizard", () => {
@@ -96,10 +161,9 @@ describe("NewEventWizard", () => {
 
     renderWizard({ rooms: [room], menuTemplates: [{ id: "m1", venue_id: "v1", name: "Standard Menu", description: null, items: [] }], onCreated });
 
-    await fillThroughToSubmit({
+    const expectedDate = await fillThroughToSubmit({
       type: /свадба/i,
       name: "Ivana & Petar",
-      date: "2027-10-01",
       username: "ivana-petar",
       password: "a-strong-password",
       email: "couple@example.com",
@@ -115,14 +179,17 @@ describe("NewEventWizard", () => {
       {
         venue_id: "v1",
         couple_names: "Ivana & Petar",
-        event_date: "2027-10-01",
+        event_date: expectedDate,
         start_time: null,
         end_time: null,
         event_type: "wedding",
+        seating_mode: "full",
         status: "preparation",
         guest_count_estimate: 120,
         // The venue's only hall, pre-checked for it (room is Garden/"r1" above).
         room_ids: ["r1"],
+        // Resolved via the auto-opened layout modal: "+ Нов распоред" → "Готово" → "Продолжи без зачувување", built empty.
+        room_layouts: { r1: [] },
         menu_template_ids: [],
         contacts: { contact_email: "couple@example.com", contact_email_2: null, contact_phone: "070 123 456" },
         credentials: { username: "ivana-petar", password: "a-strong-password" },
@@ -141,6 +208,67 @@ describe("NewEventWizard", () => {
     expect(onCreated).toHaveBeenCalled();
   });
 
+  it("sends seating_mode: mini when the mini-event card is picked instead (Project A §1)", async () => {
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e-mini" });
+    const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
+    renderWizard({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /мини настан/i }));
+    await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await pickDate(15);
+    await userEvent.type(screen.getByLabelText(/почеток/i), "18:00");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    // The venue's only hall is pre-checked (same convenience as any other
+    // event), already satisfying the mini-event's exactly-one-room rule.
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
+    const usernameField = screen.getByLabelText(/корисничко име/i);
+    await userEvent.clear(usernameField);
+    await userEvent.type(usernameField, "ana-petar");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalled());
+    expect(createSpy.mock.calls[0][0]).toMatchObject({ seating_mode: "mini" });
+  });
+
+  it("for a mini-event, picking a room swaps the choice instead of adding to it (Project B §2)", async () => {
+    const roomA = { id: "r1", venue_id: "v1", name: "Голема", width_cm: 1000, height_cm: 800 };
+    const roomB = { id: "r2", venue_id: "v1", name: "Мала", width_cm: 1000, height_cm: 800 };
+    renderWizard({ rooms: [roomA, roomB], menuTemplates: [], onCreated: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /мини настан/i }));
+    await userEvent.type(await screen.findByLabelText(/имиња на младенците/i), "Ана и Петар");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await pickDate(15);
+    const timeInput = screen.getByLabelText(/почеток/i);
+    await userEvent.type(timeInput, "18:00");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests: default is fine
+
+    await userEvent.click(screen.getByRole("button", { name: "Голема" }));
+    expect(screen.getByRole("button", { name: "Голема" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Мала" }));
+    expect(screen.getByRole("button", { name: "Мала" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Голема" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("blocks moving past the seating-mode step without picking one", async () => {
+    renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
+    await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    expect(await screen.findByRole("heading", { name: "Цел простор или дел од него?" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/имиња на младенците/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /понатаму/i })).not.toBeInTheDocument();
+  });
+
   it("creates a birthday, using the organizers' wording instead of the couple's", async () => {
     const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockResolvedValue({ id: "e2" });
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
@@ -148,7 +276,6 @@ describe("NewEventWizard", () => {
     await fillThroughToSubmit({
       type: /роденден/i,
       name: "Првиот роденден на Ива",
-      date: "2027-11-05",
       username: "iva-1",
       password: "a-strong-password",
       email: "parent@example.com",
@@ -164,10 +291,11 @@ describe("NewEventWizard", () => {
   it("suggests a transliterated username from the typed name, until the username is hand-edited", async () => {
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ивана & Марко");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
@@ -188,6 +316,7 @@ describe("NewEventWizard", () => {
   it("blocks the name step when left empty", async () => {
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     expect(await screen.findByText("Внесете ги имињата на младенците")).toBeInTheDocument();
@@ -197,10 +326,11 @@ describe("NewEventWizard", () => {
   it("rejects a deposit larger than the total price on the price step", async () => {
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
@@ -217,7 +347,6 @@ describe("NewEventWizard", () => {
     await fillThroughToSubmit({
       type: /свадба/i,
       name: "Ana & Petar",
-      date: "2027-10-01",
       username: "ana-petar",
       password: "a-strong-password",
       email: "couple@example.com",
@@ -232,17 +361,17 @@ describe("NewEventWizard", () => {
     const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e1" });
     confirmSpy.mockReturnValue(false);
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
-    await fillThroughToSubmit({
+    const pastDate = await fillThroughToSubmit({
       type: /свадба/i,
       name: "Ана и Марко",
-      date: "2000-02-20",
+      pastDate: true,
       username: "ana-marko",
       password: "a-strong-password",
       email: "couple@example.com",
       phone: "070 123 456",
     });
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
-    expect(confirmSpy).toHaveBeenCalledWith("Датумот 20 февруари 2000 е во минатото. Да се креира настанот сепак?");
+    expect(confirmSpy).toHaveBeenCalledWith(`Датумот ${formatMkDate(pastDate)} е во минатото. Да се креира настанот сепак?`);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
@@ -250,10 +379,11 @@ describe("NewEventWizard", () => {
     const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
     renderWizard({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     expect(screen.getByRole("button", { name: "Garden" })).toHaveAttribute("aria-pressed", "true");
@@ -266,10 +396,11 @@ describe("NewEventWizard", () => {
     renderWizard({ rooms: [], menuTemplates: [classic, posno], onCreated: vi.fn() });
 
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
@@ -306,10 +437,11 @@ describe("NewEventWizard", () => {
     renderWizard({ rooms: [], menuTemplates: [classic, posno], onCreated: vi.fn() });
 
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
@@ -388,6 +520,71 @@ describe("NewEventWizard", () => {
     });
   });
 
+  it("resolves a room's layout by picking a saved preset, sending its snapshot as room_layouts", async () => {
+    const presetsLib = await import("@/lib/venue/room-presets");
+    vi.mocked(presetsLib.listRoomPresets).mockResolvedValue([
+      { id: "p1", room_id: "r1", name: "Стандарден", created_at: "2027-01-01", updated_at: "2027-01-01" },
+    ]);
+    const presetElements = [
+      { element_type: "table" as const, table_type_id: null, x_cm: 10, y_cm: 10, width_cm: 160, length_cm: 160, rotation_deg: 0, label: "Маса 1", group_id: null, table_role: "guest" as const },
+    ];
+    vi.mocked(presetsLib.getRoomPresetSnapshot).mockResolvedValue({ fixed: [], elements: presetElements });
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e-preset" });
+    const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
+    renderWizard({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
+    await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await pickDate(15);
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms/menu
+
+    // The room-layout modal auto-opens for the single pre-checked hall; preview its saved preset, then confirm.
+    expect(await screen.findByRole("heading", { name: "Распоред за Garden" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Стандарден" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Користи го овој распоред" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: /^Распоред за/ })).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
+    await userEvent.type(screen.getByLabelText(/корисничко име/i), "-x");
+    await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
+    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalled());
+    expect(createSpy.mock.calls[0][0]).toMatchObject({ room_layouts: { r1: presetElements } });
+  });
+
+  it("blocks continuing past the rooms step until every selected room's layout is resolved", async () => {
+    const room = { id: "r1", venue_id: "v1", name: "Garden", width_cm: 1000, height_cm: 800 };
+    renderWizard({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
+    await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await pickDate(15);
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms/menu
+
+    // The room-layout modal auto-opens for the single pre-checked hall; close it without resolving.
+    expect(await screen.findByRole("heading", { name: /^Распоред за/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Затвори" }));
+    expect(screen.queryByRole("heading", { name: /^Распоред за/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    expect(await screen.findByText("Изберете или создајте распоред за секоја избрана сала")).toBeInTheDocument();
+    // Still on the rooms/menu step: its "Избери распоред" button is there to retry.
+    expect(screen.getByRole("button", { name: "Избери распоред" })).toBeInTheDocument();
+  });
+
   it("warns about another event in the same hall that day, and respects a decline", async () => {
     const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockClear().mockResolvedValue({ id: "e1" });
     vi.spyOn(events, "findSameDayRoomEvents").mockResolvedValue([
@@ -398,10 +595,11 @@ describe("NewEventWizard", () => {
     renderWizard({ rooms: [room], menuTemplates: [], onCreated: vi.fn() });
 
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Марко");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText(/^датум/i), "2027-10-01");
+    await pickDate(15);
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: "Garden" }));

@@ -16,9 +16,9 @@ function today(): string {
 function ev(overrides: Partial<EventDetail>): EventDetail {
   return {
     id: "e1", couple_names: "Ана и Петар", event_date: today(), start_time: "10:00:00", end_time: "12:00:00", status: "confirmed",
-    event_type: "wedding", guest_count_estimate: 100, created_at: "2026-01-01T10:00:00Z", menus: [], room_ids: [],
+    event_type: "wedding", guest_count_estimate: 100, seating_self_edit_enabled: null, seating_mode: "full", created_at: "2026-01-01T10:00:00Z", menus: [], room_ids: [],
     hasShowcasePhotos: false, seatedCount: 0, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null,
-    deposit_paid: null, hasUnseenSeatingChange: false, unseenSections: [], menuNumbers: { latest: null, previous: null },
+    deposit_paid: null, unseenSections: [], menuNumbers: { latest: null, previous: null },
     ...overrides,
   };
 }

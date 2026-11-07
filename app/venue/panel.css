@@ -1953,47 +1953,74 @@
   display: flex;
   gap: 4px;
 }
+.vp .qb-canvas-caption {
+  margin: 0;
+  padding: 0 20px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
 .vp .qb-canvas-wrap {
   overflow: auto;
-  padding: 16px 20px;
+  padding: 18px 20px 20px;
+  background: linear-gradient(180deg, #fffdf8 0%, #faf6ec 100%);
+  border-top: 1px solid var(--line-soft);
 }
 .vp .qb-canvas-zoom {
   transform-origin: top left;
   width: fit-content;
 }
+.vp .qb-selected-foot {
+  margin: 0 20px 14px;
+  padding: 12px 16px;
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-tint-2);
+  border-radius: 10px;
+}
 .vp .qb-legend {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 0 20px 14px;
-  font-size: 12px;
-  color: var(--muted);
 }
 .vp .qb-legend span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px 4px 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+  box-shadow: 0 1px 2px rgba(28, 30, 35, 0.04);
 }
 .vp .qb-legend i {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   display: inline-block;
 }
 
-/* hour-by-hour table occupancy slider, above the floor plan */
+/* hour-by-hour table occupancy slider, above the floor plan: a single joined
+   bar (not visibly discrete boxes) so it reads as one colour timeline. */
 .vp .hour-slider {
   padding: 4px 20px 16px;
 }
 .vp .hour-slider-track {
   position: relative;
   display: flex;
-  gap: 2px;
+  gap: 0;
   outline: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 10px 6px;
+  box-shadow: 0 1px 3px rgba(28, 30, 35, 0.05);
 }
 .vp .hour-slider-track:focus-visible {
   outline: 2px solid var(--gold);
-  outline-offset: 4px;
-  border-radius: 8px;
+  outline-offset: 2px;
 }
 .vp .hour-slider-seg {
   flex: 1;
@@ -2010,29 +2037,50 @@
 }
 .vp .hour-slider-bar {
   width: 100%;
-  height: 36px;
-  border-radius: 4px;
-  transition: background-color 0.15s ease;
+  height: 32px;
+  transition: filter 0.15s ease;
+}
+.vp .hour-slider-seg:first-child .hour-slider-bar {
+  border-radius: 6px 0 0 6px;
+}
+.vp .hour-slider-seg:last-child .hour-slider-bar {
+  border-radius: 0 6px 6px 0;
+}
+.vp .hour-slider-seg:hover .hour-slider-bar {
+  filter: brightness(1.08);
 }
 .vp .hour-slider-seg[aria-pressed="true"] .hour-slider-bar {
-  box-shadow: 0 0 0 2px var(--ink);
-}
-.vp .hour-slider-pct {
-  font-size: 10px;
-  color: var(--muted);
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 .vp .hour-slider-hour {
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.vp .hour-slider-pct {
+  font-size: 9px;
+  font-weight: 500;
   color: var(--muted);
 }
 .vp .hour-slider-thumb {
   position: absolute;
-  top: 0;
-  bottom: 18px;
+  top: 10px;
+  bottom: 24px;
   width: 2px;
   background: var(--ink);
   pointer-events: none;
   transform: translateX(-50%);
+}
+.vp .hour-slider-thumb::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink);
 }
 
 /* selected-tables list (sidebar) */
@@ -2046,9 +2094,18 @@
   align-items: center;
   gap: 10px;
   padding: 9px 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--gold-tint-2);
+  background: var(--gold-tint);
   border-radius: 10px;
   color: var(--gold-lo);
+}
+.vp .qb-selected-row > svg {
+  flex: none;
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(28, 30, 35, 0.06);
 }
 .vp .qb-selected-row > span:nth-child(2) {
   flex: 1;
@@ -4317,6 +4374,157 @@
   color: var(--muted);
   margin-top: 1px;
   font-weight: 400;
+}
+.vp .ev-cal {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  max-width: 340px;
+}
+.vp .ev-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.vp .ev-cal-month {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.vp .ev-cal-weekdays,
+.vp .ev-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.vp .ev-cal-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.vp .ev-cal-day {
+  /* A fixed height (not aspect-ratio) — combined with the grid's 1fr
+     columns, aspect-ratio creates a circular sizing dependency some
+     browsers resolve by falling back to each item's content size
+     instead of the column's actual width. */
+  width: 100%;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.vp .ev-cal-day:hover {
+  background: var(--gold-tint);
+}
+.vp .ev-cal-day.empty {
+  cursor: default;
+  pointer-events: none;
+}
+.vp .ev-cal-day.empty:hover {
+  background: none;
+}
+.vp .ev-cal-day.today {
+  font-weight: 700;
+  color: var(--ink);
+}
+.vp .ev-cal-day.selected {
+  background: var(--gold);
+  color: #fff;
+  font-weight: 700;
+}
+.vp .ev-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.vp .ev-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.vp .ev-cal-legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #b9bcc3;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+.vp .ev-dt-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.vp .ev-dt-summary svg {
+  width: 20px;
+  height: 20px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.vp .ev-dt-summary-val {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 2px;
+}
+.vp .ev-dt-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+.vp .ev-dt-cal-col {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.vp .ev-dt-cal-col .ev-cal {
+  margin-top: 0;
+  max-width: none;
+}
+.vp .ev-dt-time-col {
+  flex: 0 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.vp .ev-dt-time-col .lab-s {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.vp .ev-dt-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-style: italic;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .vp .ev-dt-cols {
+    flex-direction: column;
+  }
+  .vp .ev-dt-time-col {
+    flex-basis: auto;
+    width: 100%;
+  }
 }
 .vp .ev-wiz-opt-view {
   flex-shrink: 0;

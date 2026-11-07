@@ -81,8 +81,8 @@ export function HourOccupancySlider({
             onClick={() => onHourChange(h.hour)}
           >
             <span className="hour-slider-bar" style={{ background: occupancyColor(h.pct) }} />
-            <span className="hour-slider-pct">{h.pct}%</span>
             <span className="hour-slider-hour">{h.hour}ч</span>
+            <span className="hour-slider-pct">{h.pct}%</span>
           </button>
         ))}
         <div

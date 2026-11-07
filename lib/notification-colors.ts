@@ -29,6 +29,9 @@ const VENUE_KIND_COLORS: Record<string, NotificationColor> = {
   password_regenerated: "grey",
   manager_added: "grey",
   manager_removed: "grey",
+  seating_sent: "yellow",
+  seating_approved: "yellow",
+  seating_rejected: "yellow",
   data_erased: "red",
   data_exported: "red",
 };

@@ -10,6 +10,8 @@ import {
   updateEvent,
   updateEventContactInfo,
   updateEventFinance,
+  hasFullEventOnDate,
+  listFullyBookedDatesByRoom,
   PastEventError,
 } from "@/lib/venue/events";
 import { todayIn } from "@/lib/date";
@@ -140,6 +142,200 @@ describe("events data layer: listEventsWithDetails seatedCount", () => {
   });
 });
 
+describe("events data layer: createEvent seating_mode (Project A §1/§3)", () => {
+  it("picking 'mini' skips capturing a baseline", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Mini Mode Test Venue" }).select().single();
+    const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Garden" }).select().single();
+
+    const event = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Iva's Birthday",
+      event_date: "2099-10-01",
+      start_time: "18:00",
+      room_ids: [room!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "iva@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `iva-mini-${Date.now()}`, password: "a-strong-password-1" },
+      seating_mode: "mini",
+    });
+
+    const { data: row } = await admin.from("events").select("seating_mode, seating_baseline").eq("id", event.id).single();
+    expect(row!.seating_mode).toBe("mini");
+    expect(row!.seating_baseline).toBeNull();
+  });
+
+  it("creates a linked reservation with no tables yet (Project B §1/§2: table assignment is always a staff-assisted follow-up)", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Mini Reservation Test Venue" }).select().single();
+    const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Garden" }).select().single();
+
+    const event = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Iva's Birthday",
+      event_date: "2099-10-02",
+      start_time: "18:30",
+      end_time: "21:00",
+      guest_count_estimate: 12,
+      room_ids: [room!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "iva@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `iva-reservation-${Date.now()}`, password: "a-strong-password-1" },
+      seating_mode: "mini",
+    });
+
+    const { data: reservation } = await admin
+      .from("reservations")
+      .select("venue_id, room_id, guest_name, phone, date, start_time, end_time, party_size, status, reservation_tables(layout_element_id)")
+      .eq("event_id", event.id)
+      .single();
+    expect(reservation).toMatchObject({
+      venue_id: venue!.id,
+      room_id: room!.id,
+      guest_name: "Iva's Birthday",
+      phone: "070 123 456",
+      date: "2099-10-02",
+      start_time: "18:30:00",
+      end_time: "21:00:00",
+      party_size: 12,
+      status: "reserved",
+      reservation_tables: [],
+    });
+  });
+
+  it("refuses more than one room, or none at all, for a mini-event", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Mini Room Count Test Venue" }).select().single();
+    const { data: roomA } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "A" }).select().single();
+    const { data: roomB } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "B" }).select().single();
+
+    await expect(
+      createEvent({
+        venue_id: venue!.id,
+        couple_names: "Two Rooms",
+        event_date: "2099-10-03",
+        start_time: "18:00",
+        room_ids: [roomA!.id, roomB!.id],
+        menu_template_ids: [],
+        contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+        credentials: { username: `mini-two-rooms-${Date.now()}`, password: "a-strong-password-1" },
+        seating_mode: "mini",
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      createEvent({
+        venue_id: venue!.id,
+        couple_names: "No Rooms",
+        event_date: "2099-10-03",
+        start_time: "18:00",
+        room_ids: [],
+        menu_template_ids: [],
+        contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+        credentials: { username: `mini-no-rooms-${Date.now()}`, password: "a-strong-password-1" },
+        seating_mode: "mini",
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("events data layer: hasFullEventOnDate (Project B §5)", () => {
+  it("is true only for a full event on that room and date, never a mini-event or a cancelled one", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Full Flag Test Venue" }).select().single();
+    const { data: room } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Garden" }).select().single();
+
+    expect(await hasFullEventOnDate(room!.id, "2099-11-01")).toBe(false);
+
+    const mini = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Mini That Day",
+      event_date: "2099-11-01",
+      start_time: "18:00",
+      room_ids: [room!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `full-flag-mini-${Date.now()}`, password: "a-strong-password-1" },
+      seating_mode: "mini",
+    });
+    expect(await hasFullEventOnDate(room!.id, "2099-11-01")).toBe(false);
+    await admin.from("events").delete().eq("id", mini.id);
+
+    const full = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Full That Day",
+      event_date: "2099-11-01",
+      room_ids: [room!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `full-flag-full-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    expect(await hasFullEventOnDate(room!.id, "2099-11-01")).toBe(true);
+    expect(await hasFullEventOnDate(room!.id, "2099-11-02")).toBe(false);
+
+    await admin.from("events").update({ status: "cancelled" }).eq("id", full.id);
+    expect(await hasFullEventOnDate(room!.id, "2099-11-01")).toBe(false);
+  });
+});
+
+describe("events data layer: listFullyBookedDatesByRoom (event-wizard date-step ring-out)", () => {
+  it("groups only full-mode, non-cancelled dates within range, by room", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Booked Dates Test Venue" }).select().single();
+    const { data: roomA } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Сала А" }).select().single();
+    const { data: roomB } = await admin.from("rooms").insert({ venue_id: venue!.id, name: "Сала Б" }).select().single();
+
+    expect(await listFullyBookedDatesByRoom([roomA!.id, roomB!.id], "2099-12-01", "2099-12-31")).toEqual({});
+
+    const fullA = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Full That Day",
+      event_date: "2099-12-10",
+      room_ids: [roomA!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `booked-dates-full-a-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const fullB = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Full Same Day Other Room",
+      event_date: "2099-12-10",
+      room_ids: [roomB!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `booked-dates-full-b-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const mini = await createEvent({
+      venue_id: venue!.id,
+      couple_names: "Mini Same Day",
+      event_date: "2099-12-15",
+      start_time: "18:00",
+      room_ids: [roomB!.id],
+      menu_template_ids: [],
+      contacts: { contact_email: "a@example.mk", contact_phone: "070 123 456" },
+      credentials: { username: `booked-dates-mini-${Date.now()}`, password: "a-strong-password-1" },
+      seating_mode: "mini",
+    });
+
+    // Both rooms booked the same day — grouped separately, by room.
+    // The mini-event's room/date never shows up — only full-capacity bookings do.
+    expect(await listFullyBookedDatesByRoom([roomA!.id, roomB!.id], "2099-12-01", "2099-12-31")).toEqual({
+      [roomA!.id]: ["2099-12-10"],
+      [roomB!.id]: ["2099-12-10"],
+    });
+    // Out of range is excluded.
+    expect(await listFullyBookedDatesByRoom([roomA!.id, roomB!.id], "2099-12-11", "2099-12-31")).toEqual({});
+    // Querying only roomA finds just its own booking.
+    expect(await listFullyBookedDatesByRoom([roomA!.id], "2099-12-01", "2099-12-31")).toEqual({ [roomA!.id]: ["2099-12-10"] });
+
+    await admin.from("events").update({ status: "cancelled" }).eq("id", fullA.id);
+    expect(await listFullyBookedDatesByRoom([roomA!.id, roomB!.id], "2099-12-01", "2099-12-31")).toEqual({
+      [roomB!.id]: ["2099-12-10"],
+    });
+
+    await admin.from("events").delete().in("id", [fullA.id, fullB.id, mini.id]);
+  });
+
+  it("returns an empty object without querying when no room ids are given", async () => {
+    expect(await listFullyBookedDatesByRoom([], "2099-01-01", "2099-01-31")).toEqual({});
+  });
+});
+
 describe("events data layer: createEvent", () => {
   it("creates an event linked to the given rooms and menu template", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Create Event Test Venue" }).select().single();
@@ -170,6 +366,12 @@ describe("events data layer: createEvent", () => {
     // event, server-side — no separate client-side RPC call needed anymore.
     const { data: createdCredentials } = await admin.from("event_credentials").select("event_id").eq("event_id", event.id).maybeSingle();
     expect(createdCredentials).not.toBeNull();
+
+    // Project A §1/§3: defaults to 'full' and captures the room's current
+    // standard layout as this event's frozen baseline.
+    const { data: fullRow } = await admin.from("events").select("seating_mode, seating_baseline").eq("id", event.id).single();
+    expect(fullRow!.seating_mode).toBe("full");
+    expect(fullRow!.seating_baseline).toEqual({ [room!.id]: [] });
 
     await expect(
       createEvent({
@@ -279,7 +481,7 @@ describe("events data layer: createEvent", () => {
     await updateEvent(event.id, venue!.id, {
       couple_names: "Update Menus", event_date: "2099-12-05", start_time: null, end_time: null,
       status: "preparation", event_type: "wedding", guest_count_estimate: null, room_ids: [],
-      added_menu_ids: [], removed_menu_ids: [a!.id],
+      added_menu_ids: [], removed_menu_ids: [a!.id], seating_self_edit_enabled: null,
     }, admin);
 
     const { data: linked } = await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id);
@@ -307,7 +509,7 @@ describe("events data layer: createEvent", () => {
     ]);
     const base = {
       couple_names: "Stale", event_date: "2099-12-10", start_time: null, end_time: null,
-      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[], seating_self_edit_enabled: null,
     };
     const linked = async () =>
       ((await admin.from("event_menu_templates").select("menu_template_id").eq("event_id", event.id)).data ?? [])
@@ -341,7 +543,7 @@ describe("events data layer: createEvent", () => {
     });
     const base = {
       couple_names: "Concurrent", event_date: "2099-12-12", start_time: null, end_time: null,
-      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[], seating_self_edit_enabled: null,
     };
 
     // Both windows started from the same [A, B] and never re-read between
@@ -377,7 +579,7 @@ describe("events data layer: createEvent", () => {
     const MSG = "Едно или повеќе менија не припаѓаат на овој локал.";
     const base = {
       couple_names: "Refusal", event_date: "2099-12-06", start_time: null, end_time: null,
-      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[],
+      status: "preparation" as const, event_type: "wedding" as const, guest_count_estimate: null, room_ids: [] as string[], seating_self_edit_enabled: null,
     };
 
     await expect(updateEvent(event.id, venue!.id, { ...base, added_menu_ids: [foreign!.id], removed_menu_ids: [] }, admin)).rejects.toThrow(MSG);
@@ -630,6 +832,7 @@ describe("events data layer: past-event write lock (security review fix)", () =>
         room_ids: [],
         added_menu_ids: [],
         removed_menu_ids: [],
+        seating_self_edit_enabled: null,
       }),
     ).rejects.toThrow(PastEventError);
 

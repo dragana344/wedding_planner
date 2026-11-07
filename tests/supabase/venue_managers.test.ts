@@ -33,13 +33,29 @@ describe("venue_managers / verify_venue_manager", () => {
     expect(unknownName.data![0].error_code).toBe("invalid");
   });
 
-  it("locks out after 5 failed attempts, then refuses even the right password", async () => {
+  it("locks out after 5 failed attempts, refusing further wrong guesses (but see the next test: the right password still works)", async () => {
     await admin.rpc("create_venue_manager", { p_venue_id: venueA, p_name: "Ана", p_password: "correct-horse-1", p_is_owner: false });
     for (let i = 0; i < 5; i++) {
       await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Ана", p_password: "wrong" });
     }
-    const { data } = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Ана", p_password: "correct-horse-1" });
+    const { data } = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Ана", p_password: "still wrong" });
     expect(data![0].error_code).toBe("locked");
+  });
+
+  it("the correct password always succeeds, lock or no lock — a shared-login staff member can no longer lock a real manager out on purpose (0134, login review finding)", async () => {
+    await admin.rpc("create_venue_manager", { p_venue_id: venueA, p_name: "Бојан", p_password: "real-password-1", p_is_owner: false });
+    for (let i = 0; i < 5; i++) {
+      await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Бојан", p_password: "wrong" });
+    }
+    // Confirm the lock is actually in effect for further wrong guesses...
+    const stillLocked = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Бојан", p_password: "still wrong" });
+    expect(stillLocked.data![0].error_code).toBe("locked");
+    // ...but Бојан's own correct password works immediately regardless.
+    const correct = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Бојан", p_password: "real-password-1" });
+    expect(correct.data![0]).toMatchObject({ manager_name: "Бојан", error_code: null });
+    // And it clears the lock for next time, same as any successful login.
+    const { data: row } = await admin.from("venue_managers").select("failed_attempts, locked_until").eq("venue_id", venueA).eq("name", "Бојан").single();
+    expect(row).toMatchObject({ failed_attempts: 0, locked_until: null });
   });
 
   it("locks out under a concurrent burst — no race lets more than 5 real password checks through", async () => {
@@ -54,8 +70,9 @@ describe("venue_managers / verify_venue_manager", () => {
     const invalidCount = results.filter((r) => r.data![0].error_code === "invalid").length;
     expect(invalidCount).toBeLessThanOrEqual(5);
 
+    // The real password still gets in even after the burst locked out further wrong guesses.
     const { data: finalCheck } = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Гласно", p_password: "correct-concurrency-1" });
-    expect(finalCheck![0].error_code).toBe("locked");
+    expect(finalCheck![0].error_code).toBeNull();
   });
 
   it("starts a fresh attempt window once an expired lock passes, instead of re-locking on the very next wrong password forever (final review finding)", async () => {
@@ -66,7 +83,8 @@ describe("venue_managers / verify_venue_manager", () => {
     for (let i = 0; i < 5; i++) {
       await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Петре", p_password: "wrong" });
     }
-    const whileLocked = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Петре", p_password: "owner-recovery-1" });
+    // The lock still blocks further wrong guesses (0134 only exempts the correct password, tested separately above).
+    const whileLocked = await admin.rpc("verify_venue_manager", { p_venue_id: venueA, p_name: "Петре", p_password: "still wrong" });
     expect(whileLocked.data![0].error_code).toBe("locked");
 
     // Simulates the 15-minute lock having already expired.

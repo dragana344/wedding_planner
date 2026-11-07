@@ -12,6 +12,8 @@ import {
 import type { SeatingActions } from "@/components/venue/dashboard/EventSeatingPage";
 import { NOTHING_TO_REDO, NOTHING_TO_UNDO, roomHistory } from "@/lib/seating/history-store";
 import { historyState, record, redo, undo, type History, type LayoutSnapshot, type SnapshotSeat } from "@/lib/seating/history";
+import type { SeatingProposalView } from "@/lib/seating/types";
+import { approveSeatingProposal, listSeatingProposals, rejectSeatingProposal } from "@/lib/seating/proposals";
 
 async function assertRoomBelongsToEvent(
   client: SupabaseClient,
@@ -248,55 +250,25 @@ async function addDraftElement(
   return editRoom(eventId, input.room_id, client, (current) => ({ elements: [...current, created], result: created }));
 }
 
-/** Copies the organizer's current draft over event_layout_elements — the
- * rows staff read/edit — and stamps the room as confirmed. Staff's own
- * ability to edit event_layout_elements afterwards is unaffected. */
+/** Project A §5: sends the organizer's current draft to the venue as a
+ * pending proposal, instead of writing it straight into
+ * event_layout_elements — the venue must approve it first. Only applies to
+ * `full` events; the API route checks seating_mode/self-edit before this is
+ * ever reached. Does not clear or lock the draft (spec: no locking — the
+ * organizer can keep editing and send again, producing another independent
+ * pending proposal). `seating_confirmed_at` keeps its existing name and
+ * shape but now means "last sent at" for this room, reusing the same
+ * display the couple's seating page already has rather than adding a
+ * second, parallel timestamp. */
 async function confirmSeating(eventId: string, roomId: string, client: SupabaseClient): Promise<void> {
   const draftElements = await getOrInitDraft(eventId, roomId, client);
+  const { createSeatingProposal } = await import("@/lib/seating/proposals");
+  await createSeatingProposal(eventId, roomId, "couple", draftElements, { client });
 
-  // REL-005: replace + stamp in one transaction (migration 0041).
-  const { error } = await client.rpc("confirm_event_seating", {
-    p_event_id: eventId,
-    p_room_id: roomId,
-    // Ids carried over (0070) so seats on these tables stay attached.
-    p_elements: draftElements.map((el) => ({
-      id: el.id,
-      element_type: el.element_type,
-      table_type_id: el.table_type_id,
-      x_cm: el.x_cm,
-      y_cm: el.y_cm,
-      width_cm: el.width_cm,
-      length_cm: el.length_cm,
-      rotation_deg: el.rotation_deg,
-      label: el.label,
-      group_id: el.group_id ?? null,
-      table_role: el.table_role ?? "guest",
-    })),
-    p_confirmed_at: new Date().toISOString(),
-  });
+  const { confirmedAt } = await readState(client, eventId);
+  const next = { ...confirmedAt, [roomId]: new Date().toISOString() };
+  const { error } = await client.from("events").update({ seating_confirmed_at: next }).eq("id", eventId);
   if (error) throw error;
-
-  // Flags this event for the venue's "new change" dot in their events list —
-  // set on every confirm, including a re-confirm after editing, and cleared
-  // when staff opens this event's seating page (app/venue/events/[eventId]/
-  // seating/[roomId]/page.tsx).
-  const { error: unseenError } = await client
-    .from("events")
-    .update({ seating_unseen_at: new Date().toISOString() })
-    .eq("id", eventId);
-  if (unseenError) throw unseenError;
-
-  // Hand the room back to the confirmed layout (review I4): with the draft
-  // gone, staff's later changes count for seating, numbering and print. The
-  // next edit re-seeds the draft from the live rows with the same ids, so no
-  // seat detaches. An edit that landed after this confirm keeps its draft.
-  const confirmed = JSON.stringify(draftElements);
-  await updateState(client, eventId, async (s) => {
-    if (!(roomId in s.draft) || JSON.stringify(s.draft[roomId]) !== confirmed) return { patch: null, result: undefined };
-    const rest = { ...s.draft };
-    delete rest[roomId];
-    return { patch: { draft: rest }, result: undefined };
-  });
 }
 
 /** Clears the confirmed stamp only — the organizer keeps editing their
@@ -314,6 +286,45 @@ async function unconfirmSeating(eventId: string, roomId: string, client: Supabas
 async function getConfirmedAt(eventId: string, roomId: string, client: SupabaseClient): Promise<string | null> {
   const { confirmedAt } = await readState(client, eventId);
   return confirmedAt[roomId] ?? null;
+}
+
+type BaselineElement = Omit<EventLayoutElement, "id" | "event_id" | "room_id">;
+
+/** Project A §3: "Reset to baseline" — copies the event's frozen baseline
+ * (captured once at creation, create_event_full/0137) into the organizer's
+ * draft, minting fresh ids (same reasoning as copyRoomStandardToDraft: a
+ * stable id from the baseline could collide with one already live or
+ * already in the draft). Pushes the draft's prior state onto the undo
+ * stack first, via editRoom, so it's undoable like any other draft edit. */
+async function copyBaselineToDraft(eventId: string, roomId: string, client: SupabaseClient): Promise<EventLayoutElement[]> {
+  const { data, error } = await client.from("events").select("seating_baseline").eq("id", eventId).single();
+  if (error) throw error;
+  const baseline = ((data.seating_baseline as Record<string, BaselineElement[]> | null) ?? {})[roomId] ?? [];
+  return baseline.map((el) => ({
+    id: randomUUID(),
+    event_id: eventId,
+    room_id: roomId,
+    element_type: el.element_type,
+    table_type_id: el.table_type_id,
+    x_cm: el.x_cm,
+    y_cm: el.y_cm,
+    width_cm: el.width_cm,
+    length_cm: el.length_cm,
+    rotation_deg: el.rotation_deg,
+    label: el.label,
+    group_id: el.group_id ?? null,
+    table_role: el.table_role ?? "guest",
+  }));
+}
+
+/** A proposal the couple is about to approve/reject must actually be theirs
+ * to answer — i.e. belong to this event. Returns it so the caller doesn't
+ * re-fetch. */
+async function assertProposalInEvent(client: SupabaseClient, eventId: string, proposalId: string): Promise<{ room_id: string }> {
+  const { data, error } = await client.from("event_seating_proposals").select("event_id, room_id").eq("id", proposalId).maybeSingle();
+  if (error) throw error;
+  if (!data || data.event_id !== eventId) throw new Error("Предлогот не е пронајден.");
+  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -455,6 +466,25 @@ export function coupleSeatingActionsFor(eventId: string): SeatingActions {
     unconfirm: async (_eventId, roomId) => {
       await assertRoomBelongsToEvent(client, eventId, roomId);
       await unconfirmSeating(eventId, roomId, client);
+    },
+    resetToBaseline: async (_eventId, roomId) => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      const fresh = await copyBaselineToDraft(eventId, roomId, client);
+      const replaced = await editRoom(eventId, roomId, client, () => ({ elements: fresh, result: fresh }));
+      await pruneSeats(eventId, client);
+      return replaced;
+    },
+    listProposals: async (_eventId, roomId): Promise<SeatingProposalView[]> => {
+      await assertRoomBelongsToEvent(client, eventId, roomId);
+      return listSeatingProposals(eventId, roomId, client);
+    },
+    approveProposal: async (proposalId: string) => {
+      await assertProposalInEvent(client, eventId, proposalId);
+      await approveSeatingProposal(proposalId, null, client);
+    },
+    rejectProposal: async (proposalId: string, note: string | null) => {
+      await assertProposalInEvent(client, eventId, proposalId);
+      await rejectSeatingProposal(proposalId, null, note, client);
     },
   };
 }

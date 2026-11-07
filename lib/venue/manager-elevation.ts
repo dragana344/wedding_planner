@@ -41,11 +41,17 @@ export async function createManagerElevation(
 export async function validateManagerElevation(token: string, venueId: string): Promise<{ managerId: string; managerName: string; isOwner: boolean } | null> {
   const client = createServiceRoleClient();
   const tokenHash = await hashSessionToken(token);
-  const { data } = await client
+  const { data, error } = await client
     .from("venue_manager_elevations")
     .select("manager_id, manager_name, venue_id, expires_at, venue_managers(is_owner)")
     .eq("token", tokenHash)
     .maybeSingle();
+  // A transient DB failure must not look like "not elevated" — that logged
+  // the manager out for no reason of their own (2026-10-15 login review,
+  // deferred finding). Only a real empty result (no row, expired, wrong
+  // venue) returns null below; a query failure throws instead, so the
+  // caller's own error handling (a 500, not a 403) takes over.
+  if (error) throw error;
   if (!data) return null;
   if (data.venue_id !== venueId) return null;
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;

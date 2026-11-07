@@ -632,6 +632,7 @@ describe("final review fixes", () => {
         room_ids: [],
         added_menu_ids: [],
         removed_menu_ids: [custom],
+        seating_self_edit_enabled: null,
       },
       admin,
     );
