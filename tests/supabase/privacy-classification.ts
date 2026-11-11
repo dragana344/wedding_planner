@@ -27,8 +27,11 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
   event_albums: { event_id: N, public_token: S, retention_notice_sent_at: N, created_at: N },
-  event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, sort_order: N, created_at: N },
-  event_budget_items: { id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N },
+  event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, location: P, sort_order: N, created_at: N },
+  event_budget_items: {
+    id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N,
+    paid_by: P, payment_date: C, notes: P,
+  },
   event_checklist_items: { id: N, event_id: N, title: P, due_date: C, is_done: N, created_at: N },
   event_checklist_subtasks: { id: N, checklist_item_id: N, title: P, is_done: N, created_at: N },
   // 0125. old/new values are context (kept on erasure: the log is the event's
@@ -96,6 +99,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     seating_mode: N, seating_baseline: N, seating_self_edit_enabled: N,
     // System flag (0125): whether the couple has ever logged in.
     couple_first_login_at: N,
+    // 0148: the free-text label shown in place of "Друго", same class as event_type.
+    event_type_label: C,
   },
   menu_items: {
     id: N, course: N, name: N, allergen_tags: N, is_vegetarian: N, is_vegan: N, created_at: N, price: N, photo_path: N,

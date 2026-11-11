@@ -45,3 +45,10 @@ if (typeof window !== "undefined" && typeof window.PointerEvent === "undefined")
   // @ts-expect-error -- assigning a polyfill for a constructor jsdom doesn't provide
   window.PointerEvent = PointerEventPolyfill;
 }
+
+// jsdom does not implement scrollIntoView (there's no real layout to scroll).
+// Components that call it (e.g. scrolling a newly opened section into view)
+// throw "is not a function" under jsdom without this no-op stub.
+if (typeof Element !== "undefined" && typeof Element.prototype.scrollIntoView === "undefined") {
+  Element.prototype.scrollIntoView = () => {};
+}

@@ -38,7 +38,11 @@ test("a mini-event is created, staff assigns its tables, and the couple sees the
   await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
   // The venue's only hall is pre-checked; nothing else to pick on this step.
-  await page.getByRole("button", { name: "Понатаму" }).click();
+  await page.getByRole("button", { name: "Понатаму" }).click(); // rooms -> menu
+  await page.getByRole("button", { name: "Понатаму" }).click(); // no menu templates to pick either
+  // Asserted, not just clicked: this exact spot has broken silently before
+  // when the wizard's step count shifted, hanging until the test timeout.
+  await expect(page.getByRole("heading", { name: "Колку чини настанот?" })).toBeVisible();
   await page.getByRole("button", { name: "Прескокни" }).click(); // price
   await page.getByLabel("Корисничко име").fill(username);
   await page.getByLabel("Лозинка").fill(password);

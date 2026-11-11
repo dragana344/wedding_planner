@@ -43,6 +43,29 @@ export default defineConfig({
         // "use client" fetch-wrapper: runs only in the browser, exercised by
         // the E2E suite, not reachable from a Node-based DB test.
         "lib/couple/seating-client-actions.ts",
+        "lib/couple/client-utils.ts",
+        "lib/venue/changes-client.ts",
+        "lib/venue/custom-menu-client.ts",
+        "lib/venue/events-client.ts",
+        "lib/venue/menu-numbers-client.ts",
+        "lib/venue/menu-usage-client.ts",
+        "lib/venue/photo-upload-client.ts",
+        "lib/venue/seating-client.ts",
+        "lib/venue/settings-client.ts",
+        "lib/venue/showcase-client.ts",
+        // Pure, covered by tests/lib/pure/** (unit suite) or unit-only per
+        // vitest.config.ts's unitTestFiles — same gap as the entries above,
+        // just never added when those files were written.
+        "lib/couple/checklist-vendor-link.ts",
+        "lib/couple/event-hero.ts",
+        "lib/couple/guest-print.ts",
+        "lib/seating/proposal-diff.ts",
+        "lib/venue/calendar-colors.ts",
+        "lib/venue/calendar-grid.ts",
+        "lib/venue/calendar-lanes.ts",
+        "lib/venue/event-wizard.ts",
+        "lib/venue/occupancy.ts",
+        "lib/venue/transliterate.ts",
       ],
       reportsDirectory: "coverage/db",
       // TEST-006: floors at the measured baseline, re-measured at launch

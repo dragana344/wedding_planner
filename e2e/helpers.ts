@@ -127,7 +127,9 @@ export async function createEventWithCouple(
   await pickFutureCalendarDate(page);
   await page.getByRole("button", { name: "Понатаму" }).click();
   await page.getByRole("button", { name: "Понатаму" }).click(); // guests: default is fine
-  // rooms/menu: optional; the packages to offer (menus must already exist for the venue).
+  // The venue's only hall is pre-checked; nothing else to pick on this step.
+  await page.getByRole("button", { name: "Понатаму" }).click(); // rooms -> menu
+  // menu: optional; the packages to offer (menus must already exist for the venue).
   for (const name of menuNames) await page.getByRole("button", { name, exact: true }).click();
   if (customMenu) {
     await page.getByRole("button", { name: /^Сопствено мени/ }).click();
@@ -137,6 +139,10 @@ export async function createEventWithCouple(
     await expect(page.getByText("Сопствено мени · " + customMenu.dishIds.length + " јадења")).toBeVisible();
   }
   await page.getByRole("button", { name: "Понатаму" }).click();
+  // Asserted, not just clicked: the wizard's step count has shifted before
+  // (a new step inserted between rooms and price) and silently left this
+  // click one step short, hanging on a "Прескокни" that wasn't there yet.
+  await expect(page.getByRole("heading", { name: "Колку чини настанот?" })).toBeVisible();
   await page.getByRole("button", { name: "Прескокни" }).click(); // price: optional
   await page.getByLabel("Корисничко име").fill(couple.username);
   await page.getByLabel("Лозинка").fill(couple.password);

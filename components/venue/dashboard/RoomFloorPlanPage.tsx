@@ -181,6 +181,9 @@ export function RoomFloorPlanPage({
   const [deleteRoomError, setDeleteRoomError] = useState<string | null>(null);
   const [openTileMenuId, setOpenTileMenuId] = useState<string | null>(null);
   const openTileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [editingTableTypeId, setEditingTableTypeId] = useState<string | null>(null);
+  const [confirmingDeleteTableTypeId, setConfirmingDeleteTableTypeId] = useState<string | null>(null);
+  const [deleteTableTypeError, setDeleteTableTypeError] = useState<string | null>(null);
   useEffect(() => {
     if (!openTileMenuId) return;
     function onDocMouseDown(e: MouseEvent) {
@@ -192,9 +195,6 @@ export function RoomFloorPlanPage({
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [openTileMenuId]);
-  const [editingTableTypeId, setEditingTableTypeId] = useState<string | null>(null);
-  const [confirmingDeleteTableTypeId, setConfirmingDeleteTableTypeId] = useState<string | null>(null);
-  const [deleteTableTypeError, setDeleteTableTypeError] = useState<string | null>(null);
   const { managerName } = useManagerElevation();
   const isManager = managerName !== null;
 
