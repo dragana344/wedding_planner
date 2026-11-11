@@ -33,8 +33,10 @@ vi.mock("@/lib/venue/rooms", async (importOriginal) => ({
  * the specific layout content doesn't matter to these tests. */
 async function resolveRoomLayoutModalsIfAny() {
   while (screen.queryByRole("heading", { name: /^Распоред за/ })) {
-    await userEvent.click(screen.getByRole("button", { name: /нов распоред/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Готово" }));
+    // A room without saved layouts opens straight in the builder.
+    const startNew = await screen.findByRole("button", { name: /нов распоред|готово/i });
+    if (startNew.textContent?.includes("Нов распоред")) await userEvent.click(startNew);
+    await userEvent.click(await screen.findByRole("button", { name: "Готово" }));
     await userEvent.click(screen.getByRole("button", { name: /продолжи без зачувување/i }));
   }
 }
@@ -77,16 +79,18 @@ beforeEach(() => {
   vi.spyOn(eventsClient, "fetchNewEventCustomMenuEnabled").mockResolvedValue(true);
 });
 
-/** From the type grid to the rooms/menu step (step 5). */
+/** From the type grid to the menu step (step 6, rooms now its own step 5). */
 async function goToMenuStep() {
   await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
   await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
   await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
   await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
-  await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+  await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // name -> date
   await pickDate(15);
-  await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-  await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+  await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+  await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+  await resolveRoomLayoutModalsIfAny();
+  await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
 }
 
 /** From the menu step through to "Креирај настан", clicked. */
@@ -96,8 +100,8 @@ async function finishFromMenuStep() {
   await userEvent.type(screen.getByLabelText(/корисничко име/i), "-x");
   await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-  await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
-  await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+  await userEvent.type(screen.getByLabelText(/^Е-пошта/), "couple@example.com");
+  await userEvent.type(screen.getByLabelText(/^Телефон/), "070 123 456");
   await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 }
 
@@ -110,6 +114,8 @@ async function finishFromMenuStep() {
  * dialog at submit for a past one. */
 async function fillThroughToSubmit(opts: {
   type: RegExp;
+  /** For "Друго": the venue's own type name, typed before continuing. */
+  typeLabel?: string;
   name: string;
   pastDate?: boolean;
   username?: string;
@@ -118,6 +124,10 @@ async function fillThroughToSubmit(opts: {
   phone?: string;
 }): Promise<string> {
   await userEvent.click(screen.getByRole("button", { name: opts.type }));
+  if (opts.typeLabel !== undefined) {
+    await userEvent.type(screen.getByLabelText("Каков настан?"), opts.typeLabel);
+    await userEvent.click(screen.getByRole("button", { name: /продолжи/i }));
+  }
   await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
   await waitFor(() => expect(screen.getByLabelText(/имиња на младенците|име на прославата/i)).toBeInTheDocument());
 
@@ -130,8 +140,11 @@ async function fillThroughToSubmit(opts: {
   // guests step: default 120 is already valid, just continue
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
-  // rooms/menu step: resolve any auto-opened room-layout modal, then continue
+  // rooms step: resolve any auto-opened room-layout modal, then continue
   await resolveRoomLayoutModalsIfAny();
+  await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+
+  // menu step: nothing required, continue
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
   // price step: skip
@@ -148,8 +161,8 @@ async function fillThroughToSubmit(opts: {
   if (opts.password) await userEvent.type(screen.getByLabelText(/^лозинка/i), opts.password);
   await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
 
-  if (opts.email) await userEvent.type(screen.getByLabelText("Email на парот"), opts.email);
-  if (opts.phone) await userEvent.type(screen.getByLabelText("Телефон на парот"), opts.phone);
+  if (opts.email) await userEvent.type(screen.getByLabelText(/^Е-пошта/), opts.email);
+  if (opts.phone) await userEvent.type(screen.getByLabelText(/^Телефон/), opts.phone);
   return date;
 }
 
@@ -183,6 +196,7 @@ describe("NewEventWizard", () => {
         start_time: null,
         end_time: null,
         event_type: "wedding",
+        event_type_label: null,
         seating_mode: "full",
         status: "preparation",
         guest_count_estimate: 120,
@@ -223,16 +237,17 @@ describe("NewEventWizard", () => {
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     // The venue's only hall is pre-checked (same convenience as any other
     // event), already satisfying the mini-event's exactly-one-room rule.
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // menu -> price
     await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
     const usernameField = screen.getByLabelText(/корисничко име/i);
     await userEvent.clear(usernameField);
     await userEvent.type(usernameField, "ana-petar");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
-    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.type(screen.getByLabelText(/^Е-пошта/), "couple@example.com");
+    await userEvent.type(screen.getByLabelText(/^Телефон/), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
@@ -288,17 +303,48 @@ describe("NewEventWizard", () => {
     expect(await screen.findByText(/Податоци за најава на организаторите/)).toBeInTheDocument();
   });
 
+  it("Друго asks for the event's own type name instead of moving on, and sends it with the event", async () => {
+    const createSpy = vi.spyOn(eventsClient, "createEventViaApi").mockResolvedValue({ id: "e3" });
+    renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "Друго" }));
+    // Still on the type step, with the name field focused.
+    expect(screen.getByLabelText("Каков настан?")).toHaveFocus();
+    expect(screen.queryByRole("heading", { name: "Цел простор или дел од него?" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Свадба" }));
+    expect(screen.queryByLabelText("Каков настан?")).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Цел простор или дел од него?" });
+    await userEvent.click(screen.getByRole("button", { name: "Чекор 1" }));
+
+    await fillThroughToSubmit({
+      type: /^друго$/i,
+      typeLabel: "Прослава за 20 години брак",
+      name: "Ана и Марко",
+      username: "ana-marko",
+      password: "a-strong-password",
+      email: "ana@example.com",
+      phone: "070 111 222",
+    });
+    // The preview names the custom type instead of "Друго".
+    expect(screen.getByText("ПРОСЛАВА ЗА 20 ГОДИНИ БРАК")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalled());
+    expect(createSpy.mock.calls[0][0]).toMatchObject({ event_type: "other", event_type_label: "Прослава за 20 години брак" });
+  });
+
   it("suggests a transliterated username from the typed name, until the username is hand-edited", async () => {
     renderWizard({ rooms: [], menuTemplates: [], onCreated: vi.fn() });
     await userEvent.click(screen.getByRole("button", { name: /свадба/i }));
     await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ивана & Марко");
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // name -> date
     await pickDate(15);
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // menu -> price
     await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
 
     expect(screen.getByLabelText(/корисничко име/i)).toHaveValue("ivana-marko");
@@ -329,11 +375,12 @@ describe("NewEventWizard", () => {
     await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // name -> date
     await pickDate(15);
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // menu -> price
 
     await userEvent.type(screen.getByLabelText(/вкупна цена/i), "100");
     await userEvent.type(screen.getByLabelText(/платен капар/i), "150");
@@ -399,10 +446,11 @@ describe("NewEventWizard", () => {
     await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // name -> date
     await pickDate(15);
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
 
     // Both menus can be on at once — selecting one doesn't clear the other.
     await userEvent.click(screen.getByRole("button", { name: "Класично мени" }));
@@ -415,8 +463,8 @@ describe("NewEventWizard", () => {
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "-x");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
-    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.type(screen.getByLabelText(/^Е-пошта/), "couple@example.com");
+    await userEvent.type(screen.getByLabelText(/^Телефон/), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
@@ -440,10 +488,11 @@ describe("NewEventWizard", () => {
     await userEvent.click(await screen.findByRole("button", { name: /цел простор/i }));
     await waitFor(() => expect(screen.getByLabelText(/имиња на младенците/i)).toBeInTheDocument());
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Петар");
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // name -> date
     await pickDate(15);
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
 
     await userEvent.click(screen.getByRole("button", { name: "Погледни што содржи Класично мени" }));
     expect(await screen.findByText("Телешко печено")).toBeInTheDocument();
@@ -542,19 +591,22 @@ describe("NewEventWizard", () => {
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms/menu
 
-    // The room-layout modal auto-opens for the single pre-checked hall; preview its saved preset, then confirm.
+    // The room-layout modal auto-opens for the single pre-checked hall, straight on its saved preset; confirm it.
     expect(await screen.findByRole("heading", { name: "Распоред за Garden" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Стандарден" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Користи го овој распоред" }));
+    expect(await screen.findByText("Стандарден", { selector: ".rl-name" })).toBeInTheDocument();
+    const usePreset = screen.getByRole("button", { name: "Користи го овој распоред" });
+    await waitFor(() => expect(usePreset).toBeEnabled());
+    await userEvent.click(usePreset);
     await waitFor(() => expect(screen.queryByRole("heading", { name: /^Распоред за/ })).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // menu -> price
     await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
     await userEvent.type(screen.getByLabelText(/корисничко име/i), "-x");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
-    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.type(screen.getByLabelText(/^Е-пошта/), "couple@example.com");
+    await userEvent.type(screen.getByLabelText(/^Телефон/), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
@@ -600,18 +652,19 @@ describe("NewEventWizard", () => {
     await userEvent.type(screen.getByLabelText(/имиња на младенците/i), "Ана и Марко");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
     await pickDate(15);
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Garden" }));
-    await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // date -> guests
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // guests -> rooms
+    await userEvent.click(screen.getByRole("button", { name: "Garden" })); // toggles the pre-checked hall OFF
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // rooms -> menu
+    await userEvent.click(screen.getByRole("button", { name: /понатаму/i })); // menu -> price
     await userEvent.click(screen.getByRole("button", { name: /прескокни/i }));
     const usernameField = screen.getByLabelText(/корисничко име/i);
     await userEvent.clear(usernameField);
     await userEvent.type(usernameField, "ana-marko");
     await userEvent.type(screen.getByLabelText(/^лозинка/i), "a-strong-password");
     await userEvent.click(screen.getByRole("button", { name: /понатаму/i }));
-    await userEvent.type(screen.getByLabelText("Email на парот"), "couple@example.com");
-    await userEvent.type(screen.getByLabelText("Телефон на парот"), "070 123 456");
+    await userEvent.type(screen.getByLabelText(/^Е-пошта/), "couple@example.com");
+    await userEvent.type(screen.getByLabelText(/^Телефон/), "070 123 456");
     await userEvent.click(screen.getByRole("button", { name: /креирај настан/i }));
 
     await waitFor(() => expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Existing Party")));

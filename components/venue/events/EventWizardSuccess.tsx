@@ -57,12 +57,12 @@ export function EventWizardSuccess({
           НАСТАНОТ Е КРЕИРАН
         </p>
         <p className="ev-wiz-success-name">{name}</p>
-        <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>
+        <p style={{ margin: 0, fontSize: 14.5, color: "var(--muted)" }}>
           {typeLabel} · {formatMkDateWithWeekday(date)}
           {startTime ? ` · ${startTime}` : ""}
         </p>
         <div className="ev-wiz-success-creds">
-          <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>Податоци за најава на {who}:</p>
+          <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--muted)" }}>Податоци за најава на {who}:</p>
           <div className="ev-wiz-success-row">
             <span>Корисничко име</span>
             <span>{username}</span>

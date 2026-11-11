@@ -76,4 +76,22 @@ describe("EventDatePicker", () => {
     expect(screen.queryByText("Голема сала")).not.toBeInTheDocument();
     expect(screen.queryByText("Мала сала")).not.toBeInTheDocument();
   });
+  it("shows one dot per event already on a date, highlighting days with two or more", () => {
+    render(
+      <EventDatePicker
+        value="2027-10-01"
+        onChange={vi.fn()}
+        rooms={[roomA]}
+        bookedDatesByRoom={{}}
+        eventCountsByDate={{ "2027-10-10": 2, "2027-10-12": 1 }}
+        onMonthChange={vi.fn()}
+      />,
+    );
+    const day10 = screen.getByRole("button", { name: /^10/ });
+    expect(day10).toHaveAttribute("title", "2 настани");
+    expect(day10.querySelectorAll(".ev-cal-dots.is-multi i")).toHaveLength(2);
+    const day12 = screen.getByRole("button", { name: /^12/ });
+    expect(day12.querySelectorAll(".ev-cal-dots:not(.is-multi) i")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "11" }).querySelector(".ev-cal-dots")).toBeNull();
+  });
 });

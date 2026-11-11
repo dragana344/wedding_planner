@@ -39,7 +39,7 @@ const ZOOM_MIN = 0.3;
 const ZOOM_MAX = 1.5;
 const ZOOM_STEP = 0.15;
 const ZOOM_BUTTON_CLASS =
-  "rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:text-neutral-700";
+  "rounded-full border border-neutral-200 px-3 py-1.5 text-[14.5px] font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:text-neutral-700";
 
 let nextSeq = 0;
 /** One shared, monotonically increasing sequence number per new element —
@@ -83,12 +83,21 @@ export function WizardRoomLayoutEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
-  // Starts zoomed to fit the modal's own (narrower) width, once; the manual
+  // Starts zoomed to fit the modal's own (narrower) box, once — its width,
+  // and its height when the modal gives the canvas a fixed height; the manual
   // +/- buttons below still work from there.
   useEffect(() => {
     const el = canvasWrapRef.current;
     if (!el) return;
-    setZoom(fitZoom(widthCm, PX_PER_CM, el.clientWidth, ZOOM_MIN));
+    const style = getComputedStyle(el);
+    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) || 0;
+    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) || 0;
+    setZoom(
+      Math.min(
+        fitZoom(widthCm, PX_PER_CM, el.clientWidth - padX, ZOOM_MIN),
+        fitZoom(heightCm, PX_PER_CM, el.clientHeight - padY, ZOOM_MIN),
+      ),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -232,7 +241,7 @@ export function WizardRoomLayoutEditor({
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="rl-editor" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {readOnly ? null : (
         <div className="chip-row">
           <button type="button" className="chip" onClick={() => handleAddMovable("stage")}>
@@ -279,7 +288,7 @@ export function WizardRoomLayoutEditor({
         <button type="button" aria-label="Зумирај" className={ZOOM_BUTTON_CLASS} onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}>
           +
         </button>
-        <span className="ml-1 text-xs text-neutral-500">{Math.round(zoom * 100)}%</span>
+        <span className="ml-1 text-[12.5px] text-neutral-500">{Math.round(zoom * 100)}%</span>
       </div>
       <div className="qb-canvas-wrap" ref={canvasWrapRef}>
         <FloorPlanCanvas

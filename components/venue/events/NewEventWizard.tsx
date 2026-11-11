@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Cormorant_Garamond } from "next/font/google";
-import { findSameDayRoomEvents, listFullyBookedDatesByRoom } from "@/lib/venue/events";
+import { countEventsByDate, findSameDayRoomEvents, listFullyBookedDatesByRoom } from "@/lib/venue/events";
 import { monthRange } from "@/lib/venue/calendar-grid";
 import { createEventViaApi, fetchNewEventCustomMenuEnabled } from "@/lib/venue/events-client";
 import { listMenuItems, type MenuItem } from "@/lib/venue/menus";
 import { Modal } from "@/components/venue/dashboard/Modal";
 import { PackageBuilder } from "@/components/venue/dashboard/PackageBuilder";
-import { formatTimeRange, TYPE_META } from "@/lib/venue/event-display";
+import { formatTimeRange, eventTypeLabel, normalizeEventTypeLabel } from "@/lib/venue/event-display";
 import { formatMkDate, todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { parseCoupleContacts } from "@/lib/venue/event-contacts";
 import { generateRandomPassword } from "@/lib/venue/credentials";
@@ -34,7 +33,8 @@ import {
   NameStep,
   DateTimeStep,
   GuestsStep,
-  RoomsMenuStep,
+  RoomsStep,
+  MenuStep,
   PriceStep,
   CredentialsStep,
   ContactStep,
@@ -43,10 +43,8 @@ import {
 import { EventWizardPreview } from "./EventWizardPreview";
 import { EventWizardSuccess } from "./EventWizardSuccess";
 import { EventRoomLayoutModal } from "./EventRoomLayoutModal";
+import { SprigIcon } from "@/components/seating/couple-icons";
 import type { SnapshotElement } from "@/lib/venue/room-presets";
-
-// Cyrillic subset: couple/event names are routinely Macedonian Cyrillic.
-const cormorant = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: "400", style: ["normal", "italic"] });
 
 /** How long the type grid pauses on the picked card before auto-advancing, so the selection reads as a deliberate click, not a jump-cut. */
 const TYPE_SELECT_ADVANCE_DELAY_MS = 240;
@@ -89,6 +87,23 @@ export function NewEventWizard({
   // this covers the whole venue's rooms rather than a selection.
   const [bookedDatesByRoom, setBookedDatesByRoom] = useState<Record<string, string[]>>({});
   const [calendarMonth, setCalendarMonth] = useState<[number, number] | null>(null);
+  // date -> how many events the venue already has that day (any room), for the calendar's dots.
+  const [eventCountsByDate, setEventCountsByDate] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!calendarMonth) return;
+    let cancelled = false;
+    const [fromDate, toDate] = monthRange(calendarMonth[0], calendarMonth[1]);
+    countEventsByDate(venueId, fromDate, toDate)
+      .then((counts) => {
+        if (!cancelled) setEventCountsByDate(counts);
+      })
+      .catch(() => {
+        if (!cancelled) setEventCountsByDate({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarMonth, venueId]);
   function handleCalendarMonthChange(year: number, month: number) {
     setCalendarMonth([year, month]);
   }
@@ -217,6 +232,11 @@ export function NewEventWizard({
 
   function selectType(type: EventType) {
     update({ type });
+    // "Друго" waits for its own name (or a plain Продолжи) instead of moving on.
+    if (type === "other") {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      return;
+    }
     // Picking a type always satisfies step 0, so this skips goToStep's
     // validation loop deliberately — that loop reads `wizard` from this
     // render's closure, which setTimeout would otherwise read back stale
@@ -291,6 +311,7 @@ export function NewEventWizard({
           start_time: wizard.startTime || null,
           end_time: wizard.endTime || null,
           event_type: wizard.type ?? "other",
+          event_type_label: normalizeEventTypeLabel(wizard.type ?? "other", wizard.typeLabel),
           seating_mode: wizard.seatingMode ?? "full",
           status: wizard.status,
           guest_count_estimate: wizard.guestCount,
@@ -317,9 +338,9 @@ export function NewEventWizard({
 
   if (created) {
     return (
-      <div className={cormorant.className}>
+      <div className="ev-wiz-text">
         <EventWizardSuccess
-          typeLabel={wizard.type ? TYPE_META[wizard.type].label : ""}
+          typeLabel={wizard.type ? eventTypeLabel({ event_type: wizard.type, event_type_label: wizard.typeLabel }) : ""}
           name={wizard.name}
           date={wizard.date}
           startTime={wizard.startTime}
@@ -338,8 +359,9 @@ export function NewEventWizard({
   const showPreview = step > 0;
 
   return (
-    <div className={`ev-wiz-layout${showPreview ? "" : " full"} ${cormorant.className}`}>
-      <div className="ev-wiz-main">
+    <div className={`ev-wiz-layout${showPreview ? "" : " full"} ev-wiz-text`}>
+      <div className={`ev-wiz-main${step === 1 ? " has-sprig" : ""}`}>
+        {step === 1 ? <SprigIcon className="ev-wiz-sprig" /> : null}
         <div className="ev-wiz-head">
           <p className="ev-wiz-eyebrow">НОВ НАСТАН</p>
           <div className="ev-wiz-dots" role="group" aria-label="Чекори">
@@ -362,7 +384,15 @@ export function NewEventWizard({
           <h2 className="ev-wiz-title">{title}</h2>
           <p className="ev-wiz-sub">{subtitle}</p>
 
-          {step === 0 ? <EventTypeStep selected={wizard.type} onSelect={selectType} /> : null}
+          {step === 0 ? (
+            <EventTypeStep
+              selected={wizard.type}
+              onSelect={selectType}
+              customLabel={wizard.typeLabel}
+              onCustomLabelChange={(typeLabel) => update({ typeLabel })}
+              onContinue={() => goToStep(1)}
+            />
+          ) : null}
           {step === 1 ? <SeatingModeStep selected={wizard.seatingMode} onSelect={selectSeatingMode} /> : null}
           {step === 2 ? <NameStep type={wizard.type} name={wizard.name} onChange={(name) => update(nameChanged(wizard, name))} /> : null}
           {step === 3 ? (
@@ -372,6 +402,7 @@ export function NewEventWizard({
               endTime={wizard.endTime}
               rooms={rooms}
               bookedDatesByRoom={bookedDatesByRoom}
+              eventCountsByDate={eventCountsByDate}
               onDateChange={(date) => update({ date })}
               onStartChange={(startTime) => update({ startTime })}
               onEndChange={(endTime) => update({ endTime })}
@@ -380,16 +411,20 @@ export function NewEventWizard({
           ) : null}
           {step === 4 ? <GuestsStep guestCount={wizard.guestCount} onChange={(guestCount) => update({ guestCount })} /> : null}
           {step === 5 ? (
-            <RoomsMenuStep
+            <RoomsStep
               rooms={rooms}
-              menuTemplates={menuTemplates}
               selectedRoomIds={wizard.roomIds}
-              menuTemplateIds={wizard.menuTemplateIds}
               singleRoom={wizard.seatingMode === "mini"}
               seatingMode={wizard.seatingMode}
               roomLayouts={wizard.roomLayouts}
               onOpenRoomLayout={setLayoutRoomId}
               onToggleRoom={toggleRoom}
+            />
+          ) : null}
+          {step === 6 ? (
+            <MenuStep
+              menuTemplates={menuTemplates}
+              menuTemplateIds={wizard.menuTemplateIds}
               onToggleMenu={toggleMenu}
               onClearMenus={() => update({ menuTemplateIds: [], customMenu: null })}
               onViewMenu={setViewingMenuIndex}
@@ -400,15 +435,16 @@ export function NewEventWizard({
               onRemoveCustomMenu={() => update({ customMenu: null })}
             />
           ) : null}
-          {step === 6 ? (
+          {step === 7 ? (
             <PriceStep
               totalPrice={wizard.totalPrice}
               depositPaid={wizard.depositPaid}
+              guestCount={wizard.guestCount}
               onTotalChange={(totalPrice) => update({ totalPrice })}
               onDepositChange={(depositPaid) => update({ depositPaid })}
             />
           ) : null}
-          {step === 7 ? (
+          {step === 8 ? (
             <CredentialsStep
               username={wizard.username}
               usernameTouched={wizard.usernameTouched}
@@ -418,7 +454,7 @@ export function NewEventWizard({
               onGenerate={() => update({ password: generateRandomPassword() })}
             />
           ) : null}
-          {step === 8 ? (
+          {step === 9 ? (
             <ContactStep
               email={wizard.contactEmail}
               email2={wizard.contactEmail2}
@@ -436,8 +472,15 @@ export function NewEventWizard({
           {error}
         </p>
 
-        {step === 0 || step === 1 ? (
-          <p style={{ margin: "14px 0 0", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+        {step === 1 && wizard.seatingMode ? (
+          // Back on this step with a choice already made: carry on without re-picking.
+          <div className="ev-wiz-mode-next">
+            <button type="button" className="btn btn-gold" onClick={() => goToStep(2)}>
+              Продолжи <Icon name="right" size="sm" />
+            </button>
+          </div>
+        ) : step === 0 || step === 1 ? (
+          <p style={{ margin: "14px 0 0", fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
             {step === 0 ? "Кликнете на типот за да продолжите" : "Кликнете на начинот на седење за да продолжите"}
           </p>
         ) : (
@@ -446,7 +489,7 @@ export function NewEventWizard({
               <Icon name="left" size="sm" /> Назад
             </button>
             <div className="ev-wiz-foot-right">
-              {step === 6 ? (
+              {step === 7 ? (
                 <button type="button" className="btn btn-ghost" onClick={() => goToStep(step + 1)}>
                   Прескокни
                 </button>

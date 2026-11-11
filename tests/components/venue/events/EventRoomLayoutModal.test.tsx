@@ -39,36 +39,76 @@ describe("EventRoomLayoutModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Податоците не можеа да се вчитаат.");
   });
 
-  it("lists saved presets, previews the picked one, and only resolves once confirmed", async () => {
+  it("opens straight on the first saved layout and only resolves once confirmed", async () => {
     presetsLib.listRoomPresets.mockResolvedValue([{ id: "p1", room_id: "r1", name: "Стандарден", created_at: "x", updated_at: "x" }]);
     const elements = [{ element_type: "table" as const, table_type_id: null, x_cm: 1, y_cm: 1, width_cm: 160, length_cm: 160, rotation_deg: 0, label: null, group_id: null, table_role: "guest" as const }];
     presetsLib.getRoomPresetSnapshot.mockResolvedValue({ fixed: [], elements });
     const { onResolved } = renderModal();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Стандарден" }));
-    expect(presetsLib.getRoomPresetSnapshot).toHaveBeenCalledWith("p1", "r1");
+    expect(await screen.findByText("Стандарден", { selector: ".rl-name" })).toBeInTheDocument();
+    await waitFor(() => expect(presetsLib.getRoomPresetSnapshot).toHaveBeenCalledWith("p1", "r1"));
     // Previewed, not yet resolved — the manager must confirm what they see.
-    expect(await screen.findByRole("button", { name: "Користи го овој распоред" })).toBeInTheDocument();
+    const confirm = screen.getByRole("button", { name: "Користи го овој распоред" });
+    await waitFor(() => expect(confirm).toBeEnabled());
     expect(onResolved).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Користи го овој распоред" }));
+    await userEvent.click(confirm);
     await waitFor(() => expect(onResolved).toHaveBeenCalledWith(elements));
   });
 
-  it("can go back from the preset preview without resolving", async () => {
+  it("flips between saved layouts with the arrows, loading each one once", async () => {
+    presetsLib.listRoomPresets.mockResolvedValue([
+      { id: "p1", room_id: "r1", name: "Стандарден", created_at: "x", updated_at: "x" },
+      { id: "p2", room_id: "r1", name: "Банкет", created_at: "x", updated_at: "x" },
+    ]);
+    const banket = [{ element_type: "table" as const, table_type_id: null, x_cm: 5, y_cm: 5, width_cm: 160, length_cm: 160, rotation_deg: 0, label: null, group_id: null, table_role: "guest" as const }];
+    presetsLib.getRoomPresetSnapshot.mockImplementation(async (id: string) => ({ fixed: [], elements: id === "p2" ? banket : [] }));
+    const { onResolved } = renderModal();
+
+    expect(await screen.findByText("Стандарден", { selector: ".rl-name" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Претходен распоред" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Следен распоред" }));
+    expect(await screen.findByText("Банкет", { selector: ".rl-name" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Следен распоред" })).toBeDisabled();
+    await waitFor(() => expect(presetsLib.getRoomPresetSnapshot).toHaveBeenCalledWith("p2", "r1"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Претходен распоред" }));
+    await userEvent.click(screen.getByRole("button", { name: "Распоред 2" }));
+    expect(presetsLib.getRoomPresetSnapshot).toHaveBeenCalledTimes(2);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Користи го овој распоред" })).toBeEnabled());
+    await userEvent.click(screen.getByRole("button", { name: "Користи го овој распоред" }));
+    expect(onResolved).toHaveBeenCalledWith(banket);
+  });
+
+  it("re-opening a room starts on its current layout, ahead of the saved ones", async () => {
+    presetsLib.listRoomPresets.mockResolvedValue([{ id: "p1", room_id: "r1", name: "Стандарден", created_at: "x", updated_at: "x" }]);
+    const current = [{ element_type: "stage" as const, table_type_id: null, x_cm: 0, y_cm: 0, width_cm: 300, length_cm: 200, rotation_deg: 0, label: null, group_id: null, table_role: null }];
+    const { onResolved } = renderModal({ initialElements: current as never });
+
+    expect(await screen.findByText("Тековен распоред", { selector: ".rl-name" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Користи го овој распоред" }));
+    expect(onResolved).toHaveBeenCalledWith(current);
+    expect(presetsLib.getRoomPresetSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("can start a new layout from the preview and go back to it", async () => {
     presetsLib.listRoomPresets.mockResolvedValue([{ id: "p1", room_id: "r1", name: "Стандарден", created_at: "x", updated_at: "x" }]);
     presetsLib.getRoomPresetSnapshot.mockResolvedValue({ fixed: [], elements: [] });
     const { onResolved } = renderModal();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Стандарден" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Назад" }));
-    expect(await screen.findByRole("button", { name: "Стандарден" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /нов распоред/i }));
+    expect(screen.getByText("Нов распоред", { selector: ".rl-name" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(await screen.findByText("Стандарден", { selector: ".rl-name" })).toBeInTheDocument();
     expect(onResolved).not.toHaveBeenCalled();
   });
 
-  it("shows a hint instead of a list when the room has no saved presets yet", async () => {
+  it("goes straight to building a new layout when the room has no saved presets yet", async () => {
     renderModal();
     expect(await screen.findByText("Нема зачувани распореди за оваа сала сè уште.")).toBeInTheDocument();
+    expect(screen.getByText("Нов распоред", { selector: ".rl-name" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Назад" })).not.toBeInTheDocument();
   });
 
   it("surfaces a preset-load error without resolving", async () => {
@@ -76,16 +116,15 @@ describe("EventRoomLayoutModal", () => {
     presetsLib.getRoomPresetSnapshot.mockRejectedValue(new Error("boom"));
     const { onResolved } = renderModal();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Стандарден" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Користи го овој распоред" })).toBeDisabled();
     expect(onResolved).not.toHaveBeenCalled();
   });
 
   it("building a brand-new layout and skipping the save resolves with the built (empty) elements", async () => {
     const { onResolved } = renderModal();
 
-    await userEvent.click(await screen.findByRole("button", { name: /нов распоред/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Готово" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Готово" }));
     expect(await screen.findByText(/Да го зачувате овој распоред/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /продолжи без зачувување/i }));
 
@@ -97,8 +136,7 @@ describe("EventRoomLayoutModal", () => {
     presetsLib.saveRoomPresetFromElements.mockResolvedValue({ id: "new-preset", room_id: "r1", name: "Мој план", created_at: "x", updated_at: "x" });
     const { onResolved } = renderModal();
 
-    await userEvent.click(await screen.findByRole("button", { name: /нов распоред/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Готово" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Готово" }));
     await userEvent.type(screen.getByLabelText("Име на планот"), "Мој план");
     await userEvent.click(screen.getByRole("button", { name: /зачувај и продолжи/i }));
 
@@ -108,8 +146,7 @@ describe("EventRoomLayoutModal", () => {
 
   it("refuses to save without a name, without resolving", async () => {
     const { onResolved } = renderModal();
-    await userEvent.click(await screen.findByRole("button", { name: /нов распоред/i }));
-    await userEvent.click(screen.getByRole("button", { name: "Готово" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Готово" }));
     await userEvent.click(screen.getByRole("button", { name: /зачувај и продолжи/i }));
     expect(await screen.findByText("Внесете име за планот.")).toBeInTheDocument();
     expect(onResolved).not.toHaveBeenCalled();

@@ -4,12 +4,14 @@ import { parseCoupleContacts } from "./event-contacts";
 import { transliterateToSlug } from "./transliterate";
 import type { SnapshotElement } from "./room-presets";
 
-export const WIZARD_STEP_COUNT = 9;
+export const WIZARD_STEP_COUNT = 10;
 
 export type SeatingMode = "full" | "mini";
 
 export interface WizardState {
   type: EventType | null;
+  /** The venue's own name for a "Друго" event, e.g. "Прослава за 20 години брак" (optional). */
+  typeLabel: string;
   /** Project A §1: chosen explicitly, before anything else about the event. */
   seatingMode: SeatingMode | null;
   name: string;
@@ -41,6 +43,7 @@ export interface WizardState {
 export function initialWizardState(presetRoomIds: string[] = []): WizardState {
   return {
     type: null,
+    typeLabel: "",
     seatingMode: null,
     name: "",
     date: "",
@@ -98,13 +101,14 @@ export function validateStep(step: number, state: WizardState): string | null {
         return "Изберете или создајте распоред за секоја избрана сала";
       }
       return null;
-    case 6:
-      return depositExceedsTotal(state.totalPrice, state.depositPaid) ? DEPOSIT_OVER_TOTAL_ERROR : null;
+    // case 6 (menu) has no required fields — a staff member may decide the menu later.
     case 7:
+      return depositExceedsTotal(state.totalPrice, state.depositPaid) ? DEPOSIT_OVER_TOTAL_ERROR : null;
+    case 8:
       if (!state.username.trim()) return "Внесете корисничко име";
       if (state.password.length < 10) return "Лозинката треба да има најмалку 10 знаци";
       return null;
-    case 8: {
+    case 9: {
       const result = parseCoupleContacts({
         contact_email: state.contactEmail,
         contact_phone: state.contactPhone,
@@ -122,7 +126,7 @@ export function wizardWho(type: EventType | null): string {
   return type === "wedding" ? "младенците" : "организаторите";
 }
 
-/** [title, subtitle] for each of the 9 steps, worded around the event type where it reads better. */
+/** [title, subtitle] for each of the 10 steps, worded around the event type where it reads better. */
 export function wizardStepTitles(type: EventType | null): [string, string][] {
   const who = wizardWho(type);
   const isWedding = type === "wedding";
@@ -132,7 +136,8 @@ export function wizardStepTitles(type: EventType | null): [string, string][] {
     [isWedding ? "Кои се младенците?" : "Како се вика прославата?", "Ова име ќе стои на врвот на нивната страница"],
     ["Кога е големиот ден?", "Датум и време на почеток и крај"],
     ["Колку гости очекувате?", "Отприлика е доволно, бројот може да се смени подоцна"],
-    ["Каде и што ќе се служи?", "Изберете простории и мени"],
+    ["Каде ќе биде настанот?", "Изберете простории и распоред на маси"],
+    ["Што ќе се служи?", "Изберете мени за гостите"],
     ["Колку чини настанот?", "Опционално, за да го следите плаќањето"],
     [`Пристап за ${who}`, `Со овие податоци ${who} се најавуваат и го планираат настанот`],
     ["Како да ги контактираме?", `Контакт на ${who}`],

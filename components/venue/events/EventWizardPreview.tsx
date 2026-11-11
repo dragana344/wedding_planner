@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/venue/shell/Icon";
-import { TYPE_META } from "@/lib/venue/event-display";
+import { TYPE_META, eventTypeLabel } from "@/lib/venue/event-display";
 import { formatMkDateWithWeekday } from "@/lib/date";
 import { formatDen } from "@/lib/money";
 import type { WizardState } from "@/lib/venue/event-wizard";
@@ -38,6 +38,7 @@ export function EventWizardPreview({
   maxStepReached: number;
 }) {
   const meta = state.type ? TYPE_META[state.type] : null;
+  const typeName = state.type ? eventTypeLabel({ event_type: state.type, event_type_label: state.typeLabel }) : null;
   const roomNames = state.roomIds
     .map((id) => rooms.find((r) => r.id === id)?.name)
     .filter((name): name is string => Boolean(name))
@@ -48,7 +49,7 @@ export function EventWizardPreview({
       .filter((name): name is string => Boolean(name)),
     ...(state.customMenu ? [state.customMenu.name] : []),
   ];
-  const menuNames = maxStepReached >= 5 ? (pickedMenuNames.length > 0 ? pickedMenuNames.join(", ") : "Без мени") : "";
+  const menuNames = maxStepReached >= 6 ? (pickedMenuNames.length > 0 ? pickedMenuNames.join(", ") : "Без мени") : "";
   const timeValue = state.startTime ? `${state.startTime}${state.endTime ? ` – ${state.endTime}` : ""}` : "";
   const total = Number(state.totalPrice) || 0;
   const deposit = Number(state.depositPaid) || 0;
@@ -60,7 +61,7 @@ export function EventWizardPreview({
         <div className="ev-wiz-preview-ic">
           <Icon name={meta?.icon ?? "sparkles"} />
         </div>
-        <p className="ev-wiz-preview-eyebrow">{meta ? meta.label.toUpperCase() : "НОВ НАСТАН"}</p>
+        <p className="ev-wiz-preview-eyebrow">{typeName ? typeName.toUpperCase() : "НОВ НАСТАН"}</p>
         <p className={`ev-wiz-preview-name${state.name ? "" : " empty"}`}>{state.name || "Име на настанот"}</p>
         <div className="ev-wiz-preview-div">
           <span className="ev-wiz-preview-div-line" />

@@ -37,6 +37,7 @@ export function EventDatePicker({
   onChange,
   rooms,
   bookedDatesByRoom,
+  eventCountsByDate = {},
   onMonthChange,
 }: {
   value: string;
@@ -45,6 +46,8 @@ export function EventDatePicker({
   rooms: { id: string; name: string }[];
   /** roomId -> booked ISO dates, for the calendar's currently visible month. */
   bookedDatesByRoom: Record<string, string[]>;
+  /** date -> how many events the venue already has that day: one dot per event under the number. */
+  eventCountsByDate?: Record<string, number>;
   /** Fires on mount and whenever the visible month changes, so the parent can fetch that month's booked dates. */
   onMonthChange: (year: number, month: number) => void;
 }) {
@@ -86,6 +89,11 @@ export function EventDatePicker({
           const date = cell.date;
           const bookedRooms = bookedRoomsFor(date);
           const colors = bookedRooms.map((r) => roomColor(r.id, roomIds));
+          const eventCount = eventCountsByDate[date] ?? 0;
+          const titleParts = [
+            eventCount > 0 ? (eventCount === 1 ? "1 настан" : `${eventCount} настани`) : null,
+            bookedRooms.length > 0 ? `Веќе зафатено: ${bookedRooms.map((r) => r.name).join(", ")}` : null,
+          ].filter(Boolean);
           return (
             <button
               key={date}
@@ -93,10 +101,17 @@ export function EventDatePicker({
               className={["ev-cal-day", date === value ? "selected" : "", date === today ? "today" : ""].filter(Boolean).join(" ")}
               style={ringStyle(colors)}
               aria-pressed={date === value}
-              title={bookedRooms.length > 0 ? `Веќе зафатено: ${bookedRooms.map((r) => r.name).join(", ")}` : undefined}
+              title={titleParts.length > 0 ? titleParts.join(" · ") : undefined}
               onClick={() => onChange(date)}
             >
               {Number(date.slice(-2))}
+              {eventCount > 0 ? (
+                <span className={`ev-cal-dots${eventCount > 1 ? " is-multi" : ""}`} aria-label={eventCount === 1 ? "1 настан" : `${eventCount} настани`}>
+                  {Array.from({ length: Math.min(eventCount, 3) }, (_, k) => (
+                    <i key={k} />
+                  ))}
+                </span>
+              ) : null}
             </button>
           );
         })}

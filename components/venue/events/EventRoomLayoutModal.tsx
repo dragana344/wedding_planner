@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/venue/dashboard/Modal";
+import { Icon } from "@/components/venue/shell/Icon";
 import { WizardRoomLayoutEditor, type DraftElement } from "./WizardRoomLayoutEditor";
 import { listFixedElements, type FixedElement } from "@/lib/venue/floorplan";
 import { listTableTypes, type TableType } from "@/lib/venue/rooms";
@@ -9,7 +10,6 @@ import {
   listRoomPresets,
   getRoomPresetSnapshot,
   saveRoomPresetFromElements,
-  type RoomPreset,
   type SnapshotElement,
 } from "@/lib/venue/room-presets";
 import { errorMessage } from "@/lib/venue/user-error";
@@ -35,13 +35,20 @@ function toDraft(elements: SnapshotElement[]): DraftElement[] {
   return elements.map((el, i) => ({ ...el, localId: `seed-${i}`, createdAt: String(i).padStart(12, "0") }));
 }
 
+type Slide = { id: string; name: string };
+
+/** Marks the room's already-chosen layout when the manager re-opens it. */
+const CURRENT_ID = "current";
+
 /**
  * Opens right after a manager picks a room for a full-capacity event
  * (event-wizard, step "Каде и што ќе се служи?"): resolve that room's
  * starting table layout — either one of its saved presets, or a brand-new
- * one built on the spot — before the wizard can move on. Nothing here
- * touches the database; the resolved elements only travel in the wizard's
- * own state until the whole event is created.
+ * one built on the spot — before the wizard can move on. Opens straight on
+ * the first saved layout; the arrows flip through the rest, like the menu
+ * preview. Nothing here touches the database (except saving a new preset on
+ * request); the resolved elements only travel in the wizard's own state
+ * until the whole event is created.
  */
 export function EventRoomLayoutModal({
   roomId,
@@ -61,14 +68,17 @@ export function EventRoomLayoutModal({
   onResolved: (elements: SnapshotElement[]) => void;
   onClose: () => void;
 }) {
-  const [phase, setPhase] = useState<"pick" | "preset-preview" | "create" | "save-prompt">("pick");
-  const [presets, setPresets] = useState<RoomPreset[]>([]);
+  const [phase, setPhase] = useState<"loading" | "preview" | "create" | "save-prompt">("loading");
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [index, setIndex] = useState(0);
+  // Loaded layouts by slide id; a preset is fetched the first time it's shown.
+  const [snapshots, setSnapshots] = useState<Record<string, SnapshotElement[]>>(
+    initialElements ? { [CURRENT_ID]: initialElements } : {},
+  );
   const [fixedElements, setFixedElements] = useState<FixedElement[]>([]);
   const [tableTypes, setTableTypes] = useState<TableType[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
-  const [pickBusy, setPickBusy] = useState(false);
-  const [previewElements, setPreviewElements] = useState<SnapshotElement[] | null>(null);
   const [draft, setDraft] = useState<DraftElement[]>([]);
   const [presetName, setPresetName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -80,9 +90,16 @@ export function EventRoomLayoutModal({
     Promise.all([listRoomPresets(roomId), listFixedElements(roomId), listTableTypes(roomId)])
       .then(([p, fixed, types]) => {
         if (cancelled) return;
-        setPresets(p);
+        const all = [...(initialElements ? [{ id: CURRENT_ID, name: "Тековен распоред" }] : []), ...p.map((x) => ({ id: x.id, name: x.name }))];
+        setSlides(all);
         setFixedElements(fixed);
         setTableTypes(types);
+        if (all.length > 0) {
+          setPhase("preview");
+        } else {
+          setDraft([]);
+          setPhase("create");
+        }
       })
       .catch(() => {
         if (!cancelled) setLoadError(LOAD_ERROR);
@@ -90,24 +107,40 @@ export function EventRoomLayoutModal({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
-  async function handlePreviewPreset(presetId: string) {
+  const slide = slides[index];
+  const slideElements = slide ? snapshots[slide.id] : undefined;
+
+  useEffect(() => {
+    if (phase !== "preview" || !slide || snapshots[slide.id]) return;
+    let cancelled = false;
     setPickError(null);
-    setPickBusy(true);
-    try {
-      const snapshot = await getRoomPresetSnapshot(presetId, roomId);
-      setPreviewElements(snapshot.elements);
-      setPhase("preset-preview");
-    } catch (err) {
-      setPickError(errorMessage(err, "Планот не можеше да се вчита."));
-    } finally {
-      setPickBusy(false);
+    getRoomPresetSnapshot(slide.id, roomId)
+      .then((snapshot) => {
+        if (!cancelled) setSnapshots((prev) => ({ ...prev, [slide.id]: snapshot.elements }));
+      })
+      .catch((err) => {
+        if (!cancelled) setPickError(errorMessage(err, "Планот не можеше да се вчита."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, slide, snapshots, roomId]);
+
+  useEffect(() => {
+    if (phase !== "preview") return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") setIndex((i) => Math.min(slides.length - 1, i + 1));
+      if (e.key === "ArrowLeft") setIndex((i) => Math.max(0, i - 1));
     }
-  }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [phase, slides.length]);
 
   function confirmPreview() {
-    if (previewElements) onResolved(previewElements);
+    if (slideElements) onResolved(slideElements);
   }
 
   function openCreateNew() {
@@ -145,69 +178,101 @@ export function EventRoomLayoutModal({
   }
 
   return (
-    <Modal title={`Распоред за ${roomName}`} onClose={onClose} wide>
+    <Modal title={`Распоред за ${roomName}`} onClose={onClose} wide hideHeader className={phase === "save-prompt" || loadError ? "" : "rl-modal"}>
+      <div className="rl-head">
+        <h2 className="rl-title">{`Распоред за ${roomName}`}</h2>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Затвори">
+          <Icon name="x" size="sm" />
+        </button>
+      </div>
       {loadError ? (
         <p role="alert">{loadError}</p>
-      ) : phase === "pick" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <p className="ev-hint">
-            Изберете еден од зачуваните распореди на маси за оваа сала, или создајте нов за овој настан.
-          </p>
-          {presets.length > 0 ? (
-            <div className="ev-wiz-opts cols-2">
-              {presets.map((p) => (
-                <button key={p.id} type="button" className="ev-wiz-opt" disabled={pickBusy} onClick={() => handlePreviewPreset(p.id)}>
-                  {p.name}
-                </button>
-              ))}
+      ) : phase === "loading" ? (
+        <p className="ev-hint">Се вчитува...</p>
+      ) : phase === "preview" && slide ? (
+        <>
+          <div className="rl-bar">
+            <div className="rl-nav">
+              <button type="button" className="modal-close" onClick={() => setIndex(index - 1)} disabled={index === 0} aria-label="Претходен распоред">
+                <Icon name="left" size="sm" />
+              </button>
+              <div className="rl-nav-mid">
+                <strong className="rl-name">{slide.name}</strong>
+                <div className="mp-flip-dots">
+                  {slides.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={`mp-flip-dot${i === index ? " on" : ""}`}
+                      onClick={() => setIndex(i)}
+                      aria-label={`Распоред ${i + 1}`}
+                    />
+                  ))}
+                  <span className="mp-flip-count">
+                    {index + 1} / {slides.length}
+                  </span>
+                </div>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setIndex(index + 1)} disabled={index === slides.length - 1} aria-label="Следен распоред">
+                <Icon name="right" size="sm" />
+              </button>
             </div>
-          ) : (
-            <p className="ev-hint">Нема зачувани распореди за оваа сала сè уште.</p>
-          )}
-          {pickError ? <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{pickError}</p> : null}
-          <button type="button" className="btn btn-gold" onClick={openCreateNew}>
-            + Нов распоред
-          </button>
-        </div>
-      ) : phase === "preset-preview" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <WizardRoomLayoutEditor
-            widthCm={widthCm}
-            heightCm={heightCm}
-            fixedElements={fixedElements}
-            tableTypes={tableTypes}
-            elements={toDraft(previewElements ?? [])}
-            onChange={() => {}}
-            readOnly
-          />
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setPhase("pick")}>
-              Назад
-            </button>
-            <button type="button" className="btn btn-gold" onClick={confirmPreview}>
-              Користи го овој распоред
-            </button>
+            <div className="rl-actions">
+              <button type="button" className="btn btn-ghost" onClick={openCreateNew}>
+                + Нов распоред
+              </button>
+              <button type="button" className="btn btn-gold" onClick={confirmPreview} disabled={!slideElements}>
+                Користи го овој распоред
+              </button>
+            </div>
           </div>
-        </div>
+          {pickError ? <p role="alert" style={{ color: "var(--bad)", fontSize: 14, margin: 0 }}>{pickError}</p> : null}
+          <div className="rl-body">
+            {slideElements ? (
+              <WizardRoomLayoutEditor
+                key={slide.id}
+                widthCm={widthCm}
+                heightCm={heightCm}
+                fixedElements={fixedElements}
+                tableTypes={tableTypes}
+                elements={toDraft(slideElements)}
+                onChange={() => {}}
+                readOnly
+              />
+            ) : pickError ? null : (
+              <p className="ev-hint">Се вчитува...</p>
+            )}
+          </div>
+        </>
       ) : phase === "create" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <WizardRoomLayoutEditor
-            widthCm={widthCm}
-            heightCm={heightCm}
-            fixedElements={fixedElements}
-            tableTypes={tableTypes}
-            elements={draft}
-            onChange={setDraft}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setPhase("pick")}>
-              Назад
-            </button>
-            <button type="button" className="btn btn-gold" onClick={handleDoneCreating}>
-              Готово
-            </button>
+        <>
+          <div className="rl-bar">
+            <div className="rl-nav-mid" style={{ alignItems: "flex-start" }}>
+              <strong className="rl-name">Нов распоред</strong>
+              {slides.length === 0 ? <span className="ev-hint">Нема зачувани распореди за оваа сала сè уште.</span> : null}
+            </div>
+            <div className="rl-actions">
+              {slides.length > 0 ? (
+                <button type="button" className="btn btn-ghost" onClick={() => setPhase("preview")}>
+                  Назад
+                </button>
+              ) : null}
+              <button type="button" className="btn btn-gold" onClick={handleDoneCreating}>
+                Готово
+              </button>
+            </div>
           </div>
-        </div>
+          <div className="rl-body">
+            <WizardRoomLayoutEditor
+              widthCm={widthCm}
+              heightCm={heightCm}
+              fixedElements={fixedElements}
+              tableTypes={tableTypes}
+              elements={draft}
+              onChange={setDraft}
+            />
+          </div>
+        </>
       ) : (
         <form onSubmit={handleSaveAndContinue} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <p className="ev-hint">Да го зачувате овој распоред за да го користите и за други настани во иста сала?</p>
@@ -217,7 +282,7 @@ export function EventRoomLayoutModal({
             </label>
             <input id="wizard-preset-name" className="fld" value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="пр. Стандарден" />
           </div>
-          {saveError ? <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{saveError}</p> : null}
+          {saveError ? <p role="alert" style={{ color: "var(--bad)", fontSize: 14, margin: 0 }}>{saveError}</p> : null}
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <button type="button" className="btn btn-ghost" onClick={finishWithoutSaving} disabled={saveBusy}>
               Продолжи без зачувување

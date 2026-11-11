@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/venue/shell/Icon";
-import { TYPE_META } from "@/lib/venue/event-display";
+import { EVENT_TYPE_LABEL_MAX, TYPE_META } from "@/lib/venue/event-display";
 import { STATUS_OPTIONS } from "@/lib/venue/event-display";
 import { formatDen } from "@/lib/money";
 import { formatPrice } from "@/lib/venue/menu-display";
@@ -11,11 +11,13 @@ import type { Room } from "@/lib/venue/rooms";
 import type { MenuTemplate, MenuItem } from "@/lib/venue/menus";
 import { LockedBanner } from "@/components/entitlements/LockedBanner";
 import { EventDatePicker } from "./EventDatePicker";
+import { EventTypeIllustration, SeatingModeIllustration } from "./EventTypeIllustration";
+import { PriceCalculator } from "./PriceCalculator";
 import { formatMkDateWithWeekday } from "@/lib/date";
 
-const SEATING_MODE_META: Record<SeatingMode, { icon: string; label: string; description: string }> = {
-  full: { icon: "home", label: "Цел простор", description: "Настанот го зафаќа целиот простор (свадба, голема прослава)." },
-  mini: { icon: "users", label: "Мини настан", description: "Настанот зафаќа само дел од капацитетот — просторот работи нормално покрај него." },
+const SEATING_MODE_META: Record<SeatingMode, { label: string; description: string }> = {
+  full: { label: "Цел простор", description: "Настанот го зафаќа целиот простор (свадба, голема прослава)." },
+  mini: { label: "Мини настан", description: "Настанот зафаќа само дел од капацитетот — просторот работи нормално покрај него." },
 };
 
 export type MenuTemplateWithItems = MenuTemplate & { items: MenuItem[] };
@@ -38,46 +40,91 @@ const NAME_PLACEHOLDERS: Record<EventType, string> = {
   other: "пр. Име на прославата",
 };
 
-export function EventTypeStep({ selected, onSelect }: { selected: EventType | null; onSelect: (type: EventType) => void }) {
+export function EventTypeStep({
+  selected,
+  onSelect,
+  customLabel,
+  onCustomLabelChange,
+  onContinue,
+}: {
+  selected: EventType | null;
+  onSelect: (type: EventType) => void;
+  /** "Друго": the venue's own name for the event type. */
+  customLabel: string;
+  onCustomLabelChange: (value: string) => void;
+  onContinue: () => void;
+}) {
   return (
-    <div className="ev-wiz-types">
-      {(Object.entries(TYPE_META) as [EventType, (typeof TYPE_META)[EventType]][]).map(([key, meta]) => (
-        <button
-          key={key}
-          type="button"
-          className={`ev-wiz-ty${selected === key ? " on" : ""}`}
-          aria-pressed={selected === key}
-          onClick={() => onSelect(key)}
+    <>
+      <div className="ev-wiz-types">
+        {(Object.entries(TYPE_META) as [EventType, (typeof TYPE_META)[EventType]][]).map(([key, meta]) => (
+          <button
+            key={key}
+            type="button"
+            className={`ev-wiz-ty${selected === key ? " on" : ""}`}
+            aria-pressed={selected === key}
+            onClick={() => onSelect(key)}
+          >
+            <span className="ev-wiz-ty-art">
+              <EventTypeIllustration type={key} />
+            </span>
+            {meta.label}
+          </button>
+        ))}
+      </div>
+      {selected === "other" ? (
+        <form
+          className="ev-wiz-other"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onContinue();
+          }}
         >
-          <span className="ev-wiz-ty-ic">
-            <Icon name={meta.icon} size="lg" />
-          </span>
-          {meta.label}
-        </button>
-      ))}
-    </div>
+          <label className="lab-s" htmlFor="wizard-type-label">
+            Каков настан?
+          </label>
+          <div className="ev-wiz-other-row">
+            <input
+              id="wizard-type-label"
+              className="fld"
+              value={customLabel}
+              onChange={(e) => onCustomLabelChange(e.target.value)}
+              placeholder="пр. Прослава за 20 години брак"
+              maxLength={EVENT_TYPE_LABEL_MAX}
+              autoFocus
+            />
+            <button type="submit" className="btn btn-gold">
+              Продолжи <Icon name="right" size="sm" />
+            </button>
+          </div>
+          <p className="ev-hint">Ова име ќе стои наместо „Друго“ насекаде каде што се прикажува настанот.</p>
+        </form>
+      ) : null}
+    </>
   );
 }
 
 export function SeatingModeStep({ selected, onSelect }: { selected: SeatingMode | null; onSelect: (mode: SeatingMode) => void }) {
   return (
-    <div className="ev-wiz-types">
+    <div className="ev-wiz-modes">
       {(Object.entries(SEATING_MODE_META) as [SeatingMode, (typeof SEATING_MODE_META)[SeatingMode]][]).map(([key, meta]) => (
         <button
           key={key}
           type="button"
-          className={`ev-wiz-ty${selected === key ? " on" : ""}`}
+          className={`ev-wiz-mode${selected === key ? " on" : ""}`}
           aria-pressed={selected === key}
           onClick={() => onSelect(key)}
-          style={{ maxWidth: 220 }}
         >
-          <span className="ev-wiz-ty-ic">
-            <Icon name={meta.icon} size="lg" />
+          {selected === key ? (
+            <span className="ev-wiz-mode-check" aria-hidden>
+              <Icon name="tick" size="sm" />
+            </span>
+          ) : null}
+          <span className="ev-wiz-mode-art">
+            <SeatingModeIllustration mode={key} />
           </span>
-          {meta.label}
-          <span style={{ display: "block", fontSize: 12, color: "var(--muted)", fontWeight: 400, marginTop: 4 }}>
-            {meta.description}
-          </span>
+          <span className="ev-wiz-mode-title">{meta.label}</span>
+          <span className="ev-wiz-mode-desc">{meta.description}</span>
         </button>
       ))}
     </div>
@@ -117,6 +164,7 @@ export function DateTimeStep({
   endTime,
   rooms,
   bookedDatesByRoom,
+  eventCountsByDate,
   onDateChange,
   onStartChange,
   onEndChange,
@@ -129,6 +177,8 @@ export function DateTimeStep({
   rooms?: Room[];
   /** roomId -> booked dates, in the calendar's currently visible month, where that room has a full-capacity event. */
   bookedDatesByRoom?: Record<string, string[]>;
+  /** date -> how many events the venue already has that day, in the visible month. */
+  eventCountsByDate?: Record<string, number>;
   onDateChange: (value: string) => void;
   onStartChange: (value: string) => void;
   onEndChange: (value: string) => void;
@@ -159,6 +209,7 @@ export function DateTimeStep({
             onChange={onDateChange}
             rooms={rooms ?? []}
             bookedDatesByRoom={bookedDatesByRoom ?? {}}
+            eventCountsByDate={eventCountsByDate ?? {}}
             onMonthChange={onCalendarMonthChange ?? (() => {})}
           />
         </div>
@@ -193,7 +244,7 @@ export function GuestsStep({ guestCount, onChange }: { guestCount: number; onCha
     <div>
       <div style={{ textAlign: "center", padding: "4px 0 10px" }}>
         <span className="ev-wiz-guest-num">~{guestCount}</span>
-        <span style={{ fontSize: 14, color: "var(--muted)", marginLeft: 8 }}>гости</span>
+        <span style={{ fontSize: 14.5, color: "var(--muted)", marginLeft: 8 }}>гости</span>
       </div>
       <input
         type="range"
@@ -216,41 +267,18 @@ export function GuestsStep({ guestCount, onChange }: { guestCount: number; onCha
   );
 }
 
-export function RoomsMenuStep({
+export function RoomsStep({
   rooms,
-  menuTemplates,
   selectedRoomIds,
-  menuTemplateIds,
   onToggleRoom,
-  onToggleMenu,
-  onClearMenus,
-  onViewMenu,
-  customMenu,
-  customMenuEnabled,
-  customMenuError,
-  onOpenCustomMenu,
-  onRemoveCustomMenu,
   singleRoom,
   seatingMode,
   roomLayouts,
   onOpenRoomLayout,
 }: {
   rooms: Room[];
-  menuTemplates: MenuTemplateWithItems[];
   selectedRoomIds: string[];
-  /** Several menus can be picked at once (e.g. classic + посно for mixed diets). */
-  menuTemplateIds: string[];
   onToggleRoom: (roomId: string) => void;
-  onToggleMenu: (menuTemplateId: string) => void;
-  onClearMenus: () => void;
-  onViewMenu: (index: number) => void;
-  /** The event's own menu, built here; saved together with the event. */
-  customMenu: { name: string; itemIds: string[] } | null;
-  /** Whether the plan includes the custom menu; null while unknown. */
-  customMenuEnabled: boolean | null;
-  customMenuError: string | null;
-  onOpenCustomMenu: () => void;
-  onRemoveCustomMenu: () => void;
   /** Project B §2: a mini-event claims exactly one room — picking another swaps the choice instead of adding to it. */
   singleRoom?: boolean;
   /** 'mini' events never get this section at all — they have no seating concept (Project B §3). */
@@ -259,7 +287,6 @@ export function RoomsMenuStep({
   roomLayouts?: Record<string, unknown[]>;
   onOpenRoomLayout?: (roomId: string) => void;
 }) {
-  const noMenu = menuTemplateIds.length === 0 && !customMenu;
   return (
     <div>
       <p className="lab-s" style={{ marginBottom: 10 }}>
@@ -291,7 +318,7 @@ export function RoomsMenuStep({
         </div>
       )}
       {seatingMode === "full" && selectedRoomIds.length > 0 ? (
-        <div style={{ marginBottom: 20 }}>
+        <div>
           <p className="lab-s" style={{ marginBottom: 10 }}>
             РАСПОРЕД НА МАСИ
           </p>
@@ -316,9 +343,39 @@ export function RoomsMenuStep({
           </div>
         </div>
       ) : null}
-      <p className="lab-s" style={{ marginBottom: 10 }}>
-        МЕНИ
-      </p>
+    </div>
+  );
+}
+
+export function MenuStep({
+  menuTemplates,
+  menuTemplateIds,
+  onToggleMenu,
+  onClearMenus,
+  onViewMenu,
+  customMenu,
+  customMenuEnabled,
+  customMenuError,
+  onOpenCustomMenu,
+  onRemoveCustomMenu,
+}: {
+  menuTemplates: MenuTemplateWithItems[];
+  /** Several menus can be picked at once (e.g. classic + посно for mixed diets). */
+  menuTemplateIds: string[];
+  onToggleMenu: (menuTemplateId: string) => void;
+  onClearMenus: () => void;
+  onViewMenu: (index: number) => void;
+  /** The event's own menu, built here; saved together with the event. */
+  customMenu: { name: string; itemIds: string[] } | null;
+  /** Whether the plan includes the custom menu; null while unknown. */
+  customMenuEnabled: boolean | null;
+  customMenuError: string | null;
+  onOpenCustomMenu: () => void;
+  onRemoveCustomMenu: () => void;
+}) {
+  const noMenu = menuTemplateIds.length === 0 && !customMenu;
+  return (
+    <div>
       <p className="ev-hint" style={{ marginBottom: 10 }}>
         Можете да изберете повеќе менија — на пример класично и посно, за гости со различна исхрана.
       </p>
@@ -420,11 +477,13 @@ export function RoomsMenuStep({
 export function PriceStep({
   totalPrice,
   depositPaid,
+  guestCount,
   onTotalChange,
   onDepositChange,
 }: {
   totalPrice: string;
   depositPaid: string;
+  guestCount: number;
   onTotalChange: (value: string) => void;
   onDepositChange: (value: string) => void;
 }) {
@@ -441,6 +500,9 @@ export function PriceStep({
           <div className="ev-wiz-cur">
             <input id="ev-wiz-total" className="fld" type="number" min={0} value={totalPrice} onChange={(e) => onTotalChange(e.target.value)} placeholder="0" />
             <span>МКД</span>
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <PriceCalculator guestCount={guestCount} onApply={(value) => onTotalChange(String(value))} />
           </div>
         </div>
         <div className="ev-field">
@@ -467,7 +529,7 @@ export function PriceStep({
             </div>
           </>
         ) : (
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Внесете цена за да видите колку е платено.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)" }}>Внесете цена за да видите колку е платено.</p>
         )}
       </div>
     </div>
@@ -504,7 +566,7 @@ export function CredentialsStep({
         placeholder="пр. ivana-marko"
         autoComplete="off"
       />
-      <p style={{ fontSize: 12, color: "var(--muted)", margin: "5px 0 16px" }}>
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "5px 0 16px" }}>
         {!usernameTouched && username ? "Предлог од името, може да се смени" : " "}
       </p>
       <label className="lab-s" htmlFor="ev-wiz-password">
@@ -523,7 +585,7 @@ export function CredentialsStep({
           <Icon name="wand" size="sm" /> Генерирај
         </button>
       </div>
-      <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 0" }}>
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>
         {passwordLength >= 10 ? (
           <span style={{ color: "var(--gold-text)" }}>
             <Icon name="check" size="sm" /> Доволно долга
@@ -558,16 +620,22 @@ export function ContactStep({
   return (
     <div className="ev-form-grid">
       <div className="ev-field ev-field-wide">
-        <input className="fld" aria-label="Email на парот" placeholder="Email на парот" type="email" required value={email} onChange={(e) => onEmailChange(e.target.value)} />
+        <label className="lab-s" htmlFor="ev-wiz-email">
+          Е-пошта <span className="req">*</span>
+        </label>
+        <input id="ev-wiz-email" className="fld" type="email" required value={email} onChange={(e) => onEmailChange(e.target.value)} />
       </div>
-      <div className="ev-field">
+      <div className="ev-field ev-field-wide">
         <label className="lab-s" htmlFor="ev-wiz-email2">
           Втора е-пошта (по желба)
         </label>
-        <input id="ev-wiz-email2" className="fld" aria-label="Втора е-пошта (по желба)" type="email" value={email2} onChange={(e) => onEmail2Change(e.target.value)} />
+        <input id="ev-wiz-email2" className="fld" type="email" value={email2} onChange={(e) => onEmail2Change(e.target.value)} />
       </div>
-      <div className="ev-field">
-        <input className="fld" aria-label="Телефон на парот" placeholder="Телефон на парот" type="tel" required value={phone} onChange={(e) => onPhoneChange(e.target.value)} />
+      <div className="ev-field ev-field-wide">
+        <label className="lab-s" htmlFor="ev-wiz-phone">
+          Телефон <span className="req">*</span>
+        </label>
+        <input id="ev-wiz-phone" className="fld" type="tel" required value={phone} onChange={(e) => onPhoneChange(e.target.value)} />
       </div>
       <div className="ev-field ev-field-wide">
         <label className="lab-s" htmlFor="ev-wiz-status">
