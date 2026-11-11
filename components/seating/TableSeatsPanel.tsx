@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Icon } from "@/components/venue/shell/Icon";
 import { tableTitle, type Seat, type SeatGuest, type SeatInput, type SeatTable } from "@/lib/seating/types";
 
 interface Row {
@@ -24,7 +25,8 @@ const MAX_SUGGESTIONS = 8;
  * One table's seat list: seats 1..capacity, each a guest from the list
  * (autocomplete offers only guests with a free seat left) or free text.
  * Rows can be dragged onto another seat (the two swap). Nothing is written
- * until "Зачувај".
+ * until "Зачувај" — except in the couple variant, which saves every change
+ * as it happens (a pick, a cleared seat, a swap, a typed name on leaving it).
  */
 export function TableSeatsPanel({
   table,
@@ -33,6 +35,9 @@ export function TableSeatsPanel({
   onSave,
   onClose,
   readOnly = false,
+  draggingGuestId = null,
+  onDropGuest,
+  variant = "default",
 }: {
   table: SeatTable;
   seats: Seat[];
@@ -40,13 +45,24 @@ export function TableSeatsPanel({
   onSave: (seats: SeatInput[]) => Promise<void>;
   onClose?: () => void;
   readOnly?: boolean;
+  /** The guest rail's drag-and-drop (fix #2): the id of the guest currently
+   * being dragged in from outside this panel, or null. */
+  draggingGuestId?: string | null;
+  /** Called instead of the in-panel seat swap when a rail guest is dropped
+   * on seat `seatNumber`. Absent: this panel only swaps its own rows. */
+  onDropGuest?: (seatNumber: number) => void;
+  /** "couple": the ivory/gold sidebar look (couple-seating.css) with autosave. */
+  variant?: "default" | "couple";
 }) {
+  const autosave = variant === "couple";
   const [rows, setRows] = useState<Row[]>(() => rowsFrom(table, seats));
   const [openSeat, setOpenSeat] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // Couple variant: a typed name waiting to be saved when its field is left.
+  const dirtyRef = useRef(false);
 
   const guestById = useMemo(() => new Map(guests.map((g) => [g.id, g])), [guests]);
 
@@ -67,7 +83,16 @@ export function TableSeatsPanel({
 
   function update(index: number, row: Row) {
     setSaved(false);
+    dirtyRef.current = true;
     setRows((prev) => prev.map((r, i) => (i === index ? row : r)));
+  }
+
+  /** Sets one seat and, in the couple variant, saves straight away. */
+  function commit(index: number, row: Row) {
+    const next = rows.map((r, i) => (i === index ? row : r));
+    setSaved(false);
+    setRows(next);
+    if (autosave) save(next);
   }
 
   function suggestions(index: number): SeatGuest[] {
@@ -86,19 +111,19 @@ export function TableSeatsPanel({
     const from = dragFrom;
     setDragFrom(null);
     setSaved(false);
-    setRows((prev) => {
-      const next = [...prev];
-      [next[from], next[target]] = [next[target], next[from]];
-      return next;
-    });
+    const next = [...rows];
+    [next[from], next[target]] = [next[target], next[from]];
+    setRows(next);
+    if (autosave) save(next);
   }
 
-  async function save() {
+  async function save(current: Row[] = rows) {
+    dirtyRef.current = false;
     setError(null);
     setSaving(true);
     try {
       await onSave(
-        rows.flatMap((r, i): SeatInput[] => {
+        current.flatMap((r, i): SeatInput[] => {
           const text = r.text.trim();
           if (r.guestId) return [{ seatNumber: i + 1, guestId: r.guestId, guestName: null }];
           return text ? [{ seatNumber: i + 1, guestId: null, guestName: text }] : [];
@@ -110,6 +135,135 @@ export function TableSeatsPanel({
     } finally {
       setSaving(false);
     }
+  }
+
+  if (variant === "couple") {
+    return (
+      <section className="cs-seats" aria-label={`Листа за ${tableTitle(table)}`}>
+        <div className="cs-seats-head">
+          <h3 className="cs-seats-title">{tableTitle(table)}</h3>
+          <span className="cs-seats-count">
+            {filled}/{table.capacity}
+          </span>
+          {!readOnly && !error ? (
+            <span className="cs-seats-status" role="status">
+              {saving ? (
+                "Се зачувува..."
+              ) : (
+                <>
+                  <Icon name="tick" size="sm" />
+                  Автоматски зачувано
+                </>
+              )}
+            </span>
+          ) : null}
+        </div>
+
+        {overbooked.map((g) => (
+          <p key={g.id} className="cs-seats-warn">
+            {g.fullName}: повеќе места од бројот на лица ({held(g.id)} / {g.partySize}).
+          </p>
+        ))}
+
+        <ol className="cs-seat-list">
+          {rows.map((row, index) => {
+            const seatNumber = index + 1;
+            const filledRow = !!(row.guestId || row.text.trim());
+            if (readOnly) {
+              return (
+                <li key={seatNumber} className={`cs-seat${filledRow ? "" : " is-free"}`}>
+                  <Icon name="seats" size="sm" className="cs-seat-ic" />
+                  <span className="cs-seat-no">Седиште {seatNumber}</span>
+                  <span className="cs-seat-dash">—</span>
+                  <span className="cs-seat-name">{row.text || "Слободно"}</span>
+                </li>
+              );
+            }
+            const options = openSeat === index ? suggestions(index) : [];
+            return (
+              <li
+                key={seatNumber}
+                data-testid={`seat-row-${seatNumber}`}
+                onPointerUp={() => {
+                  if (draggingGuestId && onDropGuest) {
+                    onDropGuest(seatNumber);
+                    return;
+                  }
+                  drop(index);
+                }}
+                className={`cs-seat${filledRow ? "" : " is-free"}${dragFrom !== null || draggingGuestId ? " is-droppable" : ""}`}
+              >
+                <button
+                  type="button"
+                  aria-label={`Премести од столче ${seatNumber}`}
+                  onPointerDown={(e) => {
+                    (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+                    setDragFrom(index);
+                  }}
+                  className="cs-seat-handle"
+                >
+                  <Icon name="seats" size="sm" className="cs-seat-ic" />
+                </button>
+                <label htmlFor={`seat-${table.elementId}-${seatNumber}`} className="cs-seat-no">
+                  Седиште {seatNumber}
+                </label>
+                <span className="cs-seat-dash" aria-hidden>
+                  —
+                </span>
+                <input
+                  id={`seat-${table.elementId}-${seatNumber}`}
+                  aria-label={`Столче ${seatNumber}`}
+                  value={row.text}
+                  placeholder="Слободно"
+                  autoComplete="off"
+                  maxLength={200}
+                  onFocus={() => setOpenSeat(index)}
+                  onBlur={() => {
+                    setTimeout(() => setOpenSeat((s) => (s === index ? null : s)), 150);
+                    if (dirtyRef.current) save();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  onChange={(e) => update(index, { guestId: null, text: e.target.value })}
+                  className={`cs-seat-name${row.guestId ? " is-linked" : ""}`}
+                />
+                {filledRow ? (
+                  <button type="button" aria-label={`Ослободи седиште ${seatNumber}`} onClick={() => commit(index, { guestId: null, text: "" })} className="cs-seat-clear">
+                    <Icon name="x" size="sm" />
+                  </button>
+                ) : null}
+                {options.length > 0 ? (
+                  <ul role="listbox" className="cs-suggest">
+                    {options.map((g) => (
+                      <li key={g.id} role="option" aria-selected={false}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            commit(index, { guestId: g.id, text: g.fullName });
+                            setOpenSeat(null);
+                          }}
+                        >
+                          <span>{g.fullName}</span>
+                          {g.partySize > 1 ? (
+                            <span className="cs-suggest-count">
+                              {held(g.id)}/{g.partySize}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+
+        {error ? <p className="cs-seats-error">{error}</p> : null}
+      </section>
+    );
   }
 
   return (
@@ -149,8 +303,16 @@ export function TableSeatsPanel({
             <li
               key={seatNumber}
               data-testid={`seat-row-${seatNumber}`}
-              onPointerUp={() => drop(index)}
-              className={`relative flex items-center gap-2 rounded-lg px-1 ${dragFrom !== null ? "hover:bg-lilac-light" : ""}`}
+              onPointerUp={() => {
+                if (draggingGuestId && onDropGuest) {
+                  onDropGuest(seatNumber);
+                  return;
+                }
+                drop(index);
+              }}
+              className={`relative flex items-center gap-2 rounded-lg px-1 ${
+                dragFrom !== null || draggingGuestId ? "hover:bg-lilac-light" : ""
+              }`}
             >
               <button
                 type="button"
@@ -211,7 +373,7 @@ export function TableSeatsPanel({
         <div className="mt-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={save}
+            onClick={() => save()}
             disabled={saving}
             className="rounded-full bg-lilac-dark px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
           >

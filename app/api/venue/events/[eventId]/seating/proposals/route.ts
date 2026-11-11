@@ -12,6 +12,7 @@ import {
   approveSeatingProposal,
   rejectSeatingProposal,
   listSeatingProposals,
+  getSeatingProposalDiff,
   ProposalAlreadyRespondedError,
 } from "@/lib/seating/proposals";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
@@ -64,10 +65,24 @@ export const GET = withPublic(
     const venueId = await getCurrentVenueId(supabase);
     if (!venueId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
 
+    const client = createServiceRoleClient();
+    const proposalId = request.nextUrl.searchParams.get("proposal_id");
+    if (proposalId) {
+      const parsed = parseInput(uuid, proposalId, "Невалиден предлог.");
+      if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      try {
+        const roomId = await roomOfProposal(client, params.eventId, parsed.data);
+        await assertEventRoom(client, venueId, params.eventId, roomId);
+        return NextResponse.json(await getSeatingProposalDiff(parsed.data, client));
+      } catch (err) {
+        if (err instanceof NotFound) return NextResponse.json({ error: err.message }, { status: 404 });
+        return errorResponse(err, "Не успеа вчитувањето на промените.", request);
+      }
+    }
+
     const room = parseInput(roomIdQuery, request.nextUrl.searchParams.get("room_id"), ROOM_ID_REQUIRED_ERROR);
     if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
 
-    const client = createServiceRoleClient();
     try {
       await assertEventRoom(client, venueId, params.eventId, room.data);
       return NextResponse.json(await listSeatingProposals(params.eventId, room.data, client));

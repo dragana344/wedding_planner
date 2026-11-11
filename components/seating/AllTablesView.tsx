@@ -70,7 +70,7 @@ export function AllTablesView({
               className={`s3-table-card rounded-2xl border bg-white p-3 text-left ${active ? "border-[#B8913A] ring-2 ring-[#B8913A]" : "border-neutral-200"}`}
             >
               <span className="mb-1 flex items-baseline justify-between">
-                <span className="font-medium text-neutral-900">{tableTitle(t)}</span>
+                <span className="text-base font-bold text-neutral-900">{tableTitle(t)}</span>
                 <span className="text-sm text-neutral-500">
                   {seats.length}/{t.capacity}
                 </span>

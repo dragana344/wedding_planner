@@ -145,16 +145,22 @@ export async function updateRoomDimensions(
 
 export type LayoutElementType = "table" | "stage" | "dance_floor" | "bar_movable" | "music" | "photo_stage" | "other";
 
-/** What a table is for (0073): only guest tables are numbered "Маса N". */
-export type TableRole = "guest" | "couple" | "head";
+/** What a table is for (0073; 'crew' added 0143): only guest tables are
+ * numbered "Маса N". */
+export type TableRole = "guest" | "couple" | "head" | "crew";
 
 export const TABLE_ROLE_LABELS: Record<TableRole, string> = {
   guest: "Маса",
   couple: "Маса на младенците",
   head: "Главна маса",
+  crew: "Маса за музика и фотографи",
 };
 
 export const COUPLE_TABLE_COLOR = "#8B6CC9";
+/** Always this color regardless of occupancy — the point is marking "not a
+ * guest table" at a glance, same treatment as COUPLE_TABLE_COLOR, unlike the
+ * head table which still uses occupancy coloring. */
+export const CREW_TABLE_COLOR = "#9CA3AF";
 
 export const FIXED_LABELS: Record<FixedElementType, string> = {
   wall: "Ѕид",
@@ -201,6 +207,9 @@ export interface RoomLayoutElement {
   /** Tables sharing this id are one group (0072). */
   group_id?: string | null;
   table_role?: TableRole;
+  /** Round vs rectangular for a non-table ("other") element — a table's own
+   * shape always comes from its table_type instead (0145). */
+  shape?: "round" | "rectangular" | null;
 }
 
 export interface RoomLayoutElementInput {
@@ -213,10 +222,11 @@ export interface RoomLayoutElementInput {
   length_cm: number;
   label?: string | null;
   table_role?: TableRole;
+  shape?: "round" | "rectangular" | null;
 }
 
 const ROOM_LAYOUT_COLUMNS =
-  "id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, created_at, group_id, table_role";
+  "id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, created_at, group_id, table_role, shape";
 
 export async function listRoomLayoutElements(
   roomId: string,
@@ -324,6 +334,8 @@ export interface EventLayoutElement {
   /** Tables sharing this id are one group (0072). */
   group_id?: string | null;
   table_role?: TableRole;
+  /** Round vs rectangular for a non-table ("other") element (0145). */
+  shape?: "round" | "rectangular" | null;
 }
 
 export interface EventLayoutElementInput {
@@ -337,10 +349,11 @@ export interface EventLayoutElementInput {
   length_cm: number;
   label?: string | null;
   table_role?: TableRole;
+  shape?: "round" | "rectangular" | null;
 }
 
 const EVENT_LAYOUT_COLUMNS =
-  "id, event_id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, group_id, table_role";
+  "id, event_id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, group_id, table_role, shape";
 
 export async function listEventLayoutElements(
   eventId: string,
@@ -465,6 +478,7 @@ async function copyRoomLayoutToEvent(
         label: el.label,
         group_id: el.group_id ?? null,
         table_role: el.table_role ?? "guest",
+        shape: el.shape ?? null,
       }))
     )
     .select(EVENT_LAYOUT_COLUMNS);
@@ -580,6 +594,7 @@ export async function undoEventLayout(
           label: el.label,
           group_id: el.group_id ?? null,
           table_role: el.table_role ?? "guest",
+          shape: el.shape ?? null,
         }))
       )
       .select(EVENT_LAYOUT_COLUMNS);

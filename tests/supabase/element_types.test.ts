@@ -70,6 +70,12 @@ describe("element types (0073)", () => {
         .select("table_role").single(),
     );
     expect(room.table_role).toBe("head");
+    const crew = await must(
+      admin.from("event_layout_elements")
+        .insert(table({ table_role: "crew", table_type_id: headId }))
+        .select("table_role").single(),
+    );
+    expect(crew.table_role).toBe("crew");
     await must(admin.from("event_layout_elements").delete().eq("event_id", eventId));
   });
 

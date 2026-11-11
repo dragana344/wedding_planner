@@ -8,6 +8,7 @@ import type { EventLayoutElement } from "@/lib/venue/floorplan";
 import type { SeatingProposalView } from "@/lib/seating/types";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
 import { staffLayoutActions } from "@/lib/venue/floorplan-history";
+import { listRoomPresets } from "@/lib/venue/room-presets";
 import { reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 
 const MANAGER_TOKEN_HEADER = "x-venue-manager-token";
@@ -18,6 +19,7 @@ export type SeatingOp =
   | { op: "update"; element_id: string; change: Record<string, unknown> }
   | { op: "delete"; element_id: string }
   | { op: "revert"; room_id: string }
+  | { op: "load_preset"; room_id: string; preset_id: string }
   | { op: "undo"; room_id: string }
   | { op: "redo"; room_id: string }
   | { op: "group"; room_id: string; element_ids: string[] }
@@ -72,6 +74,8 @@ export function venueSeatingClientActions(eventId: string, managerToken: string 
       await op({ op: "delete", element_id: id });
     },
     revertToStandard: (_eventId, roomId) => op({ op: "revert", room_id: roomId }),
+    listPresets: (roomId) => listRoomPresets(roomId, resolveSupabaseClient()),
+    loadPreset: (_eventId, roomId, presetId) => op({ op: "load_preset", room_id: roomId, preset_id: presetId }),
     captureSnapshot: async () => {},
     undo: (_eventId, roomId) => op({ op: "undo", room_id: roomId }),
     redo: (_eventId, roomId) => op({ op: "redo", room_id: roomId }),
@@ -95,5 +99,11 @@ export function venueSeatingClientActions(eventId: string, managerToken: string 
         { op: "reject", proposal_id: proposalId, note } satisfies ProposalOp,
         managerToken,
       ),
+    getProposalDiff: async (proposalId) => {
+      const response = await fetch(`/api/venue/events/${eventId}/seating/proposals?proposal_id=${proposalId}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Не успеа вчитувањето на промените.");
+      return data;
+    },
   };
 }

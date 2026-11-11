@@ -31,7 +31,10 @@ export async function getRoomSeating(eventId: string, roomId: string): Promise<R
   await assertRoomBelongsToEvent(client, eventId, roomId);
   const [{ tables, seats }, guests, taken] = await Promise.all([
     readRoom(client, eventId, roomId, "event_room_tables"),
-    client.from("event_guests").select("id, full_name, party_size, side").eq("event_id", eventId).order("full_name"),
+    // Same order the organizer's own Guests page uses (lib/couple/guests.ts)
+    // — they enter guests group by group (one family, then the next), and
+    // the seating rail should read the same way, not alphabetically.
+    client.from("event_guests").select("id, full_name, party_size, side").eq("event_id", eventId).order("created_at"),
     client.from("event_seat_assignments").select("guest_id").eq("event_id", eventId).not("guest_id", "is", null),
   ]);
   if (guests.error) throw guests.error;
@@ -78,6 +81,35 @@ export async function replaceTableSeats(
   });
   if (error) throw error;
   if (before) await pushCoupleHistory(eventId, roomId, before, client);
+}
+
+/**
+ * The seating rail's drag-and-drop: seats `guestId` at `to`, atomically
+ * vacating `from` first when given (an already-seated guest dragged to a
+ * different table). One undo step per drop, same convention as
+ * replaceTableSeats.
+ */
+export async function moveEventSeat(
+  eventId: string,
+  roomId: string,
+  guestId: string,
+  to: { elementId: string; seatNumber: number },
+  from?: { elementId: string; seatNumber: number },
+): Promise<void> {
+  const client = createServiceRoleClient();
+  await assertRoomBelongsToEvent(client, eventId, roomId);
+  const before = await captureCoupleSnapshot(eventId, roomId, client);
+  const { error } = await client.rpc("move_event_seat", {
+    p_event_id: eventId,
+    p_room_id: roomId,
+    p_guest_id: guestId,
+    p_to_element_id: to.elementId,
+    p_to_seat_number: to.seatNumber,
+    p_from_element_id: from?.elementId ?? null,
+    p_from_seat_number: from?.seatNumber ?? null,
+  });
+  if (error) throw error;
+  await pushCoupleHistory(eventId, roomId, before, client);
 }
 
 export const SEAT_LIST_CHANGED_ERROR = "Листата е сменета на друг уред. Освежете ја и обидете се повторно.";

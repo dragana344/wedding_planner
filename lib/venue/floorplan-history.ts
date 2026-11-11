@@ -16,6 +16,7 @@ import {
   updateEventLayoutElementLabel,
   type EventLayoutElement,
 } from "@/lib/venue/floorplan";
+import { listRoomPresets, loadEventLayoutFromPreset } from "@/lib/venue/room-presets";
 
 // Staff's seating editor on the live event layout, with the multi-step
 // undo/redo of 0072 (events.layout_history). Since 0105 staff can only read
@@ -117,6 +118,13 @@ export function staffLayoutActions(client: SupabaseClient): SeatingActions {
     revertToStandard: (eventId, roomId) =>
       recordAround(staffHistoryStore(client, eventId, roomId), async () => {
         const elements = await revertEventLayoutToStandard(eventId, roomId, client);
+        await pruneSeats(eventId);
+        return elements;
+      }),
+    listPresets: (roomId) => listRoomPresets(roomId, client),
+    loadPreset: (eventId, roomId, presetId) =>
+      recordAround(staffHistoryStore(client, eventId, roomId), async () => {
+        const elements = await loadEventLayoutFromPreset(eventId, roomId, presetId, client);
         await pruneSeats(eventId);
         return elements;
       }),

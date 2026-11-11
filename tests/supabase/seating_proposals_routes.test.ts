@@ -212,6 +212,73 @@ describe("venue seating proposals route", () => {
     expect(res.status).toBe(200);
     expect(await liveElements()).toEqual([{ id: tableBase, table_type_id: tableTypeId }]);
   });
+
+  it("rejecting a second, unrelated offer does not resurrect an earlier rejected one (bug fix)", async () => {
+    const tableBase = "9b1e2c3d-0000-4000-8000-0000000000e1";
+    const tableA = "9b1e2c3d-0000-4000-8000-0000000000e2";
+    const tableB = "9b1e2c3d-0000-4000-8000-0000000000e3";
+    eventId = (await must(admin.from("events").insert({
+      venue_id: venueId, couple_names: "Пар 4е", event_date: "2027-09-04",
+      seating_baseline: { [roomId]: [{ id: tableBase, element_type: "table", table_type_id: tableTypeId, x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150, rotation_deg: 0, label: null, group_id: null, table_role: "guest" }] },
+    }).select("id").single())).id;
+    await must(admin.from("event_rooms").insert({ event_id: eventId, room_id: roomId }));
+    await must(admin.from("event_layout_elements").insert({ event_id: eventId, room_id: roomId, id: tableBase, element_type: "table", table_type_id: tableTypeId, x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150 }));
+
+    // Round A: venue adds a table, offers it, couple rejects — live goes back to just tableBase.
+    await must(admin.from("event_layout_elements").insert({ event_id: eventId, room_id: roomId, id: tableA, element_type: "table", table_type_id: tableTypeId, x_cm: 200, y_cm: 0, width_cm: 150, length_cm: 150 }));
+    const sentA = await (await venuePost({ op: "send", room_id: roomId }, managerToken)).json();
+    await couplePost(coupleProposalsPost, { proposal_id: sentA.id, action: "reject" });
+    expect(await liveElements()).toEqual([{ id: tableBase, table_type_id: tableTypeId }]);
+
+    // Round B: a different table, offered and rejected too — should still
+    // land back on just tableBase, not resurrect tableA from round A.
+    await must(admin.from("event_layout_elements").insert({ event_id: eventId, room_id: roomId, id: tableB, element_type: "table", table_type_id: tableTypeId, x_cm: 400, y_cm: 0, width_cm: 150, length_cm: 150 }));
+    const sentB = await (await venuePost({ op: "send", room_id: roomId }, managerToken)).json();
+    await couplePost(coupleProposalsPost, { proposal_id: sentB.id, action: "reject" });
+    expect(await liveElements()).toEqual([{ id: tableBase, table_type_id: tableTypeId }]);
+  });
+
+  it("GET with proposal_id (fix #3) diffs against the last resolved state, falling back to the baseline when there is none", async () => {
+    const tableBase = "9b1e2c3d-0000-4000-8000-0000000000c1";
+    const tableExtra = "9b1e2c3d-0000-4000-8000-0000000000c2";
+    eventId = (await must(admin.from("events").insert({
+      venue_id: venueId, couple_names: "Пар 4г", event_date: "2027-09-04",
+      seating_baseline: { [roomId]: [{ id: tableBase, element_type: "table", table_type_id: tableTypeId, x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150, rotation_deg: 0, label: null, group_id: null, table_role: "guest" }] },
+    }).select("id").single())).id;
+    await must(admin.from("event_rooms").insert({ event_id: eventId, room_id: roomId }));
+    await must(admin.from("event_layout_elements").insert([
+      { event_id: eventId, room_id: roomId, id: tableBase, element_type: "table", table_type_id: tableTypeId, x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150 },
+      { event_id: eventId, room_id: roomId, id: tableExtra, element_type: "table", table_type_id: tableTypeId, x_cm: 200, y_cm: 0, width_cm: 150, length_cm: 150 },
+    ]));
+    const sent = await (await venuePost({ op: "send", room_id: roomId }, managerToken)).json();
+
+    // The GET itself needs no elevation — same as the plain room_id list (staff may view).
+    const diff = await (await venueGet({ proposal_id: sent.id })).json();
+    expect(diff.before.map((e: { id: string }) => e.id)).toEqual([tableBase]);
+    expect(diff.after.map((e: { id: string }) => e.id).sort()).toEqual([tableBase, tableExtra].sort());
+
+    // Resolve it, then send a second one: the diff should now compare
+    // against that resolved state, not the baseline any more.
+    await venuePost({ op: "approve", proposal_id: sent.id }, managerToken);
+    await must(admin.from("event_layout_elements").delete().eq("id", tableExtra));
+    const sent2 = await (await venuePost({ op: "send", room_id: roomId }, managerToken)).json();
+    const diff2 = await (await venueGet({ proposal_id: sent2.id })).json();
+    expect(diff2.before.map((e: { id: string }) => e.id).sort()).toEqual([tableBase, tableExtra].sort());
+    expect(diff2.after.map((e: { id: string }) => e.id)).toEqual([tableBase]);
+  });
+
+  it("GET with proposal_id refuses a foreign event's proposal", async () => {
+    eventId = (await must(admin.from("events").insert({ venue_id: venueId, couple_names: "Пар 4д", event_date: "2027-09-04" }).select("id").single())).id;
+    await must(admin.from("event_rooms").insert({ event_id: eventId, room_id: roomId }));
+    const otherEventId = (await must(admin.from("events").insert({ venue_id: venueId, couple_names: "Друг пар", event_date: "2027-09-04" }).select("id").single())).id;
+    const { data: foreign } = await admin
+      .from("event_seating_proposals")
+      .insert({ event_id: otherEventId, room_id: roomId, proposed_by: "venue", snapshot: { elements: [] } })
+      .select("id")
+      .single();
+    expect((await venueGet({ proposal_id: foreign!.id })).status).toBe(404);
+    await admin.from("events").delete().eq("id", otherEventId);
+  });
 });
 
 describe("couple seating proposals route", () => {

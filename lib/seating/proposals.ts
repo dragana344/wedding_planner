@@ -28,12 +28,14 @@ interface SeatingProposalRow extends SeatingProposal {
   snapshot: ProposalSnapshot;
 }
 
-type SnapshotElement = Pick<
+// Named distinctly from lib/venue/room-presets.ts's own (differently-shaped,
+// id-less) SnapshotElement — both are exported, so a shared name would collide.
+export type ProposalSnapshotElement = Pick<
   EventLayoutElement,
-  "id" | "element_type" | "table_type_id" | "x_cm" | "y_cm" | "width_cm" | "length_cm" | "rotation_deg" | "label" | "group_id" | "table_role"
+  "id" | "element_type" | "table_type_id" | "x_cm" | "y_cm" | "width_cm" | "length_cm" | "rotation_deg" | "label" | "group_id" | "table_role" | "shape"
 >;
 export interface ProposalSnapshot {
-  elements: SnapshotElement[];
+  elements: ProposalSnapshotElement[];
 }
 
 export class ProposalAlreadyRespondedError extends Error {
@@ -59,6 +61,7 @@ function toSnapshot(elements: EventLayoutElement[]): ProposalSnapshot {
       label: el.label,
       group_id: el.group_id ?? null,
       table_role: el.table_role ?? "guest",
+      shape: el.shape ?? null,
     })),
   };
 }
@@ -99,7 +102,7 @@ export async function createSeatingProposal(
 }
 
 /** Overwrites event_layout_elements with `elements`, ids preserved (so seats attached to unchanged tables stay attached) — the same atomic replace the couple's old direct-confirm used. */
-async function applyToLiveLayout(client: SupabaseClient, eventId: string, roomId: string, elements: SnapshotElement[]): Promise<void> {
+async function applyToLiveLayout(client: SupabaseClient, eventId: string, roomId: string, elements: ProposalSnapshotElement[]): Promise<void> {
   const { error } = await client.rpc("confirm_event_seating", {
     p_event_id: eventId,
     p_room_id: roomId,
@@ -110,7 +113,7 @@ async function applyToLiveLayout(client: SupabaseClient, eventId: string, roomId
 }
 
 /** Overwrites the organizer's draft for one room, so it matches a layout they just approved instead of looking stale. Direct write (not the CAS-protected draft editor in lib/couple/seating.ts): this is one explicit server action, not a race-prone client edit. */
-async function replaceCoupleDraft(client: SupabaseClient, eventId: string, roomId: string, elements: SnapshotElement[]): Promise<void> {
+async function replaceCoupleDraft(client: SupabaseClient, eventId: string, roomId: string, elements: ProposalSnapshotElement[]): Promise<void> {
   const { data, error } = await client.from("events").select("seating_draft").eq("id", eventId).single();
   if (error) throw error;
   const draft = { ...((data.seating_draft as Record<string, unknown>) ?? {}), [roomId]: elements };
@@ -129,23 +132,32 @@ async function pruneSeats(client: SupabaseClient, eventId: string): Promise<void
  * rejected. A venue edit is live the instant staff makes it (§5: "the venue
  * edits it directly before sending"), so there is no separate "before this
  * edit" state to restore — the room's own last agreed state is the nearest
- * well-defined one: the snapshot of the most recently resolved proposal for
- * this room (approved or rejected, excluding the one just rejected), or the
- * event's frozen baseline if nothing has ever been resolved for it.
+ * well-defined one: the snapshot of the most recently *approved* proposal
+ * for this room (excluding the one just rejected), or the event's frozen
+ * baseline if nothing has ever been approved for it.
+ *
+ * Deliberately excludes rejected proposals, even though they're also
+ * "resolved": a rejected proposal's snapshot is content that was declined,
+ * not a state the room was ever actually left in — rejecting it already
+ * restored live to whatever came before it. Falling back to a rejected
+ * proposal's own snapshot would resurrect content a previous rejection had
+ * already undone (confirmed bug: reject offer A, then reject an unrelated
+ * offer B — B's rejection fell back to A's declined snapshot instead of the
+ * real baseline, bringing A's rejected tables back).
  */
-async function previousResolvedSnapshot(
+export async function previousResolvedSnapshot(
   client: SupabaseClient,
   eventId: string,
   roomId: string,
   excludeProposalId: string
-): Promise<SnapshotElement[]> {
+): Promise<ProposalSnapshotElement[]> {
   const { data: lastResolved, error } = await client
     .from("event_seating_proposals")
     .select("snapshot")
     .eq("event_id", eventId)
     .eq("room_id", roomId)
     .neq("id", excludeProposalId)
-    .in("status", ["approved", "rejected"])
+    .eq("status", "approved")
     .order("responded_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -154,8 +166,30 @@ async function previousResolvedSnapshot(
 
   const { data: event, error: eventError } = await client.from("events").select("seating_baseline").eq("id", eventId).single();
   if (eventError) throw eventError;
-  const baseline = (event.seating_baseline as Record<string, SnapshotElement[]> | null) ?? {};
+  const baseline = (event.seating_baseline as Record<string, ProposalSnapshotElement[]> | null) ?? {};
   return baseline[roomId] ?? [];
+}
+
+/**
+ * Fix #3: the before/after a pending (or already-resolved) proposal
+ * represents — "before" is the same room-agreed reference
+ * previousResolvedSnapshot already uses as the reject fallback, so the
+ * comparison is always against the last thing both sides actually agreed
+ * to, not just whatever happened to be live when the proposal was sent.
+ */
+export async function getSeatingProposalDiff(
+  proposalId: string,
+  client: SupabaseClient = createServiceRoleClient()
+): Promise<{ before: ProposalSnapshotElement[]; after: ProposalSnapshotElement[] }> {
+  const { data, error } = await client
+    .from("event_seating_proposals")
+    .select("event_id, room_id, snapshot")
+    .eq("id", proposalId)
+    .single();
+  if (error) throw error;
+  const row = data as { event_id: string; room_id: string; snapshot: ProposalSnapshot };
+  const before = await previousResolvedSnapshot(client, row.event_id, row.room_id, proposalId);
+  return { before, after: row.snapshot.elements };
 }
 
 /**

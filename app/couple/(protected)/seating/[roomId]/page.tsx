@@ -69,6 +69,7 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
         backHref="/couple"
         backLabel="← Назад кон почетна"
         logoUrl={logoUrl}
+        look="couple"
       />
     );
   }
@@ -95,6 +96,7 @@ export default async function CoupleSeatingPage({ params }: { params: Promise<{ 
       backHref="/couple"
       backLabel="← Назад кон почетна"
       logoUrl={logoUrl}
+      look="couple"
     />
   );
 }

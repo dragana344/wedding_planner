@@ -30,10 +30,13 @@ describe("PrintPlan (B7)", () => {
     expect(within(pages[0]).getByText("Музика")).toHaveAttribute("writing-mode", "vertical-rl");
   });
 
-  it("keeps the hall's proportions in the drawing", () => {
+  it("prints just the used part of the hall with a margin, so the plan is centred and clear of the frame", () => {
     render(<PrintPlan title="А" subtitle="" logoUrl={null} rooms={rooms} />);
-    const svg = screen.getAllByTestId("print-plan-svg")[0];
-    expect(svg).toHaveAttribute("viewBox", "0 0 3000 2000");
+    const [full, empty] = screen.getAllByTestId("print-plan-svg");
+    // Items span 50..1900 both ways; the margin is 10% of that (185 cm).
+    expect(full).toHaveAttribute("viewBox", "-135 -135 2220 2220");
+    // An empty hall still prints whole.
+    expect(empty).toHaveAttribute("viewBox", "0 0 1500 1000");
     expect(screen.queryByRole("img", { name: "Лого на локалот" })).not.toBeInTheDocument();
   });
 

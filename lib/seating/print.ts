@@ -1,11 +1,28 @@
 import {
   FIXED_LABELS,
   MOVABLE_LABELS,
-  type EventLayoutElement,
   type FixedElement,
+  type LayoutElementType,
+  type TableRole,
 } from "@/lib/venue/floorplan";
 import type { TableType } from "@/lib/venue/rooms";
 import type { SeatTable } from "./types";
+
+/** Only the fields buildPrintRoom actually reads — satisfied by both an
+ * event's layout (EventLayoutElement) and a room's own standing layout
+ * (RoomLayoutElement), so the same printable plan works for either. */
+export type PrintableLayoutElement = {
+  id: string;
+  x_cm: number;
+  y_cm: number;
+  width_cm: number;
+  length_cm: number;
+  rotation_deg: number;
+  element_type: LayoutElementType;
+  table_type_id: string | null;
+  table_role?: TableRole;
+  label: string | null;
+};
 
 // Printable A4 plan (B7): the room's elements reduced to what the printed
 // plan shows — numbered guest tables, named tables (couple, head), the dance
@@ -53,7 +70,7 @@ function tableText(t: SeatTable | undefined, fallback: string): string {
 
 export function buildPrintRoom(
   room: { id: string; name: string; width_cm: number; height_cm: number },
-  layout: EventLayoutElement[],
+  layout: PrintableLayoutElement[],
   fixed: FixedElement[],
   tables: SeatTable[],
   tableTypes: Pick<TableType, "id" | "shape">[],

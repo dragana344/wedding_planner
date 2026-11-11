@@ -478,6 +478,9 @@ export function GuestsClient({
         <a href="/api/couple/guests/export" className="btn btn-ghost" download>
           Извези CSV
         </a>
+        <a href="/couple/guests/print" className="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+          Печати листа
+        </a>
         <label className="btn btn-ghost" style={{ cursor: "pointer", position: "relative" }}>
           Увези CSV
           <input

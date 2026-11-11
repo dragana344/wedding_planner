@@ -14,6 +14,12 @@ const proposalActionBody = z.object({ proposal_id: uuid, action: z.enum(["approv
 
 export const GET = withCoupleEvent(
   async ({ eventId, request }) => {
+    const proposalId = request.nextUrl.searchParams.get("proposal_id");
+    if (proposalId) {
+      const parsed = parseInput(uuid, proposalId, "Невалиден предлог.");
+      if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
+      return NextResponse.json(await coupleSeatingActionsFor(eventId).getProposalDiff!(parsed.data));
+    }
     const room = parseInput(roomIdQuery, request.nextUrl.searchParams.get("room_id"), ROOM_ID_REQUIRED_ERROR);
     if (!room.success) return NextResponse.json({ error: room.error }, { status: 400 });
     return NextResponse.json(await coupleSeatingActionsFor(eventId).listProposals!(eventId, room.data));

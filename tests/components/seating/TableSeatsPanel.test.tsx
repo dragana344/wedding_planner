@@ -109,4 +109,22 @@ describe("TableSeatsPanel", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Зачувај" })).not.toBeInTheDocument();
   });
+
+  it("calls onDropGuest instead of the in-panel swap while a rail drag is active (fix #2)", () => {
+    const onDropGuest = vi.fn();
+    setup({ draggingGuestId: "g2", onDropGuest });
+    fireEvent.pointerUp(screen.getByTestId("seat-row-4"));
+    expect(onDropGuest).toHaveBeenCalledWith(4);
+    // The in-panel swap didn't run: seat 1 still holds its original guest.
+    expect(screen.getByLabelText("Столче 1")).toHaveValue("Ана Петровска");
+  });
+
+  it("falls back to the in-panel swap when no rail drag is active", () => {
+    const onDropGuest = vi.fn();
+    setup({ onDropGuest });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Премести од столче 1" }));
+    fireEvent.pointerUp(screen.getByTestId("seat-row-4"));
+    expect(onDropGuest).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Столче 4")).toHaveValue("Ана Петровска");
+  });
 });

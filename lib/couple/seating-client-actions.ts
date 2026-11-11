@@ -74,6 +74,7 @@ export const coupleSeatingClientActions: SeatingActions = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ proposal_id: proposalId, action: "reject", note }),
     }).then(jsonOrThrow),
+  getProposalDiff: (proposalId) => fetch(`/api/couple/seating/proposals?proposal_id=${proposalId}`).then(jsonOrThrow),
   captureSnapshot: async () => {
     // Never actually invoked: the couple seating page passes skipInitialization
     // to EventSeatingPage, so its mount effect never calls this. Implemented
@@ -122,6 +123,19 @@ export const coupleSeatingClientActions: SeatingActions = {
         layout_element_id: elementId,
         seats: seats.map((s) => ({ seat_number: s.seatNumber, guest_id: s.guestId ?? null, guest_name: s.guestName ?? null })),
         expected: expected.map((s) => ({ seat_number: s.seatNumber, guest_id: s.guestId ?? null, guest_name: s.guestName ?? null })),
+      }),
+    }).then(jsonOrThrow),
+  moveSeat: (roomId, guestId, to, from) =>
+    fetch("/api/couple/seating/seats/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room_id: roomId,
+        guest_id: guestId,
+        to_element_id: to.elementId,
+        to_seat_number: to.seatNumber,
+        from_element_id: from?.elementId ?? null,
+        from_seat_number: from?.seatNumber ?? null,
       }),
     }).then(jsonOrThrow),
 };

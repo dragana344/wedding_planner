@@ -928,6 +928,293 @@
   color: var(--on-gold);
   font-weight: 700;
 }
+/* ---------- event-type filter: quick chips + "Повеќе видови" dropdown ---------- */
+.vp .chips.tf {
+  align-items: center;
+}
+.vp .chips.tf > .chip,
+.vp .tf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.vp .chip.tf-chip {
+  padding: 9px 12px;
+}
+.vp .tf-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--gold-tint);
+  color: var(--gold-lo);
+}
+.vp .chip[aria-pressed="true"] .tf-count {
+  background: rgba(255, 255, 255, 0.35);
+  color: inherit;
+}
+.vp .tf-picked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.vp .tf-clear {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.vp .tf-clear:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.vp .tf-more {
+  position: relative;
+}
+.vp .tf-caret {
+  transition: transform 0.15s;
+}
+.vp .tf-caret.open {
+  transform: rotate(180deg);
+}
+.vp .tf-pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 50px -20px rgba(20, 16, 8, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.vp .tf-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px 4px;
+}
+.vp .tf-group {
+  flex: none;
+}
+.vp .tf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.vp .tf-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.vp .tf-opt:hover {
+  background: #fafafb;
+  border-color: var(--line);
+}
+.vp .tf-opt.on {
+  background: var(--gold-tint);
+  border-color: var(--gold);
+}
+.vp .tf-opt.is-zero {
+  color: var(--muted);
+}
+.vp .tf-opt.is-zero .tf-count {
+  background: #f2f2f4;
+  color: var(--muted);
+}
+.vp .tf-ic {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+.vp .tf-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .vp .tf-more {
+    position: static;
+  }
+  .vp .chips.tf {
+    position: relative;
+    flex: 1 1 100%;
+  }
+  .vp .chips.tf ~ .search {
+    flex: 1 1 100%;
+  }
+  .vp .chips.tf ~ .search input {
+    width: 100%;
+  }
+  .vp .tf-pop {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
+  .vp .tf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* ---------- Клиенти: finished events section ---------- */
+.vp .show-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 0 10px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--faint);
+}
+.vp .show-more button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--gold-lo);
+  cursor: pointer;
+}
+.vp .show-more button:hover {
+  text-decoration: underline;
+}
+.vp .show-more .i {
+  width: 12px;
+  height: 12px;
+}
+.vp .panel.cl-done {
+  margin-top: 18px;
+}
+.vp .cl-done-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.vp .cl-caret {
+  transform: rotate(-90deg);
+  transition: transform 0.15s;
+}
+.vp .cl-caret.open {
+  transform: none;
+}
+/* Same flat look as the active list's rows above (those reset the card border inline). */
+.vp .row.ev.cl-done-row {
+  cursor: pointer;
+  border-color: transparent;
+  background: none;
+}
+.vp .row.ev.cl-done-row:hover {
+  background: #fcfcfd;
+}
+.vp .cl-done-row .ttl,
+.vp .cl-done-row .lines,
+.vp .cl-done-row .kind {
+  opacity: 0.8;
+}
+.vp .cl-open {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.vp .cl-open:hover {
+  text-decoration: underline;
+}
+.vp .cl-do {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.vp .cl-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.vp .cl-del:hover {
+  color: var(--bad);
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+.vp .cl-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+.vp .cl-del-yes,
+.vp .cl-del-no {
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vp .cl-del-yes {
+  border: 1px solid var(--bad);
+  background: var(--bad);
+  color: #fff;
+}
+.vp .cl-del-no {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.vp .cl-del-err {
+  font-size: 11.5px;
+  color: var(--bad);
+  text-align: center;
+}
 .vp .search {
   position: relative;
   display: flex;
@@ -1357,6 +1644,11 @@
   background: var(--bad);
   flex: none;
 }
+/* In the sidebar nav, sits where the count badge would — pushed to the
+   row's right edge, same spot the numbered badge already uses. */
+.vp .nav .unseen-dot {
+  margin-left: auto;
+}
 
 .vp .dash-grid {
   display: grid;
@@ -1570,18 +1862,39 @@
   color: var(--on-gold);
   font-weight: 800;
 }
-.vp .mini-cal .mc-dot {
+.vp .mini-cal .mc-dots {
   position: absolute;
-  bottom: 5px;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+.vp .mini-cal .mc-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--gold-lo);
   box-shadow: 0 0 0 1.5px var(--surface);
 }
+.vp .mini-cal .mc-dots.is-multi .mc-dot {
+  width: 5px;
+  height: 5px;
+}
+.vp .mini-cal .mc-more {
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--ink-2);
+}
+/* Two or more events on one day: the day itself gets a ring too. */
+.vp .mini-cal .mc-d:has(.mc-dots.is-multi):not(.is-today) {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink-2) 40%, transparent);
+}
 .vp .mini-cal .mc-d.is-today .mc-dot {
-  background: var(--on-gold);
-  box-shadow: 0 0 0 1.5px var(--gold-hi);
+  box-shadow: 0 0 0 1.5px #fff;
 }
 
 /* ---------- new/edit event form ---------- */
@@ -1970,6 +2283,221 @@
   transform-origin: top left;
   width: fit-content;
 }
+
+/* ---------- room floor-plan editor redesign ---------- */
+.vp .rp-head-room {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.vp .rp-room-switch {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+}
+.vp .rp-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 14px;
+  flex-wrap: wrap;
+}
+.vp .rp-canvas-toolbar [role="group"] {
+  display: flex;
+  gap: 8px;
+}
+.vp .rp-zoom-pct {
+  min-width: 48px;
+  border: 0;
+  background: none;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.vp .rp-dims-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--gold-tint);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.vp .rp-presets {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.vp .rp-presets-save {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.vp .rp-presets-note {
+  width: 100%;
+  margin: 0;
+  font-size: 13.5px;
+}
+.vp .rp-palette-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.vp .rp-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+}
+.vp .rp-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 86px;
+  padding: 14px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.25;
+  cursor: pointer;
+}
+.vp .rp-tile svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--gold-text, var(--gold));
+}
+.vp .rp-tile:hover {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+  color: var(--ink);
+}
+.vp .rp-tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.vp .rp-tile-wrap {
+  position: relative;
+}
+.vp .rp-tile-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -10px rgba(20, 16, 8, 0.35);
+}
+.vp .rp-tile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.vp .rp-tile-menu-item:hover {
+  background: var(--gold-tint);
+  color: var(--ink);
+}
+.vp .rp-tile-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.vp .rp-tile-menu-note {
+  margin: 4px 6px 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.vp .rp-canvas-wrap {
+  position: relative;
+}
+.vp .rp-canvas-wrap .qb-canvas-zoom {
+  margin: 0 auto;
+  /* The shared default (top left) anchors zoomed-in overflow to the
+   * bottom-right only, which drifts off-centre the moment zoom > 100% even
+   * though the box itself is centred. Center-origin keeps it centred at
+   * every zoom level instead. */
+  transform-origin: center;
+}
+/* In fullscreen (requestFullscreen on this element), centre the room both
+ * ways — normally it only needs horizontal centring, since it already
+ * starts right under the toolbar. */
+.vp .rp-canvas-wrap:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #faf6ec;
+}
+.vp .rp-fullscreen-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px -8px rgba(20, 16, 8, 0.3);
+}
+.vp .rp-canvas-corner {
+  position: absolute;
+  bottom: 14px;
+  width: 64px;
+  height: 40px;
+  color: var(--gold);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.vp .rp-canvas-corner:first-of-type {
+  left: 14px;
+}
+.vp .rp-canvas-corner:last-of-type {
+  right: 14px;
+}
 .vp .qb-selected-foot {
   margin: 0 20px 14px;
   padding: 12px 16px;
@@ -2354,6 +2882,88 @@
   flex-direction: column;
   gap: 1px;
   z-index: 1;
+}
+.vp .cal-event.is-lane {
+  padding: 4px 5px;
+  box-shadow: 0 0 0 1px var(--surface);
+}
+.vp .cal-event.is-lane b .i {
+  display: none;
+}
+.vp .cal-event.is-lane b {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vp .cal-event.is-lane > span {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.vp .cal-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.vp .cal-legend-t {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.vp .cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.vp .cal-legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.vp .cal-event b .i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+.vp .cal-month-chip .i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+.vp .cal-multi {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #efeff2;
+  color: var(--ink-2);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.vp .cal-month-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.vp .cal-month-top .cal-multi {
+  margin-top: 0;
 }
 .vp .cal-event b {
   font-size: 11px;
@@ -2774,6 +3384,12 @@
   justify-content: center;
   padding: 0;
   cursor: pointer;
+  overflow: hidden;
+}
+.vp .mp-menu-dish-photo-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .vp .mp-menu-dish-photo-btn:hover {
   border-color: var(--gold);
@@ -2823,6 +3439,118 @@
 }
 .vp .mp-flip-stats .price {
   color: var(--gold-text);
+}
+/* ---------- event wizard: room layout picker (flips like the menu preview) ---------- */
+.vp .modal-panel.rl-modal {
+  font-family: var(--sans);
+  max-width: 1180px;
+  height: 90vh;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.vp .rl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vp .rl-title {
+  font-family: var(--data);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vp .rl-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.vp .rl-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.vp .rl-nav-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.vp .rl-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vp .rl-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.vp .rl-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.vp .rl-body > .rl-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.vp .rl-body .qb-canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+}
+/* The room sits in the middle of the pop-up; `margin: auto` (not
+ * justify/align center) keeps every edge reachable by scrolling once it is
+ * zoomed past the frame. */
+.vp .rl-body .qb-canvas-wrap {
+  display: flex;
+}
+.vp .rl-body .qb-canvas-wrap > * {
+  flex: none;
+  margin: auto;
+}
+@media (max-width: 600px) {
+  .vp .modal-panel.rl-modal {
+    height: 92vh;
+    max-height: 92vh;
+    padding: 16px 14px;
+  }
+  .vp .rl-nav {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .vp .rl-actions {
+    flex: 1 1 100%;
+  }
+  .vp .rl-actions > .btn {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 10px;
+  }
 }
 .vp .mp-flip-pick {
   width: 100%;
@@ -3866,47 +4594,235 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.vp .s3-notifications {
-  padding: 8px 12px 16px;
+/* Известувања (venue + couple): filter pills with counts, a search row,
+ * day headings with a gold rule, and one white card per notification with a
+ * coloured left edge and icon tile. Each colour class sets --nf / --nf-tint
+ * for both the pills and the rows; "grey" (Пристап) is drawn lilac. */
+.vp .nf {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.vp .s3-notifications ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.vp .nf .notif-yellow {
+  --nf: var(--notif-yellow);
+  --nf-tint: var(--notif-yellow-tint);
 }
-.vp .s3-notif-day {
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  margin: 16px 8px 6px;
+.vp .nf .notif-green {
+  --nf: var(--notif-green);
+  --nf-tint: var(--notif-green-tint);
 }
-
-/* Известувања: colour legend, coloured left border, unseen sign. */
-.vp .notif-legend {
+.vp .nf .notif-blue {
+  --nf: var(--notif-blue);
+  --nf-tint: var(--notif-blue-tint);
+}
+.vp .nf .notif-grey {
+  --nf: #8b5cc7;
+  --nf-tint: #f2ecfa;
+}
+.vp .nf .notif-red {
+  --nf: var(--notif-red);
+  --nf-tint: var(--notif-red-tint);
+}
+.vp .nf-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 8px 4px;
+  gap: 10px;
 }
-.vp .notif-legend a {
+.vp .nf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: var(--nf-tint, #fff);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.vp .nf-pill .i {
+  color: var(--nf);
+}
+.vp .nf-pill.nf-all {
+  background: #fff;
+  border-color: var(--line);
+}
+.vp .nf-pill[aria-current="true"] {
+  background: #fff;
+  border-color: var(--gold-lo);
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.vp .nf-count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nf, #3a2e1a) 60%, #fff);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.vp .nf-all .nf-count {
+  background: #3a2e1a;
+}
+.vp .nf-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vp .nf-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 470px;
+  min-width: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink-2);
+}
+.vp .nf-search input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+}
+.vp .nf-tools .btn {
+  border: 1px solid var(--gold-tint-2);
+  border-radius: 999px;
+  background: #fff;
+  padding: 9px 18px;
+  font-weight: 600;
+}
+.vp .nf-managers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+}
+.vp .nf-managers a {
   padding: 4px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  background: #fff;
   font-size: 13px;
   color: var(--ink);
   text-decoration: none;
 }
-.vp .notif-legend a[aria-current="true"] {
+.vp .nf-managers a[aria-current="true"] {
+  border-color: var(--gold-lo);
   font-weight: 700;
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
 }
-.vp .notif-legend a.notif-chip {
-  border-left-width: 6px;
+.vp .nf-empty {
+  padding: 20px 4px;
+  color: var(--ink-2);
 }
-.vp .plan-row[class*="notif-"] {
-  border-left: 4px solid var(--line);
+.vp .nf-day {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+.vp .nf-day .i {
+  color: var(--gold);
+}
+.vp .nf-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--gold-tint-2);
+}
+.vp .nf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.vp .nf-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px 10px 14px;
+  border-left: 4px solid var(--nf, var(--line));
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(46, 38, 23, 0.07);
+}
+.vp .nf-row.is-unseen {
+  background: color-mix(in srgb, var(--nf-tint, #fff) 70%, #fff);
+}
+.vp .nf-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--nf-tint, var(--gold-tint));
+  color: var(--nf, var(--gold));
+}
+.vp .nf-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.vp .nf-body > b,
+.vp .nf-body > a {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
+.vp .nf-body > a:hover {
+  text-decoration: underline;
+}
+.vp .nf-body > span {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.vp .nf-time {
+  grid-column: 4;
+  min-width: 44px;
+  text-align: right;
+  font-size: 14px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .vp .nf-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 10px 12px;
+  }
+  .vp .nf-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .vp .nf-time {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .vp .nf-row .notif-unseen {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
 }
 .vp .notif-unseen {
   display: flex;
@@ -3936,41 +4852,6 @@
 .vp .notif-seen [role="status"] {
   color: var(--ink-2);
   font-size: 12.5px;
-}
-.vp .plan-row.notif-yellow,
-.vp .notif-legend a.notif-yellow {
-  border-left-color: var(--notif-yellow);
-}
-.vp .notif-legend a.notif-yellow {
-  background: var(--notif-yellow-tint);
-}
-.vp .plan-row.notif-green,
-.vp .notif-legend a.notif-green {
-  border-left-color: var(--notif-green);
-}
-.vp .notif-legend a.notif-green {
-  background: var(--notif-green-tint);
-}
-.vp .plan-row.notif-blue,
-.vp .notif-legend a.notif-blue {
-  border-left-color: var(--notif-blue);
-}
-.vp .notif-legend a.notif-blue {
-  background: var(--notif-blue-tint);
-}
-.vp .plan-row.notif-grey,
-.vp .notif-legend a.notif-grey {
-  border-left-color: var(--notif-grey);
-}
-.vp .notif-legend a.notif-grey {
-  background: var(--notif-grey-tint);
-}
-.vp .plan-row.notif-red,
-.vp .notif-legend a.notif-red {
-  border-left-color: var(--notif-red);
-}
-.vp .notif-legend a.notif-red {
-  background: var(--notif-red-tint);
 }
 
 /* ---------- admin panel: simple data tables (Task 3.2) ----------
@@ -4101,6 +4982,36 @@
    genuinely new (type cards, step dots, option cards, live preview, success
    screen, confetti).
    --------------------------------------------------------------------------- */
+/* The wizard's text (root .ev-wiz-text, also on the success screen): the
+ * panel's own fonts, every size 0.5px up from the panel default. Shared
+ * classes are bumped here; the .ev-wiz-* rules below carry their own +0.5. */
+.vp .ev-wiz-text {
+  font-size: 14.5px;
+}
+.vp .ev-wiz-text .btn,
+.vp .ev-wiz-text .chip,
+.vp .ev-wiz-text .fld {
+  font-size: 14px;
+}
+.vp .ev-wiz-text .mp-flip-stats {
+  font-size: 14.5px;
+}
+.vp .ev-wiz-text .lab-s {
+  font-size: 12.5px;
+}
+.vp .ev-wiz-text .ev-hint {
+  font-size: 13px;
+}
+.vp .ev-wiz-text .mp-flip-count {
+  font-size: 11.5px;
+}
+.vp .ev-wiz-text .rl-title {
+  font-size: 18.5px;
+}
+.vp .ev-wiz-text .rl-name {
+  font-size: 15.5px;
+}
+
 .vp .ev-wiz-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -4125,7 +5036,7 @@
 }
 .vp .ev-wiz-eyebrow {
   font-family: var(--data);
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 2.5px;
   color: var(--gold-text);
   margin: 0;
@@ -4134,14 +5045,14 @@
 }
 .vp .ev-wiz-title {
   margin: 14px 0 2px;
-  font-size: 30px;
+  font-size: 30.5px;
   font-weight: 400;
   color: var(--ink);
   line-height: 1.15;
 }
 .vp .ev-wiz-sub {
   margin: 0 0 22px;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 .vp .ev-wiz-fade {
@@ -4186,7 +5097,7 @@
 }
 .vp .ev-wiz-count {
   font-family: var(--data);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
   margin-left: 8px;
 }
@@ -4208,7 +5119,7 @@
   background: var(--surface);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink);
   line-height: 1.25;
   text-align: center;
@@ -4224,6 +5135,17 @@
   background: var(--gold-tint);
   box-shadow: inset 0 0 0 1px var(--gold);
 }
+/* Step 0's illustrated type cards (EventTypeIllustration). */
+.vp .ev-wiz-ty-art {
+  display: flex;
+  color: #7a5418;
+}
+.vp .ev-wiz-types:has(.ev-wiz-ty-art) .ev-wiz-ty {
+  gap: 12px;
+  padding: 20px 8px 16px;
+  font-size: 15px;
+  font-weight: 500;
+}
 .vp .ev-wiz-ty-ic {
   width: 52px;
   height: 52px;
@@ -4235,13 +5157,128 @@
   justify-content: center;
 }
 
+/* Step 0, "Друго": the venue names its own event type. */
+.vp .ev-wiz-other {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+  margin: 18px auto 0;
+}
+.vp .ev-wiz-other-row {
+  display: flex;
+  gap: 10px;
+}
+.vp .ev-wiz-other-row .fld {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Step 1: "Цел простор / Мини настан" — two tall cards, the picked one
+ * gold-edged with a check badge; a faint branch in the card's corner. */
+.vp .ev-wiz-main.has-sprig {
+  position: relative;
+  overflow: hidden;
+}
+.vp .ev-wiz-sprig {
+  position: absolute;
+  right: 36px;
+  bottom: -10px;
+  width: 110px;
+  height: 220px;
+  color: var(--gold);
+  opacity: 0.4;
+  transform: rotate(28deg);
+  pointer-events: none;
+}
+.vp .ev-wiz-modes {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.vp .ev-wiz-mode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 270px;
+  max-width: 100%;
+  min-height: 300px;
+  padding: 30px 26px 26px;
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(46, 38, 23, 0.05);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.vp .ev-wiz-mode:hover {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+.vp .ev-wiz-mode.on {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #fffaf0, var(--gold-tint));
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--gold) 55%, transparent);
+}
+.vp .ev-wiz-mode-check {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #fff;
+}
+.vp .ev-wiz-mode-art {
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: #fbe5c6;
+  color: #7a5418;
+}
+.vp .ev-wiz-mode-title {
+  font-size: 20.5px;
+  font-weight: 700;
+}
+.vp .ev-wiz-mode-desc {
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.vp .ev-wiz-mode-next {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+.vp .ev-wiz-mode-next .btn {
+  padding: 12px 34px;
+  font-size: 16px;
+}
+
 /* step 1: big name field */
 .vp .ev-wiz-big {
   width: 100%;
   border: 0;
   border-bottom: 1.5px solid var(--gold-tint-2);
   background: transparent;
-  font-size: 32px;
+  font-size: 32.5px;
   color: var(--ink);
   padding: 4px 0 8px;
   outline: none;
@@ -4257,7 +5294,7 @@
 /* step 3: guest count slider */
 .vp .ev-wiz-guest-num {
   font-family: var(--data);
-  font-size: 56px;
+  font-size: 56.5px;
   color: var(--ink);
   line-height: 1;
 }
@@ -4274,7 +5311,7 @@
 }
 .vp .ev-wiz-chip {
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   padding: 6px 15px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -4306,7 +5343,7 @@
   background: var(--surface);
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--ink);
   text-align: left;
   width: 100%;
@@ -4363,14 +5400,14 @@
   background: none;
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--ink);
   text-align: left;
   padding: 7px 0;
 }
 .vp .ev-wiz-opt-sub {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 1px;
   font-weight: 400;
@@ -4390,7 +5427,7 @@
   margin-bottom: 10px;
 }
 .vp .ev-cal-month {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -4402,11 +5439,34 @@
 }
 .vp .ev-cal-weekdays span {
   text-align: center;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
   padding-bottom: 4px;
 }
+.vp .ev-cal-dots {
+  position: absolute;
+  bottom: 3px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.vp .ev-cal-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold-lo);
+}
+.vp .ev-cal-dots.is-multi i {
+  background: var(--ink-2);
+}
+.vp .ev-cal-day.selected .ev-cal-dots i {
+  background: currentColor;
+}
 .vp .ev-cal-day {
+  position: relative;
   /* A fixed height (not aspect-ratio) — combined with the grid's 1fr
      columns, aspect-ratio creates a circular sizing dependency some
      browsers resolve by falling back to each item's content size
@@ -4420,7 +5480,7 @@
   border: none;
   background: none;
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -4454,7 +5514,7 @@
 .vp .ev-cal-legend-item {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink-2);
 }
 .vp .ev-cal-legend-dot {
@@ -4479,7 +5539,7 @@
   flex-shrink: 0;
 }
 .vp .ev-dt-summary-val {
-  font-size: 18px;
+  font-size: 18.5px;
   font-weight: 600;
   color: var(--ink);
   margin-top: 2px;
@@ -4512,7 +5572,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
   font-style: italic;
   margin: 0;
@@ -4531,7 +5591,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 12.5px;
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -4568,13 +5628,13 @@
   position: absolute;
   right: 12px;
   top: 11px;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 .vp .ev-wiz-rem-row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink-2);
   margin-bottom: 6px;
 }
@@ -4587,6 +5647,178 @@
 .vp .ev-wiz-rem-fill {
   height: 6px;
   background: var(--gold);
+}
+
+/* The shared modal shell defaults to 640px — override it here so the panel
+ * shrinks to fit the calculator card exactly, instead of leaving visible
+ * empty panel around a much narrower card. */
+.vp .modal-panel.ev-calc-modal {
+  max-width: 320px;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.vp .ev-calc-card {
+  position: relative;
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-tint-2, var(--gold));
+  border-radius: 18px;
+  padding: 28px 22px 22px;
+}
+.vp .ev-calc-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.vp .ev-calc-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vp .ev-calc-trigger-logo {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.vp .ev-calc-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--gold-tint-2, var(--gold));
+}
+.vp .ev-calc-head-spark {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+.vp .ev-calc-logo {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+.vp .ev-calc-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  background: var(--surface);
+  border-radius: 999px;
+  border: 1px solid var(--gold-tint-2, var(--gold));
+}
+.vp .ev-calc-tab {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp .ev-calc-tab.on {
+  background: var(--gold);
+  color: var(--on-gold);
+}
+
+.vp .ev-calc-per-guest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.vp .ev-calc-per-guest .ev-field {
+  width: 100%;
+}
+.vp .ev-calc-multiply {
+  font-family: var(--data);
+  font-size: 20.5px;
+  color: var(--gold-text, var(--gold));
+  margin: 2px 0;
+}
+.vp .ev-calc-total {
+  width: 100%;
+  margin: 16px 0;
+  padding: 10px 14px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--gold-tint-2, var(--gold));
+  border-radius: 10px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.vp .ev-calc-total b {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--data);
+  font-size: 22.5px;
+  color: var(--gold-text, var(--gold));
+}
+.vp .ev-calc-keypad {
+  display: flex;
+  flex-direction: column;
+}
+.vp .ev-calc-display {
+  text-align: right;
+  font-size: 30.5px;
+  font-weight: 700;
+  font-family: var(--data);
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: var(--ink);
+  color: var(--gold);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vp .ev-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 52px;
+  gap: 8px;
+}
+.vp .ev-calc-key {
+  /* Explicit height, not aspect-ratio: aspect-ratio inside a 1fr-column grid
+   * (especially with ev-calc-key-eq spanning 2 rows) creates a circular
+   * sizing dependency browsers resolve inconsistently — the same bug fixed
+   * earlier in EventDatePicker's day cells. */
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--gold-tint-2, var(--gold));
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--data);
+  font-size: 19.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp .ev-calc-key:hover {
+  border-color: var(--gold);
+}
+.vp .ev-calc-key-op {
+  background: var(--gold-tint-2, var(--gold-tint));
+  color: var(--gold-text, var(--gold));
+}
+.vp .ev-calc-key-clear {
+  color: var(--bad);
+}
+.vp .ev-calc-key-eq {
+  grid-row: span 2;
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--on-gold);
+}
+.vp .ev-calc-apply {
+  width: 100%;
+  margin-top: 12px;
 }
 
 /* footer nav */
@@ -4602,7 +5834,7 @@
   align-items: center;
 }
 .vp .ev-wiz-err {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--bad);
   min-height: 18px;
   margin: 10px 0 0;
@@ -4633,7 +5865,7 @@
 }
 .vp .ev-wiz-preview-eyebrow {
   font-family: var(--data);
-  font-size: 11px;
+  font-size: 11.5px;
   letter-spacing: 2.5px;
   color: var(--gold-text);
   margin-top: 12px;
@@ -4642,7 +5874,7 @@
 }
 .vp .ev-wiz-preview-name {
   margin: 4px 0 0;
-  font-size: 24px;
+  font-size: 24.5px;
   line-height: 1.15;
   word-break: break-word;
   color: var(--ink);
@@ -4674,7 +5906,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--ink-2);
   padding: 6px 0;
   border-top: 1px solid var(--line-soft);
@@ -4717,7 +5949,7 @@
 }
 .vp .ev-wiz-success-name {
   margin: 8px 0 4px;
-  font-size: 34px;
+  font-size: 34.5px;
   color: var(--ink);
   line-height: 1.1;
 }
@@ -4734,7 +5966,7 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 14px;
+  font-size: 14.5px;
   padding: 3px 0;
 }
 .vp .ev-wiz-success-row span:first-child {

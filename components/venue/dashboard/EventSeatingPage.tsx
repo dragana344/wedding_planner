@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { VENUE_TIME_ZONE } from "@/lib/date";
 import { FloorPlanCanvas, PX_PER_CM, type CanvasElement, type CanvasGroup } from "./FloorPlanCanvas";
 import { fitZoom } from "@/lib/seating/zoom-to-fit";
 import {
@@ -11,6 +12,7 @@ import {
   MOVABLE_LABELS,
   TABLE_ROLE_LABELS,
   COUPLE_TABLE_COLOR,
+  CREW_TABLE_COLOR,
   type TableRole,
   type FixedElement,
   type EventLayoutElement,
@@ -19,18 +21,29 @@ import {
 } from "@/lib/venue/floorplan";
 import { type Room, type TableType } from "@/lib/venue/rooms";
 import { TableSeatsPanel } from "@/components/seating/TableSeatsPanel";
+import { GuestRail } from "@/components/seating/GuestRail";
 import { AllTablesView } from "@/components/seating/AllTablesView";
+import { ToolbarMenu, type ToolbarMenuItem } from "@/components/seating/ToolbarMenu";
+import { PrinterIcon, QrIcon, SprigIcon } from "@/components/seating/couple-icons";
+import "@/components/seating/couple-seating.css";
+import { Icon } from "@/components/venue/shell/Icon";
 import { occupancyOf, OCCUPANCY_COLORS, OCCUPANCY_LABELS, type Occupancy } from "@/lib/seating/occupancy";
 import { tableTitle, type RoomSeating, type SeatInput } from "@/lib/seating/types";
 import { errorMessage } from "@/lib/venue/user-error";
 import { openSpot } from "@/lib/venue/open-spot";
 import type { SeatingProposalView } from "@/lib/seating/types";
+import type { RoomPreset } from "@/lib/venue/room-presets";
+import type { ProposalSnapshotElement } from "@/lib/seating/proposals";
+import { diffProposalElements } from "@/lib/seating/proposal-diff";
 
 const PALETTE_BUTTON_CLASS =
   "rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-neutral-200 disabled:hover:text-neutral-700";
 
+// timeZone and hourCycle are explicit: Node and browsers don't agree on
+// mk-MK's default (24h vs AM/PM) or on the local time zone, which breaks
+// hydration on this SSR'd proposal summary otherwise.
 function formatProposalDate(iso: string): string {
-  return new Date(iso).toLocaleString("mk-MK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString("mk-MK", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: VENUE_TIME_ZONE });
 }
 
 /** Project A §5: one line summarising a proposal for either side's list. */
@@ -58,6 +71,11 @@ export interface SeatingActions {
   relabelElement?: (id: string, label: string | null) => Promise<EventLayoutElement>;
   deleteElement: (id: string) => Promise<void>;
   revertToStandard: (eventId: string, roomId: string) => Promise<EventLayoutElement[]>;
+  /** Venue only: a manual escape hatch alongside "revert to standard" —
+   * swaps this event's room layout for a copy of one of the room's saved
+   * presets (Распоред на маси → room → "Уреди распоред на масите"). */
+  listPresets?: (roomId: string) => Promise<RoomPreset[]>;
+  loadPreset?: (eventId: string, roomId: string, presetId: string) => Promise<EventLayoutElement[]>;
   captureSnapshot: (eventId: string, roomId: string) => Promise<void>;
   undo: (eventId: string, roomId: string) => Promise<EventLayoutElement[]>;
   /** Organizer-only: when present, this editor is working on a private draft
@@ -75,6 +93,9 @@ export interface SeatingActions {
   listProposals?: (eventId: string, roomId: string) => Promise<SeatingProposalView[]>;
   approveProposal?: (proposalId: string) => Promise<void>;
   rejectProposal?: (proposalId: string, note: string | null) => Promise<void>;
+  /** Fix #3: the before/after a proposal represents, for the two small
+   * floor-plan previews on its row. Absent: no "Прегледај промени" toggle. */
+  getProposalDiff?: (proposalId: string) => Promise<{ before: ProposalSnapshotElement[]; after: ProposalSnapshotElement[] }>;
   /** Multi-step history (0072). Absent: only the single legacy undo. */
   redo?: (eventId: string, roomId: string) => Promise<EventLayoutElement[]>;
   getHistoryState?: (eventId: string, roomId: string) => Promise<{ canUndo: boolean; canRedo: boolean }>;
@@ -85,6 +106,14 @@ export interface SeatingActions {
   getRoomSeating?: (eventId: string, roomId: string) => Promise<RoomSeating>;
   /** Couple only: replaces one table's list and returns the room's fresh seating. */
   saveTableSeats?: (roomId: string, elementId: string, seats: SeatInput[], expected: SeatInput[]) => Promise<RoomSeating>;
+  /** Couple only: the guest rail's drag-and-drop — assigns (no `from`) or moves
+   * (with `from`) one guest to one seat, atomically. Returns the room's fresh seating. */
+  moveSeat?: (
+    roomId: string,
+    guestId: string,
+    to: { elementId: string; seatNumber: number },
+    from?: { elementId: string; seatNumber: number },
+  ) => Promise<RoomSeating>;
 }
 
 export function EventSeatingPage({
@@ -106,6 +135,7 @@ export function EventSeatingPage({
   printLinks,
   guestCountEstimate = null,
   logoUrl = null,
+  look = "venue",
 }: {
   eventId: string;
   eventName: string;
@@ -136,6 +166,10 @@ export function EventSeatingPage({
   guestCountEstimate?: number | null;
   /** Project C: the venue's own logo, watermarked over the floor plan. */
   logoUrl?: string | null;
+  /** "couple": the couple panel's ivory/gold page — title header, one
+   * toolbar with drop-down menus, plan card and a Гости / Детали за маса
+   * sidebar (couple-seating.css). Same actions and behaviour either way. */
+  look?: "venue" | "couple";
 }) {
   const [fixedElements] = useState(initialFixedElements);
   const [layoutElements, setLayoutElements] = useState(initialLayoutElements);
@@ -150,13 +184,26 @@ export function EventSeatingPage({
   const [respondingProposalId, setRespondingProposalId] = useState<string | null>(null);
   const [rejectingProposalId, setRejectingProposalId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [showPastProposals, setShowPastProposals] = useState(false);
+  // Fix #3: which proposal's before/after preview is expanded, and what's
+  // been loaded for it so far — fetched once per proposal, not on every render.
+  const [expandedDiffId, setExpandedDiffId] = useState<string | null>(null);
+  const [proposalDiffs, setProposalDiffs] = useState<
+    Record<string, { before: ProposalSnapshotElement[]; after: ProposalSnapshotElement[] } | "loading" | "error">
+  >({});
   const [seating, setSeating] = useState<RoomSeating | null>(initialSeating ?? null);
+  // "Листа на маси": on the venue look the lists open under the plan; on the
+  // couple look they replace the plan and sidebar (План / Листа is a switch).
   const [showAllTables, setShowAllTables] = useState(false);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [isRedoing, setIsRedoing] = useState(false);
   const [groupMode, setGroupMode] = useState(false);
   const [groupPick, setGroupPick] = useState<string[]>([]);
+  const [presets, setPresets] = useState<RoomPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [isLoadingPreset, setIsLoadingPreset] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [sideTab, setSideTab] = useState<"guests" | "table">("guests");
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   // Project C: a wide room starts zoomed to fit the visible width instead of
   // overflowing into a horizontal scrollbar at 100% — once per room, not a
@@ -171,6 +218,20 @@ export function EventSeatingPage({
   const [seatNotice, setSeatNotice] = useState<string | null>(null);
   const [seatVersion, setSeatVersion] = useState(0);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // The guest rail's drag-and-drop (fix #2): the id of the guest currently
+  // being dragged from the "Гости" list, or null. Cleared on any pointer
+  // release, dropped on a seat or not — see the window listener below.
+  const [draggingGuestId, setDraggingGuestId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!draggingGuestId) return;
+    const end = () => setDraggingGuestId(null);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, [draggingGuestId]);
 
   async function refreshHistory() {
     if (actions.getHistoryState) setHistory(await actions.getHistoryState(eventId, room.id));
@@ -178,6 +239,10 @@ export function EventSeatingPage({
 
   async function refreshProposals() {
     if (actions.listProposals) setProposals(await actions.listProposals(eventId, room.id));
+  }
+
+  async function refreshPresets() {
+    if (actions.listPresets) setPresets(await actions.listPresets(room.id));
   }
 
   async function refresh() {
@@ -206,10 +271,12 @@ export function EventSeatingPage({
     const key = `${eventId}:${room.id}`;
     if (initializedKeyRef.current === key) return;
     initializedKeyRef.current = key;
+    setSelectedPresetId("");
     if (skipInitialization) {
       setCanUndo(true);
       refreshHistory();
       refreshProposals();
+      refreshPresets();
       return;
     }
     (async () => {
@@ -219,6 +286,7 @@ export function EventSeatingPage({
       setCanUndo(true);
       await refreshHistory();
       await refreshProposals();
+      await refreshPresets();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, room.id]);
@@ -289,6 +357,60 @@ export function EventSeatingPage({
     } finally {
       setRespondingProposalId(null);
     }
+  }
+
+  async function handleToggleProposalDiff(proposalId: string) {
+    if (expandedDiffId === proposalId) {
+      setExpandedDiffId(null);
+      return;
+    }
+    setExpandedDiffId(proposalId);
+    if (!actions.getProposalDiff || proposalDiffs[proposalId]) return;
+    setProposalDiffs((prev) => ({ ...prev, [proposalId]: "loading" }));
+    try {
+      const diff = await actions.getProposalDiff(proposalId);
+      setProposalDiffs((prev) => ({ ...prev, [proposalId]: diff }));
+    } catch {
+      setProposalDiffs((prev) => ({ ...prev, [proposalId]: "error" }));
+    }
+  }
+
+  /** Fix #3: a proposal's before/after snapshot rendered as a small, static
+   * floor plan — mode="select" with nothing ever in selectedIds means the
+   * canvas never starts a drag, so this stays inert regardless of pointer
+   * events. Elements that differ from the other side are gold-highlighted. */
+  function diffCanvasElements(elements: ProposalSnapshotElement[], highlighted: Set<string>): CanvasElement[] {
+    return elements.map((el) => {
+      const tableType = el.table_type_id ? tableTypes.find((tt) => tt.id === el.table_type_id) : null;
+      const role = el.table_role ?? "guest";
+      const shape: "rect" | "circle" =
+        el.element_type === "table"
+          ? tableType?.shape === "rectangular"
+            ? "rect"
+            : "circle"
+          : el.shape === "round"
+            ? "circle"
+            : "rect";
+      return {
+        id: el.id,
+        x_cm: el.x_cm,
+        y_cm: el.y_cm,
+        width_cm: el.width_cm,
+        height_cm: el.length_cm,
+        color:
+          el.element_type === "table" && role === "couple"
+            ? COUPLE_TABLE_COLOR
+            : el.element_type === "table" && role === "crew"
+              ? CREW_TABLE_COLOR
+              : MOVABLE_TYPE_COLORS[el.element_type],
+        label: el.element_type === "table" && role !== "guest" ? (el.label ?? TABLE_ROLE_LABELS[role]) : (el.label ?? MOVABLE_LABELS[el.element_type]),
+        shape,
+        rotationDeg: el.rotation_deg,
+        locked: true,
+        highlighted: highlighted.has(el.id),
+        seatCount: el.element_type === "table" ? tableType?.seats : undefined,
+      };
+    });
   }
 
   function tablesPlacedForType(tableTypeId: string): number {
@@ -363,6 +485,36 @@ export function EventSeatingPage({
       await refresh();
     } catch (err) {
       setError(errorMessage(err, "Не успеа зачувувањето на ознаката."));
+    }
+  }
+
+  /**
+   * A guest rail chip dropped onto seat `seatNumber` of the selected table.
+   * Already fully seated (held party_size reached) → moves their first
+   * existing seat here; otherwise just assigns this seat on top of what they
+   * already hold (a bigger party placed one seat at a time).
+   */
+  async function handleDropGuest(seatNumber: number) {
+    const guestId = draggingGuestId;
+    setDraggingGuestId(null);
+    if (!guestId || !actions.moveSeat || !selectedSeatTable || !seating) return;
+    const guest = seating.guests.find((g) => g.id === guestId);
+    const existing = seating.seats.filter((s) => s.guestId === guestId);
+    const from =
+      guest && existing.length >= guest.partySize
+        ? { elementId: existing[0].elementId, seatNumber: existing[0].seatNumber }
+        : undefined;
+    if (from && from.elementId === selectedSeatTable.elementId && from.seatNumber === seatNumber) return;
+    setSeatNotice(null);
+    try {
+      setSeating(await actions.moveSeat(room.id, guestId, { elementId: selectedSeatTable.elementId, seatNumber }, from));
+      // The open list keeps its own rows; remount it so the new guest shows.
+      setSeatVersion((v) => v + 1);
+      await refreshHistory();
+    } catch (err) {
+      if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
+      setSeatVersion((v) => v + 1);
+      setSeatNotice(errorMessage(err, "Не успеа преместувањето на гостинот."));
     }
   }
 
@@ -454,6 +606,32 @@ export function EventSeatingPage({
       await refresh();
     } catch (err) {
       setError(errorMessage(err, "Не успеа враќањето на стандардниот распоред. Обидете се повторно."));
+    }
+  }
+
+  async function handleLoadPreset() {
+    if (!actions.loadPreset || !selectedPresetId) return;
+    const seated = seating?.seats.length ?? 0;
+    const presetName = presets.find((p) => p.id === selectedPresetId)?.name ?? "";
+    if (
+      !window.confirm(
+        `Да се примени планот „${presetName}“? Моменталниот распоред за оваа сала ќе биде заменет.${
+          seated > 0 ? ` Сите седнати гости (${seated}) ќе се ослободат.` : ""
+        } Можете да се вратите со „← Врати“.`,
+      )
+    )
+      return;
+    setError(null);
+    setIsLoadingPreset(true);
+    try {
+      setLayoutElements(await actions.loadPreset(eventId, room.id, selectedPresetId));
+      setSelectedId(null);
+      await refreshHistory();
+      if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
+    } catch (err) {
+      setError(errorMessage(err, "Не успеа примената на планот. Обидете се повторно."));
+    } finally {
+      setIsLoadingPreset(false);
     }
   }
 
@@ -583,7 +761,13 @@ export function EventSeatingPage({
       const seatTable = seating?.tables.find((t) => t.elementId === el.id);
       const occupancy = seatTable ? occupancyOf(seatTable.capacity, seatedAt(el.id)) : undefined;
       const shape: "rect" | "circle" =
-        el.element_type === "table" ? (tableType?.shape === "rectangular" ? "rect" : "circle") : "rect";
+        el.element_type === "table"
+          ? tableType?.shape === "rectangular"
+            ? "rect"
+            : "circle"
+          : el.shape === "round"
+            ? "circle"
+            : "rect";
       const role = el.table_role ?? "guest";
       const label = seatTable
         ? tableTitle(seatTable)
@@ -599,9 +783,11 @@ export function EventSeatingPage({
         color:
           el.element_type === "table" && role === "couple"
             ? COUPLE_TABLE_COLOR
-            : occupancy
-              ? OCCUPANCY_COLORS[occupancy]
-              : MOVABLE_TYPE_COLORS[el.element_type],
+            : el.element_type === "table" && role === "crew"
+              ? CREW_TABLE_COLOR
+              : occupancy
+                ? OCCUPANCY_COLORS[occupancy]
+                : MOVABLE_TYPE_COLORS[el.element_type],
         occupancy,
         badge: seatTable ? `${seatedAt(el.id)}/${seatTable.capacity}` : undefined,
         label,
@@ -613,6 +799,498 @@ export function EventSeatingPage({
       };
     }),
   ];
+
+  // Project A §5: the room's send/approve/reject history, shared by both looks.
+  // Fix #3: a fixed small thumbnail width for the before/after preview panes,
+  // whatever the room's actual size — fitZoom already does exactly this for
+  // the main canvas, just with a much lower floor than its 0.5 default.
+  const diffZoom = fitZoom(room.width_cm, PX_PER_CM, 220, 0.1);
+
+  // Waiting proposals always show; answered/outdated ones collapse behind a
+  // toggle so many back-and-forth sends don't grow into a long list.
+  const pendingProposals = proposals.filter((p) => p.status === "pending");
+  const pastProposals = proposals.filter((p) => p.status !== "pending");
+  const proposalList = (list: SeatingProposalView[]) => (
+    <ul className="space-y-1.5">
+      {list.map((p) => {
+        const incoming = p.status === "pending" && p.proposed_by !== (actions.confirm ? "couple" : "venue");
+        return (
+          <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-2 text-sm text-neutral-700">
+            <span>{proposalSummary(p)}</span>
+            {incoming && actions.approveProposal ? (
+              <button
+                type="button"
+                onClick={() => handleApproveProposal(p.id)}
+                disabled={respondingProposalId === p.id}
+                className="rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Одобри
+              </button>
+            ) : null}
+            {incoming && actions.rejectProposal ? (
+              rejectingProposalId === p.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={rejectNote}
+                    onChange={(e) => setRejectNote(e.target.value)}
+                    placeholder="Причина (опционално)"
+                    className="rounded-full border border-neutral-200 px-3 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRejectProposal(p.id)}
+                    disabled={respondingProposalId === p.id}
+                    className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Потврди одбивање
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRejectingProposalId(null);
+                      setRejectNote("");
+                    }}
+                    className="text-xs text-neutral-500 underline"
+                  >
+                    Откажи
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRejectingProposalId(p.id)}
+                  disabled={respondingProposalId === p.id}
+                  className="rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700 hover:border-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Одбиј
+                </button>
+              )
+            ) : null}
+            {actions.getProposalDiff ? (
+              <button
+                type="button"
+                onClick={() => handleToggleProposalDiff(p.id)}
+                aria-expanded={expandedDiffId === p.id}
+                className="rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700 hover:border-lilac-dark hover:text-lilac-dark"
+              >
+                {expandedDiffId === p.id ? "Сокриј промени" : "Прегледај промени"}
+              </button>
+            ) : null}
+            {expandedDiffId === p.id ? (
+              <div className="w-full">
+                {proposalDiffs[p.id] === "loading" ? (
+                  <p className="text-xs text-neutral-500">Се вчитува...</p>
+                ) : proposalDiffs[p.id] === "error" ? (
+                  <p className="text-xs text-red-600">Не успеа вчитувањето на промените.</p>
+                ) : proposalDiffs[p.id] ? (
+                  (() => {
+                    const diff = proposalDiffs[p.id] as { before: ProposalSnapshotElement[]; after: ProposalSnapshotElement[] };
+                    const { beforeHighlighted, afterHighlighted } = diffProposalElements(diff.before, diff.after);
+                    const panes = [
+                      ["Пред", diff.before, beforeHighlighted],
+                      ["Предложено", diff.after, afterHighlighted],
+                    ] as const;
+                    return (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {panes.map(([title, elements, highlighted]) => (
+                          <div key={title} className="rounded-xl border border-neutral-200 bg-neutral-50 p-2">
+                            <p className="mb-1 text-xs font-medium text-neutral-500">{title}</p>
+                            <FloorPlanCanvas
+                              widthCm={room.width_cm}
+                              heightCm={room.height_cm}
+                              elements={diffCanvasElements(elements, highlighted)}
+                              selectedElementId={null}
+                              onSelect={() => {}}
+                              onMoveEnd={() => {}}
+                              onResizeEnd={() => {}}
+                              onRotateEnd={() => {}}
+                              onDelete={() => {}}
+                              mode="select"
+                              selectedIds={[]}
+                              zoom={diffZoom}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()
+                ) : null}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+  const proposalItems =
+    actions.listProposals && proposals.length > 0 ? (
+      <div className="space-y-1.5">
+        {pendingProposals.length > 0 ? proposalList(pendingProposals) : null}
+        {pastProposals.length > 0 ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowPastProposals((v) => !v)}
+              aria-expanded={showPastProposals}
+              className="text-xs font-medium text-neutral-500 underline hover:text-neutral-800"
+            >
+              {showPastProposals ? "Сокриј историја на промени" : `Историја на промени (${pastProposals.length})`}
+            </button>
+            {showPastProposals ? proposalList(pastProposals) : null}
+          </>
+        ) : null}
+      </div>
+    ) : null;
+
+  async function saveSelectedSeats(seats: SeatInput[]) {
+    if (!seating || !selectedSeatTable) return;
+    const loaded = seating.seats
+      .filter((s) => s.elementId === selectedSeatTable.elementId)
+      .map((s) => ({ seatNumber: s.seatNumber, guestId: s.guestId, guestName: s.guestId ? null : s.guestName }));
+    setSeatNotice(null);
+    try {
+      setSeating(await actions.saveTableSeats!(room.id, selectedSeatTable.elementId, seats, loaded));
+      await refreshHistory();
+    } catch (err) {
+      if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
+      setSeatVersion((v) => v + 1);
+      setSeatNotice(errorMessage(err, "Не успеа зачувувањето на листата."));
+    }
+  }
+
+  /** The couple panel's look of this same editor (see the `look` prop). */
+  function renderCouple() {
+    const canEdit = !viewOnly;
+    const canSeat = !!seating && !!actions.moveSeat && !seatingReadOnly && !viewOnly;
+    const zoomOut = () => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)));
+    const zoomIn = () => setZoom((z) => Math.min(2, +(z + 0.25).toFixed(2)));
+
+    // One menu for everything that can be added: the room's table types
+    // first, then the special tables, then the other elements.
+    const addItems: ToolbarMenuItem[] = [
+      ...tableTypes.map((tt) => ({
+        key: tt.id,
+        label: `${tt.name} (${tablesPlacedForType(tt.id)}/${tt.quantity})`,
+        onSelect: () => handleAddTable(tt),
+        disabled: tablesPlacedForType(tt.id) >= tt.quantity,
+      })),
+      { key: "couple", label: "Маса на младенците", onSelect: () => handleAddSpecialTable("couple"), disabled: !specialTableType, separated: tableTypes.length > 0 },
+      { key: "head", label: "Главна маса", onSelect: () => handleAddSpecialTable("head"), disabled: !specialTableType },
+      { key: "crew", label: "Маса за музика/фотографи", onSelect: () => handleAddSpecialTable("crew"), disabled: !specialTableType },
+      { key: "stage", label: "Бина", onSelect: () => handleAddMovable("stage"), separated: true },
+      { key: "dance_floor", label: "Танц подиум", onSelect: () => handleAddMovable("dance_floor") },
+      { key: "bar_movable", label: "Шанк", onSelect: () => handleAddMovable("bar_movable") },
+      { key: "music", label: "Музика", onSelect: () => handleAddMovable("music") },
+      { key: "photo_stage", label: "Бина за сликање", onSelect: () => handleAddMovable("photo_stage") },
+    ];
+
+    const selectedLabel = selectedTable ? (canvasElements.find((c) => c.id === selectedTable.id)?.label ?? "Маса") : "";
+    const selectedType = selectedTable ? tableTypes.find((tt) => tt.id === selectedTable.table_type_id) : undefined;
+    const selectedRole = selectedTable?.table_role ?? "guest";
+
+    return (
+      <div className="cs-page">
+        <header className="cs-head">
+          <SprigIcon className="cs-head-sprig" />
+          <div className="cs-head-text">
+            <p className="cs-eyebrow">{eventName}</p>
+            <h2 className="cs-title">{room.name} — Распоред на седење</h2>
+            <span className="cs-seat-pill">
+              <Icon name="users" size="sm" />
+              {seatedCount} седишта
+            </span>
+          </div>
+          {canEdit && (actions.confirm || actions.sendProposal) ? (
+            <button type="button" onClick={handleSendProposal} disabled={isSendingProposal} className="cs-btn cs-btn-send">
+              <Icon name="mail" size="sm" />
+              {isSendingProposal ? "Се испраќа..." : actions.confirm ? "Испрати распоред на локалот" : "Испрати распоред на парот"}
+            </button>
+          ) : null}
+        </header>
+
+        {guestCountEstimate !== null && guestCountEstimate > seatedCount ? (
+          <p className="cs-note">
+            Бројот на гости ({guestCountEstimate}) го надминува капацитетот на тековниот распоред ({seatedCount}).
+          </p>
+        ) : null}
+        {viewOnly && viewOnlyNotice ? (
+          <p role="status" className="cs-note">
+            {viewOnlyNotice}
+          </p>
+        ) : null}
+        {proposalItems ? <div className="cs-proposals">{proposalItems}</div> : null}
+
+        <div className="cs-toolbar">
+          {canEdit ? (
+            <>
+              <ToolbarMenu primary label="Додај елемент" icon="plus" items={addItems} />
+              <span className="cs-toolbar-div" aria-hidden />
+            </>
+          ) : null}
+          {printLinks ? (
+            <>
+              <Link href={printLinks.plan} className="cs-btn" target="_blank">
+                <PrinterIcon className="i i-sm" />
+                Печати план
+              </Link>
+              {printLinks.qr ? (
+                <Link href={printLinks.qr} className="cs-btn" target="_blank">
+                  <QrIcon className="i i-sm" />
+                  QR по маса
+                </Link>
+              ) : null}
+            </>
+          ) : null}
+          {canEdit ? (
+            <>
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={actions.getHistoryState ? !history.canUndo || isUndoing : !canUndo || isUndoing}
+                className="cs-btn"
+                title="Ctrl+Z"
+              >
+                <Icon name="left" size="sm" />
+                Врати
+              </button>
+              {actions.redo ? (
+                <button type="button" onClick={handleRedo} disabled={!history.canRedo || isRedoing} className="cs-btn" title="Shift+Ctrl+Z">
+                  <Icon name="right" size="sm" />
+                  Повтор
+                </button>
+              ) : null}
+              {actions.resetToBaseline ? (
+                <button type="button" onClick={handleResetToBaseline} disabled={isResettingBaseline} className="cs-btn">
+                  <Icon name="refresh" size="sm" />
+                  {isResettingBaseline ? "Се враќа..." : "Првичен распоред"}
+                </button>
+              ) : null}
+            </>
+          ) : null}
+          {seating ? (
+            <div className="cs-views" role="group" aria-label="Приказ">
+              <button type="button" aria-pressed={!showAllTables} onClick={() => setShowAllTables(false)}>
+                <Icon name="tables" size="sm" />
+                План
+              </button>
+              <button type="button" aria-pressed={showAllTables} onClick={() => setShowAllTables(true)}>
+                <Icon name="menu" size="sm" />
+                Листа на маси
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {error ? (
+          <p role="alert" className="cs-error">
+            {error}
+          </p>
+        ) : null}
+        {groupMode ? (
+          <div className="cs-groupbar">
+            <span>Изберете ги масите што сакате да ги групирате ({groupPick.length}).</span>
+            <button type="button" onClick={handleGroup} disabled={groupPick.length < 2} className="cs-btn cs-btn-primary">
+              Групирај ({groupPick.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGroupMode(false);
+                setGroupPick([]);
+              }}
+              className="cs-btn"
+            >
+              Откажи
+            </button>
+          </div>
+        ) : null}
+
+        {/* "Листа на маси" takes the plan's place; a picked card is the
+            selected table once the couple switches back to План. */}
+        {showAllTables && seating ? (
+          <div className="cs-card cs-list">
+            <AllTablesView
+              roomName={room.name}
+              seating={seating}
+              highlightedId={highlightedId}
+              onHighlight={(id) => {
+                setHighlightedId(id);
+                if (!id) return;
+                setSelectedId(id);
+                setSeatNotice(null);
+              }}
+            />
+          </div>
+        ) : (
+          <div className="cs-body">
+            <section className="cs-card cs-plan" aria-label="План на салата">
+              <div className="cs-plan-head">
+                {seating ? (
+                  <ul aria-label="Легенда" className="cs-legend">
+                    {(Object.keys(OCCUPANCY_COLORS) as Occupancy[]).map((o) => (
+                      <li key={o}>
+                        <span className="cs-legend-dot" style={{ background: OCCUPANCY_COLORS[o] }} />
+                        {OCCUPANCY_LABELS[o]}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span />
+                )}
+                <div className="cs-zoom" role="group" aria-label="Зум">
+                  <button type="button" aria-label="Одзумирај" onClick={zoomOut}>
+                    <Icon name="minus" size="sm" />
+                  </button>
+                  <button type="button" onClick={() => setZoom(1)} className="cs-zoom-val" title="Врати на 100%">
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button type="button" aria-label="Зумирај" onClick={zoomIn}>
+                    <Icon name="plus" size="sm" />
+                  </button>
+                </div>
+              </div>
+              <div ref={canvasWrapRef} className="cs-canvas">
+                <FloorPlanCanvas
+                  widthCm={room.width_cm}
+                  heightCm={room.height_cm}
+                  elements={canvasElements}
+                  selectedElementId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setSeatNotice(null);
+                  }}
+                  onMoveEnd={handleMoveEnd}
+                  onResizeEnd={handleResizeEnd}
+                  onRotateEnd={handleRotateEnd}
+                  onDelete={handleDelete}
+                  mode={groupMode ? "select" : "edit"}
+                  selectedIds={groupPick}
+                  onToggleSelect={toggleGroupPick}
+                  groups={groupOutlines}
+                  zoom={zoom}
+                  watermarkUrl={logoUrl}
+                  selectionTone="gold"
+                />
+              </div>
+            </section>
+
+            <aside className="cs-card cs-side" aria-label="Гости и маси">
+              <div role="tablist" aria-label="Страничен панел" className="cs-tabs">
+                <button type="button" role="tab" aria-selected={sideTab === "guests"} onClick={() => setSideTab("guests")}>
+                  <Icon name="users" size="sm" />
+                  Гости
+                </button>
+                <button type="button" role="tab" aria-selected={sideTab === "table"} onClick={() => setSideTab("table")}>
+                  <Icon name="help" size="sm" />
+                  Детали за маса
+                </button>
+              </div>
+              <div role="tabpanel" className="cs-tabpanel">
+                {sideTab === "guests" ? (
+                  <>
+                    {seatNotice ? <p className="cs-note">{seatNotice}</p> : null}
+                    {canSeat && seating ? (
+                      <GuestRail variant="couple" guests={seating.guests} draggingGuestId={draggingGuestId} onDragStart={setDraggingGuestId} />
+                    ) : null}
+                    {selectedSeatTable && seating ? (
+                      <TableSeatsPanel
+                        key={`${selectedSeatTable.elementId}:${selectedSeatTable.capacity}:${seatVersion}`}
+                        variant="couple"
+                        table={selectedSeatTable}
+                        seats={seating.seats.filter((s) => s.elementId === selectedSeatTable.elementId)}
+                        guests={seating.guests}
+                        readOnly={seatingReadOnly || viewOnly || !actions.saveTableSeats}
+                        draggingGuestId={draggingGuestId}
+                        onDropGuest={actions.moveSeat ? handleDropGuest : undefined}
+                        onSave={saveSelectedSeats}
+                      />
+                    ) : (
+                      <p className="cs-empty">Изберете маса на планот за да ги видите и пополните седиштата.</p>
+                    )}
+                  </>
+                ) : selectedTable ? (
+                  <div className="cs-details">
+                    <h3 className="cs-seats-title">{selectedLabel}</h3>
+                    <dl className="cs-facts">
+                      {selectedRole !== "guest" ? (
+                        <div>
+                          <dt>Вид</dt>
+                          <dd>{TABLE_ROLE_LABELS[selectedRole]}</dd>
+                        </div>
+                      ) : null}
+                      {selectedType ? (
+                        <div>
+                          <dt>Тип на маса</dt>
+                          <dd>{selectedType.name}</dd>
+                        </div>
+                      ) : null}
+                      <div>
+                        <dt>Седишта</dt>
+                        <dd>{seatsOf(selectedTable)}</dd>
+                      </div>
+                      {selectedSeatTable ? (
+                        <div>
+                          <dt>Пополнетост</dt>
+                          <dd>
+                            {seatedAt(selectedTable.id)}/{selectedSeatTable.capacity} ·{" "}
+                            {OCCUPANCY_LABELS[occupancyOf(selectedSeatTable.capacity, seatedAt(selectedTable.id))]}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                    {actions.relabelElement && canEdit ? (
+                      <form
+                        key={`label:${selectedTable.id}:${selectedTable.label ?? ""}`}
+                        className="cs-label-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const field = e.currentTarget.elements.namedItem("table-label") as HTMLInputElement;
+                          handleRelabel(selectedTable.id, field.value);
+                        }}
+                      >
+                        <label htmlFor={`table-label-${selectedTable.id}`}>Ознака на масата</label>
+                        <div className="cs-label-row">
+                          <input
+                            id={`table-label-${selectedTable.id}`}
+                            name="table-label"
+                            defaultValue={selectedTable.label ?? ""}
+                            placeholder="на пр. 12 или Кумови"
+                            maxLength={200}
+                          />
+                          <button type="submit" className="cs-btn">
+                            Зачувај ознака
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
+                    {canEdit ? (
+                      <div className="cs-details-actions">
+                        {actions.ungroup && selectedGroupId ? (
+                          <button type="button" onClick={() => handleUngroup(selectedGroupId)} className="cs-btn">
+                            <Icon name="ungroup" size="sm" />
+                            Разгрупирај
+                          </button>
+                        ) : null}
+                        <button type="button" onClick={() => handleDelete(selectedTable.id)} className="cs-btn cs-btn-danger">
+                          <Icon name="trash" size="sm" />
+                          Отстрани ја масата
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="cs-empty">Изберете маса на планот за да ги видите деталите.</p>
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (look === "couple") return renderCouple();
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-10">
@@ -670,6 +1348,9 @@ export function EventSeatingPage({
         <button type="button" onClick={() => handleAddSpecialTable("head")} disabled={!specialTableType} className={PALETTE_BUTTON_CLASS}>
           + Главна маса
         </button>
+        <button type="button" onClick={() => handleAddSpecialTable("crew")} disabled={!specialTableType} className={PALETTE_BUTTON_CLASS}>
+          + Маса за музика/фотографи
+        </button>
         {tableTypes.map((tt) => (
           <button
             key={tt.id}
@@ -684,6 +1365,26 @@ export function EventSeatingPage({
         <button type="button" onClick={handleRevert} className={PALETTE_BUTTON_CLASS}>
           Врати на стандарден распоред
         </button>
+        {actions.loadPreset && presets.length > 0 ? (
+          <>
+            <select
+              className={PALETTE_BUTTON_CLASS}
+              value={selectedPresetId}
+              onChange={(e) => setSelectedPresetId(e.target.value)}
+              aria-label="Избери зачуван план"
+            >
+              <option value="">Избери зачуван план…</option>
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={handleLoadPreset} disabled={!selectedPresetId || isLoadingPreset} className={PALETTE_BUTTON_CLASS}>
+              {isLoadingPreset ? "Се применува..." : "Примени план"}
+            </button>
+          </>
+        ) : null}
         {actions.resetToBaseline ? (
           <button type="button" onClick={handleResetToBaseline} disabled={isResettingBaseline} className={PALETTE_BUTTON_CLASS}>
             {isResettingBaseline ? "Се враќа..." : "Врати на договорениот распоред"}
@@ -764,68 +1465,7 @@ export function EventSeatingPage({
           >
             {isSendingProposal ? "Се испраќа..." : actions.confirm ? "Испрати распоред на локалот" : "Испрати распоред на парот"}
           </button>
-          {actions.listProposals && proposals.length > 0 ? (
-            <ul className="space-y-1.5">
-              {proposals.map((p) => {
-                const incoming = p.status === "pending" && p.proposed_by !== (actions.confirm ? "couple" : "venue");
-                return (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-2 text-sm text-neutral-700">
-                    <span>{proposalSummary(p)}</span>
-                    {incoming && actions.approveProposal ? (
-                      <button
-                        type="button"
-                        onClick={() => handleApproveProposal(p.id)}
-                        disabled={respondingProposalId === p.id}
-                        className="rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Одобри
-                      </button>
-                    ) : null}
-                    {incoming && actions.rejectProposal ? (
-                      rejectingProposalId === p.id ? (
-                        <>
-                          <input
-                            type="text"
-                            value={rejectNote}
-                            onChange={(e) => setRejectNote(e.target.value)}
-                            placeholder="Причина (опционално)"
-                            className="rounded-full border border-neutral-200 px-3 py-1 text-xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRejectProposal(p.id)}
-                            disabled={respondingProposalId === p.id}
-                            className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            Потврди одбивање
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRejectingProposalId(null);
-                              setRejectNote("");
-                            }}
-                            className="text-xs text-neutral-500 underline"
-                          >
-                            Откажи
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setRejectingProposalId(p.id)}
-                          disabled={respondingProposalId === p.id}
-                          className="rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700 hover:border-red-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Одбиј
-                        </button>
-                      )
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
+          {proposalItems}
         </div>
       ) : null}
 
@@ -912,27 +1552,19 @@ export function EventSeatingPage({
           {selectedSeatTable && seating ? (
           <>
           {seatNotice ? <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{seatNotice}</p> : null}
+          {actions.moveSeat && !seatingReadOnly && !viewOnly ? (
+            <GuestRail guests={seating.guests} draggingGuestId={draggingGuestId} onDragStart={setDraggingGuestId} />
+          ) : null}
           <TableSeatsPanel
             key={`${selectedSeatTable.elementId}:${selectedSeatTable.capacity}:${seatVersion}`}
             table={selectedSeatTable}
             seats={seating.seats.filter((s) => s.elementId === selectedSeatTable.elementId)}
             guests={seating.guests}
             readOnly={seatingReadOnly || viewOnly || !actions.saveTableSeats}
+            draggingGuestId={draggingGuestId}
+            onDropGuest={actions.moveSeat ? handleDropGuest : undefined}
             onClose={() => setSelectedId(null)}
-            onSave={async (seats) => {
-              const loaded = seating.seats
-                .filter((s) => s.elementId === selectedSeatTable.elementId)
-                .map((s) => ({ seatNumber: s.seatNumber, guestId: s.guestId, guestName: s.guestId ? null : s.guestName }));
-              setSeatNotice(null);
-              try {
-                setSeating(await actions.saveTableSeats!(room.id, selectedSeatTable.elementId, seats, loaded));
-                await refreshHistory();
-              } catch (err) {
-                if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
-                setSeatVersion((v) => v + 1);
-                setSeatNotice(errorMessage(err, "Не успеа зачувувањето на листата."));
-              }
-            }}
+            onSave={saveSelectedSeats}
           />
           </>
           ) : null}

@@ -79,18 +79,22 @@
 .s3-print-num {
   font-style: italic;
 }
+/* Hall name and venue logo get their own row under the plan, so they never
+   sit on top of the frame. */
+.s3-print-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 6mm;
+  margin-top: 3mm;
+}
 .s3-print-logo {
-  position: absolute;
-  right: 12mm;
-  bottom: 8mm;
-  max-height: 14mm;
+  max-height: 12mm;
   max-width: 40mm;
   object-fit: contain;
 }
 .s3-print-room {
-  position: absolute;
-  left: 12mm;
-  bottom: 8mm;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;

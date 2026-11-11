@@ -89,7 +89,7 @@ export function TablesClient({
             }}
           >
             {rooms.map((room) => (
-              <SpaceCard key={room.id} room={room} onChanged={refresh} />
+              <SpaceCard key={room.id} room={room} />
             ))}
           </div>
         )}

@@ -13,7 +13,7 @@ import type { SeatingActions } from "@/components/venue/dashboard/EventSeatingPa
 import { NOTHING_TO_REDO, NOTHING_TO_UNDO, roomHistory } from "@/lib/seating/history-store";
 import { historyState, record, redo, undo, type History, type LayoutSnapshot, type SnapshotSeat } from "@/lib/seating/history";
 import type { SeatingProposalView } from "@/lib/seating/types";
-import { approveSeatingProposal, listSeatingProposals, rejectSeatingProposal } from "@/lib/seating/proposals";
+import { approveSeatingProposal, getSeatingProposalDiff, listSeatingProposals, rejectSeatingProposal } from "@/lib/seating/proposals";
 
 async function assertRoomBelongsToEvent(
   client: SupabaseClient,
@@ -485,6 +485,10 @@ export function coupleSeatingActionsFor(eventId: string): SeatingActions {
     rejectProposal: async (proposalId: string, note: string | null) => {
       await assertProposalInEvent(client, eventId, proposalId);
       await rejectSeatingProposal(proposalId, null, note, client);
+    },
+    getProposalDiff: async (proposalId: string) => {
+      await assertProposalInEvent(client, eventId, proposalId);
+      return getSeatingProposalDiff(proposalId, client);
     },
   };
 }

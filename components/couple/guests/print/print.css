@@ -1,0 +1,122 @@
+/* Printable guest list (couple-facing): cream & gold, the same palette as the
+   seating plan's print pages (components/seating/print/print.css). */
+.gl-print-root {
+  --gl-cream: #f5efe4;
+  --gl-gold: #b8913a;
+  --gl-ink: #5b4a3a;
+  background: #e9e4da;
+  padding: 24px 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  font-family: var(--s3-serif, "Cormorant Garamond", Georgia, serif);
+  color: var(--gl-ink);
+}
+.gl-print-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+.gl-print-toolbar button,
+.gl-print-toolbar a {
+  border: 1px solid var(--gl-gold);
+  background: #fff;
+  color: var(--gl-ink);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.gl-print-page {
+  background: var(--gl-cream);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 16mm;
+}
+.gl-print-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--gl-gold);
+  padding-bottom: 6mm;
+  margin-bottom: 8mm;
+}
+.gl-print-title {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 500;
+  margin: 0;
+}
+.gl-print-sub {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.gl-print-group {
+  margin-bottom: 8mm;
+}
+.gl-print-group-title {
+  font-size: 18px;
+  font-style: italic;
+  margin: 0 0 3mm;
+  display: flex;
+  justify-content: space-between;
+}
+.gl-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: system-ui, sans-serif;
+  font-size: 12.5px;
+}
+.gl-print-table th,
+.gl-print-table td {
+  border-bottom: 1px solid #d8cdb4;
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+.gl-print-table th {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  color: var(--gl-gold);
+}
+.gl-print-table tr {
+  break-inside: avoid;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+@media print {
+  body:has(.gl-print-root) * {
+    visibility: hidden;
+  }
+  body:has(.gl-print-root) .gl-print-root,
+  body:has(.gl-print-root) .gl-print-root * {
+    visibility: visible;
+  }
+  .gl-print-root {
+    position: absolute;
+    inset: 0 auto auto 0;
+    padding: 0;
+    gap: 0;
+    background: none;
+  }
+  .gl-print-toolbar {
+    display: none;
+  }
+  .gl-print-page {
+    box-shadow: none;
+    width: auto;
+    min-height: auto;
+  }
+}

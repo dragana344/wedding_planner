@@ -26,6 +26,7 @@ const seatingOpBody = z.discriminatedUnion("op", [
   z.object({ op: z.literal("update"), element_id: uuid, change: seatingElementUpdateBody }),
   z.object({ op: z.literal("delete"), element_id: uuid }),
   z.object({ op: z.literal("revert"), room_id: uuid }),
+  z.object({ op: z.literal("load_preset"), room_id: uuid, preset_id: uuid }),
   z.object({ op: z.literal("undo"), room_id: uuid }),
   z.object({ op: z.literal("redo"), room_id: uuid }),
   z.object({ op: z.literal("group"), room_id: uuid, element_ids: z.array(uuid).min(2).max(ID_LIST_MAX) }),
@@ -111,6 +112,7 @@ export const POST = withPublic(
           const roomId = body.room_id;
           if (body.op === "initialize") return NextResponse.json(await actions.initializeFromStandard(eventId, roomId));
           if (body.op === "revert") return NextResponse.json(await actions.revertToStandard(eventId, roomId));
+          if (body.op === "load_preset") return NextResponse.json(await actions.loadPreset!(eventId, roomId, body.preset_id));
           if (body.op === "undo") return NextResponse.json(await actions.undo(eventId, roomId));
           if (body.op === "redo") return NextResponse.json(await actions.redo!(eventId, roomId));
           if (body.op === "group") return NextResponse.json(await actions.group!(eventId, roomId, body.element_ids));

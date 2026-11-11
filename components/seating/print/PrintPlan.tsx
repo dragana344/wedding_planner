@@ -89,6 +89,33 @@ function Item({ item, scale }: { item: PrintItem; scale: number }) {
 }
 
 /**
+ * The part of the hall that has something in it (rotations included), plus a
+ * margin for the frame. Printing just that keeps the plan centred on the
+ * page and keeps tables and zones that stand against a wall off the frame.
+ */
+function contentBox(room: PrintRoom): { x: number; y: number; w: number; h: number } {
+  if (room.items.length === 0) return { x: 0, y: 0, w: room.widthCm, h: room.heightCm };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const item of room.items) {
+    const cx = item.x + item.w / 2;
+    const cy = item.y + item.h / 2;
+    const rad = (item.rotation * Math.PI) / 180;
+    const halfW = (Math.abs(Math.cos(rad)) * item.w + Math.abs(Math.sin(rad)) * item.h) / 2;
+    // Room below for a table's menu note.
+    const halfH = (Math.abs(Math.sin(rad)) * item.w + Math.abs(Math.cos(rad)) * item.h) / 2 + (item.menuNote ? item.h * 0.3 : 0);
+    minX = Math.min(minX, cx - halfW);
+    maxX = Math.max(maxX, cx + halfW);
+    minY = Math.min(minY, cy - halfH);
+    maxY = Math.max(maxY, cy + halfH);
+  }
+  const margin = Math.max(120, 0.1 * Math.max(maxX - minX, maxY - minY));
+  return { x: minX - margin, y: minY - margin, w: maxX - minX + 2 * margin, h: maxY - minY + 2 * margin };
+}
+
+/**
  * The printable seating plan (B7): one A4 landscape page per hall, cream and
  * gold like the client's printed sample, the couple's names on top and the
  * venue's logo bottom right.
@@ -116,8 +143,9 @@ export function PrintPlan({
         <span>A4, пејзажно. Во прозорецот за печатење вклучете „Background graphics“.</span>
       </div>
       {rooms.map((room) => {
-        // Line widths and text scale with the hall, so a 40 m hall and a 15 m one look alike on paper.
-        const scale = Math.max(room.widthCm, room.heightCm) / 3000;
+        const box = contentBox(room);
+        // Line widths and text scale with the printed area, so a 40 m hall and a 15 m one look alike on paper.
+        const scale = Math.max(box.w, box.h) / 3000;
         const pad = 40 * scale;
         return (
           <section key={room.id} className="s3-print-page is-plan" aria-label={`План на сала ${room.name}`}>
@@ -128,19 +156,21 @@ export function PrintPlan({
             <svg
               data-testid="print-plan-svg"
               className="s3-print-svg"
-              viewBox={`0 0 ${room.widthCm} ${room.heightCm}`}
+              viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
               preserveAspectRatio="xMidYMid meet"
               fontFamily="inherit"
             >
-              <rect x={pad / 2} y={pad / 2} width={room.widthCm - pad} height={room.heightCm - pad} fill="none" stroke={GOLD} strokeWidth={4 * scale} />
-              <rect x={pad} y={pad} width={room.widthCm - 2 * pad} height={room.heightCm - 2 * pad} fill="none" stroke={GOLD} strokeWidth={1.5 * scale} />
+              <rect x={box.x + pad / 2} y={box.y + pad / 2} width={box.w - pad} height={box.h - pad} fill="none" stroke={GOLD} strokeWidth={4 * scale} />
+              <rect x={box.x + pad} y={box.y + pad} width={box.w - 2 * pad} height={box.h - 2 * pad} fill="none" stroke={GOLD} strokeWidth={1.5 * scale} />
               {room.items.map((item) => (
                 <Item key={item.id} item={item} scale={scale} />
               ))}
             </svg>
-            <span className="s3-print-room">{room.name}</span>
-            {/* eslint-disable-next-line @next/next/no-img-element -- venue logo from public storage */}
-            {logoUrl ? <img className="s3-print-logo" src={logoUrl} alt="Лого на локалот" /> : null}
+            <footer className="s3-print-foot">
+              <span className="s3-print-room">{room.name}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element -- venue logo from public storage */}
+              {logoUrl ? <img className="s3-print-logo" src={logoUrl} alt="Лого на локалот" /> : null}
+            </footer>
           </section>
         );
       })}

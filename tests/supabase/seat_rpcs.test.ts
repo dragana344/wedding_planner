@@ -136,3 +136,82 @@ describe("seat RPCs (0071)", () => {
     expect(data).toEqual([{ guest_name: "Туѓ" }]);
   });
 });
+
+// Fix #2 (seating rail drag-and-drop, migration 0144): one atomic assign-or-move.
+describe("move_event_seat (0144)", () => {
+  let table2Id: string;
+  let guestId: string;
+
+  beforeAll(async () => {
+    const tt = await must(admin.from("table_types").select("id").eq("room_id", A.roomId).limit(1).single());
+    const table2 = await must(
+      admin.from("event_layout_elements")
+        .insert({ event_id: A.eventId, room_id: A.roomId, element_type: "table", table_type_id: tt.id, x_cm: 200, y_cm: 0, width_cm: 150, length_cm: 150 })
+        .select("id").single(),
+    );
+    table2Id = table2.id;
+    // A dedicated guest, so these tests don't depend on what earlier tests
+    // in this file left A.guestId seated at.
+    guestId = (await must(admin.from("event_guests").insert({ event_id: A.eventId, full_name: `${RUN} move-guest` }).select("id").single())).id;
+  });
+
+  // Table A already has seat 1 (A.guestId) and seat 2 ("Баба Марија") taken
+  // by an earlier test in this file — these tests only ever touch seats 3/4
+  // on table A, plus table2 (fresh, no seats yet), to avoid interfering.
+  function move(args: Record<string, unknown> = {}) {
+    return admin.rpc("move_event_seat", {
+      p_event_id: A.eventId,
+      p_room_id: A.roomId,
+      p_guest_id: guestId,
+      p_to_element_id: A.tableId,
+      p_to_seat_number: 3,
+      p_from_element_id: null,
+      p_from_seat_number: null,
+      ...args,
+    });
+  }
+
+  it("assigns an unseated guest straight to a seat (no `from`)", async () => {
+    await must(move({ p_to_element_id: A.tableId, p_to_seat_number: 3 }));
+    const rows = await must(admin.from("event_seat_assignments").select("layout_element_id, seat_number").eq("guest_id", guestId));
+    expect(rows).toEqual([{ layout_element_id: A.tableId, seat_number: 3 }]);
+  });
+
+  it("moves a seated guest to a different table atomically, vacating the old seat", async () => {
+    await must(move({
+      p_to_element_id: table2Id, p_to_seat_number: 2,
+      p_from_element_id: A.tableId, p_from_seat_number: 3,
+    }));
+    const rows = await must(admin.from("event_seat_assignments").select("layout_element_id, seat_number").eq("guest_id", guestId));
+    expect(rows).toEqual([{ layout_element_id: table2Id, seat_number: 2 }]);
+  });
+
+  it("refuses a move when the source seat no longer holds that guest (changed since loaded)", async () => {
+    const { error } = await move({
+      p_to_element_id: A.tableId, p_to_seat_number: 4,
+      p_from_element_id: A.tableId, p_from_seat_number: 3, // guestId isn't there any more (it moved to table2)
+    });
+    expect(error?.code).toBe("S3001");
+    const rows = await must(admin.from("event_seat_assignments").select("layout_element_id, seat_number").eq("guest_id", guestId));
+    expect(rows).toEqual([{ layout_element_id: table2Id, seat_number: 2 }]); // unchanged
+  });
+
+  it("rolls back the vacated seat too when the destination seat is already taken", async () => {
+    const { error } = await move({
+      p_to_element_id: A.tableId, p_to_seat_number: 1, // occupied by A.guestId since an earlier test
+      p_from_element_id: table2Id, p_from_seat_number: 2,
+    });
+    expect(error?.code).toBe("23505");
+    // The guest is still at table2 seat 2 — the failed insert rolled back the delete too.
+    const rows = await must(admin.from("event_seat_assignments").select("layout_element_id, seat_number").eq("guest_id", guestId));
+    expect(rows).toEqual([{ layout_element_id: table2Id, seat_number: 2 }]);
+  });
+
+  it("is server-only", async () => {
+    const { error } = await staffA.rpc("move_event_seat", {
+      p_event_id: A.eventId, p_room_id: A.roomId, p_guest_id: guestId,
+      p_to_element_id: A.tableId, p_to_seat_number: 4, p_from_element_id: null, p_from_seat_number: null,
+    });
+    expect(error?.code).toBe("42501");
+  });
+});

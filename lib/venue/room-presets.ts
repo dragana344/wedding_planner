@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupabaseClient } from "@/lib/supabase/resolve-client";
-import { listFixedElements, listRoomLayoutElements, type FixedElement, type RoomLayoutElement } from "./floorplan";
+import { listFixedElements, listRoomLayoutElements, type EventLayoutElement, type FixedElement, type RoomLayoutElement } from "./floorplan";
 
 // Project A, spec §2: a room can have more than one saved, named layout
 // ("preset") instead of today's single standing one. Snapshot-based (jsonb)
@@ -58,7 +58,7 @@ export async function saveRoomPreset(roomId: string, name: string, client: Supab
     elements: elements.map((el) => ({
       element_type: el.element_type, table_type_id: el.table_type_id, x_cm: el.x_cm, y_cm: el.y_cm,
       width_cm: el.width_cm, length_cm: el.length_cm, rotation_deg: el.rotation_deg, label: el.label,
-      group_id: el.group_id, table_role: el.table_role,
+      group_id: el.group_id, table_role: el.table_role, shape: el.shape,
     })),
   };
   const { data, error } = await client
@@ -159,4 +159,57 @@ export async function loadRoomPreset(presetId: string, roomId: string, client: S
 export async function deleteRoomPreset(presetId: string, roomId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<void> {
   const { error } = await client.from("room_layout_presets").delete().eq("id", presetId).eq("room_id", roomId);
   if (error) throw error;
+}
+
+const EVENT_LAYOUT_COLUMNS =
+  "id, event_id, room_id, element_type, table_type_id, x_cm, y_cm, width_cm, length_cm, rotation_deg, label, group_id, table_role";
+
+/**
+ * Replaces one event's room seating with a fresh copy of a saved preset's
+ * snapshot (new row ids) — the per-event analogue of loadRoomPreset, which
+ * instead replaces the room's own standing layout. Only the movable
+ * `elements` apply: an event has no fixed-elements layer of its own (walls,
+ * doors etc. come from the room, not the event). Unlike loadRoomPreset, this
+ * never touches `room_layout_elements`/`room_fixed_elements`, so the
+ * reservations-block check there doesn't apply here — reservations key off
+ * the room's own tables, not an event's draft layout.
+ */
+export async function loadEventLayoutFromPreset(
+  eventId: string,
+  roomId: string,
+  presetId: string,
+  client: SupabaseClient = resolveSupabaseClient(),
+): Promise<EventLayoutElement[]> {
+  const snapshot = await getRoomPresetSnapshot(presetId, roomId, client);
+
+  const { error: deleteError } = await client.from("event_layout_elements").delete().eq("event_id", eventId).eq("room_id", roomId);
+  if (deleteError) throw deleteError;
+
+  if (snapshot.elements.length === 0) return [];
+  const { data, error } = await client
+    .from("event_layout_elements")
+    .insert(
+      // Explicit, increasing created_at: one bulk insert would give every row
+      // the same timestamp and scramble "Маса N" (numbered by created_at) —
+      // same reasoning as copyRoomLayoutToEvent in ./floorplan.
+      snapshot.elements.map((el, i) => ({
+        created_at: new Date(Date.now() + i).toISOString(),
+        event_id: eventId,
+        room_id: roomId,
+        element_type: el.element_type,
+        table_type_id: el.table_type_id,
+        x_cm: el.x_cm,
+        y_cm: el.y_cm,
+        width_cm: el.width_cm,
+        length_cm: el.length_cm,
+        rotation_deg: el.rotation_deg,
+        label: el.label,
+        group_id: el.group_id ?? null,
+        table_role: el.table_role ?? "guest",
+        shape: el.shape ?? null,
+      })),
+    )
+    .select(EVENT_LAYOUT_COLUMNS);
+  if (error) throw error;
+  return data;
 }

@@ -192,6 +192,8 @@ describe("EventSeatingPage seat lists", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "+ Главна маса" }));
     await waitFor(() => expect(a.addElement).toHaveBeenLastCalledWith(expect.objectContaining({ table_role: "head", table_type_id: "tt2" })));
+    fireEvent.click(screen.getByRole("button", { name: "+ Маса за музика/фотографи" }));
+    await waitFor(() => expect(a.addElement).toHaveBeenLastCalledWith(expect.objectContaining({ table_role: "crew", table_type_id: "tt2" })));
     for (const [name, type] of [["+ Музика", "music"], ["+ Бина за сликање", "photo_stage"], ["+ Танц подиум", "dance_floor"], ["+ Шанк", "bar_movable"]]) {
       fireEvent.click(screen.getByRole("button", { name }));
       await waitFor(() => expect(a.addElement).toHaveBeenLastCalledWith(expect.objectContaining({ element_type: type })));
@@ -366,7 +368,12 @@ describe("EventSeatingPage send/approve/reject (Project A §5)", () => {
     const a = actions({ sendProposal: vi.fn(), listProposals: vi.fn().mockResolvedValue([rejected]) });
     renderPage(a);
 
-    expect(await screen.findByText(/Распоред од салата одбиен/)).toBeInTheDocument();
+    // Answered proposals sit behind the history toggle.
+    const toggle = await screen.findByRole("button", { name: "Историја на промени (1)" });
+    expect(screen.queryByText(/Распоред од салата одбиен/)).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Распоред од салата одбиен/)).toBeInTheDocument();
     expect(screen.getByText(/Не одговара на распоредот/)).toBeInTheDocument();
   });
 
@@ -380,6 +387,66 @@ describe("EventSeatingPage send/approve/reject (Project A §5)", () => {
   });
 });
 
+describe("EventSeatingPage proposal diff preview (fix #3)", () => {
+  const proposal = {
+    id: "p1",
+    proposed_by: "venue" as const,
+    status: "pending" as const,
+    note: null,
+    created_by: "Менаџер",
+    created_at: "2026-11-02T10:00:00.000Z",
+    responded_at: null,
+    responded_by: null,
+  };
+  // Distinct ids from the live layout's own "t1" (defined at the top of this
+  // file), so counting floor-plan-element-pt1/pt2 below isn't muddied by the
+  // live canvas rendering its own "t1" alongside these preview panes.
+  const before = [{ id: "pt1", element_type: "table" as const, table_type_id: "tt1", x_cm: 0, y_cm: 0, width_cm: 150, length_cm: 150, rotation_deg: 0, label: null, group_id: null, table_role: "guest" as const }];
+  const after = [
+    before[0],
+    { id: "pt2", element_type: "table" as const, table_type_id: "tt1", x_cm: 300, y_cm: 0, width_cm: 150, length_cm: 150, rotation_deg: 0, label: null, group_id: null, table_role: "guest" as const },
+  ];
+
+  it("shows no toggle without actions.getProposalDiff", async () => {
+    renderPage(actions({ confirm: vi.fn(), listProposals: vi.fn().mockResolvedValue([proposal]) }));
+    await screen.findByText(/Салата испрати распоред на/);
+    expect(screen.queryByRole("button", { name: "Прегледај промени" })).not.toBeInTheDocument();
+  });
+
+  it("fetches and shows the before/after preview once, toggling it open and closed", async () => {
+    const getProposalDiff = vi.fn().mockResolvedValue({ before, after });
+    const a = actions({ confirm: vi.fn(), listProposals: vi.fn().mockResolvedValue([proposal]), getProposalDiff });
+    renderPage(a);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Прегледај промени" }));
+    await waitFor(() => expect(getProposalDiff).toHaveBeenCalledWith("p1"));
+    expect(await screen.findByText("Пред")).toBeInTheDocument();
+    expect(screen.getByText("Предложено")).toBeInTheDocument();
+    // Both tables render on the "after" side; only the original on "before".
+    expect(screen.getAllByTestId("floor-plan-element-pt1")).toHaveLength(2);
+    expect(screen.getAllByTestId("floor-plan-element-pt2")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Сокриј промени" }));
+    expect(screen.queryByText("Пред")).not.toBeInTheDocument();
+
+    // Reopening doesn't re-fetch: already cached from the first expand.
+    fireEvent.click(screen.getByRole("button", { name: "Прегледај промени" }));
+    await screen.findByText("Пред");
+    expect(getProposalDiff).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error if the diff fails to load", async () => {
+    const a = actions({
+      confirm: vi.fn(),
+      listProposals: vi.fn().mockResolvedValue([proposal]),
+      getProposalDiff: vi.fn().mockRejectedValue(new Error("boom")),
+    });
+    renderPage(a);
+    fireEvent.click(await screen.findByRole("button", { name: "Прегледај промени" }));
+    expect(await screen.findByText("Не успеа вчитувањето на промените.")).toBeInTheDocument();
+  });
+});
+
 describe("EventSeatingPage logo watermark (Project C)", () => {
   it("passes logoUrl through to the floor plan, and renders no watermark without one", () => {
     renderPage(actions(), { logoUrl: "https://cdn.example/logo.png" });
@@ -389,5 +456,82 @@ describe("EventSeatingPage logo watermark (Project C)", () => {
   it("renders no watermark when logoUrl is absent", () => {
     renderPage(actions());
     expect(screen.queryByTestId("floor-plan-watermark")).not.toBeInTheDocument();
+  });
+});
+
+describe("EventSeatingPage guest rail (fix #2)", () => {
+  const twoTableSeating: RoomSeating = {
+    tables: [
+      { elementId: "t1", label: null, number: 1, capacity: 4 },
+      { elementId: "t2", label: null, number: 2, capacity: 4 },
+    ],
+    seats: [{ elementId: "t1", seatNumber: 1, guestId: "g1", guestName: null, displayName: "Ана Петровска" }],
+    guests: [
+      { id: "g1", fullName: "Ана Петровска", partySize: 1, seatsTaken: 1, side: null },
+      { id: "g2", fullName: "Марко Стојанов", partySize: 1, seatsTaken: 0, side: null },
+    ],
+  };
+
+  function setupTwoTables(overrides: Partial<SeatingActions> = {}) {
+    const a = actions({
+      listLayoutElements: vi.fn().mockResolvedValue([table, table2]),
+      initializeFromStandard: vi.fn().mockResolvedValue([table, table2]),
+      getRoomSeating: vi.fn().mockResolvedValue(twoTableSeating),
+      moveSeat: vi.fn().mockResolvedValue(twoTableSeating),
+      ...overrides,
+    });
+    renderPage(a, { initialLayoutElements: [table, table2], initialSeating: twoTableSeating });
+    return a;
+  }
+
+  it("assigns an unseated guest dragged from the rail (no `from`)", async () => {
+    const a = setupTwoTables();
+    selectTable();
+    expect(await screen.findByRole("heading", { name: "Маса 1" })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Повлечи Марко Стојанов" }));
+    fireEvent.pointerUp(screen.getByTestId("seat-row-2"));
+    await waitFor(() =>
+      expect(a.moveSeat).toHaveBeenCalledWith("r1", "g2", { elementId: "t1", seatNumber: 2 }, undefined),
+    );
+  });
+
+  it("moves an already-seated guest to a different table", async () => {
+    const a = setupTwoTables();
+    fireEvent.pointerDown(screen.getByTestId("floor-plan-element-t2"), { clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(window, { clientX: 10, clientY: 10 });
+    expect(await screen.findByRole("heading", { name: "Маса 2" })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Повлечи Ана Петровска" }));
+    fireEvent.pointerUp(screen.getByTestId("seat-row-1"));
+    await waitFor(() =>
+      expect(a.moveSeat).toHaveBeenCalledWith(
+        "r1",
+        "g1",
+        { elementId: "t2", seatNumber: 1 },
+        { elementId: "t1", seatNumber: 1 },
+      ),
+    );
+  });
+
+  it("shows a conflict notice and reloads when the drop fails", async () => {
+    setupTwoTables({
+      moveSeat: vi.fn().mockRejectedValue(new Error("Столчето е зафатено. Освежете.")),
+    });
+    selectTable();
+    await screen.findByRole("heading", { name: "Маса 1" });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Повлечи Марко Стојанов" }));
+    fireEvent.pointerUp(screen.getByTestId("seat-row-2"));
+    expect(await screen.findByText("Столчето е зафатено. Освежете.")).toBeInTheDocument();
+  });
+
+  it("has no rail for venue staff (no actions.moveSeat, no guest list from the server)", async () => {
+    const staffSeating: RoomSeating = { ...twoTableSeating, guests: [] };
+    renderPage(actions({ moveSeat: undefined, saveTableSeats: undefined }), {
+      seatingReadOnly: true,
+      initialLayoutElements: [table, table2],
+      initialSeating: staffSeating,
+    });
+    selectTable();
+    await screen.findByText("Ана Петровска");
+    expect(screen.queryByLabelText("Пребарај гостин")).not.toBeInTheDocument();
   });
 });
