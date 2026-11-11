@@ -74,14 +74,15 @@ export default async function VenueHomePage() {
     return { iso, count: allEvents.filter((e) => e.event_date === iso).length };
   });
 
-  // Event counts per day-of-month, for the mini calendar dots — this month
-  // and next, shown side by side since each grid is compact on its own.
-  function eventDaysForMonthPrefix(prefix: string): Record<number, number> {
-    const days: Record<number, number> = {};
+  // Each day-of-month's events (as their room ids), for the mini calendar's
+  // room-colored dots — this month and next, shown side by side since each
+  // grid is compact on its own.
+  function eventDaysForMonthPrefix(prefix: string): Record<number, string[][]> {
+    const days: Record<number, string[][]> = {};
     for (const e of allEvents) {
       if (e.event_date.startsWith(prefix)) {
         const day = Number(e.event_date.slice(8, 10));
-        days[day] = (days[day] ?? 0) + 1;
+        (days[day] ??= []).push(e.room_ids);
       }
     }
     return days;

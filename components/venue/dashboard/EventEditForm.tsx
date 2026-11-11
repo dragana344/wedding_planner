@@ -11,6 +11,7 @@ import { MenuNumbersSection } from "./MenuNumbersSection";
 import { ChangeBox } from "./ChangeBox";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
 import { MiniEventTablesTab } from "./MiniEventTablesTab";
+import { PriceCalculator } from "@/components/venue/events/PriceCalculator";
 import { internationalPhone } from "@/lib/couple/invite-share";
 import {
   type EventDetail,
@@ -29,7 +30,7 @@ import { fetchMenuUsage } from "@/lib/venue/menu-usage-client";
 import { fetchCustomMenuEnabled, saveCustomMenuViaApi } from "@/lib/venue/custom-menu-client";
 import { LockedBanner } from "@/components/entitlements/LockedBanner";
 import { reportElevationRejected, useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
-import { STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
+import { EVENT_TYPE_LABEL_MAX, STATUS_OPTIONS, TYPE_OPTIONS } from "@/lib/venue/event-display";
 import {
   getShowcasePhotoUrl,
   listShowcasePhotos,
@@ -104,6 +105,7 @@ export function EventEditForm({
   const [endTime, setEndTime] = useState(event.end_time?.slice(0, 5) ?? "");
   const [status, setStatus] = useState<EventStatus>(event.status);
   const [eventType, setEventType] = useState<EventType>(event.event_type);
+  const [eventTypeLabel, setEventTypeLabel] = useState(event.event_type_label ?? "");
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(event.room_ids);
   const [seatingSelfEditEnabled, setSeatingSelfEditEnabled] = useState<boolean | null>(event.seating_self_edit_enabled);
   const [error, setError] = useState<string | null>(null);
@@ -370,6 +372,7 @@ export function EventEditForm({
         end_time: endTime || null,
         status,
         event_type: eventType,
+        event_type_label: eventType === "other" ? eventTypeLabel.trim() || null : null,
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
         seating_self_edit_enabled: seatingSelfEditEnabled,
@@ -579,6 +582,22 @@ export function EventEditForm({
             </select>
           </div>
 
+          {eventType === "other" ? (
+            <div className="ev-field">
+              <label className="lab-s" htmlFor="edit-event-type-label">
+                Каков настан?
+              </label>
+              <input
+                id="edit-event-type-label"
+                className="fld"
+                value={eventTypeLabel}
+                onChange={(e) => setEventTypeLabel(e.target.value)}
+                placeholder="пр. Прослава за 20 години брак"
+                maxLength={EVENT_TYPE_LABEL_MAX}
+              />
+            </div>
+          ) : null}
+
           <div className={guestCountChanges.length > 0 ? "ev-field ev-changed" : "ev-field"}>
             <ChangeBox eventId={event.id} section="guest_count" changes={guestCountChanges} canConfirm={canEdit} token={managerToken} onSeen={handleChangesSeen} />
             <label className="lab-s" htmlFor="edit-guest-count">
@@ -785,6 +804,9 @@ export function EventEditForm({
                     value={totalPrice}
                     onChange={(e) => setTotalPrice(e.target.value)}
                   />
+                  <div style={{ marginTop: 6 }}>
+                    <PriceCalculator guestCount={Number(guestCount) || 0} onApply={(value) => setTotalPrice(String(value))} />
+                  </div>
                 </div>
                 <div className="ev-field">
                   <label className="lab-s" htmlFor="edit-deposit-paid">

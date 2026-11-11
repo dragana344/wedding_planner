@@ -9,12 +9,15 @@ export function isNotificationColor(v: unknown): v is NotificationColor {
   return typeof v === "string" && (NOTIFICATION_COLORS as string[]).includes(v);
 }
 
-export const VENUE_LEGEND: { color: NotificationColor; label: string }[] = [
-  { color: "yellow", label: "Промени од парот" },
-  { color: "green", label: "Бројки за мени" },
-  { color: "blue", label: "Настани" },
-  { color: "grey", label: "Пристап" },
-  { color: "red", label: "Приватност" },
+/** `icon` is the <Icon /> sprite name shown on the filter pill and on each row. */
+export type LegendEntry = { color: NotificationColor; label: string; icon: string };
+
+export const VENUE_LEGEND: LegendEntry[] = [
+  { color: "yellow", label: "Промени од парот", icon: "send" },
+  { color: "green", label: "Бројки за мени", icon: "bookmark" },
+  { color: "blue", label: "Настани", icon: "cal" },
+  { color: "grey", label: "Пристап", icon: "login" },
+  { color: "red", label: "Приватност", icon: "shield" },
 ];
 
 const VENUE_KIND_COLORS: Record<string, NotificationColor> = {
@@ -40,10 +43,10 @@ export function venueKindColor(kind: string): NotificationColor {
   return VENUE_KIND_COLORS[kind] ?? "grey";
 }
 
-export const COUPLE_LEGEND: { color: NotificationColor; label: string }[] = [
-  { color: "yellow", label: "Промени од салата" },
-  { color: "green", label: "Одговори од гости" },
-  { color: "blue", label: "Потсетници" },
+export const COUPLE_LEGEND: LegendEntry[] = [
+  { color: "yellow", label: "Промени од салата", icon: "edit" },
+  { color: "green", label: "Одговори од гости", icon: "mail" },
+  { color: "blue", label: "Потсетници", icon: "bell" },
 ];
 
 const COUPLE_KIND_COLORS: Record<string, NotificationColor> = {
@@ -54,4 +57,13 @@ const COUPLE_KIND_COLORS: Record<string, NotificationColor> = {
 
 export function coupleKindColor(kind: string): NotificationColor {
   return COUPLE_KIND_COLORS[kind] ?? "blue";
+}
+
+/** Per-colour totals for the filter pills, plus `all`. */
+export type NotificationCounts = Partial<Record<NotificationColor, number>> & { all: number };
+
+export function countByColor(colors: NotificationColor[]): NotificationCounts {
+  const counts: NotificationCounts = { all: colors.length };
+  for (const c of colors) counts[c] = (counts[c] ?? 0) + 1;
+  return counts;
 }

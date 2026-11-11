@@ -12,6 +12,7 @@ export function Modal({
   children,
   hideHeader = false,
   wide = false,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
@@ -21,6 +22,8 @@ export function Modal({
   hideHeader?: boolean;
   /** Widens the panel for two-column content (e.g. the package editor). */
   wide?: boolean;
+  /** Extra classes on the panel (e.g. a taller canvas layout). */
+  className?: string;
 }) {
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -42,7 +45,7 @@ export function Modal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className={`modal-panel${wide ? " wide" : ""}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-panel${wide ? " wide" : ""}${className ? ` ${className}` : ""}`} onClick={(e) => e.stopPropagation()}>
         {hideHeader ? null : (
           <div className="modal-head">
             <h2>{title}</h2>

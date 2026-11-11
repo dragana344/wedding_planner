@@ -11,6 +11,7 @@ export const PATCH = withCoupleEvent(
     const updated = await updateAgendaItem(eventId, params.id, {
       time: body.time || null,
       title: body.title,
+      location: body.location || null,
       notes: body.notes || null,
     });
     return NextResponse.json(updated);

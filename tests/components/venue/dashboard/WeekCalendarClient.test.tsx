@@ -68,3 +68,61 @@ describe("WeekCalendarClient — overnight events", () => {
     expect(block.style.height).toBe("88px");
   });
 });
+
+describe("WeekCalendarClient — two events on one day", () => {
+  const two = [
+    baseEvent({ id: "a", couple_names: "Ана и Петар", start_time: "18:00:00", end_time: "23:00:00" }),
+    baseEvent({ id: "b", couple_names: "Роденден Мила", event_type: "birthday", start_time: "19:00:00", end_time: "22:00:00" }),
+  ];
+
+  it("puts overlapping events side by side as two thinner columns", () => {
+    const { container } = render(<WeekCalendarClient rooms={[]} events={two} totalCapacity={0} />);
+    const blocks = [...container.querySelectorAll(".cal-event")] as HTMLElement[];
+    expect(blocks).toHaveLength(2);
+    expect(blocks.map((b) => b.style.left)).toEqual(["calc(0% + 3px)", "calc(50% + 3px)"]);
+    expect(blocks.every((b) => b.style.width === "calc(50% - 6px)")).toBe(true);
+  });
+
+  it("marks the day with an event count in the header and dots in the small calendar", () => {
+    render(<WeekCalendarClient rooms={[]} events={two} totalCapacity={0} />);
+    expect(screen.getByText("2 настани", { selector: ".cal-multi" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "2 настани" })).toBeInTheDocument();
+  });
+
+  it("keeps a lone event full width", () => {
+    const { container } = render(<WeekCalendarClient rooms={[]} events={[two[0]]} totalCapacity={0} />);
+    const block = container.querySelector(".cal-event") as HTMLElement;
+    expect(block.style.width).toBe("calc(100% - 6px)");
+    expect(container.querySelector(".cal-multi")).toBeNull();
+  });
+});
+
+describe("WeekCalendarClient — room colors", () => {
+  const rooms = [
+    { id: "r1", name: "Голема сала", seatTotal: 200 },
+    { id: "r2", name: "Тераса", seatTotal: 60 },
+  ] as never;
+
+  it("colors each event by its room and names every room's color in a legend", () => {
+    const { container } = render(
+      <WeekCalendarClient
+        rooms={rooms}
+        events={[
+          baseEvent({ id: "a", room_ids: ["r1"], start_time: "18:00:00", end_time: "23:00:00" }),
+          baseEvent({ id: "b", room_ids: ["r2"], start_time: "19:00:00", end_time: "22:00:00" }),
+          baseEvent({ id: "c", room_ids: [], start_time: "10:00:00", end_time: "12:00:00" }),
+        ]}
+        totalCapacity={0}
+      />,
+    );
+    const legend = screen.getByLabelText("Боја по сала");
+    expect(legend).toHaveTextContent("Голема сала");
+    expect(legend).toHaveTextContent("Тераса");
+    expect(legend).toHaveTextContent("Без сала");
+    const colorOf = (id: string) =>
+      ([...container.querySelectorAll(".cal-event")] as HTMLElement[]).find((el) => el.getAttribute("href")?.endsWith(id))!.style.borderLeftColor;
+    expect(colorOf("=a")).toBe("rgb(201, 153, 47)");
+    expect(colorOf("=b")).toBe("rgb(37, 99, 235)");
+    expect(colorOf("=c")).toBe("rgb(139, 143, 153)");
+  });
+});

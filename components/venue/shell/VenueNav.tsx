@@ -12,7 +12,20 @@ import type { FeatureKey } from "@/lib/entitlements/features";
  * render). Items tagged requiresElevation are dropped from the list
  * entirely rather than shown locked, so plain staff never see them.
  */
-export function VenueNav({ activeHref, isLocked, badges }: { activeHref: string; isLocked: (feature?: FeatureKey) => boolean; badges?: Partial<Record<string, number>> }) {
+export function VenueNav({
+  activeHref,
+  isLocked,
+  badges,
+  dots,
+}: {
+  activeHref: string;
+  isLocked: (feature?: FeatureKey) => boolean;
+  badges?: Partial<Record<string, number>>;
+  /** Plain unseen-dot (no count) on nav items, keyed by href — same marker
+   * the couple's own nav uses (.unseen-dot), for a quieter "something's new
+   * here" signal than a count badge. */
+  dots?: Partial<Record<string, boolean>>;
+}) {
   const { managerName, isOwner } = useManagerElevation();
 
   const visibleItems = NAV_ITEMS.filter((item: NavItem) => {
@@ -41,6 +54,11 @@ export function VenueNav({ activeHref, isLocked, badges }: { activeHref: string;
             <span className="nav-badge" aria-label={`${badges?.[item.href]} настани со промени`}>
               {badges?.[item.href]}
             </span>
+          ) : dots?.[item.href] ? (
+            <>
+              <span className="unseen-dot" aria-hidden="true" />
+              <span className="sr-only"> (има нови известувања)</span>
+            </>
           ) : null}
           {item.ready ? null : <span className="soon-tag">Наскоро</span>}
           {item.ready && isLocked(item.feature) ? (

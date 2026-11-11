@@ -11,6 +11,9 @@ export interface BudgetItem {
   name: string;
   estimated_amount: number | null;
   paid_amount: number;
+  paid_by: string | null;
+  payment_date: string | null;
+  notes: string | null;
   created_at: string;
 }
 
@@ -20,6 +23,9 @@ export interface BudgetItemInput {
   name: string;
   estimated_amount: number | null;
   paid_amount: number;
+  paid_by: string | null;
+  payment_date: string | null;
+  notes: string | null;
 }
 
 export interface VenueBudgetLine {
@@ -35,7 +41,7 @@ export interface BudgetSummary {
   remaining: number;
 }
 
-const COLUMNS = "id, event_id, category, custom_label, name, estimated_amount, paid_amount, created_at";
+const COLUMNS = "id, event_id, category, custom_label, name, estimated_amount, paid_amount, paid_by, payment_date, notes, created_at";
 
 function categoryIndex(categoryId: string): number {
   const idx = BUDGET_CATEGORIES.findIndex((c) => c.id === categoryId);

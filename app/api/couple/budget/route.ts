@@ -16,6 +16,9 @@ export const POST = withCoupleEvent(
       name: body.name,
       estimated_amount: body.estimated_amount ?? null,
       paid_amount: body.paid_amount ?? 0,
+      paid_by: body.paid_by || null,
+      payment_date: body.payment_date || null,
+      notes: body.notes || null,
     });
     return NextResponse.json(created);
   },

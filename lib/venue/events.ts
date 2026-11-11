@@ -9,6 +9,7 @@ import { listUnseenSections } from "@/lib/venue/unseen-changes";
 import type { SeenSection } from "@/lib/changes/types";
 import { toMenuSubmission, type MenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
 import type { SnapshotElement } from "@/lib/venue/room-presets";
+import { normalizeEventTypeLabel } from "@/lib/venue/event-display";
 
 export interface EventSummary {
   id: string;
@@ -77,6 +78,8 @@ export interface EventDetail {
   end_time: string | null;
   status: EventStatus;
   event_type: EventType;
+  /** An "Друго" event's own type name (0148), e.g. "Прослава за 20 години брак". */
+  event_type_label?: string | null;
   guest_count_estimate: number | null;
   /** When the event was created: the menu-numbers timeline is counted from it. */
   created_at: string;
@@ -126,7 +129,7 @@ export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
 }
 
 const EVENT_DETAIL_COLUMNS =
-  "id, couple_names, event_date, start_time, end_time, status, event_type, guest_count_estimate, seating_self_edit_enabled, seating_mode, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
+  "id, couple_names, event_date, start_time, end_time, status, event_type, event_type_label, guest_count_estimate, seating_self_edit_enabled, seating_mode, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
 
 type EventDetailRow = {
   id: string;
@@ -137,6 +140,7 @@ type EventDetailRow = {
   end_time: string | null;
   status: string;
   event_type: string;
+  event_type_label: string | null;
   guest_count_estimate: number | null;
   seating_self_edit_enabled: boolean | null;
   seating_mode: string;
@@ -233,6 +237,7 @@ export async function listEventsWithDetails(
       end_time: event.end_time,
       status: event.status as EventStatus,
       event_type: event.event_type as EventType,
+      event_type_label: event.event_type_label,
       guest_count_estimate: event.guest_count_estimate,
       seating_self_edit_enabled: event.seating_self_edit_enabled,
       seating_mode: event.seating_mode as "full" | "mini",
@@ -331,6 +336,8 @@ export interface CreateEventInput {
   start_time?: string | null;
   end_time?: string | null;
   event_type?: EventType;
+  /** An "Друго" event's own type name (0148); dropped for any other type. */
+  event_type_label?: string | null;
   status?: EventStatus;
   guest_count_estimate?: number | null;
   room_ids: string[];
@@ -412,6 +419,16 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
   // The couple's login is created inside create_event_full (0112): a taken
   // username must still say so, not "the event could not be saved".
   if (error) throw credentialsError(error);
+
+  // 0148: a plain column, so a follow-up update rather than another
+  // create_event_full parameter (same as updateEvent's self-edit switch).
+  // The event already exists by now: a failed label write is logged, not
+  // thrown, so the manager isn't told to retry and create a duplicate.
+  const typeLabel = normalizeEventTypeLabel(input.event_type, input.event_type_label);
+  if (typeLabel) {
+    const { error: labelError } = await supabase.from("events").update({ event_type_label: typeLabel }).eq("id", eventId as string);
+    if (labelError) log("error", "event_type_label update failed", { eventId, ...errorFields(labelError) });
+  }
   return { id: eventId as string };
 }
 
@@ -422,6 +439,8 @@ export interface UpdateEventInput {
   end_time: string | null;
   status: EventStatus;
   event_type: EventType;
+  /** An "Друго" event's own type name (0148); cleared for any other type. */
+  event_type_label?: string | null;
   guest_count_estimate: number | null;
   room_ids: string[];
   /** The menus the editing window linked / unlinked, relative to what it saw —
@@ -521,7 +540,10 @@ export async function updateEvent(
   // follow-up update rather than another update_event_full parameter.
   const { error: selfEditError } = await supabase
     .from("events")
-    .update({ seating_self_edit_enabled: input.seating_self_edit_enabled })
+    .update({
+      seating_self_edit_enabled: input.seating_self_edit_enabled,
+      event_type_label: normalizeEventTypeLabel(input.event_type, input.event_type_label),
+    })
     .eq("id", eventId)
     .eq("venue_id", venueId);
   if (selfEditError) throw selfEditError;
@@ -692,6 +714,34 @@ export async function listFullyBookedDatesByRoom(
     (byRoom[row.room_id as string] ??= new Set()).add(date);
   }
   return Object.fromEntries(Object.entries(byRoom).map(([roomId, dates]) => [roomId, Array.from(dates).sort()]));
+}
+
+/**
+ * How many (non-cancelled) events the venue already has on each date within
+ * [fromDate, toDate], any room or seating mode — for the event-wizard's date
+ * calendar to show a dot per event, so a day that already holds two events
+ * reads differently from a day with one.
+ */
+export async function countEventsByDate(
+  venueId: string,
+  fromDate: string,
+  toDate: string,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<Record<string, number>> {
+  const { data, error } = await client
+    .from("events")
+    .select("event_date")
+    .eq("venue_id", venueId)
+    .neq("status", "cancelled")
+    .gte("event_date", fromDate)
+    .lte("event_date", toDate);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const date = row.event_date as string;
+    counts[date] = (counts[date] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function findSameDayRoomEvents(

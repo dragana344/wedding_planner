@@ -6,8 +6,12 @@ import { vi } from "vitest";
 
 vi.mock("next/link", () => ({ default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => <a href={href} {...rest}>{children}</a> }));
 
-function renderNav(badges?: Partial<Record<string, number>>) {
-  return render(<ManagerElevationProvider><VenueNav activeHref="/venue" isLocked={() => false} badges={badges} /></ManagerElevationProvider>);
+function renderNav(badges?: Partial<Record<string, number>>, dots?: Partial<Record<string, boolean>>) {
+  return render(
+    <ManagerElevationProvider>
+      <VenueNav activeHref="/venue" isLocked={() => false} badges={badges} dots={dots} />
+    </ManagerElevationProvider>,
+  );
 }
 
 describe("VenueNav badges", () => {
@@ -25,5 +29,29 @@ describe("VenueNav badges", () => {
     document.body.innerHTML = "";
     renderNav();
     expect(document.querySelector(".nav-badge")).toBeNull();
+  });
+});
+
+describe("VenueNav dots", () => {
+  it("shows a plain unseen-dot on Известувања, no count", () => {
+    renderNav(undefined, { "/venue/notifications": true });
+    const dot = document.querySelector(".unseen-dot");
+    expect(dot).not.toBeNull();
+    expect(screen.getByRole("link", { name: /Известувања/ })).toContainElement(dot as HTMLElement);
+    expect(document.querySelector(".nav-badge")).toBeNull();
+  });
+
+  it("hides the dot when false or absent", () => {
+    renderNav(undefined, { "/venue/notifications": false });
+    expect(document.querySelector(".unseen-dot")).toBeNull();
+    document.body.innerHTML = "";
+    renderNav();
+    expect(document.querySelector(".unseen-dot")).toBeNull();
+  });
+
+  it("prefers a count badge over a dot when both are given for the same item", () => {
+    renderNav({ "/venue/notifications": 2 }, { "/venue/notifications": true });
+    expect(document.querySelector(".nav-badge")).not.toBeNull();
+    expect(document.querySelector(".unseen-dot")).toBeNull();
   });
 });

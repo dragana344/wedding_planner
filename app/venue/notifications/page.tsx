@@ -5,7 +5,7 @@ import { listManagers } from "@/lib/venue/managers";
 import { startOfDaySkopjeIso, endOfDaySkopjeIso } from "@/lib/admin/audit-filters";
 import { parseNotificationsFilters, type NotificationsSearchParams } from "@/lib/venue/notifications-filters";
 import { todayIn } from "@/lib/date";
-import { isNotificationColor } from "@/lib/notification-colors";
+import { countByColor, isNotificationColor } from "@/lib/notification-colors";
 import { NotificationsList } from "@/components/venue/dashboard/NotificationsList";
 import { RangePanel } from "@/components/shared/RangePanel";
 
@@ -31,8 +31,10 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   if (manager) keepForColor.manager = manager;
   if (color) keepForManager.color = color;
 
-  const [items, ranged, managers] = await Promise.all([
+  const [items, unfiltered, ranged, managers] = await Promise.all([
     listVenueNotifications(supabase, venueId, 50, undefined, color ?? undefined, manager ?? undefined),
+    // The pills' counts ignore the colour filter, so every pill keeps its number.
+    color ? listVenueNotifications(supabase, venueId, 50, undefined, undefined, manager ?? undefined) : null,
     range
       ? listVenueNotifications(
           supabase, venueId, 200,
@@ -45,38 +47,35 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const today = todayIn();
   const managerNames = managers.map((m) => m.name);
 
+  const counts = countByColor((unfiltered ?? items).map((n) => n.color));
+
   return (
     <div className="wrap">
-      <section className="panel">
-        <div className="panel-h">
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <h2 className="panel-t">Известувања</h2>
-            <RangePanel
-              title="Известувања по период"
-              fromName="notifFrom"
-              toName="notifTo"
-              defaultFrom={range?.from}
-              defaultTo={range?.to}
-              isOpen={Boolean(range)}
-              resetHref="/venue/notifications"
-              resetLabel="Избери друг период"
-            >
-              {ranged ? (
-                <NotificationsList items={ranged} today={today} />
-              ) : (
-                <p className="muted">Изберете период и притиснете „Прикажи“.</p>
-              )}
-            </RangePanel>
-          </div>
-          <span className="count">последни {items.length}</span>
-        </div>
-        <NotificationsList
-          items={items}
-          today={today}
-          legend={{ active: color, params: keepForColor }}
-          managerFilter={managerNames.length > 1 ? { active: manager, options: managerNames, params: keepForManager } : undefined}
-        />
-      </section>
+      <NotificationsList
+        items={items}
+        today={today}
+        legend={{ active: color, params: keepForColor, counts }}
+        managerFilter={managerNames.length > 1 ? { active: manager, options: managerNames, params: keepForManager } : undefined}
+        tools={
+          <RangePanel
+            title="Известувања по период"
+            fromName="notifFrom"
+            toName="notifTo"
+            defaultFrom={range?.from}
+            defaultTo={range?.to}
+            isOpen={Boolean(range)}
+            resetHref="/venue/notifications"
+            resetLabel="Избери друг период"
+            triggerLabel="По период"
+          >
+            {ranged ? (
+              <NotificationsList items={ranged} today={today} />
+            ) : (
+              <p className="muted">Изберете период и притиснете „Прикажи“.</p>
+            )}
+          </RangePanel>
+        }
+      />
     </div>
   );
 }

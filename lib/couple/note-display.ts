@@ -15,3 +15,30 @@ export function deriveNoteDisplay(title: string | null, content: string): { titl
   }
   return { title: nonBlank[0] ?? "Белешка без наслов", preview: nonBlank[1] ?? "" };
 }
+
+const MK_MONTHS = [
+  "јануари", "февруари", "март", "април", "мај", "јуни",
+  "јули", "август", "септември", "октомври", "ноември", "декември",
+];
+
+function daysBetween(a: Date, b: Date): number {
+  const da = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const db = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((da.getTime() - db.getTime()) / 86_400_000);
+}
+
+/** "денес" / "вчера" / "на 18 март", relative to now. */
+export function formatRelativeDay(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const diff = daysBetween(now, d);
+  if (diff === 0) return "денес";
+  if (diff === 1) return "вчера";
+  return `на ${d.getDate()} ${MK_MONTHS[d.getMonth()]}`;
+}
+
+/** "денес во 14:27" — the save-status line under the editor. */
+export function formatSavedAt(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${formatRelativeDay(iso, now)} во ${time}`;
+}

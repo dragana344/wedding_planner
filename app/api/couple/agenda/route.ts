@@ -10,7 +10,7 @@ export const GET = withCoupleEvent(
 
 export const POST = withCoupleEvent(
   async ({ eventId, body }) => {
-    const created = await addAgendaItem(eventId, { time: body.time || null, title: body.title, notes: body.notes || null });
+    const created = await addAgendaItem(eventId, { time: body.time || null, title: body.title, location: body.location || null, notes: body.notes || null });
     return NextResponse.json(created);
   },
   { feature: "agenda", body: agendaCreateBody, fallbackError: "Не успеа додавањето на ставката." },

@@ -358,6 +358,20 @@ describe("FloorPlanCanvas chair rendering (round and rectangular tables)", () =>
     const group = screen.getByTestId("floor-plan-element-w1").closest("g")!;
     expect(group.querySelectorAll("rect")).toHaveLength(7); // the table itself + 6 chairs
   });
+
+  it("numbers the chairs 1..seatCount only on the selected table", () => {
+    renderCanvas({ elements: [{ ...table, seatCount: 6 }], selectedElementId: "t1" });
+    const group = screen.getByTestId("floor-plan-element-t1").closest("g")!;
+    expect(Array.from(group.querySelectorAll('[data-testid="seat-number"]')).map((t) => t.textContent)).toEqual([
+      "1", "2", "3", "4", "5", "6",
+    ]);
+  });
+
+  it("leaves the chairs unnumbered when the table isn't selected", () => {
+    renderCanvas({ elements: [{ ...table, seatCount: 6 }], selectedElementId: null });
+    const group = screen.getByTestId("floor-plan-element-t1").closest("g")!;
+    expect(group.querySelectorAll('[data-testid="seat-number"]')).toHaveLength(0);
+  });
 });
 
 describe("FloorPlanCanvas background pan (touch)", () => {

@@ -36,6 +36,20 @@ export const TYPE_META: Record<EventType, { label: string; icon: string; color: 
   other: { label: "Друго", icon: "cal-dot", color: "#5A5F69" },
 };
 
+/** The longest custom "Друго" type name (events.event_type_label, 0148). */
+export const EVENT_TYPE_LABEL_MAX = 60;
+
+/** An "Друго" event's own type name, trimmed; null for every other type or a blank one. */
+export function normalizeEventTypeLabel(type: EventType | undefined, label: string | null | undefined): string | null {
+  const trimmed = label?.trim() ?? "";
+  return type === "other" && trimmed ? trimmed.slice(0, EVENT_TYPE_LABEL_MAX) : null;
+}
+
+/** How an event's type reads: the venue's own name for an "Друго" event, else the type's label. */
+export function eventTypeLabel(event: { event_type: EventType; event_type_label?: string | null }): string {
+  return normalizeEventTypeLabel(event.event_type, event.event_type_label) ?? TYPE_META[event.event_type].label;
+}
+
 export const STATUS_OPTIONS = Object.entries(STATUS_META).map(([value, meta]) => ({
   value: value as EventStatus,
   label: meta.label,

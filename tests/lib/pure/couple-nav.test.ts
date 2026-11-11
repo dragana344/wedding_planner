@@ -13,6 +13,14 @@ describe("couple navigation", () => {
     expect(hrefs).not.toContain("/couple/messages");
     expect(hrefs).toEqual(expect.arrayContaining(["/couple/album", "/couple/greetings"]));
   });
+
+  it("places the vendor-partners entry right after Известувања, ungated", () => {
+    const items = buildCoupleNavItems([]);
+    const notifIndex = items.findIndex((i) => i.href === "/couple/notifications");
+    const partnersIndex = items.findIndex((i) => i.href === "/couple/partners");
+    expect(partnersIndex).toBe(notifIndex + 1);
+    expect(items[partnersIndex].feature).toBeUndefined();
+  });
 });
 
 describe("matchCoupleNavItem", () => {

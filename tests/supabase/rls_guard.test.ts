@@ -56,6 +56,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "event_feature_overrides",
   "platform_settings",
   "pricing_cards",
+  "vendor_partners",
   "event_albums",
   "event_photos",
   "event_greetings",

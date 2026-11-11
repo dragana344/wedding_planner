@@ -58,7 +58,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {
     id: N, event_id: N, room_id: N, element_type: N, table_type_id: N, x_cm: N, y_cm: N, width_cm: N, length_cm: N,
-    rotation_deg: N, label: P, created_at: N, group_id: N, table_role: N,
+    rotation_deg: N, label: P, created_at: N, group_id: N, table_role: N, shape: N,
   },
   event_locations: { id: N, event_id: N, label: P, address: P, map_url: P, sort_order: N, created_at: N },
   event_guest_menu_counts: { guest_id: N, menu_template_id: N, count: P },
@@ -125,7 +125,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   room_layout_elements: {
     id: N, room_id: N, element_type: N, table_type_id: N, x_cm: N, y_cm: N, width_cm: N, length_cm: N, rotation_deg: N,
-    label: N, created_at: N, group_id: N, table_role: N,
+    label: N, created_at: N, group_id: N, table_role: N, shape: N,
   },
   // snapshot holds the same shape as room_fixed_elements/room_layout_elements, both N — no guest data, room presets are venue-owned.
   room_layout_presets: { id: N, room_id: N, name: N, snapshot: N, created_at: N, updated_at: N },
@@ -136,6 +136,13 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     admin_comment: C, resolved_at: N, created_at: N,
   },
   table_types: { id: N, room_id: N, name: N, shape: N, seats: N, width_cm: N, length_cm: N, quantity: N, created_at: N },
+  // Admin-curated vendor directory (0142) — no account, no erasure path, same as pricing_cards: a business's
+  // public contact info here (unlike a venue's own) isn't tied to a platform account at all.
+  vendor_partners: {
+    id: N, category: N, name: N, city: N, short_description: N, full_description: N, cover_photo_path: N,
+    gallery_photo_paths: N, phone: N, viber_phone: N, whatsapp_phone: N, website_url: N, instagram_url: N,
+    facebook_url: N, is_featured: N, created_at: N, updated_at: N,
+  },
   venue_feature_overrides: {
     venue_id: N, feature_key: N, enabled: N, limit_override: N, limit_value: N, note: C, updated_at: N, updated_by: N,
   },

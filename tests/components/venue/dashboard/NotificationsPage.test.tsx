@@ -16,16 +16,16 @@ const item = { id: "n1", at: "2028-01-01T10:00:00Z", kind: "event_created" as co
 describe("venue NotificationsPage", () => {
   beforeEach(() => listVenueNotifications.mockReset());
 
-  it("places the range-picker arrow right next to the title, inside the same flex group", async () => {
+  it("puts the period picker in the search row and counts each pill", async () => {
     listVenueNotifications.mockResolvedValueOnce([item]);
     const { container } = render(await NotificationsPage({ searchParams: Promise.resolve({}) }));
-    const heading = screen.getByText("Известувања");
-    const group = heading.parentElement!;
-    // The arrow button is a sibling of the <h2> inside a small flex group —
-    // not pushed to the far end of panel-h by its own space-between.
-    expect(group.querySelector("h2")).toBe(heading);
-    expect(group.querySelector("button[aria-label^='Избери период']")).toBeTruthy();
-    expect(container.querySelector(".count")?.textContent).toBe("последни 1");
+    const tools = container.querySelector(".nf-tools")!;
+    expect(tools.querySelector("input[type='search']")).toBeTruthy();
+    expect(tools.querySelector("button[aria-label^='Избери период']")).toHaveTextContent("По период");
+    expect(screen.getByRole("link", { name: "Сите" })).toHaveTextContent("Сите1");
+    expect(screen.getByRole("link", { name: "Настани" })).toHaveTextContent("Настани1");
+    // No colour filter: the one list feeds the counts, no extra query.
+    expect(listVenueNotifications).toHaveBeenCalledTimes(1);
   });
 
   it("shows the ranged results inside the popup once a period is selected", async () => {
@@ -45,10 +45,13 @@ describe("venue NotificationsPage", () => {
 
   it("asks for the colour before the limit, and the legend links keep the range", async () => {
     const red = { ...item, id: "n3", kind: "data_exported" as const, color: "red" as const, title: "Извоз на податоци" };
-    listVenueNotifications.mockResolvedValueOnce([red]).mockResolvedValueOnce([red]);
+    listVenueNotifications.mockResolvedValueOnce([red]).mockResolvedValueOnce([red, item]).mockResolvedValueOnce([red]);
     render(await NotificationsPage({ searchParams: Promise.resolve({ color: "red", notifFrom: "2028-01-01", notifTo: "2028-01-31" }) }));
     expect(listVenueNotifications).toHaveBeenNthCalledWith(1, {}, "v1", 50, undefined, "red", undefined);
-    expect(listVenueNotifications).toHaveBeenNthCalledWith(2, {}, "v1", 200, expect.objectContaining({ from: expect.any(String) }), "red", undefined);
+    // The pill counts come from the unfiltered list, so every pill keeps its number.
+    expect(listVenueNotifications).toHaveBeenNthCalledWith(2, {}, "v1", 50, undefined, undefined, undefined);
+    expect(listVenueNotifications).toHaveBeenNthCalledWith(3, {}, "v1", 200, expect.objectContaining({ from: expect.any(String) }), "red", undefined);
+    expect(screen.getByRole("link", { name: "Сите" })).toHaveTextContent("Сите2");
     const link = screen.getByRole("link", { name: "Приватност" });
     expect(link).toHaveAttribute("aria-current", "true");
     expect(link.getAttribute("href")).toBe("/venue/notifications?notifFrom=2028-01-01&notifTo=2028-01-31&color=red");

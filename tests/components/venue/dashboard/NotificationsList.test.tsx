@@ -32,12 +32,30 @@ function manager(ui: React.ReactElement, token: string | null = "tok") {
 }
 
 describe("NotificationsList", () => {
-  it("gives each row a leading spacer so .plan-row's 4-column grid doesn't crush time into name", () => {
+  it("renders each row as a card: icon tile, title/detail, then the time", () => {
     const { container } = render(<NotificationsList items={[base]} today="2028-01-01" />);
-    const row = container.querySelector(".plan-row")!;
-    expect(row.children[0]).toHaveClass("plan-dot");
-    expect(row.children[1]).toHaveClass("plan-time");
-    expect(row.children[2]).toHaveClass("plan-name");
+    const row = container.querySelector(".nf-row")!;
+    expect(row.children[0]).toHaveClass("nf-icon");
+    expect(row.children[1]).toHaveClass("nf-body");
+    expect(row.children[2]).toHaveClass("nf-time");
+    expect(row.children[2]).toHaveTextContent("11:00"); // 10:00Z in Skopje
+  });
+
+  it("shows each pill's count without changing its link name", () => {
+    render(<NotificationsList items={[base]} today="2028-01-01" legend={{ active: null, params: {}, counts: { all: 3, blue: 2, yellow: 1 } }} />);
+    expect(screen.getByRole("link", { name: "Сите" })).toHaveTextContent("Сите3");
+    expect(screen.getByRole("link", { name: "Настани" })).toHaveTextContent("Настани2");
+    expect(screen.getByRole("link", { name: "Приватност" })).toHaveTextContent("Приватност0");
+  });
+
+  it("searches titles and details, with a no-match message", () => {
+    render(<NotificationsList items={[base, change]} today="2028-01-01" legend={{ active: null, params: {} }} />);
+    const search = screen.getByRole("searchbox", { name: "Пребарај известување" });
+    fireEvent.change(search, { target: { value: "120" } });
+    expect(screen.getByText("Број на гости · Ана & Марко")).toBeInTheDocument();
+    expect(screen.queryByText("Нов настан")).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "нема-такво" } });
+    expect(screen.getByText("Нема известувања за „нема-такво“.")).toBeInTheDocument();
   });
 
   it("shows the legend as filter links that keep other params, marks the active one, and clears with Сите", () => {
@@ -70,10 +88,10 @@ describe("NotificationsList", () => {
 
   it("gives each row its colour class and the unseen sign only when unseen", () => {
     const { container } = render(<NotificationsList items={[base, change]} today="2028-01-01" />);
-    const rows = container.querySelectorAll(".plan-row");
+    const rows = container.querySelectorAll(".nf-row");
     expect(rows[0]).toHaveClass("notif-blue");
     expect(rows[1]).toHaveClass("notif-yellow");
-    expect(container.querySelectorAll(".notif-blue")).toHaveLength(1);
+    expect(container.querySelectorAll(".nf-row.notif-blue")).toHaveLength(1);
     expect(screen.getAllByText("Не е видено")).toHaveLength(1);
   });
 

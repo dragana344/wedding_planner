@@ -8,6 +8,7 @@ import { BlockedScreen } from "@/components/venue/BlockedScreen";
 import { PanelShell } from "@/components/venue/shell/PanelShell";
 import { getVenueBranding } from "@/lib/venue/branding";
 import { listUnseenSections } from "@/lib/venue/unseen-changes";
+import { listVenueNotifications } from "@/lib/venue/notifications";
 import { errorFields, log } from "@/lib/log";
 import "./panel.css";
 
@@ -42,8 +43,27 @@ export default async function VenueLayout({ children }: { children: React.ReactN
     eventsBadge = 0;
   }
 
+  // Same signal as Известувања's own page (a couple's or the venue's own
+  // staff's changes the other side hasn't opened yet) — so Известувања gets
+  // a visible marker in the sidebar instead of only showing up once opened.
+  // A plain dot (not a count), matching the couple nav's own unseen-dot —
+  // "something changed in some event" is the useful signal here, not a tally.
+  let hasUnseenNotifications = false;
+  try {
+    hasUnseenNotifications = (await listVenueNotifications(supabase, access.venue.id)).some((n) => n.unseen);
+  } catch (err) {
+    log("error", "venue_notifications_badge_failed", { venue_id: access.venue.id, ...errorFields(err) });
+    hasUnseenNotifications = false;
+  }
+
   return (
-    <PanelShell venueName={access.venue.name} lockedFeatures={lockedFeatures} brand={brand} badges={{ "/venue/events": eventsBadge }}>
+    <PanelShell
+      venueName={access.venue.name}
+      lockedFeatures={lockedFeatures}
+      brand={brand}
+      badges={{ "/venue/events": eventsBadge }}
+      dots={{ "/venue/notifications": hasUnseenNotifications }}
+    >
       {children}
     </PanelShell>
   );

@@ -141,8 +141,8 @@ export async function createEventWithCouple(
   await page.getByLabel("Корисничко име").fill(couple.username);
   await page.getByLabel("Лозинка").fill(couple.password);
   await page.getByRole("button", { name: "Понатаму" }).click();
-  await page.getByLabel("Email на парот").fill(`${couple.username}@example.mk`);
-  await page.getByLabel("Телефон на парот").fill("070 123 456");
+  await page.getByLabel(/^Е-пошта/).fill(`${couple.username}@example.mk`);
+  await page.getByLabel(/^Телефон/).fill("070 123 456");
   await page.getByRole("button", { name: "Креирај настан" }).click();
 
   // Submitting shows a one-time credentials handover screen (the couple's

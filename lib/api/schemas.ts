@@ -111,6 +111,7 @@ const agendaFields = z.object({
   ...noType,
   time: timeOfDay.nullable().optional(),
   title: name,
+  location: optionalText(NAME_MAX),
   notes: optionalText(TEXT_MAX),
 });
 export const agendaCreateBody = agendaFields;
@@ -140,6 +141,9 @@ export const budgetItemBody = z.object({
   name,
   estimated_amount: money.nullable().optional(),
   paid_amount: money.nullable().optional(),
+  paid_by: optionalText(NAME_MAX),
+  payment_date: dateOnly.nullable().optional(),
+  notes: optionalText(TEXT_MAX),
 });
 
 // ---------------------------------------------------------------------------
@@ -341,6 +345,16 @@ export const seatsPutBody = z
   })
   .refine((b) => new Set(b.seats.map((s) => s.seat_number)).size === b.seats.length, { error: SEAT_DUPLICATE_ERROR });
 
+/** The seating rail's drag-and-drop: assign (no `from_*`) or move (with) one guest to one seat. */
+export const seatMoveBody = z.object({
+  room_id: uuid,
+  guest_id: uuid,
+  to_element_id: uuid,
+  to_seat_number: z.number().int().min(1).max(SEATS_MAX),
+  from_element_id: uuid.nullable().optional(),
+  from_seat_number: z.number().int().min(1).max(SEATS_MAX).nullable().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Couple: login
 
@@ -423,6 +437,9 @@ const roomLayoutElementShape = z.object({
   table_role: z.enum(["guest", "couple", "head"]),
 });
 
+// An "Друго" event's own type name (0148); the server keeps it only for type "other".
+const eventTypeLabel = z.string().trim().max(60).nullable().optional();
+
 export const createEventBody = z
   .object(
     {
@@ -431,6 +448,7 @@ export const createEventBody = z
       start_time: z.string().nullable().optional(),
       end_time: z.string().nullable().optional(),
       event_type: eventType.optional(),
+      event_type_label: eventTypeLabel,
       status: eventStatus.optional(),
       guest_count_estimate: z.number().int().min(0).nullable().optional(),
       room_ids: z.array(uuid).max(50),
@@ -466,6 +484,7 @@ export const updateEventBody = z.object(
     end_time: z.string().nullable(),
     status: eventStatus,
     event_type: eventType,
+    event_type_label: eventTypeLabel,
     guest_count_estimate: z.number().int().min(0).nullable(),
     room_ids: z.array(uuid).max(50),
     added_menu_ids: z.array(uuid).max(20),

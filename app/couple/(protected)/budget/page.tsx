@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getBudgetSummary } from "@/lib/couple/budget";
 import { BudgetClient } from "@/components/couple/BudgetClient";
 import { ChangeNotice } from "@/components/couple/ChangeNotice";
@@ -9,8 +10,9 @@ export const dynamic = "force-dynamic";
 
 export default async function BudgetPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [summary, marks] = await Promise.all([
+  const [summary, { data: event }, marks] = await Promise.all([
     getBudgetSummary(eventId),
+    createServiceRoleClient().from("events").select("couple_names").eq("id", eventId).single(),
     // The box is a hint: the page works without it.
     loadCoupleMarks(eventId).catch((e) => {
       console.error("Could not load the change marks", e);
@@ -19,9 +21,9 @@ export default async function BudgetPage() {
   ]);
   const notice = coupleNotice("finance", marks.unseen.finance);
   return (
-    <main style={{ padding: "18px 22px 28px" }}>
+    <main>
       {notice ? <ChangeNotice {...notice} /> : null}
-      <BudgetClient initialSummary={summary} />
+      <BudgetClient coupleNames={event?.couple_names ?? ""} initialSummary={summary} />
     </main>
   );
 }

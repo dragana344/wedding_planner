@@ -103,29 +103,50 @@ function chairSize(refPx: number): { w: number; h: number; gap: number } {
   return { w, h: w * 0.65, gap: Math.max(2, refPx * 0.07) };
 }
 
-function chairRect(key: number, cx: number, cy: number, w: number, h: number, angleDeg: number, color: string) {
+/** The selected table's own chairs get their seat number overlaid (1-based,
+ * same order TableSeatsPanel lists them in) so the two views read as one. */
+function chairRect(key: number, cx: number, cy: number, w: number, h: number, angleDeg: number, color: string, seatNumber?: number) {
   return (
-    <rect
-      key={key}
-      x={cx - w / 2}
-      y={cy - h / 2}
-      width={w}
-      height={h}
-      rx={2}
-      fill={color}
-      fillOpacity={0.85}
-      stroke={color}
-      strokeWidth={0.75}
-      transform={angleDeg ? `rotate(${angleDeg} ${cx} ${cy})` : undefined}
-      pointerEvents="none"
-    />
+    <g key={key}>
+      <rect
+        x={cx - w / 2}
+        y={cy - h / 2}
+        width={w}
+        height={h}
+        rx={2}
+        fill={color}
+        fillOpacity={0.85}
+        stroke={color}
+        strokeWidth={0.75}
+        transform={angleDeg ? `rotate(${angleDeg} ${cx} ${cy})` : undefined}
+        pointerEvents="none"
+      />
+      {seatNumber ? (
+        <text
+          data-testid="seat-number"
+          x={cx}
+          y={cy}
+          fontSize={Math.max(7, Math.min(h, w) * 0.85)}
+          fontWeight={600}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#171717"
+          stroke="#ffffff"
+          strokeWidth={2}
+          paintOrder="stroke"
+          pointerEvents="none"
+        >
+          {seatNumber}
+        </text>
+      ) : null}
+    </g>
   );
 }
 
 /** A ring of chair marks around a round table's rim, radially oriented and
  * tinted to match the table's own status color (like the table "blooming"
  * into its seats), the same visual language the reference photo uses. */
-function renderChairsCircle(cx: number, cy: number, radiusPx: number, seatCount: number, color: string) {
+function renderChairsCircle(cx: number, cy: number, radiusPx: number, seatCount: number, color: string, numbered = false) {
   if (!seatCount || seatCount <= 0) return null;
   const { w: chairW, h: chairH, gap: gapPx } = chairSize(radiusPx);
   return Array.from({ length: seatCount }, (_, i) => {
@@ -133,13 +154,13 @@ function renderChairsCircle(cx: number, cy: number, radiusPx: number, seatCount:
     const angleRad = (angleDeg * Math.PI) / 180;
     const chairCx = cx + (radiusPx + gapPx + chairH / 2) * Math.cos(angleRad);
     const chairCy = cy + (radiusPx + gapPx + chairH / 2) * Math.sin(angleRad);
-    return chairRect(i, chairCx, chairCy, chairW, chairH, angleDeg + 90, color);
+    return chairRect(i, chairCx, chairCy, chairW, chairH, angleDeg + 90, color, numbered ? i + 1 : undefined);
   });
 }
 
 /** Same idea for a rectangular table: chairs spread along all four sides,
  * allocated in proportion to each side's length. */
-function renderChairsRect(x: number, y: number, width: number, height: number, seatCount: number, color: string) {
+function renderChairsRect(x: number, y: number, width: number, height: number, seatCount: number, color: string, numbered = false) {
   if (!seatCount || seatCount <= 0) return null;
   const { w: chairW, h: chairH, gap: gapPx } = chairSize(Math.min(width, height));
   const sides = [
@@ -183,7 +204,8 @@ function renderChairsRect(x: number, y: number, width: number, height: number, s
         cy = y + t * height;
         angleDeg = 90;
       }
-      chairs.push(chairRect(key++, cx, cy, chairW, chairH, angleDeg, color));
+      chairs.push(chairRect(key, cx, cy, chairW, chairH, angleDeg, color, numbered ? key + 1 : undefined));
+      key++;
     }
   });
   return chairs;
@@ -227,6 +249,7 @@ export function FloorPlanCanvas({
   groups = [],
   zoom = 1,
   watermarkUrl = null,
+  selectionTone = "dark",
 }: {
   widthCm: number;
   heightCm: number;
@@ -245,7 +268,10 @@ export function FloorPlanCanvas({
   zoom?: number;
   /** Project C: the venue's own logo, faint behind the floor plan. */
   watermarkUrl?: string | null;
+  /** Outline of the selected element: near-black (venue) or gold (couple). */
+  selectionTone?: "dark" | "gold";
 }) {
+  const selectedStroke = selectionTone === "gold" ? "#c9a24a" : "#171717";
   const pxPerCm = PX_PER_CM * zoom;
 
   // Touch: the svg is touch-none (drags need every pointer move), so a finger
@@ -521,8 +547,8 @@ export function FloorPlanCanvas({
           "data-highlighted": el.highlighted ? "true" : undefined,
           "data-occupancy": el.occupancy,
           fill: el.color,
-          stroke: isOverlapping ? "#dc2626" : el.highlighted ? "#B8913A" : isSelected ? "#171717" : el.seatCount ? "#ffffff" : "none",
-          strokeWidth: isOverlapping || el.highlighted ? 3 : isSelected ? 2 : el.seatCount ? 3 : 0,
+          stroke: isOverlapping ? "#dc2626" : el.highlighted ? "#B8913A" : isSelected ? selectedStroke : el.seatCount ? "#ffffff" : "none",
+          strokeWidth: isOverlapping || el.highlighted ? 3 : isSelected ? (selectionTone === "gold" ? 4 : 2) : el.seatCount ? 3 : 0,
           strokeDasharray: isOverlapping ? "4 2" : undefined,
           style: { cursor: el.locked ? "default" : mode === "select" ? "pointer" : "grab" },
           filter: "url(#floor-plan-shadow)",
@@ -538,7 +564,7 @@ export function FloorPlanCanvas({
           >
             {el.shape === "circle" ? (
               <>
-                {el.seatCount ? renderChairsCircle(centerX, centerY, radiusPx, el.seatCount, el.color) : null}
+                {el.seatCount ? renderChairsCircle(centerX, centerY, radiusPx, el.seatCount, el.color, isSelected) : null}
                 <circle cx={centerX} cy={centerY} r={radiusPx} {...shapeProps} />
               </>
             ) : (
@@ -551,6 +577,7 @@ export function FloorPlanCanvas({
                       geometry.height_cm * pxPerCm,
                       el.seatCount,
                       el.color,
+                      isSelected,
                     )
                   : null}
                 <rect

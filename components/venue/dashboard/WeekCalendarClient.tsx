@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
-import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
+import { STATUS_META, TYPE_META, eventTypeLabel, formatTime, formatTimeRange } from "@/lib/venue/event-display";
 import { ChangeMark } from "./ChangeMark";
+import { DayDots } from "./DayDots";
+import { assignLanes } from "@/lib/venue/calendar-lanes";
+import { NO_ROOM_COLOR, eventRoomColor, roomColor } from "@/lib/venue/calendar-colors";
 import type { EventDetail, EventStatus, EventType } from "@/lib/venue/events";
 import type { RoomWithSeatTotal } from "@/lib/venue/rooms";
 
@@ -53,6 +56,14 @@ function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }
+/** An event's [start, end) on the grid's minute scale; no times → a one-hour block at the top. */
+function eventMinutes(ev: EventDetail): { start: number; end: number } {
+  const start = ev.start_time ? toGridMinutes(timeToMinutes(ev.start_time)) : HOUR_START * 60;
+  const end = ev.end_time ? toGridMinutes(timeToMinutes(ev.end_time)) : start + 60;
+  // An end at or before the start (bad data) still gets a visible block.
+  return { start, end: end > start ? end : start + 60 };
+}
+
 function buildMonthCells(year: number, month: number): (number | null)[] {
   const first = new Date(year, month, 1);
   const lead = (first.getDay() + 6) % 7;
@@ -179,6 +190,9 @@ export function WeekCalendarClient({
   }, [filteredEvents, today]);
 
   const monthCells = buildMonthCells(miniCalMonth.getFullYear(), miniCalMonth.getMonth());
+  const roomIds = rooms.map((r) => r.id);
+  // Legend: every room, plus "Без сала" when a shown event has no room.
+  const hasRoomless = filteredEvents.some((ev) => !ev.room_ids.some((id) => roomIds.includes(id)));
   const todayIso = isoOf(today);
 
   return (
@@ -268,12 +282,30 @@ export function WeekCalendarClient({
 
         <div className="cal-body">
           <div className="cal-main">
+            {rooms.length > 0 ? (
+              <div className="cal-legend" aria-label="Боја по сала">
+                <span className="cal-legend-t">Сали</span>
+                {rooms.map((r) => (
+                  <span key={r.id} className="cal-legend-item">
+                    <i style={{ background: roomColor(r.id, roomIds) }} aria-hidden="true" />
+                    {r.name}
+                  </span>
+                ))}
+                {hasRoomless ? (
+                  <span className="cal-legend-item">
+                    <i style={{ background: NO_ROOM_COLOR }} aria-hidden="true" />
+                    Без сала
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             {viewMode === "month" ? (
               <MonthGrid
                 cells={monthCells}
                 monthDate={miniCalMonth}
                 todayIso={todayIso}
                 eventsByDate={eventsByDate}
+                roomIds={roomIds}
                 onSelectDay={(iso) => {
                   setAnchor(new Date(`${iso}T00:00:00`));
                   setViewMode("day");
@@ -348,7 +380,7 @@ export function WeekCalendarClient({
                       }
                     >
                       {day ?? ""}
-                      {iso && eventsByDate.has(iso) ? <i className="mc-dot" /> : null}
+                      {iso ? <DayDots colors={(eventsByDate.get(iso) ?? []).map((ev) => eventRoomColor(ev.room_ids, roomIds))} /> : null}
                     </span>
                   );
                 })}
@@ -361,12 +393,12 @@ export function WeekCalendarClient({
                 <div className="empty" style={{ padding: "14px 0" }}>Нема претстојни настани.</div>
               ) : (
                 upcomingEvents.map((ev) => {
-                  const type = TYPE_META[ev.event_type];
+                  const type = { ...TYPE_META[ev.event_type], label: eventTypeLabel(ev) };
                   const d = new Date(`${ev.event_date}T00:00:00`);
                   const range = formatTimeRange(ev.start_time, ev.end_time);
                   return (
                     <div className="up-row" key={ev.id}>
-                      <span className="up-dot" style={{ background: type.color }} />
+                      <span className="up-dot" style={{ background: eventRoomColor(ev.room_ids, roomIds) }} />
                       <span>
                         {range ? <b>{range}</b> : null}
                         <span>
@@ -432,12 +464,14 @@ function MonthGrid({
   monthDate,
   todayIso,
   eventsByDate,
+  roomIds,
   onSelectDay,
 }: {
   cells: (number | null)[];
   monthDate: Date;
   todayIso: string;
   eventsByDate: Map<string, EventDetail[]>;
+  roomIds: string[];
   onSelectDay: (iso: string) => void;
 }) {
   return (
@@ -457,14 +491,21 @@ function MonthGrid({
             className={`cal-month-cell${iso === todayIso ? " is-today" : ""}`}
             onClick={() => onSelectDay(iso)}
           >
-            <span className="cal-month-daynum">{day}</span>
+            <span className="cal-month-top">
+              <span className="cal-month-daynum">{day}</span>
+              {dayEvents.length > 1 ? <span className="cal-multi">{dayEvents.length} настани</span> : null}
+            </span>
             <div className="cal-month-chips">
-              {shown.map((ev) => (
-                <span key={ev.id} className="cal-month-chip" style={{ background: `${TYPE_META[ev.event_type].color}1f`, color: TYPE_META[ev.event_type].color }}>
+              {shown.map((ev) => {
+                const color = eventRoomColor(ev.room_ids, roomIds);
+                return (
+                <span key={ev.id} className="cal-month-chip" title={eventTypeLabel(ev)} style={{ background: `${color}1f`, color, borderLeft: `3px solid ${color}` }}>
+                  <Icon name={TYPE_META[ev.event_type].icon} size="sm" />
                   {ev.couple_names}
                   <ChangeMark sections={ev.unseenSections} />
                 </span>
-              ))}
+                );
+              })}
               {overflow > 0 ? <span className="cal-month-more">+{overflow}</span> : null}
             </div>
           </div>
@@ -514,6 +555,9 @@ function TimeGrid({
           <div className={`cal-day-head${iso === todayIso ? " is-today" : ""}`} key={iso}>
             <span className="cal-day-name">{MK_DAYS_LONG[(d.getDay() + 6) % 7].slice(0, 3)}</span>
             <span className="cal-day-num">{d.getDate()} {MK_MONTHS[d.getMonth()].slice(0, 3)}</span>
+            {(eventsByDate.get(iso)?.length ?? 0) > 1 ? (
+              <span className="cal-multi">{eventsByDate.get(iso)!.length} настани</span>
+            ) : null}
           </div>
         );
       })}
@@ -529,6 +573,8 @@ function TimeGrid({
       {days.map((d) => {
         const iso = isoOf(d);
         const dayEvents = eventsByDate.get(iso) ?? [];
+        // Events that overlap in time share the column as thinner side-by-side lanes.
+        const lanes = assignLanes(dayEvents, eventMinutes);
         return (
           <div className="cal-day-col" key={iso} style={{ height: GRID_HEIGHT }}>
             {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
@@ -541,20 +587,31 @@ function TimeGrid({
               />
             ) : null}
             {dayEvents.map((ev) => {
-              const type = TYPE_META[ev.event_type];
-              const startMin = ev.start_time ? toGridMinutes(timeToMinutes(ev.start_time)) : HOUR_START * 60;
-              const endMin = ev.end_time ? toGridMinutes(timeToMinutes(ev.end_time)) : startMin + 60;
+              const type = { ...TYPE_META[ev.event_type], label: eventTypeLabel(ev) };
+              const color = eventRoomColor(ev.room_ids, rooms.map((r) => r.id));
+              const { start: startMin, end: endMin } = eventMinutes(ev);
               const top = Math.max(0, ((startMin - HOUR_START * 60) / 60) * ROW_HEIGHT);
               const height = Math.max(24, ((endMin - startMin) / 60) * ROW_HEIGHT);
+              const { lane, lanes: laneCount } = lanes.get(ev) ?? { lane: 0, lanes: 1 };
               const roomNames = ev.room_ids.map((id) => rooms.find((r) => r.id === id)?.name).filter(Boolean).join(", ");
               return (
                 <Link
                   href={`/venue/events?event=${ev.id}`}
                   key={ev.id}
-                  className="cal-event"
-                  style={{ top, height, background: `${type.color}22`, borderLeftColor: type.color, color: type.color }}
+                  className={`cal-event${laneCount > 1 ? " is-lane" : ""}`}
+                  title={[formatTimeRange(ev.start_time, ev.end_time) ?? "Без време", ev.couple_names, type.label, roomNames || "Без сала"].join(" · ")}
+                  style={{
+                    top,
+                    height,
+                    left: `calc(${(lane / laneCount) * 100}% + 3px)`,
+                    width: `calc(${100 / laneCount}% - 6px)`,
+                    background: `${color}22`,
+                    borderLeftColor: color,
+                    color,
+                  }}
                 >
-                  <b>{formatTimeRange(ev.start_time, ev.end_time) ?? "Без време"}</b>
+                  {/* A thin lane only fits the start time; the full range is in the title. */}
+                  <b><Icon name={type.icon} size="sm" />{(laneCount > 1 ? formatTime(ev.start_time) : formatTimeRange(ev.start_time, ev.end_time)) ?? "Без време"}</b>
                   <span>{ev.couple_names} <ChangeMark sections={ev.unseenSections} /></span>
                   {height > 46 ? <span className="cal-event-sub">{[roomNames, ev.guest_count_estimate != null ? `${ev.guest_count_estimate} гости` : null].filter(Boolean).join(" · ")}</span> : null}
                 </Link>

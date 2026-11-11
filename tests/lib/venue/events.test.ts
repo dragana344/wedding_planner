@@ -674,6 +674,56 @@ describe("events data layer: updateEvent atomicity (final review finding)", () =
   });
 });
 
+describe("events data layer: event_type_label (0148)", () => {
+  it("saves an \"Друго\" event's own type name on create, keeps or clears it on update, and never stores one for other types", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Event Type Label Venue" }).select().single();
+    const base = {
+      venue_id: venue!.id,
+      event_date: "2099-12-01",
+      room_ids: [],
+      menu_template_ids: [],
+      contacts: { contact_email: "type-label@example.mk", contact_phone: "070 444 444" },
+    };
+    const other = await createEvent({
+      ...base,
+      couple_names: "Ана и Марко",
+      event_type: "other",
+      event_type_label: "  Прослава за 20 години брак ",
+      credentials: { username: `type-label-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const wedding = await createEvent({
+      ...base,
+      couple_names: "Ивана и Петар",
+      event_type: "wedding",
+      event_type_label: "Ignored",
+      credentials: { username: `type-label-w-${Date.now()}`, password: "a-strong-password-1" },
+    });
+    const read = async (id: string) => (await admin.from("events").select("event_type_label").eq("id", id).single()).data!.event_type_label;
+    expect(await read(other.id)).toBe("Прослава за 20 години брак");
+    expect(await read(wedding.id)).toBeNull();
+
+    const update = {
+      couple_names: "Ана и Марко",
+      event_date: "2099-12-01",
+      start_time: null,
+      end_time: null,
+      status: "preparation" as const,
+      guest_count_estimate: null,
+      room_ids: [],
+      added_menu_ids: [],
+      removed_menu_ids: [],
+      seating_self_edit_enabled: null,
+    };
+    await updateEvent(other.id, venue!.id, { ...update, event_type: "other", event_type_label: "25 години брак" }, admin);
+    expect(await read(other.id)).toBe("25 години брак");
+    // Switching to a real type drops the custom name.
+    await updateEvent(other.id, venue!.id, { ...update, event_type: "anniversary", event_type_label: "25 години брак" }, admin);
+    expect(await read(other.id)).toBeNull();
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+});
+
 describe("events data layer: getEventById", () => {
   it("fetches a single event by id", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Get Event Test Venue" }).select().single();

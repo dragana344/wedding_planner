@@ -1,0 +1,238 @@
+/* The couple's Белешки, styled like their Чеклиста/Буџет/Распоред pages
+ * (couple-seating.css: header, cs-btn, cs-card and the --cs-* colours); these
+ * rules only add the notes page's own pieces. Selectors stay at two classes
+ * so they beat the panel's bare input/label reset (`.vp input`). */
+
+.nt .nt-sub {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--cs-muted);
+}
+
+/* Count + search card */
+.nt .nt-top {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+}
+.nt .nt-top-sprig {
+  position: absolute;
+  top: -10px;
+  right: 6%;
+  width: 50px;
+  height: 100px;
+  color: var(--cs-gold);
+  opacity: 0.25;
+  transform: rotate(70deg);
+  pointer-events: none;
+}
+.nt .nt-top-ic {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--cs-gold-tint);
+  color: var(--cs-gold-dark);
+}
+.nt .nt-top-count {
+  flex: none;
+  margin: 0;
+  font-size: 15px;
+  color: var(--cs-ink);
+  white-space: nowrap;
+}
+.nt .nt-top-count b {
+  font-weight: 700;
+}
+.nt .nt-top-search {
+  flex: 1;
+  max-width: 320px;
+  margin: 0 0 0 auto;
+}
+
+/* Two columns: list, editor */
+.nt .nt-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 16px;
+  align-items: start;
+}
+.nt .nt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--cs-line);
+}
+.nt .nt-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cs-gold-dark);
+}
+.nt .nt-empty {
+  margin: 0;
+  padding: 18px 20px;
+  font-size: 14px;
+  color: var(--cs-muted);
+}
+
+/* Note rows */
+.nt .nt-rows {
+  display: flex;
+  flex-direction: column;
+}
+.nt .nt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  border: 0;
+  border-top: 1px solid var(--cs-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nt .nt-row:first-child {
+  border-top: 0;
+}
+.nt .nt-row:hover {
+  background: var(--cs-gold-tint);
+}
+.nt .nt-row.is-active {
+  background: var(--cs-gold-tint);
+  box-shadow: inset 3px 0 0 var(--cs-gold-dark);
+}
+.nt .nt-row-ic {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--cs-gold-tint);
+  color: var(--cs-gold-dark);
+}
+.nt .nt-row.is-active .nt-row-ic {
+  background: #fff;
+}
+.nt .nt-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nt .nt-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nt .nt-row-title {
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15.5px;
+  color: var(--cs-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nt .nt-row-date {
+  flex: none;
+  font-size: 12px;
+  color: var(--cs-muted);
+}
+.nt .nt-row-preview {
+  overflow: hidden;
+  color: var(--cs-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Editor */
+.nt .nt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+.nt .nt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nt .nt-textarea {
+  resize: vertical;
+  min-height: 200px;
+  line-height: 1.6;
+}
+
+.nt .nt-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nt .nt-status {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--cs-muted);
+}
+.nt .nt-status.is-error {
+  color: #a8433a;
+}
+
+.nt .nt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--cs-line);
+}
+.nt .nt-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .nt .nt-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nt .nt-editor {
+    order: -1;
+  }
+}
+@media (max-width: 640px) {
+  .nt .nt-top {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+  }
+  .nt .nt-top-search {
+    max-width: none;
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .nt .nt-row-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .nt .nt-actions {
+    flex-wrap: wrap;
+  }
+}

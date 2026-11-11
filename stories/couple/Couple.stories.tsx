@@ -69,9 +69,9 @@ export const Agenda: Story = {
     children: (
       <AgendaClient
         initialItems={[
-          { id: "a1", event_id: EVENT_ID, time: "17:00", title: "Венчавка во црква", notes: null, sort_order: 10 },
-          { id: "a2", event_id: EVENT_ID, time: "18:00", title: "Пречек на гости", notes: "Музика во живо на влез", sort_order: 20 },
-          { id: "a3", event_id: EVENT_ID, time: null, title: "Торта", notes: null, sort_order: 30 },
+          { id: "a1", event_id: EVENT_ID, time: "17:00", title: "Венчавка во црква", location: "Црква Св. Климент Охридски", notes: null, sort_order: 10 },
+          { id: "a2", event_id: EVENT_ID, time: "18:00", title: "Пречек на гости", location: "Ресторан Панорама", notes: "Музика во живо на влез", sort_order: 20 },
+          { id: "a3", event_id: EVENT_ID, time: null, title: "Торта", location: null, notes: null, sort_order: 30 },
         ]}
         coupleNames="Ана и Марко"
         eventDate="2026-10-18"
@@ -94,6 +94,9 @@ const budgetItem = (id: string, category: string, name: string, estimated_amount
   name,
   estimated_amount,
   paid_amount,
+  paid_by: null,
+  payment_date: null,
+  notes: null,
   created_at: "2026-09-01T10:00:00Z",
 });
 
@@ -103,9 +106,14 @@ export const Budget: Story = {
   args: {
     children: (
       <BudgetClient
+        coupleNames="Ана и Марко"
         initialSummary={{
           venue: { estimated_amount: 240000, paid_amount: 60000 },
-          items: [budgetItem("b1", "music", "Бенд", 45000, 15000), budgetItem("b2", "photo", "Фотограф", 36000, 36000), budgetItem("b3", "flowers", "Цвеќе", null, 0)],
+          items: [
+            budgetItem("b1", "music_entertainment", "Бенд", 45000, 15000),
+            budgetItem("b2", "photography", "Фотограф", 36000, 36000),
+            budgetItem("b3", "flowers_decor", "Цвеќе", null, 0),
+          ],
           totalEstimated: 321000,
           totalPaid: 111000,
           remaining: 210000,
@@ -121,7 +129,8 @@ export const BudgetOverpaid: Story = {
   args: {
     children: (
       <BudgetClient
-        initialSummary={{ venue: { estimated_amount: null, paid_amount: null }, items: [budgetItem("b1", "music", "Бенд", 20000, 30000)], totalEstimated: 20000, totalPaid: 30000, remaining: -10000 }}
+        coupleNames="Ана и Марко"
+        initialSummary={{ venue: { estimated_amount: null, paid_amount: null }, items: [budgetItem("b1", "music_entertainment", "Бенд", 20000, 30000)], totalEstimated: 20000, totalPaid: 30000, remaining: -10000 }}
       />
     ),
   },
@@ -149,7 +158,8 @@ export const LockedSection: Story = {
     lockedFeatures: ["budget", "photo_album", "notes"],
     children: (
       <BudgetClient
-        initialSummary={{ venue: { estimated_amount: 240000, paid_amount: 60000 }, items: [budgetItem("b1", "music", "Бенд", 45000, 15000)], totalEstimated: 285000, totalPaid: 75000, remaining: 210000 }}
+        coupleNames="Ана и Марко"
+        initialSummary={{ venue: { estimated_amount: 240000, paid_amount: 60000 }, items: [budgetItem("b1", "music_entertainment", "Бенд", 45000, 15000)], totalEstimated: 285000, totalPaid: 75000, remaining: 210000 }}
       />
     ),
   },

@@ -29,6 +29,9 @@ describe("lib/couple/budget", () => {
       name: "Restaurant X",
       estimated_amount: 5000,
       paid_amount: 1000,
+      paid_by: null,
+      payment_date: null,
+      notes: null,
     });
     const flowers = await addBudgetItem(event!.id, {
       category: "flowers_decor",
@@ -36,6 +39,9 @@ describe("lib/couple/budget", () => {
       name: "Florist Y",
       estimated_amount: 800,
       paid_amount: 0,
+      paid_by: null,
+      payment_date: null,
+      notes: null,
     });
     expect(catering.name).toBe("Restaurant X");
 
@@ -48,8 +54,14 @@ describe("lib/couple/budget", () => {
       name: "Restaurant X (confirmed)",
       estimated_amount: 5200,
       paid_amount: 2000,
+      paid_by: "Марко",
+      payment_date: "2027-01-10",
+      notes: "Депозит платен однапред",
     });
     expect(updated.paid_amount).toBe(2000);
+    expect(updated.paid_by).toBe("Марко");
+    expect(updated.payment_date).toBe("2027-01-10");
+    expect(updated.notes).toBe("Депозит платен однапред");
 
     const summary = await getBudgetSummary(event!.id);
     expect(summary.venue).toEqual({ estimated_amount: 9000, paid_amount: 2000 });
@@ -90,10 +102,11 @@ describe("lib/couple/budget", () => {
       .single();
 
     // Insert in an order that is neither alphabetical nor catalog order.
-    await addBudgetItem(event!.id, { category: "videography", custom_label: null, name: "Videographer", estimated_amount: 100, paid_amount: 0 });
-    await addBudgetItem(event!.id, { category: "attire", custom_label: null, name: "Dress", estimated_amount: 100, paid_amount: 0 });
-    await addBudgetItem(event!.id, { category: "other", custom_label: "Misc", name: "Misc item", estimated_amount: 100, paid_amount: 0 });
-    await addBudgetItem(event!.id, { category: "catering", custom_label: null, name: "Caterer", estimated_amount: 100, paid_amount: 0 });
+    const extra = { paid_by: null, payment_date: null, notes: null } as const;
+    await addBudgetItem(event!.id, { category: "videography", custom_label: null, name: "Videographer", estimated_amount: 100, paid_amount: 0, ...extra });
+    await addBudgetItem(event!.id, { category: "attire", custom_label: null, name: "Dress", estimated_amount: 100, paid_amount: 0, ...extra });
+    await addBudgetItem(event!.id, { category: "other", custom_label: "Misc", name: "Misc item", estimated_amount: 100, paid_amount: 0, ...extra });
+    await addBudgetItem(event!.id, { category: "catering", custom_label: null, name: "Caterer", estimated_amount: 100, paid_amount: 0, ...extra });
 
     const listed = await listBudgetItems(event!.id);
     // Catalog order (lib/couple/budget-categories.ts) is: catering, photography,
@@ -109,9 +122,9 @@ describe("lib/couple/budget", () => {
     const { data: eventA } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "A", event_date: "2027-09-03" }).select().single();
     const { data: eventB } = await admin.from("events").insert({ venue_id: venue!.id, couple_names: "B", event_date: "2027-09-04" }).select().single();
 
-    const item = await addBudgetItem(eventA!.id, { category: "other", custom_label: "Misc", name: "A's item", estimated_amount: null, paid_amount: 0 });
+    const item = await addBudgetItem(eventA!.id, { category: "other", custom_label: "Misc", name: "A's item", estimated_amount: null, paid_amount: 0, paid_by: null, payment_date: null, notes: null });
     await expect(
-      updateBudgetItem(eventB!.id, item.id, { category: "other", custom_label: null, name: "hijacked", estimated_amount: null, paid_amount: 0 })
+      updateBudgetItem(eventB!.id, item.id, { category: "other", custom_label: null, name: "hijacked", estimated_amount: null, paid_amount: 0, paid_by: null, payment_date: null, notes: null })
     ).rejects.toThrow();
     await deleteBudgetItem(eventB!.id, item.id);
     expect(await listBudgetItems(eventA!.id)).toHaveLength(1);

@@ -94,6 +94,15 @@ describe("CoupleNotificationsList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Не успеа.");
   });
 
+  it("shows the pill counts and filters by search", () => {
+    render(<CoupleNotificationsList items={[reply, reminder]} active={null} counts={{ all: 2, green: 1, blue: 1 }} />);
+    expect(screen.getByRole("link", { name: "Одговори од гости" })).toHaveTextContent("Одговори од гости1");
+    expect(screen.getByRole("link", { name: "Промени од салата" })).toHaveTextContent("Промени од салата0");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Пребарај известување" }), { target: { value: "марија" } });
+    expect(screen.getByText("Марија")).toBeInTheDocument();
+    expect(screen.queryByText(reminder.title)).not.toBeInTheDocument();
+  });
+
   it("shows the empty state, keeping the legend", () => {
     render(<CoupleNotificationsList items={[]} active={null} />);
     expect(screen.getByText("Нема известувања.")).toBeInTheDocument();

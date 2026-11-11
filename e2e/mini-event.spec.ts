@@ -43,8 +43,8 @@ test("a mini-event is created, staff assigns its tables, and the couple sees the
   await page.getByLabel("Корисничко име").fill(username);
   await page.getByLabel("Лозинка").fill(password);
   await page.getByRole("button", { name: "Понатаму" }).click();
-  await page.getByLabel("Email на парот").fill(`${username}@example.mk`);
-  await page.getByLabel("Телефон на парот").fill("070 123 456");
+  await page.getByLabel(/^Е-пошта/).fill(`${username}@example.mk`);
+  await page.getByLabel(/^Телефон/).fill("070 123 456");
   await page.getByRole("button", { name: "Креирај настан" }).click();
   await expect(page.getByText("НАСТАНОТ Е КРЕИРАН")).toBeVisible();
   await page.getByRole("button", { name: "Кон настаните" }).click();

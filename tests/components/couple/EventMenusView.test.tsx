@@ -32,6 +32,12 @@ describe("EventMenusView", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("badges the package menu and the custom menu differently", () => {
+    render(<EventMenusView menus={menus} />);
+    expect(screen.getByText("ГЛАВНО МЕНИ")).toBeInTheDocument();
+    expect(screen.getByText("АЛТЕРНАТИВНО МЕНИ")).toBeInTheDocument();
+  });
+
   it('no menus: "Салата сè уште нема поставено мени."', () => {
     render(<EventMenusView menus={[]} />);
     expect(screen.getByText("Салата сè уште нема поставено мени.")).toBeInTheDocument();

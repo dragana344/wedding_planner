@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
-import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
+import { STATUS_META, TYPE_META, eventTypeLabel, formatTimeRange } from "@/lib/venue/event-display";
 import type { RoomWithSeatTotal, TableType } from "@/lib/venue/rooms";
 import type { MenuTemplateWithItemCount } from "@/lib/venue/menus";
 import { ChangeMark } from "./ChangeMark";
+import { DayDots } from "./DayDots";
+import { eventRoomColor } from "@/lib/venue/calendar-colors";
 import type { EventDetail } from "@/lib/venue/events";
 import { RESERVATION_STATUS_META, type Reservation } from "@/lib/venue/reservations";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
@@ -80,9 +82,10 @@ export function DashboardClient({
   todayReservations: Reservation[];
   upcomingEvents: EventDetail[];
   weekCounts: { iso: string; count: number }[];
-  monthEventDays: Record<number, number>;
+  /** Day-of-month -> that day's events, as each event's room ids. */
+  monthEventDays: Record<number, string[][]>;
   monthLabel: string;
-  nextMonthEventDays: Record<number, number>;
+  nextMonthEventDays: Record<number, string[][]>;
   nextMonthLabel: string;
   stats: {
     todayCount: number;
@@ -198,6 +201,8 @@ export function DashboardClient({
       ...Array.from({ length: days }, (_, i) => i + 1),
     ];
   }
+  const roomIds = rooms.map((r) => r.id);
+  const dotColor = (eventRoomIds: string[]) => eventRoomColor(eventRoomIds, roomIds);
   const todayDate = new Date(`${today}T00:00:00`);
   const monthCells = buildMonthCells(todayDate.getFullYear(), todayDate.getMonth());
   const todayDay = Number(today.slice(8, 10));
@@ -453,7 +458,7 @@ export function DashboardClient({
           ) : (
             <div style={{ padding: "6px 8px" }}>
               {shownTodayEvents.map((ev) => {
-                const type = TYPE_META[ev.event_type];
+                const type = { ...TYPE_META[ev.event_type], label: eventTypeLabel(ev) };
                 const status = STATUS_META[ev.status];
                 const range = formatTimeRange(ev.start_time, ev.end_time);
                 const roomNames = ev.room_ids
@@ -520,7 +525,7 @@ export function DashboardClient({
           ) : (
             <div style={{ padding: "8px 14px 14px" }}>
               {shownUpcomingEvents.map((ev) => {
-                const type = TYPE_META[ev.event_type];
+                const type = { ...TYPE_META[ev.event_type], label: eventTypeLabel(ev) };
                 return (
                   <div className="up-row" key={ev.id}>
                     <span className="up-dot" style={{ background: type.color }} />
@@ -560,7 +565,7 @@ export function DashboardClient({
                     className={`mc-d${day === todayDay ? " is-today" : ""}${day == null ? " is-blank" : ""}`}
                   >
                     {day ?? ""}
-                    {day != null && monthEventDays[day] ? <i className="mc-dot" /> : null}
+                    {day != null ? <DayDots colors={(monthEventDays[day] ?? []).map(dotColor)} /> : null}
                   </span>
                 ))}
               </div>
@@ -574,7 +579,7 @@ export function DashboardClient({
                 {nextMonthCells.map((day, i) => (
                   <span key={i} className={`mc-d${day == null ? " is-blank" : ""}`}>
                     {day ?? ""}
-                    {day != null && nextMonthEventDays[day] ? <i className="mc-dot" /> : null}
+                    {day != null ? <DayDots colors={(nextMonthEventDays[day] ?? []).map(dotColor)} /> : null}
                   </span>
                 ))}
               </div>

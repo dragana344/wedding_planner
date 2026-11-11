@@ -7,6 +7,7 @@ export interface AgendaItem {
   event_id: string;
   time: string | null;
   title: string;
+  location: string | null;
   notes: string | null;
   sort_order: number;
 }
@@ -14,10 +15,11 @@ export interface AgendaItem {
 export interface AgendaItemInput {
   time: string | null;
   title: string;
+  location: string | null;
   notes: string | null;
 }
 
-const COLUMNS = "id, event_id, time, title, notes, sort_order";
+const COLUMNS = "id, event_id, time, title, location, notes, sort_order";
 
 export async function listAgendaItems(eventId: string): Promise<AgendaItem[]> {
   const client = createServiceRoleClient();

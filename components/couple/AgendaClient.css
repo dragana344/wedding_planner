@@ -32,6 +32,14 @@
   color: #2e2617;
   font-size: 15px;
 }
+.agenda-location {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 3px 0 0;
+  color: #a8822f;
+  font-size: 13px;
+}
 .agenda-notes {
   margin: 2px 0 0;
   color: #8a7d64;

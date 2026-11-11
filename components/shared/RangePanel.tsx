@@ -28,6 +28,7 @@ export function RangePanel({
   isOpen,
   resetHref,
   resetLabel,
+  triggerLabel,
   children,
 }: {
   title: string;
@@ -38,21 +39,30 @@ export function RangePanel({
   isOpen: boolean;
   resetHref: string;
   resetLabel: string;
+  /** Shows a labelled calendar button instead of the bare ▾ arrow. */
+  triggerLabel?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(isOpen);
 
   return (
     <>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        style={{ padding: "4px 8px" }}
-        aria-label={`Избери период за: ${title}`}
-        onClick={() => setOpen(true)}
-      >
-        <Icon name="down" size="sm" />
-      </button>
+      {triggerLabel ? (
+        <button type="button" className="btn btn-ghost" aria-label={`Избери период за: ${title}`} onClick={() => setOpen(true)}>
+          <Icon name="cal" size="sm" />
+          {triggerLabel}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ padding: "4px 8px" }}
+          aria-label={`Избери период за: ${title}`}
+          onClick={() => setOpen(true)}
+        >
+          <Icon name="down" size="sm" />
+        </button>
+      )}
       {open ? (
         <Modal title={title} onClose={() => setOpen(false)}>
           <form className="bar" aria-label={`Период за ${title}`}>

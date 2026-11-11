@@ -15,6 +15,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   const [items, setItems] = useState(initialItems);
   const [time, setTime] = useState("");
   const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +23,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTime, setEditTime] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [editLocation, setEditLocation] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -34,7 +36,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
         await fetch("/api/couple/agenda", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ time: time || null, title, notes: notes || null }),
+          body: JSON.stringify({ time: time || null, title, location: location || null, notes: notes || null }),
         })
       );
       // Same place the server gave it: in front of the first item that starts later.
@@ -44,6 +46,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
       });
       setTime("");
       setTitle("");
+      setLocation("");
       setNotes("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа додавањето на ставката.");
@@ -83,6 +86,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
     setEditingId(item.id);
     setEditTime(item.time ?? "");
     setEditTitle(item.title);
+    setEditLocation(item.location ?? "");
     setEditNotes(item.notes ?? "");
   }
 
@@ -98,7 +102,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
         await fetch(`/api/couple/agenda/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ time: editTime || null, title: editTitle, notes: editNotes || null }),
+          body: JSON.stringify({ time: editTime || null, title: editTitle, location: editLocation || null, notes: editNotes || null }),
         })
       );
       setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
@@ -132,10 +136,22 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
             <input id="agenda-title" className="fld" placeholder="пр. Прв танц" value={title} onChange={(e) => setTitle(e.target.value)} required />
           </div>
           <div>
+            <label className="lab-s" htmlFor="agenda-location">
+              Локација (опционално)
+            </label>
+            <input
+              id="agenda-location"
+              className="fld"
+              placeholder="пр. Црква Св. Климент Охридски"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </div>
+          <div>
             <label className="lab-s" htmlFor="agenda-notes">
               Белешки (опционално)
             </label>
-            <input id="agenda-notes" className="fld" placeholder="Место, детали..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <input id="agenda-notes" className="fld" placeholder="Детали..." value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           {error ? <p style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>{error}</p> : null}
           <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
@@ -161,6 +177,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
               <div key={item.id} className="agenda-edit-row">
                 <input type="time" className="fld" value={editTime} onChange={(e) => setEditTime(e.target.value)} aria-label="Измени време" />
                 <input className="fld" placeholder="Наслов" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required aria-label="Измени наслов" />
+                <input className="fld" placeholder="Локација (опционално)" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} aria-label="Измени локација" />
                 <input className="fld" placeholder="Белешки (опционално)" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} aria-label="Измени белешки" />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" onClick={() => handleSaveEdit(item.id)} disabled={isSaving} className="btn btn-gold">
@@ -177,6 +194,12 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
                 <span className="agenda-dot" />
                 <div className="agenda-content">
                   <p className="agenda-title">{item.title}</p>
+                  {item.location ? (
+                    <p className="agenda-location">
+                      <Icon name="pin" size="sm" />
+                      {item.location}
+                    </p>
+                  ) : null}
                   {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
                 </div>
                 <div className="agenda-actions">

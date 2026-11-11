@@ -61,6 +61,7 @@ import * as seatingElementsRoute from "@/app/api/couple/seating/elements/route";
 import * as seatingElementIdRoute from "@/app/api/couple/seating/elements/[id]/route";
 import * as seatingRevertRoute from "@/app/api/couple/seating/revert/route";
 import * as seatingSeatsRoute from "@/app/api/couple/seating/seats/route";
+import * as seatingSeatsMoveRoute from "@/app/api/couple/seating/seats/move/route";
 import * as seatingRedoRoute from "@/app/api/couple/seating/redo/route";
 import * as seatingHistoryRoute from "@/app/api/couple/seating/history/route";
 import * as seatingGroupRoute from "@/app/api/couple/seating/group/route";
@@ -1008,6 +1009,26 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         expect(res.status).toBe(400);
         const own = await call(seatingProposalsRoute.GET, NONE, "GET", { query: { room_id: A.roomId } });
         expect(own.status).toBe(200);
+
+        // Fix #3's proposal_id branch (getProposalDiff): same cross-event refusal.
+        const { data: bProposal, error: bErr } = await admin
+          .from("event_seating_proposals")
+          .insert({ event_id: B.eventId, room_id: B.roomId, proposed_by: "venue", snapshot: { elements: [] } })
+          .select("id").single();
+        if (bErr) throw bErr;
+        const foreign = await call(seatingProposalsRoute.GET, NONE, "GET", { query: { proposal_id: bProposal!.id } });
+        expect(foreign.status).toBe(400);
+        await admin.from("event_seating_proposals").delete().eq("id", bProposal!.id);
+
+        const { data: aProposal, error: aErr } = await admin
+          .from("event_seating_proposals")
+          .insert({ event_id: A.eventId, room_id: A.roomId, proposed_by: "venue", snapshot: { elements: [] } })
+          .select("id").single();
+        if (aErr) throw aErr;
+        const ownDiff = await call(seatingProposalsRoute.GET, NONE, "GET", { query: { proposal_id: aProposal!.id } });
+        expect(ownDiff.status).toBe(200);
+        expect((ownDiff.json as { before: unknown[]; after: unknown[] }).after).toEqual([]);
+        await admin.from("event_seating_proposals").delete().eq("id", aProposal!.id);
       },
       POST: async () => {
         const { data: bProposal, error: bError } = await admin
@@ -1052,6 +1073,23 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         // Own room, B's table and guest: refused by the seat trigger.
         const mixed = await call(seatingSeatsRoute.PUT, NONE, "PUT", {
           body: { room_id: A.roomId, layout_element_id: B.layoutElementId, seats: [{ seat_number: 1, guest_id: B.guestId }] },
+        });
+        expect(mixed.status).toBe(409);
+      },
+    },
+  },
+  "seating/seats/move/route.ts": {
+    module: seatingSeatsMoveRoute,
+    methods: {
+      POST: async () => {
+        await resetASeating();
+        const wrongRoom = await call(seatingSeatsMoveRoute.POST, NONE, "POST", {
+          body: { room_id: B.roomId, guest_id: A.guestId, to_element_id: A.draftElementId, to_seat_number: 2 },
+        });
+        expect(wrongRoom.status).toBe(400);
+        // Own room, but another event's guest: refused by the seat trigger.
+        const mixed = await call(seatingSeatsMoveRoute.POST, NONE, "POST", {
+          body: { room_id: A.roomId, guest_id: B.guestId, to_element_id: A.draftElementId, to_seat_number: 2 },
         });
         expect(mixed.status).toBe(409);
       },

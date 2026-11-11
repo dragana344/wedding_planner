@@ -43,6 +43,7 @@ export function PanelShell({
   venueName,
   lockedFeatures = [],
   badges,
+  dots,
   brand,
   children,
 }: {
@@ -55,6 +56,8 @@ export function PanelShell({
   lockedFeatures?: FeatureKey[];
   /** Count badges on nav items, keyed by href. */
   badges?: Partial<Record<string, number>>;
+  /** Plain unseen-dot (no count) on nav items, keyed by href. */
+  dots?: Partial<Record<string, boolean>>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -88,7 +91,7 @@ export function PanelShell({
           </div>
         </div>
 
-        <VenueNav activeHref={active.href} isLocked={isLocked} badges={badges} />
+        <VenueNav activeHref={active.href} isLocked={isLocked} badges={badges} dots={dots} />
 
         <Link className="quick" href={TABLE_RESERVATIONS_ENABLED ? "/venue/reservations" : "/venue/events/new"}>
           <b>

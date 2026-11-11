@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { listCoupleNotifications } from "@/lib/couple/notifications";
-import { coupleKindColor, isNotificationColor } from "@/lib/notification-colors";
+import { countByColor, coupleKindColor, isNotificationColor } from "@/lib/notification-colors";
 import { CoupleNotificationsList } from "@/components/couple/CoupleNotificationsList";
 
 export const dynamic = "force-dynamic";
@@ -13,15 +13,11 @@ export default async function CoupleNotificationsPage({ searchParams }: { search
   const all = await listCoupleNotifications(eventId);
   const items = color ? all.filter((n) => coupleKindColor(n.kind) === color) : all;
 
+  const counts = countByColor(all.map((n) => coupleKindColor(n.kind)));
+
   return (
     <div className="wrap">
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Известувања</h2>
-          <span className="count">{items.length}</span>
-        </div>
-        <CoupleNotificationsList items={items} active={color} />
-      </section>
+      <CoupleNotificationsList items={items} active={color} counts={counts} />
     </div>
   );
 }

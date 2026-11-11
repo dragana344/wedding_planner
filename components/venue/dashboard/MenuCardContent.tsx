@@ -1,6 +1,5 @@
 "use client";
 
-import { Icon } from "@/components/venue/shell/Icon";
 import { getMenuItemPhotoUrl } from "@/lib/venue/menus";
 import { COURSE_META, COURSE_ORDER } from "@/lib/venue/menu-display";
 
@@ -72,7 +71,8 @@ export function MenuCardContent({
                         onClick={() => onPhotoClick(photoUrl, item.name)}
                         aria-label={`Погледни фотографија на ${item.name}`}
                       >
-                        <Icon name="photo" size="sm" />
+                        {/* eslint-disable-next-line @next/next/no-img-element -- a small, variably-sized thumbnail from Supabase Storage; next/image's fixed-size optimization isn't worth it here */}
+                        <img src={photoUrl} alt={item.name} />
                       </button>
                     ) : null}
                   </div>

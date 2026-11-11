@@ -93,7 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "mega",
     label: "Известувања",
     title: "ИЗВЕСТУВАЊА",
-    subtitle: "Известувања и потсетници",
+    subtitle: "Преглед на сите активности и промени",
     ready: true,
   },
   {

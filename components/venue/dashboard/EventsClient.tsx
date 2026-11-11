@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { EventEditForm } from "./EventEditForm";
 import { useEventPrivateDetails } from "./useEventPrivateDetails";
 import { ChangeMark } from "./ChangeMark";
 import { Icon } from "@/components/venue/shell/Icon";
 import { Modal } from "./Modal";
+import { usePaged } from "./ShowMore";
 import { MenuDetailModal } from "./MenuDetailModal";
 import { listEventsWithDetails, type EventDetail } from "@/lib/venue/events";
-import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
+import { STATUS_META, TYPE_META, eventTypeLabel, formatTimeRange } from "@/lib/venue/event-display";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
 import { localIsoDate, todayIn } from "@/lib/date";
@@ -131,9 +132,9 @@ export function EventsClient({
     [events, today, monthEnd],
   );
 
-  const visible = useMemo(() => {
-    const byFilter = events.filter((e) => {
-      switch (filter) {
+  const matchesFilter = useCallback(
+    (e: EventDetail, key: Filter) => {
+      switch (key) {
         case "upcoming":
           return e.status !== "cancelled" && e.event_date > today;
         case "today":
@@ -148,7 +149,18 @@ export function EventsClient({
         default:
           return true;
       }
-    });
+    },
+    [today, weekEnd, monthEnd],
+  );
+
+  // How many events each filter chip would show, for the number on the chip.
+  const filterCounts = useMemo(
+    () => Object.fromEntries(FILTERS.map((f) => [f.key, events.filter((e) => matchesFilter(e, f.key)).length])) as Record<Filter, number>,
+    [events, matchesFilter],
+  );
+
+  const visible = useMemo(() => {
+    const byFilter = events.filter((e) => matchesFilter(e, filter));
     // Today and what is coming first (nearest first), then the past, newest
     // first — the list arrives oldest-first, which buries this month under
     // every event the venue has ever held.
@@ -159,7 +171,9 @@ export function EventsClient({
     const q = query.trim().toLowerCase();
     if (!q) return ordered;
     return ordered.filter((e) => e.couple_names.toLowerCase().includes(q));
-  }, [events, filter, query, today, weekEnd, monthEnd]);
+  }, [events, filter, query, today, matchesFilter]);
+  // 10 at a time; a new filter or search starts over.
+  const page = usePaged(visible, `${filter}|${query}`);
 
   return (
     <div className="wrap">
@@ -213,12 +227,12 @@ export function EventsClient({
           {FILTERS.map((f) => (
             <button
               key={f.key}
-              className="chip"
+              className="chip tf-chip"
               type="button"
               aria-pressed={filter === f.key}
               onClick={() => setFilter(f.key)}
             >
-              {f.label}
+              {f.label} <span className="tf-count">{filterCounts[f.key]}</span>
             </button>
           ))}
         </div>
@@ -244,9 +258,9 @@ export function EventsClient({
               <div>Статус</div>
             </div>
 
-            {visible.map((event) => {
+            {page.visible.map((event) => {
               const status = STATUS_META[event.status];
-              const type = TYPE_META[event.event_type];
+              const type = { ...TYPE_META[event.event_type], label: eventTypeLabel(event) };
               const timeRange = formatTimeRange(event.start_time, event.end_time);
               const menuName = event.menus.map((m) => m.name).join(", ");
               const hasMenuDetail = event.menus.length > 0;
@@ -344,6 +358,8 @@ export function EventsClient({
               );
             })}
 
+            {page.showMore}
+
             {visible.length === 0 ? (
               <div className="empty">
                 <b>Нема настани</b>
@@ -355,7 +371,7 @@ export function EventsClient({
 
         <div className="foot">
           <div className="count">
-            Прикажани {visible.length} од {events.length} настани
+            Одговараат {visible.length} од {events.length} настани
           </div>
         </div>
       </section>

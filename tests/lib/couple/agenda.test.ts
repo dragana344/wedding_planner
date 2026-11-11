@@ -17,16 +17,23 @@ describe("lib/couple/agenda", () => {
       .select()
       .single();
 
-    const first = await addAgendaItem(event!.id, { time: "16:00", title: "Собирање гости", notes: null });
-    const second = await addAgendaItem(event!.id, { time: "17:00", title: "Церемонија", notes: null });
+    const first = await addAgendaItem(event!.id, { time: "16:00", title: "Собирање гости", location: null, notes: null });
+    const second = await addAgendaItem(event!.id, { time: "17:00", title: "Церемонија", location: "Црква Св. Климент Охридски", notes: null });
     expect(first.sort_order).toBe(0);
     expect(second.sort_order).toBe(1);
+    expect(second.location).toBe("Црква Св. Климент Охридски");
 
     const listed = await listAgendaItems(event!.id);
     expect(listed.map((i) => i.title)).toEqual(["Собирање гости", "Церемонија"]);
 
-    const updated = await updateAgendaItem(event!.id, first.id, { time: "16:30", title: "Собирање гости (ажурирано)", notes: "донеси стол" });
+    const updated = await updateAgendaItem(event!.id, first.id, {
+      time: "16:30",
+      title: "Собирање гости (ажурирано)",
+      location: "Хотел Панорама",
+      notes: "донеси стол",
+    });
     expect(updated.title).toBe("Собирање гости (ажурирано)");
+    expect(updated.location).toBe("Хотел Панорама");
     expect(updated.notes).toBe("донеси стол");
 
     const afterMove = await moveAgendaItem(event!.id, second.id, "up");
@@ -52,9 +59,9 @@ describe("lib/couple/agenda", () => {
       .select()
       .single();
 
-    const item = await addAgendaItem(eventA!.id, { time: null, title: "A's item", notes: null });
+    const item = await addAgendaItem(eventA!.id, { time: null, title: "A's item", location: null, notes: null });
 
-    await expect(updateAgendaItem(eventB!.id, item.id, { time: null, title: "hijacked", notes: null })).rejects.toThrow();
+    await expect(updateAgendaItem(eventB!.id, item.id, { time: null, title: "hijacked", location: null, notes: null })).rejects.toThrow();
     await deleteAgendaItem(eventB!.id, item.id);
     const stillThere = await listAgendaItems(eventA!.id);
     expect(stillThere).toHaveLength(1);

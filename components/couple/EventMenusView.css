@@ -1,0 +1,140 @@
+/* Printed-menu-card look for the couple's Мени page — same ivory/gold
+ * palette as InvitationCard.css (#fff, #c9a24a gold, #2e2617 ink, #8a7d64
+ * muted), extended with a top badge pill, corner twigs, a guest-count pill
+ * and per-course dish icons to match the client-approved mockup. */
+
+/* Fixed-width cards, centred as a group: one, two or three menus all sit in
+ * the middle of the page instead of one stretching full width. */
+.cm-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.cm-card {
+  position: relative;
+  flex: 0 1 480px;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #eaddbf;
+  border-radius: 18px;
+  padding: 22px 32px 20px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.cm-twig {
+  position: absolute;
+  top: 14px;
+  width: 64px;
+  height: 38px;
+  color: #c9a24a;
+  opacity: 0.6;
+}
+.cm-twig:first-of-type {
+  left: 10px;
+}
+.cm-twig:last-of-type {
+  right: 10px;
+}
+
+.cm-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #faf3e2;
+  color: #8a6a1f;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.cm-badge-alt {
+  background: #f3efe4;
+  color: #6b6450;
+}
+
+.cm-title {
+  position: relative;
+  margin: 12px 0 0;
+  font-size: 32px;
+  font-weight: 400;
+  color: #2e2617;
+  line-height: 1.15;
+}
+
+.cm-guests {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  border: 1px solid #eaddbf;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  color: #6b6450;
+}
+
+.cm-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 10px;
+}
+.cm-divider span {
+  flex: 1;
+  height: 1px;
+  background: #eaddbf;
+}
+.cm-divider i {
+  width: 6px;
+  height: 6px;
+  background: #c9a24a;
+  transform: rotate(45deg);
+  flex: none;
+}
+
+/* Each dish is centred on its own line, like a printed menu, so the
+ * list narrows and widens with the names. */
+.cm-dish-row {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 2px;
+}
+/* A faint line only between courses (предјадење / главно / десерт), not
+ * between dishes of the same course. */
+.cm-course + .cm-course {
+  border-top: 1px solid #efe6d2;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.cm-dish-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #faf3e2;
+  color: #8a6a1f;
+}
+.cm-dish-name {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #2e2617;
+}
+.cm-dish-course {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  font-style: italic;
+  color: #8a7d64;
+}

@@ -106,3 +106,14 @@ describe("EventsClient deep link (B9 notifications)", () => {
     expect(document.querySelector(".modal-panel")).not.toBeNull();
   });
 });
+
+describe("EventsClient filter counts", () => {
+  it("shows how many events each filter chip holds", () => {
+    const past = { ...event, id: "p1", event_date: "2020-01-01" };
+    render(<ManagerElevationProvider><EventsClient venueId="v1" initialEvents={[event, past]} rooms={[]} menuTemplates={[]} initialFilter="all" /></ManagerElevationProvider>);
+    const group = screen.getByRole("group", { name: "Филтри" });
+    expect(group).toHaveTextContent("Сите настани 2");
+    expect(group).toHaveTextContent("Претстојни 1");
+    expect(group).toHaveTextContent("Завршени 1");
+  });
+});

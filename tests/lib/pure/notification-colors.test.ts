@@ -15,11 +15,11 @@ describe("notification colours", () => {
 
   it("lists the legend in order with the exact labels", () => {
     expect(VENUE_LEGEND).toEqual([
-      { color: "yellow", label: "Промени од парот" },
-      { color: "green", label: "Бројки за мени" },
-      { color: "blue", label: "Настани" },
-      { color: "grey", label: "Пристап" },
-      { color: "red", label: "Приватност" },
+      { color: "yellow", label: "Промени од парот", icon: "send" },
+      { color: "green", label: "Бројки за мени", icon: "bookmark" },
+      { color: "blue", label: "Настани", icon: "cal" },
+      { color: "grey", label: "Пристап", icon: "login" },
+      { color: "red", label: "Приватност", icon: "shield" },
     ]);
   });
 
@@ -31,9 +31,9 @@ describe("notification colours", () => {
 
   it("lists the couple legend and maps the couple kinds", () => {
     expect(COUPLE_LEGEND).toEqual([
-      { color: "yellow", label: "Промени од салата" },
-      { color: "green", label: "Одговори од гости" },
-      { color: "blue", label: "Потсетници" },
+      { color: "yellow", label: "Промени од салата", icon: "edit" },
+      { color: "green", label: "Одговори од гости", icon: "mail" },
+      { color: "blue", label: "Потсетници", icon: "bell" },
     ]);
     expect(coupleKindColor("venue_change")).toBe("yellow");
     expect(coupleKindColor("guest_reply")).toBe("green");
