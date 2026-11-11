@@ -20,13 +20,14 @@ describe("ChecklistClient", () => {
         json: async () => ({ items: [...items, newItem], stats: { total: 2, open: 2, done: 0, overdue: 0 } }),
       };
     });
-    render(<ChecklistClient initialItems={items} initialStats={stats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
 
     expect(screen.getByText("Book photographer")).toBeInTheDocument();
     expect(screen.getByText(/1 отворени/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Наслов на задачата"), { target: { value: "Send invitations" } });
-    fireEvent.click(screen.getByRole("button", { name: /додади задача/i }));
+    // The second "Додај задача" is the submit; the first folds the card.
+    fireEvent.click(screen.getAllByRole("button", { name: "Додај задача" })[1]);
 
     await waitFor(() => expect(screen.getByText("Send invitations")).toBeInTheDocument());
   });
@@ -42,7 +43,7 @@ describe("ChecklistClient", () => {
         json: async () => ({ items: [toggledItem], stats: { total: 1, open: 0, done: 1, overdue: 0 } }),
       };
     });
-    render(<ChecklistClient initialItems={items} initialStats={stats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
 
     fireEvent.click(screen.getByRole("checkbox", { name: /book photographer/i }));
 
@@ -65,7 +66,7 @@ describe("ChecklistClient", () => {
         json: async () => ({ items: [updatedItem], stats: { total: 1, open: 1, done: 0, overdue: 0 } }),
       };
     });
-    render(<ChecklistClient initialItems={items} initialStats={stats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
 
     fireEvent.click(screen.getByRole("button", { name: /измени book photographer/i }));
     fireEvent.change(screen.getByDisplayValue("Book photographer"), { target: { value: "Book photographer (booked!)" } });
@@ -84,7 +85,7 @@ describe("ChecklistClient", () => {
         json: async () => ({ items: [], stats: { total: 0, open: 0, done: 0, overdue: 0 } }),
       };
     });
-    render(<ChecklistClient initialItems={items} initialStats={stats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
 
     fireEvent.click(screen.getByRole("button", { name: /избриши book photographer/i }));
 
@@ -116,10 +117,15 @@ describe("ChecklistClient", () => {
       }
       return { ok: true, json: async () => ({ items: currentItems, stats }) };
     });
-    render(<ChecklistClient initialItems={items} initialStats={stats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/додади опција или подзадача/i), { target: { value: "Photographer A" } });
-    fireEvent.click(screen.getByRole("button", { name: /^додади$/i }));
+    // Subtasks stay folded until "Додај подзадача" opens them.
+    expect(screen.queryByPlaceholderText(/додај опција или подзадача/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Додај подзадача за Book photographer" }));
+    expect(screen.getByPlaceholderText(/додај опција или подзадача/i)).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Подзадачи за Book photographer" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.change(screen.getByPlaceholderText(/додај опција или подзадача/i), { target: { value: "Photographer A" } });
+    fireEvent.click(screen.getByRole("button", { name: /^додај$/i }));
 
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
@@ -150,9 +156,56 @@ describe("ChecklistClient", () => {
     ];
     const overdueStats = { total: 1, open: 1, done: 0, overdue: 1 };
     global.fetch = vi.fn();
-    render(<ChecklistClient initialItems={overdueItems} initialStats={overdueStats} />);
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={overdueItems} initialStats={overdueStats} />);
 
     expect(screen.getByText("Confirm florist")).toBeInTheDocument();
     expect(screen.getByText("Задоцнето")).toBeInTheDocument();
+  });
+
+  it("shows the couple's names in the header and filters by status and search", () => {
+    const mixed: ChecklistItem[] = [
+      items[0],
+      { id: "c4", event_id: "e1", title: "Order cake", due_date: null, is_done: true, created_at: "2026-01-01", subtasks: [] },
+    ];
+    global.fetch = vi.fn();
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={mixed} initialStats={{ total: 2, open: 1, done: 1, overdue: 0 }} />);
+    expect(screen.getByText("Марко и Ана")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Чеклиста" })).toBeInTheDocument();
+    expect(screen.getAllByText("Без рок")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Завршени (1)" }));
+    expect(screen.getByRole("button", { name: "Завршени (1)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("Book photographer")).not.toBeInTheDocument();
+    expect(screen.getByText("Order cake")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Сите (2)" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Пребарај задача" }), { target: { value: "photo" } });
+    expect(screen.getByText("Book photographer")).toBeInTheDocument();
+    expect(screen.queryByText("Order cake")).not.toBeInTheDocument();
+  });
+
+  it("folds the add form away and back", () => {
+    global.fetch = vi.fn();
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
+    const toggle = screen.getByRole("button", { name: "Додај задача", expanded: true });
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText("Наслов на задачата")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText("Наслов на задачата")).toBeInTheDocument();
+  });
+
+  it("links a task whose title matches a vendor category to the marketplace, pre-filtered", () => {
+    const withVendorMatch: ChecklistItem[] = [
+      { id: "c5", event_id: "e1", title: "Нарачај цвеќе за црквата", due_date: null, is_done: false, created_at: "2026-01-01", subtasks: [] },
+    ];
+    global.fetch = vi.fn();
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={withVendorMatch} initialStats={{ total: 1, open: 1, done: 0, overdue: 0 }} />);
+    expect(screen.getByRole("link", { name: "Погледни добавувачи" })).toHaveAttribute("href", "/couple/partners?category=florist");
+  });
+
+  it("has no vendor link for a task with no matching category", () => {
+    global.fetch = vi.fn();
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
+    expect(screen.queryByRole("link", { name: "Погледни добавувачи" })).not.toBeInTheDocument();
   });
 });

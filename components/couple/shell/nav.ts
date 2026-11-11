@@ -32,6 +32,7 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots:
   return [
     { href: "/couple", icon: "home", label: "Почетна", title: "ПОЧЕТНА", subtitle: "Преглед на вашиот настан", ready: true },
     { href: "/couple/notifications", icon: "bell", label: "Известувања", title: "ИЗВЕСТУВАЊА", subtitle: "Промени од салата и одговори од гости", ready: true, dot: dots.notifications },
+    { href: "/couple/partners", icon: "case", label: "Услуги за настанот", title: "УСЛУГИ ЗА НАСТАНОТ", subtitle: "Проверени соработници за вашиот настан", ready: true },
     ...rooms.map((room, index) => ({
       href: `/couple/seating/${room.id}`,
       icon: "tables",

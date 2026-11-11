@@ -8,7 +8,9 @@ import { LogoMark, Wordmark } from "@/components/marketing/BrandLogo";
 import { montserrat, nunito } from "@/components/marketing/fonts";
 import { DashboardPreview } from "@/components/marketing/DashboardPreview";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { VendorPartnersSection } from "@/components/marketing/VendorPartnersSection";
 import { getPricingCards } from "@/lib/marketing/pricing";
+import { listVendorPartners } from "@/lib/vendor-partners/partners";
 import "./landing.css";
 
 export const metadata: Metadata = {
@@ -275,6 +277,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const pricing = await getPricingCards();
+  const vendorPartners = await listVendorPartners();
   return (
     <div className={`lp ${montserrat.variable} ${nunito.variable}`}>
       <RecoveryRedirect />
@@ -423,6 +426,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <VendorPartnersSection vendors={vendorPartners} />
 
       <section id="how" className="band">
         <div className="wrap">

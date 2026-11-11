@@ -1,0 +1,716 @@
+/* Ivory/gold directory of vendor partners (couple "Услуги" page and the
+ * landing page). Self-contained: no panel tokens, so it renders the same in
+ * both places. */
+.vp .panel.pv-page {
+  padding: 30px 32px 34px;
+  border: 1px solid #eaddbf;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fffdf8 0%, #fdf9ef 55%, #fffdf8 100%);
+}
+.pv-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+.pv-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: #b0924f;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.pv-eyebrow-star {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: #c9a24a;
+}
+.vp .pv-title {
+  margin: 0 0 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: #2e2617;
+}
+.pv-sub {
+  margin: 0;
+  color: #8a7d64;
+  font-size: 15.5px;
+}
+.pv-head-star {
+  width: 60px;
+  height: 60px;
+  flex: none;
+  color: #d4b56e;
+}
+
+.pv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 22px;
+}
+.pv-cats,
+.pv-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pv-directory .pv-pill {
+  padding: 10px 18px;
+  border: 1px solid #e6dfcf;
+  border-radius: 10px;
+  background: #fff;
+  color: #4a4234;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.pv-directory .pv-pill:hover {
+  border-color: #cdb989;
+}
+.pv-directory .pv-pill[aria-pressed="true"] {
+  background: #26241f;
+  border-color: #26241f;
+  color: #fff;
+}
+/* .pv-directory-scoped so the couple panel's `.vp label { display: initial }`
+ * reset can't turn the field back into an inline box. */
+.pv-directory .pv-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+/* Pinned to the field's vertical middle rather than the flex static position. */
+.pv-field-ic {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #c2a463;
+  pointer-events: none;
+}
+.pv-field-caret {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: #a39780;
+  pointer-events: none;
+}
+.pv-directory .pv-field input,
+.pv-directory .pv-field select {
+  appearance: none;
+  height: 44px;
+  padding: 0 36px 0 38px;
+  border: 1px solid #e6dfcf;
+  border-radius: 12px;
+  background: #fff;
+  color: #4a4234;
+  font: inherit;
+  font-size: 14px;
+  min-width: 190px;
+}
+.pv-directory .pv-field input {
+  padding-right: 14px;
+}
+.pv-directory .pv-field input:focus,
+.pv-directory .pv-field select:focus {
+  outline: none;
+  border-color: #c9a24a;
+  box-shadow: 0 0 0 3px rgba(201, 162, 74, 0.18);
+}
+
+.pv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 22px;
+}
+.pv-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e6dfcf;
+  border-radius: 14px;
+  background: #fff;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.pv-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(70, 54, 24, 0.1);
+}
+.pv-card-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  --pv-from: #b9a98a;
+  --pv-to: #6b5c42;
+  --pv-art: #f6ead3;
+  background: radial-gradient(circle at 28% 18%, var(--pv-from), var(--pv-to) 85%);
+}
+.pv-cat-music { --pv-from: #ae946b; --pv-to: #3d3122; --pv-art: #ecd7a6; }
+.pv-cat-photography { --pv-from: #a3a1a6; --pv-to: #3b3b42; --pv-art: #f3e6d4; }
+.pv-cat-florist { --pv-from: #dcafa3; --pv-to: #9c726a; --pv-art: #fbe6df; }
+.pv-cat-decoration { --pv-from: #d8c39b; --pv-to: #8c7550; --pv-art: #fbf1dc; }
+.pv-cat-catering { --pv-from: #b3bf9f; --pv-to: #56664a; --pv-art: #f1f3e2; }
+.pv-cat-jeweler { --pv-from: #dcc590; --pv-to: #8f6f33; --pv-art: #fff3d6; }
+.pv-cat-equipment { --pv-from: #a9b1ba; --pv-to: #46505c; --pv-art: #e9edf2; }
+.pv-cat-cakes_desserts { --pv-from: #e8c2b9; --pv-to: #ad7f78; --pv-art: #fdeee9; }
+.pv-cat-makeup_hair { --pv-from: #cfa7ba; --pv-to: #7a576a; --pv-art: #f9e8f0; }
+.pv-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pv-card-art {
+  width: 46%;
+  max-width: 120px;
+  aspect-ratio: 1;
+  color: var(--pv-art);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+}
+.pv-card-badge {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #fdf6e3;
+  color: #6f5a2c;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.pv-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 24px 20px;
+}
+.pv-card-category {
+  color: #b0924f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.vp .pv-card-name,
+.pv-card-name {
+  margin: 2px 0 0;
+  color: #2e2617;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.pv-card-city {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8a7d64;
+  font-size: 14px;
+}
+.pv-pin {
+  width: 14px;
+  height: 14px;
+  color: #b9a377;
+}
+.pv-directory .pv-card-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid #ece4d3;
+  background: none;
+  color: #7a6230;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.pv-card-body .pv-card-city {
+  margin-bottom: 10px;
+}
+.pv-card-arrow {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.15s;
+}
+.pv-card:hover .pv-card-arrow,
+.pv-card-open:focus-visible .pv-card-arrow {
+  transform: translate(2px, -2px);
+}
+.pv-card-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+@media (max-width: 640px) {
+  /* One swipeable row of category pills instead of four wrapped rows. */
+  .pv-cats {
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pv-cats::-webkit-scrollbar {
+    display: none;
+  }
+  .pv-directory .pv-pill {
+    flex: none;
+    white-space: nowrap;
+  }
+  .vp .panel.pv-page {
+    padding: 22px 18px 24px;
+  }
+  .pv-head-star {
+    width: 40px;
+    height: 40px;
+  }
+  .pv-tools,
+  .pv-directory .pv-field,
+  .pv-directory .pv-field input,
+  .pv-directory .pv-field select {
+    width: 100%;
+  }
+}
+.pv-empty {
+  color: #8a7d64;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* Partner profile: a panel over the whole page. The landing page shows a
+ * smaller version of it (.lp .vps-directory overrides in landing.css). */
+.pv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 17, 12, 0.6);
+  backdrop-filter: blur(4px);
+  animation: pv-fade 0.18s ease-out;
+}
+.pv-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(660px, 100%);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  animation: pv-rise 0.22s ease-out;
+}
+
+.pv-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: #2e2617;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s, background 0.15s;
+}
+.pv-modal-close:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+.pv-modal-close-ic {
+  width: 16px;
+  height: 16px;
+}
+
+.pv-modal-hero {
+  flex: none;
+  aspect-ratio: 16 / 7;
+}
+.pv-modal-hero .pv-card-art {
+  width: 22%;
+}
+.pv-modal-hero-img {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.pv-modal-hero-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pv-modal-chip {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(250, 244, 230, 0.94);
+  color: #7a5c22;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pv-modal-chip-ic {
+  width: 14px;
+  height: 14px;
+}
+.pv-modal-dots {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.pv-modal-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: width 0.2s, background 0.2s;
+}
+.pv-modal-dot.on {
+  width: 28px;
+  background: #e2b850;
+}
+
+.pv-modal-body {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 30px 24px;
+}
+.pv-modal-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.pv-modal-kicker .pv-card-category {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+.pv-modal-featured {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #fbf2df;
+  color: #7a6230;
+  font-size: 12px;
+}
+.pv-modal-featured-ic {
+  width: 12px;
+  height: 12px;
+  color: #c9a24a;
+}
+.pv-modal .pv-modal-title {
+  margin: 10px 0 6px;
+  color: #2e2617;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(26px, 3.6vw, 34px);
+  font-weight: 400;
+  line-height: 1.08;
+}
+.pv-modal-city {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a7d64;
+  font-size: 14px;
+}
+.pv-modal-city .pv-pin {
+  width: 15px;
+  height: 15px;
+}
+.pv-modal-sec {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #ece4d3;
+}
+.pv-modal-sec-plain {
+  padding-top: 0;
+  border-top: 0;
+}
+.pv-modal .pv-modal-sec h3 {
+  margin: 0 0 8px;
+  color: #22201b;
+  font-size: 15px;
+  font-weight: 700;
+}
+.pv-modal .pv-detail-desc {
+  margin: 0;
+  color: #5d5749;
+  font-size: 14.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.pv-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pv-gallery-thumb {
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: zoom-in;
+}
+.pv-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s;
+}
+/* Higher specificity than .pv-gallery-thumb's `background: none`, so the
+ * placeholder keeps its category tint. */
+.pv-gallery-thumb.pv-gallery-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 28% 18%, var(--pv-from), var(--pv-to) 85%);
+  cursor: default;
+  opacity: 0.35;
+}
+.pv-gallery-empty .pv-card-art {
+  width: 30%;
+}
+.pv-gallery-note {
+  margin-top: 10px;
+}
+.pv-gallery-thumb:hover img {
+  transform: scale(1.04);
+}
+.pv-modal-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pv-btn {
+  display: inline-flex;
+  flex: 1 1 130px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #e0d3b4;
+  border-radius: 10px;
+  background: #fff;
+  color: #5b4520;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.pv-btn:hover {
+  border-color: #c9a24a;
+  background: #fdf8ec;
+}
+/* The main contact gets its own row; the rest share the next one evenly. */
+.pv-btn-primary {
+  flex: 1 1 100%;
+  border-color: transparent;
+  background: linear-gradient(90deg, #e8c25a, #cf9f3a);
+  color: #2b2210;
+}
+.pv-btn-primary:hover {
+  border-color: transparent;
+  background: linear-gradient(90deg, #edc964, #d6a842);
+  transform: translateY(-1px);
+}
+.pv-btn-ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.pv-modal-note {
+  margin: 10px 0 0;
+  color: #9a9284;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+@keyframes pv-fade {
+  from { opacity: 0; }
+}
+@keyframes pv-rise {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+}
+@media (max-width: 640px) {
+  .pv-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .pv-modal {
+    max-height: 94vh;
+    max-height: 94dvh;
+    border-radius: 20px 20px 0 0;
+  }
+  .pv-modal-hero {
+    aspect-ratio: 16 / 10;
+  }
+  .pv-modal-body {
+    padding: 24px 20px 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-modal-backdrop,
+  .pv-modal {
+    animation: none;
+  }
+}
+
+/* Carousel layout (landing page): five cards per view, fewer as it narrows. */
+.pv-carousel {
+  --pv-per-view: 5;
+  --pv-gap: 18px;
+}
+.pv-carousel-track {
+  display: flex;
+  gap: var(--pv-gap);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  /* Room for the cards' hover lift and shadow inside the scroller. */
+  padding: 6px 2px 18px;
+  margin: -6px -2px -18px;
+}
+.pv-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+.pv-carousel-slide {
+  display: flex;
+  flex: 0 0 calc((100% - (var(--pv-per-view) - 1) * var(--pv-gap)) / var(--pv-per-view));
+  scroll-snap-align: start;
+}
+.pv-carousel-slide .pv-card {
+  width: 100%;
+}
+.pv-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 22px;
+}
+.pv-carousel-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e6dfcf;
+  border-radius: 50%;
+  background: #fff;
+  color: #4a4234;
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.pv-carousel-arrow:hover:not(:disabled) {
+  border-color: #c9a24a;
+}
+.pv-carousel-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.pv-carousel-prev,
+.pv-carousel-next {
+  width: 18px;
+  height: 18px;
+}
+.pv-carousel-prev {
+  transform: rotate(90deg);
+}
+.pv-carousel-next {
+  transform: rotate(-90deg);
+}
+.pv-carousel-dots {
+  display: flex;
+  gap: 7px;
+}
+.pv-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #ddd5c4;
+  cursor: pointer;
+  transition: width 0.2s, background 0.2s;
+}
+.pv-carousel-count {
+  min-width: 56px;
+  color: #8a7d64;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.pv-carousel-dot.on {
+  width: 24px;
+  background: #c9a24a;
+}
+@media (max-width: 1280px) {
+  .pv-carousel { --pv-per-view: 4; }
+}
+@media (max-width: 1024px) {
+  .pv-carousel { --pv-per-view: 3; }
+}
+@media (max-width: 720px) {
+  .pv-carousel { --pv-per-view: 2; --pv-gap: 12px; }
+}
+@media (max-width: 440px) {
+  /* One card plus a peek of the next, so it reads as swipeable. */
+  .pv-carousel { --pv-per-view: 1.25; }
+}

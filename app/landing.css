@@ -26,7 +26,7 @@
   --shadow: 0 1px 2px rgba(20, 26, 46, 0.05), 0 8px 24px rgba(20, 26, 46, 0.07);
   --f-display: var(--font-montserrat), "Segoe UI", system-ui, sans-serif;
   --f-body: var(--font-sans), "Segoe UI", system-ui, sans-serif;
-  --gutter: clamp(16px, 2.6vw, 40px);
+  --gutter: clamp(20px, 9vw - 40px, 112px);
 
   color-scheme: light;
   min-height: 100vh;
@@ -149,7 +149,7 @@
 /* Between the stacked phone layout and a full-width single row, the strip
    wraps: give the tag its own centred line so it doesn't start with a
    stray divider. */
-@media (min-width: 881px) and (max-width: 1240px) {
+@media (min-width: 881px) and (max-width: 1340px) {
   .lp .eco-item.eco-tag { flex-basis: 100%; justify-content: center; border-left: 0; }
 }
 
@@ -586,4 +586,134 @@
 @media (prefers-reduced-motion: reduce) {
   .lp .hero-mark { animation: none; }
   .lp .btn { transition: none; }
+}
+
+/* ---------- vendor partners teaser (#partners) ---------- */
+.lp .vps {
+  border: 1px solid var(--line); border-radius: 22px; overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(155, 61, 242, 0.06), transparent 45%),
+    radial-gradient(circle at 0% 100%, rgba(255, 122, 26, 0.06), transparent 45%),
+    var(--bg);
+  box-shadow: var(--shadow);
+}
+.lp .vps-main {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  align-items: center; gap: clamp(28px, 4vw, 64px);
+  padding: clamp(28px, 4vw, 56px);
+}
+.lp .vps-eyebrow {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--red-deep);
+}
+.lp .vps-eyebrow-star { width: 18px; height: 18px; color: var(--red); }
+.lp .vps-title { font-size: clamp(28px, 3.4vw, 42px); font-weight: 800; color: var(--ink); line-height: 1.15; }
+.lp .vps-title em {
+  display: block; font-style: normal;
+  background: linear-gradient(90deg, var(--red) 0%, var(--orange) 50%, var(--purple) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lp .vps-lead { margin-top: 18px; max-width: 440px; color: var(--muted); font-size: 16.5px; line-height: 1.75; }
+.lp .vps-cta { margin-top: 30px; min-height: 54px; padding: 0 28px; font-size: 16px; }
+.lp .vps-cta-arrow { width: 20px; height: 20px; transition: transform 0.18s; }
+.lp .vps-cta:hover .vps-cta-arrow { transform: translateX(3px); }
+.lp .vps-advertise {
+  display: flex; align-items: center; gap: 4px; width: fit-content; margin-top: 22px;
+  padding-bottom: 3px; border-bottom: 1.5px solid currentColor;
+  color: var(--ink); font-size: 14.5px; text-decoration: none;
+}
+.lp .vps-advertise:hover { color: var(--red-deep); }
+.lp .vps-advertise-arrow { width: 14px; height: 14px; }
+
+.lp .vps-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.lp .vps-tile {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 5 / 8; padding: 0; border: 0; border-radius: 16px; overflow: hidden;
+  color: #fff; cursor: pointer; font: inherit;
+  box-shadow: 0 10px 24px rgba(20, 26, 46, 0.14);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.lp .vps-tile:hover { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(20, 26, 46, 0.2); }
+/* Colours come from the logo, one family per category (the .pv-cat-* rules below). */
+.lp .vps-tile { background: radial-gradient(circle at 25% 12%, var(--pv-from), var(--pv-to) 95%); }
+.lp .vps-tile-art { width: 52%; max-width: 128px; color: rgba(255, 255, 255, 0.95); filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.18)); }
+.lp .vps-tile-label {
+  position: absolute; left: 18px; right: 18px; bottom: 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 15px; font-weight: 700; text-align: left; line-height: 1.25;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+}
+.lp .vps-tile-arrow { width: 18px; height: 18px; flex-shrink: 0; transition: transform 0.18s; }
+.lp .vps-tile:hover .vps-tile-arrow { transform: translate(2px, -2px); }
+
+.lp .vps-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px;
+  padding: 20px clamp(28px, 4vw, 56px); border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 14px;
+}
+.lp .vps-foot-brand { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--eco-text); }
+
+/* The unfolded directory, re-accented from the couple page's gold to the landing's red. */
+.lp .vps-directory { margin-top: 28px; }
+.lp .vps-directory .pv-pill[aria-pressed="true"] { background: var(--red); border-color: var(--red); }
+.lp .vps-directory .pv-pill:hover { border-color: var(--red); }
+.lp .vps-directory .pv-field-ic,
+.lp .vps-directory .pv-pin { color: var(--red); }
+.lp .vps-directory .pv-field input:focus,
+.lp .vps-directory .pv-field select:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(229, 24, 74, 0.14); }
+.lp .vps-directory .pv-card-category { color: var(--red-deep); }
+.lp .vps-directory .pv-card-name { font-family: var(--f-display); }
+.lp .vps-directory .pv-card-open { color: var(--red-deep); }
+.lp .vps-directory .pv-carousel-dot.on { background: var(--red); }
+.lp .vps-directory .pv-carousel-arrow:hover:not(:disabled) { border-color: var(--red); color: var(--red-deep); }
+/* Five across is narrow: tighter card text. */
+.lp .vps-directory .pv-carousel .pv-card-body { padding: 16px 16px 14px; gap: 6px; }
+.lp .vps-directory .pv-carousel .pv-card-name { font-size: 16.5px; }
+.lp .vps-directory .pv-carousel .pv-card-category { font-size: 10.5px; letter-spacing: 0.1em; }
+.lp .vps-directory .pv-carousel .pv-card-open { font-size: 14px; padding-top: 12px; }
+.lp .vps-directory .pv-card-cover { --pv-art: #fff; }
+/* Partner profile: the couple page's panel, smaller and in the logo's colours. */
+.lp .vps-directory .pv-modal { width: min(540px, 100%); font-family: var(--f-body); }
+.lp .vps-directory .pv-modal-close { top: 12px; right: 12px; width: 36px; height: 36px; }
+.lp .vps-directory .pv-modal-hero { aspect-ratio: 16 / 7; }
+.lp .vps-directory .pv-modal-chip { top: 14px; left: 14px; padding: 6px 12px; font-size: 11.5px; color: var(--red-deep); background: rgba(255, 255, 255, 0.94); }
+.lp .vps-directory .pv-modal-dot.on { background: #fff; }
+.lp .vps-directory .pv-modal-body { padding: 24px 28px 22px; }
+.lp .vps-directory .pv-modal-kicker .pv-card-category { font-size: 12px; }
+.lp .vps-directory .pv-modal-featured { background: var(--red-soft); color: var(--red-deep); font-size: 12px; }
+.lp .vps-directory .pv-modal-featured-ic { color: var(--red); }
+.lp .vps-directory .pv-modal-title { margin: 10px 0 6px; font-family: var(--f-display); font-size: clamp(22px, 2.6vw, 26px); font-weight: 800; color: var(--ink); }
+.lp .vps-directory .pv-modal-city { font-size: 14.5px; }
+.lp .vps-directory .pv-modal-sec { margin-top: 20px; padding-top: 18px; }
+.lp .vps-directory .pv-modal-sec-plain { padding-top: 0; }
+.lp .vps-directory .pv-modal-sec h3 { font-family: var(--f-display); font-size: 15px; margin-bottom: 8px; }
+.lp .vps-directory .pv-detail-desc { font-size: 14.5px; line-height: 1.7; color: var(--muted); }
+.lp .vps-directory .pv-gallery { gap: 8px; }
+.lp .vps-directory .pv-gallery-thumb { border-radius: 8px; }
+.lp .vps-directory .pv-btn { min-height: 44px; font-size: 14px; color: var(--ink); border-color: var(--line); border-radius: 10px; }
+.lp .vps-directory .pv-btn:hover { border-color: var(--red); background: var(--red-soft); color: var(--red-deep); }
+.lp .vps-directory .pv-btn-primary { background: var(--red); color: #fff; box-shadow: 0 6px 16px rgba(229, 24, 74, 0.22); }
+.lp .vps-directory .pv-btn-primary:hover { background: var(--red-deep); color: #fff; border-color: transparent; }
+.lp .vps-directory .pv-modal-note { font-size: 12.5px; color: var(--muted); }
+/* The logo's colour families: purple, teal-green, yellow→red, blue. */
+.lp .pv-cat-music,
+.lp .pv-cat-makeup_hair { --pv-from: #b56cf7; --pv-to: #4a1fb8; }
+.lp .pv-cat-photography,
+.lp .pv-cat-catering { --pv-from: #5cd0b5; --pv-to: #17706a; }
+.lp .pv-cat-decoration,
+.lp .pv-cat-florist,
+.lp .pv-cat-cakes_desserts { --pv-from: #ffc247; --pv-to: #e5184a; }
+.lp .pv-cat-jeweler,
+.lp .pv-cat-equipment { --pv-from: #6f8ff0; --pv-to: #1d4fd6; }
+
+@media (max-width: 1024px) {
+  .lp .vps-main { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .lp .vps-tiles { gap: 10px; }
+  .lp .vps-tile { aspect-ratio: 3 / 5; border-radius: 12px; }
+  .lp .vps-tile-label { left: 10px; right: 10px; bottom: 10px; font-size: 12.5px; }
+  .lp .vps-tile-arrow { display: none; }
+  .lp .vps-foot { justify-content: center; text-align: center; }
 }

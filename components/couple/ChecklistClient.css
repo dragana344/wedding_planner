@@ -1,133 +1,419 @@
-.checklist-total {
-  font-weight: 700;
-  color: #c9b48a;
-  font-size: 44px;
-  font-variant-numeric: tabular-nums;
+/* The couple's Чеклиста. The page wears the Распоред look (.cs-page from
+ * components/seating/couple-seating.css: header, cs-btn, cs-views, cs-card,
+ * cs-search and the --cs-* colours); these rules only add the checklist's
+ * own pieces. Selectors stay at two classes so they beat the panel's bare
+ * input/label reset (`.vp input`). */
+
+.ck .ck-sub {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--cs-muted);
 }
 
-.checklist-row {
-  padding: 14px 20px;
-  border-top: 1px solid #efe4cb;
+/* Progress card */
+.ck .ck-progress {
+  position: relative;
+  overflow: hidden;
+  padding: 18px 28px 22px;
+  margin-bottom: 16px;
 }
-.checklist-row:first-child {
-  border-top: 0;
+.ck .ck-progress-sprig {
+  position: absolute;
+  top: -18px;
+  right: 22%;
+  width: 60px;
+  height: 120px;
+  color: var(--cs-gold);
+  opacity: 0.35;
+  transform: rotate(70deg);
+  pointer-events: none;
 }
-.checklist-row-head {
+.ck .ck-eyebrow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cs-gold-dark);
+}
+.ck .ck-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ck .ck-score,
+.ck .ck-open {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+}
+.ck .ck-score-done {
+  font-size: 52px;
+  line-height: 1.1;
+  color: var(--cs-ink);
+}
+.ck .ck-score-total {
+  font-size: 52px;
+  line-height: 1.1;
+  color: var(--cs-gold);
+}
+.ck .ck-score-lab {
+  font-family: inherit;
+  font-size: 18px;
+  color: var(--cs-muted);
+}
+.ck .ck-open {
+  padding-left: 40px;
+  border-left: 1px solid var(--cs-line);
+}
+.ck .ck-open-num {
+  font-size: 34px;
+  color: var(--cs-ink);
+}
+.ck .ck-bar {
+  height: 12px;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: #ece2cc;
+  overflow: hidden;
+}
+.ck .ck-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9a24a, #a8822f);
+}
+
+/* Filter switch + search */
+.ck .ck-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.ck .ck-filters .cs-views {
+  margin-left: 0;
+}
+.ck .ck-ring {
+  width: 14px;
+  height: 14px;
+  border: 1.6px solid currentColor;
+  border-radius: 50%;
+}
+.ck .ck-search {
+  flex: 0 1 320px;
+  margin: 0;
+}
+
+/* Two columns: tasks, add form */
+.ck .ck-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+.ck .ck-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-.checklist-row-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.checklist-title {
   margin: 0;
-  font-weight: 700;
-  color: #2e2617;
-  font-size: 15px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--cs-line);
 }
-.checklist-title.is-done {
+.ck .ck-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cs-gold-dark);
+}
+.ck .ck-muted {
+  font-size: 13.5px;
+  color: var(--cs-muted);
+}
+.ck .ck-empty {
+  margin: 0;
+  padding: 18px 20px;
+  font-size: 14px;
+  color: var(--cs-muted);
+}
+.ck .ck-error {
+  margin: 0;
+  font-size: 13px;
+  color: #a8433a;
+}
+
+/* Task rows */
+.ck .ck-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ck .ck-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--cs-line);
+}
+.ck .ck-row:first-child {
+  border-top: 0;
+}
+.ck .ck-check {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--cs-gold-dark);
+  cursor: pointer;
+}
+.ck .ck-check-sm {
+  width: 16px;
+  height: 16px;
+}
+.ck .ck-row-main {
+  min-width: 0;
+}
+.ck .ck-title {
+  margin: 0 0 6px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  color: var(--cs-ink);
+}
+.ck .ck-row.is-done .ck-title {
   opacity: 0.55;
   text-decoration: line-through;
 }
-.checklist-due {
-  margin: 0;
-  font-size: 13px;
-  color: #8a7d64;
-}
-.checklist-due.is-overdue {
-  color: #a4442f;
-}
-.checklist-row-actions {
+.ck .ck-row-sub {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
-.checklist-link {
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: #8a6a22;
-}
-.checklist-link:hover {
-  text-decoration: underline;
-}
-.checklist-link-danger {
-  color: #a4442f;
-}
-
-/* Specificity bump (element+class) over the global `button[type="submit"]`
- * default (app/globals.css) — this is a submit button (so Enter-to-add
- * keeps working) but must look like a small bordered pill, not that
- * default's solid purple fill. */
-button.checklist-add-btn {
-  padding: 5px 14px;
+.ck .ck-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--cs-line);
   border-radius: 999px;
-  border: 1px solid #c9a24a;
   background: #fff;
-  color: #8a6a22;
+  color: var(--cs-ink);
+  font: inherit;
   font-size: 13px;
-  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
-button.checklist-add-btn:hover {
-  background: #fbf2df;
-  border-color: #c9a24a;
-  color: #8a6a22;
+.ck .ck-pill-btn:hover:not(:disabled) {
+  border-color: var(--cs-gold);
 }
-button.checklist-add-btn:disabled {
+.ck .ck-pill-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
-
-.checklist-subtasks {
-  margin-top: 10px;
-  padding-left: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.checklist-subtask-row {
-  display: flex;
+.ck .ck-due {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--cs-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--cs-ink);
 }
-.checklist-subtask-title {
-  flex: 1;
-  font-size: 13.5px;
-  color: #3a2f1c;
+.ck .ck-due .i {
+  color: var(--cs-gold-dark);
 }
-.checklist-subtask-title.is-done {
-  opacity: 0.55;
-  text-decoration: line-through;
+.ck .ck-due.is-overdue {
+  border-color: #e3b9b2;
+  background: #fdf1ef;
+  color: #a8433a;
 }
-.checklist-subtask-add {
+.ck .ck-due.is-overdue .i {
+  color: inherit;
+}
+.ck .ck-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-
-.checklist-empty {
-  color: #8a7d64;
-  font-size: 13.5px;
-  padding: 14px 20px;
-  margin: 0;
+.ck .ck-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cs-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ck .ck-action .i {
+  color: var(--cs-gold-dark);
+}
+.ck .ck-action:hover {
+  text-decoration: underline;
+}
+.ck .ck-action-danger:hover {
+  color: #a8433a;
+}
+.ck .ck-action-div {
+  width: 1px;
+  height: 18px;
+  background: var(--cs-line);
+}
+.ck .ck-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--cs-muted);
+  cursor: pointer;
+}
+.ck .ck-icon-btn:hover {
+  background: var(--cs-gold-tint);
+  color: var(--cs-ink);
+}
+.ck .ck-expand .i {
+  transition: transform 0.15s;
+}
+.ck .ck-expand[aria-expanded="true"] .i {
+  transform: rotate(180deg);
+}
+.ck .ck-row-edit {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.ck .ck-edit-actions {
+  display: flex;
+  gap: 8px;
 }
 
-.checklist-edit-row {
-  padding: 14px 20px;
-  border-top: 1px solid #efe4cb;
+/* Subtasks (open under a row) */
+.ck .ck-subtasks {
+  grid-column: 2 / -1;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--cs-gold-tint);
+}
+.ck .ck-subtask-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ck .ck-subtask {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
-.checklist-edit-row:first-child {
-  border-top: 0;
+.ck .ck-subtask-title {
+  flex: 1;
+  font-size: 14px;
+}
+.ck .ck-subtask.is-done .ck-subtask-title {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.ck .ck-subtask-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ck .ck-subtask-add .fld {
+  flex: 1;
+  font-size: 13.5px;
+}
+
+/* Add card */
+.ck .ck-add .ck-card-head {
+  padding: 0;
+}
+.ck .ck-add-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 20px;
+  border: 0;
+  background: none;
+  color: var(--cs-gold-dark);
+  font: inherit;
+  cursor: pointer;
+}
+.ck .ck-caret {
+  margin-left: auto;
+  transform: rotate(180deg);
+  transition: transform 0.15s;
+}
+.ck .ck-add-toggle[aria-expanded="false"] .ck-caret {
+  transform: none;
+}
+.ck .ck-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+.ck .ck-submit {
+  align-self: flex-start;
+  height: 42px;
+  padding: 0 32px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .ck .ck-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ck .ck-add {
+    order: -1;
+  }
+}
+@media (max-width: 640px) {
+  .ck .ck-progress {
+    padding: 16px 18px 18px;
+  }
+  .ck .ck-score-done,
+  .ck .ck-score-total {
+    font-size: 40px;
+  }
+  .ck .ck-open {
+    padding-left: 16px;
+  }
+  .ck .ck-search {
+    flex-basis: 100%;
+  }
+  .ck .ck-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 12px 14px;
+  }
+  .ck .ck-due,
+  .ck .ck-actions {
+    grid-column: 2 / 3;
+    justify-self: start;
+  }
+  .ck .ck-expand {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
