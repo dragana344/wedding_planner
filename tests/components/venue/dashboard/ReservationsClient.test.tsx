@@ -177,6 +177,8 @@ describe("ReservationsClient", () => {
     expect(await screen.findAllByText("Ana Ivanova")).toHaveLength(2);
     expect(screen.getByText("Резервирано")).toBeInTheDocument();
     expect(screen.getByText("Присутни гости")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "WhatsApp" })[0]).toHaveAttribute("href", "https://wa.me/38970111222");
+    expect(screen.getAllByRole("link", { name: "Viber" })[0]).toHaveAttribute("href", "viber://forward");
   });
 
   it("cancelling a day-list reservation permanently deletes it and removes it from the list", async () => {

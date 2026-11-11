@@ -3,17 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { EventEditForm } from "./EventEditForm";
 import { Modal } from "./Modal";
+import { EventTypeFilter, type TypeFilterValue } from "./EventTypeFilter";
+import { usePaged } from "./ShowMore";
 import { Icon } from "@/components/venue/shell/Icon";
+import { PhoneQuickContact } from "@/components/shared/PhoneQuickContact";
 import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 import type { EventDetail, EventType } from "@/lib/venue/events";
-import { STATUS_META, TYPE_META, formatTimeRange } from "@/lib/venue/event-display";
+import { STATUS_META, TYPE_META, eventTypeLabel, formatTimeRange } from "@/lib/venue/event-display";
 import type { Room } from "@/lib/venue/rooms";
 import type { MenuItem, MenuTemplate } from "@/lib/venue/menus";
 import { todayIn } from "@/lib/date";
+import { deleteEventViaApi } from "@/lib/venue/events-client";
+import { errorMessage } from "@/lib/venue/user-error";
 
 type ClientsData = { venueId: string; events: EventDetail[]; rooms: Room[]; menuTemplates: (MenuTemplate & { items: MenuItem[] })[] };
 
-type Tab = "all" | EventType;
+type Tab = TypeFilterValue;
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -74,6 +79,10 @@ export function ClientsClient() {
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const [showFinished, setShowFinished] = useState(true);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
 
   const today = useMemo(() => todayIn(), []);
 
@@ -120,6 +129,34 @@ export function ClientsClient() {
     );
   }, [events, tab, query]);
 
+  // Finished = its day has passed, or it was marked completed (same rule as
+  // Настани's "Завршени"). Active ones nearest first; finished newest first.
+  const [activeVisible, finishedVisible] = useMemo(() => {
+    const isFinished = (e: EventDetail) => e.event_date < today || e.status === "completed";
+    return [
+      visible.filter((e) => !isFinished(e)).sort((a, b) => a.event_date.localeCompare(b.event_date)),
+      visible.filter(isFinished).sort((a, b) => b.event_date.localeCompare(a.event_date)),
+    ];
+  }, [visible, today]);
+  // Each list shows 10 rows at a time; a new filter or search starts over.
+  const pageKey = `${tab}|${query}`;
+  const activePage = usePaged(activeVisible, pageKey);
+  const finishedPage = usePaged(finishedVisible, pageKey);
+
+  async function handleDelete(eventId: string) {
+    setDeleteError(null);
+    setDeletingId(eventId);
+    try {
+      await deleteEventViaApi(eventId, managerToken);
+      setConfirmDeleteId(null);
+      await refresh();
+    } catch (err) {
+      setDeleteError({ id: eventId, message: errorMessage(err, "Не успеа бришењето. Обидете се повторно.") });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const openEvent = events.find((e) => e.id === openEventId) ?? null;
   const isOpenEventPast = openEvent ? openEvent.event_date < today : false;
 
@@ -141,6 +178,146 @@ export function ClientsClient() {
         ) : (
           <p className="muted" style={{ padding: 24 }}>Се вчитува...</p>
         )}
+      </div>
+    );
+  }
+
+  const tableHead = (
+    <div className="row head">
+      <div>Клиент / Организатор</div>
+      <div>Контакт</div>
+      <div>Настан &amp; датум</div>
+      <div>Финансии</div>
+      <div className="end">Статус</div>
+    </div>
+  );
+
+  function renderRow(event: EventDetail, finished: boolean) {
+    const status = STATUS_META[event.status];
+    const type = { ...TYPE_META[event.event_type], label: eventTypeLabel(event) };
+    const timeRange = formatTimeRange(event.start_time, event.end_time);
+    const roomNames = event.room_ids
+      .map((id) => rooms.find((r) => r.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
+    const cells = (
+      <>
+        <div className="ev-name">
+          <div className="avatar-circle" style={{ background: finished ? "#a3a6ae" : type.color }}>
+            {getInitials(event.couple_names)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            {finished ? (
+              // A real button for keyboard users; the whole row also opens on click.
+              <button type="button" className="ttl cl-open" onClick={() => setOpenEventId(event.id)}>
+                {event.couple_names}
+              </button>
+            ) : (
+              <div className="ttl">{event.couple_names}</div>
+            )}
+            <div className="kind">
+              <Icon name={type.icon} size="sm" /> {type.label}
+            </div>
+            {event.guest_count_estimate != null ? (
+              <div className="guests">
+                <Icon name="users" size="sm" />
+                {event.guest_count_estimate} гости
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="lines">
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {event.contact_phone ? (
+              <>
+                <Icon name="phone" size="sm" />
+                {event.contact_phone}
+                <PhoneQuickContact phone={event.contact_phone} compact />
+              </>
+            ) : (
+              <span className="muted">Без телефон</span>
+            )}
+          </div>
+          <div className="sub">{event.contact_email ?? "Без е-пошта"}</div>
+        </div>
+
+        <div className="lines">
+          <div>
+            <Icon name="cal" size="sm" />
+            {formatDate(event.event_date)}
+          </div>
+          <div className="sub">
+            {weekdayName(event.event_date)}
+            {timeRange ? ` · ${timeRange}` : ""}
+            {roomNames ? ` · ${roomNames}` : ""}
+          </div>
+        </div>
+
+        <div
+          style={{
+            fontFamily: "var(--data)",
+            fontSize: 13.5,
+            fontWeight: event.total_price !== null || event.deposit_paid !== null ? 700 : 400,
+            color: event.total_price !== null || event.deposit_paid !== null ? "var(--ink)" : "var(--faint)",
+          }}
+        >
+          {formatFinance(event)}
+        </div>
+      </>
+    );
+
+    if (!finished) {
+      return (
+        <button
+          type="button"
+          className="row ev"
+          key={event.id}
+          onClick={() => setOpenEventId(event.id)}
+          style={{ textAlign: "left", cursor: "pointer", background: "none", border: 0 }}
+        >
+          {cells}
+          <div className="do">
+            <span className={`pill ${status.pill}`}>{status.label}</span>
+          </div>
+        </button>
+      );
+    }
+
+    const confirming = confirmDeleteId === event.id;
+    const busy = deletingId === event.id;
+    return (
+      <div className="row ev cl-done-row" key={event.id} onClick={() => setOpenEventId(event.id)}>
+        {cells}
+        <div className="do cl-do" onClick={(e) => e.stopPropagation()}>
+          {confirming ? (
+            <span className="cl-confirm" role="group" aria-label={`Бришење на ${event.couple_names}`}>
+              <button type="button" className="cl-del-yes" onClick={() => handleDelete(event.id)} disabled={busy}>
+                {busy ? "Се брише..." : "Избриши"}
+              </button>
+              <button type="button" className="cl-del-no" onClick={() => setConfirmDeleteId(null)} disabled={busy}>
+                Откажи
+              </button>
+            </span>
+          ) : (
+            <>
+              <span className={`pill ${status.pill}`}>{status.label}</span>
+              <button
+                type="button"
+                className="cl-del"
+                aria-label={`Избриши го настанот ${event.couple_names}`}
+                title="Избриши"
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmDeleteId(event.id);
+                }}
+              >
+                <Icon name="trash" size="sm" /> Избриши
+              </button>
+            </>
+          )}
+          {deleteError?.id === event.id ? <span role="alert" className="cl-del-err">{deleteError.message}</span> : null}
+        </div>
       </div>
     );
   }
@@ -179,22 +356,7 @@ export function ClientsClient() {
       </section>
 
       <div className="bar">
-        <div className="chips" role="group" aria-label="Филтри по вид">
-          <button className="chip" type="button" aria-pressed={tab === "all"} onClick={() => setTab("all")}>
-            Сите ({events.length})
-          </button>
-          {(Object.keys(TYPE_META) as EventType[]).map((type) => (
-            <button
-              key={type}
-              className="chip"
-              type="button"
-              aria-pressed={tab === type}
-              onClick={() => setTab(type)}
-            >
-              {TYPE_META[type].label} ({typeCounts[type]})
-            </button>
-          ))}
-        </div>
+        <EventTypeFilter value={tab} counts={typeCounts} total={events.length} onChange={setTab} />
         <div className="search">
           <Icon name="search" size="sm" />
           <input
@@ -210,99 +372,45 @@ export function ClientsClient() {
       <section className="panel">
         <div className="scroll">
           <div className="grid">
-            <div className="row head">
-              <div>Клиент / Организатор</div>
-              <div>Контакт</div>
-              <div>Настан &amp; датум</div>
-              <div>Финансии</div>
-              <div className="end">Статус</div>
-            </div>
-
-            {visible.map((event) => {
-              const status = STATUS_META[event.status];
-              const type = TYPE_META[event.event_type];
-              const timeRange = formatTimeRange(event.start_time, event.end_time);
-              const roomNames = event.room_ids
-                .map((id) => rooms.find((r) => r.id === id)?.name)
-                .filter(Boolean)
-                .join(", ");
-
-              return (
-                <button
-                  type="button"
-                  className="row ev"
-                  key={event.id}
-                  onClick={() => setOpenEventId(event.id)}
-                  style={{ textAlign: "left", cursor: "pointer", background: "none", border: 0 }}
-                >
-                  <div className="ev-name">
-                    <div className="avatar-circle" style={{ background: type.color }}>
-                      {getInitials(event.couple_names)}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="ttl">{event.couple_names}</div>
-                      <div className="kind">
-                        <Icon name={type.icon} size="sm" /> {type.label}
-                      </div>
-                      {event.guest_count_estimate != null ? (
-                        <div className="guests">
-                          <Icon name="users" size="sm" />
-                          {event.guest_count_estimate} гости
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="lines">
-                    <div>{event.contact_phone ? <><Icon name="phone" size="sm" />{event.contact_phone}</> : <span className="muted">Без телефон</span>}</div>
-                    <div className="sub">{event.contact_email ?? "Без е-пошта"}</div>
-                  </div>
-
-                  <div className="lines">
-                    <div>
-                      <Icon name="cal" size="sm" />
-                      {formatDate(event.event_date)}
-                    </div>
-                    <div className="sub">
-                      {weekdayName(event.event_date)}
-                      {timeRange ? ` · ${timeRange}` : ""}
-                      {roomNames ? ` · ${roomNames}` : ""}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontFamily: "var(--data)",
-                      fontSize: 13.5,
-                      fontWeight: event.total_price !== null || event.deposit_paid !== null ? 700 : 400,
-                      color: event.total_price !== null || event.deposit_paid !== null ? "var(--ink)" : "var(--faint)",
-                    }}
-                  >
-                    {formatFinance(event)}
-                  </div>
-
-                  <div className="do">
-                    <span className={`pill ${status.pill}`}>{status.label}</span>
-                  </div>
-                </button>
-              );
-            })}
-
-            {visible.length === 0 ? (
+            {tableHead}
+            {activePage.visible.map((event) => renderRow(event, false))}
+            {activePage.showMore}
+            {activeVisible.length === 0 ? (
               <div className="empty">
-                <b>Нема клиенти</b>
-                Нема клиенти што одговараат на избраниот филтер.
+                <b>Нема активни клиенти</b>
+                {finishedVisible.length > 0 ? "Сите што одговараат на филтерот се завршени — погледнете подолу." : "Нема клиенти што одговараат на избраниот филтер."}
               </div>
             ) : null}
           </div>
         </div>
-
         <div className="foot">
           <div className="count">
-            Прикажани {visible.length} од {events.length} клиенти
+            Активни: {activeVisible.length} · Завршени: {finishedVisible.length} · Вкупно {events.length} клиенти
           </div>
         </div>
       </section>
+
+      {finishedVisible.length > 0 ? (
+        <section className="panel cl-done" aria-label="Завршени настани">
+          <div className="panel-h">
+            <button type="button" className="cl-done-toggle" aria-expanded={showFinished} onClick={() => setShowFinished((v) => !v)}>
+              <Icon name="down" size="sm" className={showFinished ? "cl-caret open" : "cl-caret"} />
+              <span className="card-t">Завршени настани</span>
+              <span className="tf-count">{finishedVisible.length}</span>
+            </button>
+            <span className="ev-hint">Поминати или означени како завршени. Менаџерот може да ги избрише.</span>
+          </div>
+          {showFinished ? (
+            <div className="scroll">
+              <div className="grid">
+                {tableHead}
+                {finishedPage.visible.map((event) => renderRow(event, true))}
+                {finishedPage.showMore}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {openEvent ? (
         <Modal title={openEvent.couple_names} onClose={() => setOpenEventId(null)} hideHeader>
@@ -322,3 +430,4 @@ export function ClientsClient() {
     </div>
   );
 }
+

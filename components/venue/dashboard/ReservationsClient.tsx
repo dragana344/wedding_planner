@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/venue/shell/Icon";
+import { PhoneQuickContact } from "@/components/shared/PhoneQuickContact";
+import { usePaged } from "./ShowMore";
 import { FloorPlanCanvas, PX_PER_CM, type CanvasElement } from "./FloorPlanCanvas";
 import { fitZoom } from "@/lib/seating/zoom-to-fit";
 import { HourOccupancySlider } from "./HourOccupancySlider";
@@ -345,6 +347,8 @@ export function ReservationsClient({
     if (search && !r.guest_name.toLowerCase().includes(search.toLowerCase()) && !r.phone.includes(search)) return false;
     return true;
   });
+  // 10 at a time; a new day, hall or search starts over.
+  const dayPage = usePaged(filteredDayReservations, `${date}|${listRoomFilter}|${search}`);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -764,7 +768,7 @@ export function ReservationsClient({
               <span>Статус</span>
               <span></span>
             </div>
-            {filteredDayReservations.map((r) => {
+            {dayPage.visible.map((r) => {
               const status = RESERVATION_STATUS_META[r.status];
               const roomForRow = rooms.find((room) => room.id === r.room_id);
               return (
@@ -774,7 +778,10 @@ export function ReservationsClient({
                     <b>{r.guest_name}</b>
                     {r.event_id ? <span className="pill p-info" style={{ marginLeft: 6 }}>Мини настан</span> : null}
                   </span>
-                  <span>{r.phone}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    {r.phone}
+                    <PhoneQuickContact phone={r.phone} compact />
+                  </span>
                   <span>{roomForRow?.name ?? "—"}</span>
                   <span>{r.party_size}</span>
                   <span>{r.server_name ?? "—"}</span>
@@ -792,6 +799,7 @@ export function ReservationsClient({
             })}
           </div>
         )}
+        {dayPage.showMore}
       </section>
     </div>
   );
