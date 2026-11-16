@@ -623,6 +623,19 @@ export const supportTicketBody = z.object(
   { error: SUPPORT_TICKET_REQUIRED_ERROR },
 );
 
+export const SUPPORT_REPLY_REQUIRED_ERROR = "Внесете порака.";
+/** A reply in a support ticket's thread (requester side). */
+export const supportReplyBody = z.object(
+  {
+    body: z
+      .string({ error: SUPPORT_REPLY_REQUIRED_ERROR })
+      .refine((v) => v.trim().length > 0, { error: SUPPORT_REPLY_REQUIRED_ERROR })
+      .refine((v) => v.length <= TEXT_MAX, { error: "Пораката е предолга." })
+      .transform((v) => v.trim()),
+  },
+  { error: SUPPORT_REPLY_REQUIRED_ERROR },
+);
+
 // ---------------------------------------------------------------------------
 // Venue privacy (DATA-006). `confirm` is what the staff member typed; the
 // route compares it with the couple's names / the venue name.

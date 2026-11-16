@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { IconSprite } from "@/components/venue/shell/IconSprite";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { AdminBadgeCounts } from "@/lib/admin/queries";
 import { ADMIN_NAV, matchAdminNav } from "./nav";
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({ children, badges }: { children: React.ReactNode; badges?: AdminBadgeCounts }) {
   const pathname = usePathname();
   // On the admin host the address bar shows "/venues" while links and the
   // nav use "/admin/venues" (proxy.ts rewrites one to the other), so a page
@@ -51,6 +52,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               <Icon name={item.icon} />
               <span>{item.label}</span>
+              {item.badge && badges && badges[item.badge] > 0 ? (
+                <span className="nav-badge">
+                  {badges[item.badge]}
+                </span>
+              ) : null}
             </Link>
           ))}
         </nav>

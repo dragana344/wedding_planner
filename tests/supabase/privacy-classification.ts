@@ -23,6 +23,12 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   // manager_name (0133): which elevated manager performed a gated action — names a person, same as event_changes.changed_by,
   // but audit_log is append-only (0042) so, unlike that table, it is never nulled by erasure — same accepted exception
   // already applied to this table's actor_id, and why both are left out of privacy.test.ts's blanket erasure checks below.
+  // Internal tasks between platform admins (0150) — the team's own working notes, about no venue or couple
+  // account, so no erasure path; same reasoning as audit_log's admin rows.
+  admin_task_comments: { id: N, task_id: N, author_id: N, body: N, created_at: N },
+  admin_tasks: {
+    id: N, created_by: N, assigned_to: N, title: N, description: N, status: N, created_at: N, updated_at: N, completed_at: N,
+  },
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N, manager_name: P },
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
@@ -138,8 +144,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   storage_cleanup_queue: { id: N, bucket: N, path: N, queued_at: N },
   support_tickets: {
     id: N, venue_id: N, event_id: N, submitted_by: N, name: P, problem: P, description: P, status: N,
-    admin_comment: C, resolved_at: N, created_at: N,
+    resolved_at: N, created_at: N, awaiting_admin: N, requester_unread: N, last_message_at: N,
   },
+  // A ticket's thread (0150): the requester's and the team's replies — free text, same as the ticket's description.
+  support_ticket_messages: { id: N, ticket_id: N, author: N, admin_user_id: N, body: P, created_at: N },
   table_types: { id: N, room_id: N, name: N, shape: N, seats: N, width_cm: N, length_cm: N, quantity: N, created_at: N },
   // Admin-curated vendor directory (0142) — no account, no erasure path, same as pricing_cards: a business's
   // public contact info here (unlike a venue's own) isn't tied to a platform account at all.

@@ -56,6 +56,7 @@ import * as locationsIdRoute from "@/app/api/couple/locations/[id]/route";
 import * as notesRoute from "@/app/api/couple/notes/route";
 import * as notesIdRoute from "@/app/api/couple/notes/[id]/route";
 import * as supportRoute from "@/app/api/couple/support/route";
+import * as supportIdRoute from "@/app/api/couple/support/[id]/route";
 import * as seatingConfirmRoute from "@/app/api/couple/seating/confirm/route";
 import * as seatingElementsRoute from "@/app/api/couple/seating/elements/route";
 import * as seatingElementIdRoute from "@/app/api/couple/seating/elements/[id]/route";
@@ -96,6 +97,7 @@ interface EventFixture {
   agendaIds: [string, string];
   locationId: string;
   noteId: string;
+  supportTicketId: string;
   draftElementId: string;
   layoutElementId: string;
   /** Guests' album (Session 4): two photos and a greeting. */
@@ -219,6 +221,15 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     title: text("note"),
     content: text("content"),
   });
+  const [supportTicket] = await insert<{ id: string }>("support_tickets", {
+    venue_id: venueId,
+    event_id: event.id,
+    submitted_by: "couple",
+    name: text("ticket-name"),
+    problem: text("ticket-problem"),
+    description: text("ticket-description"),
+  });
+  await insert("support_ticket_messages", { ticket_id: supportTicket.id, author: "admin", body: text("ticket-reply") });
 
   if (tag === "B") {
     await insert("event_invitations", {
@@ -275,6 +286,7 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     agendaIds: [agenda[0].id, agenda[1].id],
     locationId: location.id,
     noteId: note.id,
+    supportTicketId: supportTicket.id,
     draftElementId,
     layoutElementId: layout.id,
   };
@@ -332,6 +344,7 @@ function bSecrets(): string[] {
     ...B.agendaIds,
     B.locationId,
     B.noteId,
+    B.supportTicketId,
     B.draftElementId,
     B.layoutElementId,
     `${RUN}-b-slug`,
@@ -892,6 +905,26 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
         const res = await call(supportRoute.POST, NONE, "POST", { body: { name: "A", problem: "A problem", description: "A description" } });
         expect(res.status).toBe(200);
         expect((res.json as { ticket: { eventId: string } }).ticket.eventId).toBe(A.eventId);
+      },
+    },
+  },
+  "support/[id]/route.ts": {
+    module: supportIdRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(supportIdRoute.GET, { id: B.supportTicketId }, "GET");
+        expect(res.status).toBe(404);
+        const own = await call(supportIdRoute.GET, { id: A.supportTicketId }, "GET");
+        expect(own.status).toBe(200);
+        expect((own.json as { messages: unknown[] }).messages).toHaveLength(1);
+      },
+      POST: async () => {
+        const before = (await admin.from("support_ticket_messages").select("id").eq("ticket_id", B.supportTicketId)).data!.length;
+        const res = await call(supportIdRoute.POST, { id: B.supportTicketId }, "POST", { body: { body: "hijacked" } });
+        expect(res.status).toBe(404);
+        expect((await admin.from("support_ticket_messages").select("id").eq("ticket_id", B.supportTicketId)).data!.length).toBe(before);
+        const own = await call(supportIdRoute.POST, { id: A.supportTicketId }, "POST", { body: { body: "A follow-up" } });
+        expect(own.status).toBe(200);
       },
     },
   },

@@ -16,6 +16,7 @@ const NOT_EXPORTED: Record<string, string> = {
   audit_log: "append-only security trail; holds user ids, never names or contact data",
   venue_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
   event_feature_overrides: "platform-admin entitlement records; the note is the admin's own justification, not venue data",
+  support_ticket_messages: "the replies under a support_tickets row — same reason as support_tickets",
   support_tickets: "platform support correspondence with the team (like contact_submissions), not venue planning data — erasing a couple's event must not silently destroy an open ticket the team still needs to resolve",
   venue_managers: "the venue's own account-access configuration (who can elevate to manager), not planning data belonging to a couple or event",
   venue_manager_elevations: "short-lived session secrets only, like couple_sessions",

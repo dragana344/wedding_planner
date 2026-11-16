@@ -5,9 +5,9 @@ import type { SupportTicket } from "@/lib/venue/support";
 import { SupportTicketForm } from "./SupportTicketForm";
 import { SupportTicketList } from "./SupportTicketList";
 
-/** Form + this caller's own ticket history, for one of /api/venue/support or
- * /api/couple/support. Owns the list locally so a new ticket appears
- * immediately without a round trip back to the server. */
+/** Form + this caller's own tickets and their conversations, for one of
+ * /api/venue/support or /api/couple/support. Owns the list locally so a new
+ * ticket or reply shows immediately without a round trip back to the server. */
 export function SupportTicketPanel({ endpoint, initialTickets }: { endpoint: string; initialTickets: SupportTicket[] }) {
   const [tickets, setTickets] = useState(initialTickets);
 
@@ -26,7 +26,11 @@ export function SupportTicketPanel({ endpoint, initialTickets }: { endpoint: str
         <div className="panel-h">
           <h2 className="panel-t">Ваши барања</h2>
         </div>
-        <SupportTicketList tickets={tickets} />
+        <SupportTicketList
+          endpoint={endpoint}
+          tickets={tickets}
+          onTicketChange={(ticket) => setTickets((list) => list.map((t) => (t.id === ticket.id ? ticket : t)))}
+        />
       </section>
     </>
   );

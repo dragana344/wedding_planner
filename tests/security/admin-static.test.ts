@@ -30,7 +30,7 @@ const PRIVATE_TABLES = [
   // contact_submissions is deliberately NOT listed here: it is the
   // platform's own data (the marketing site's contact form), not a venue's
   // or a couple's, so admin code may read its name/email/message (spec §5
-  // item 5, task 4.1) — see lib/admin/queries.ts's listMessages.
+  // item 5, task 4.1) — see lib/admin/queries.ts's listInbox.
 ];
 const PRIVATE_COLUMNS = ["guest_name", "contact_email", "contact_email_2", "contact_phone"];
 

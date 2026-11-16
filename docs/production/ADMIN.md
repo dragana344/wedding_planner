@@ -141,8 +141,14 @@ Every `admin_*` action currently recorded (from `lib/admin/*-actions-core.ts`):
 | `admin_plan_features_saved` | Plans — feature/limit editor |
 | `admin_plan_made_default` | Plans — make default |
 | `admin_plan_deleted` | Plans — delete |
-| `admin_message_status` | Messages — change status |
-| `admin_message_deleted` | Messages — delete |
+| `admin_message_status` | Пораки и барања — public message: change status (new / in_progress / done) |
+| `admin_message_deleted` | Пораки и барања — public message: delete |
+| `admin_support_ticket_status` | Пораки и барања — venue/couple ticket: change status |
+| `admin_support_ticket_reply` | Пораки и барања — venue/couple ticket: reply in the thread |
+| `admin_task_created` | Тикети за поддршка — send a task to one admin or to every admin |
+| `admin_task_status` | Тикети за поддршка — the receiver moves the task to Во тек / Решено |
+| `admin_task_comment` | Тикети за поддршка — comment on a task |
+| `admin_task_deleted` | Тикети за поддршка — the sender deletes a task |
 | `admin_maintenance_on` | System — turn maintenance mode on |
 | `admin_maintenance_off` | System — turn maintenance mode off |
 

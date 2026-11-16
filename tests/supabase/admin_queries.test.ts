@@ -14,7 +14,8 @@ vi.mock("@/lib/admin/guard", () => ({ requireAdmin }));
 
 import {
   getOverviewStats, getSignupsByWeek, listVenues, getVenueDetail, getEventDetail, listEvents, listPlans,
-  getVenueOverrides, getEventOverrides, listMessages, getMaintenanceState, listAudit,
+  getVenueOverrides, getEventOverrides, listInbox, getContactMessage, getInboxTicket, listAdmins, listAdminTasks, getAdminTask,
+  getAdminBadgeCounts, getMaintenanceState, listAudit,
 } from "@/lib/admin/queries";
 
 const DAY = 86_400_000;
@@ -123,7 +124,9 @@ describe("admin read models", () => {
     const queries: (() => Promise<unknown>)[] = [
       () => getOverviewStats(), () => getSignupsByWeek({ from: "2028-01-01", to: "2028-01-07" }), () => listVenues({}), () => getVenueDetail(venueId), () => listEvents({}),
       () => getEventDetail(venueId), () => listPlans(), () => getVenueOverrides(venueId), () => getEventOverrides(venueId),
-      () => listMessages({}), () => getMaintenanceState(), () => listAudit({}),
+      () => listInbox({}), () => getContactMessage(venueId), () => getInboxTicket(venueId), () => listAdmins(),
+      () => listAdminTasks(venueId, {}), () => getAdminTask(venueId), () => getAdminBadgeCounts(venueId),
+      () => getMaintenanceState(), () => listAudit({}),
     ];
     for (const q of queries) {
       requireAdmin.mockRejectedValueOnce(refusal);

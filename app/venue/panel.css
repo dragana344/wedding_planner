@@ -6053,3 +6053,66 @@
   background: var(--gold-tint);
   box-shadow: 0 0 0 6px var(--gold-tint), 0 0 0 8px var(--gold);
 }
+
+/* Support threads (components/support/ThreadMessages.tsx): a venue's or
+   couple's ticket conversation with the team, the admin view of the same
+   ticket, and the comments under an admin task. */
+.vp .sp-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+.vp .sp-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vp .sp-msg {
+  max-width: min(640px, 88%);
+  align-self: flex-start;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface);
+}
+.vp .sp-msg.is-mine {
+  align-self: flex-end;
+  border-color: var(--gold-tint-2);
+  border-radius: 14px 14px 4px 14px;
+  background: var(--gold-tint);
+}
+.vp .sp-msg-meta {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.vp .sp-msg-meta strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.vp .sp-msg-body {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.vp .sp-thread-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.vp .sp-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vp .sp-reply .fld {
+  width: 100%;
+  resize: vertical;
+}
+.vp .sp-reply .btn {
+  align-self: flex-start;
+}

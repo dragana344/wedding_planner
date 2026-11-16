@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { startOfDaySkopjeIso, endOfDaySkopjeIso } from "@/lib/admin/audit-filters";
+import { isSupportStatus, type SupportStatus } from "@/lib/support/status";
 
 // Read models for the platform-admin dashboard (spec §3-4). Every query goes
 // through the service-role client: staff never see this data (RLS has no
@@ -66,8 +67,23 @@ export type PlanRow = {
   features: Record<string, { enabled: boolean; limit: number | null }>;
 };
 export type OverrideRow = { featureKey: string; enabled: boolean | null; limitOverride: boolean; limitValue: number | null; note: string | null };
-export type MessageRow = { id: string; name: string; email: string; message: string; status: string; createdAt: string; handledAt: string | null };
-export type SupportTicketRow = {
+export type MessageRow = { id: string; name: string; email: string; message: string; status: SupportStatus; createdAt: string; handledAt: string | null };
+/** One row of the "Пораки и барања" inbox: a public contact message or a venue/couple support ticket. */
+export type InboxRow = {
+  kind: "contact" | "ticket";
+  id: string;
+  source: InboxSource;
+  from: string;
+  venueName: string | null;
+  coupleNames: string | null;
+  subject: string;
+  status: SupportStatus;
+  /** The sender spoke last and no admin has answered yet. */
+  awaitingAdmin: boolean;
+  lastActivityAt: string;
+};
+export type InboxSource = "public" | "venue" | "couple";
+export type InboxTicket = {
   id: string;
   venueId: string;
   venueName: string;
@@ -77,10 +93,30 @@ export type SupportTicketRow = {
   name: string;
   problem: string;
   description: string;
-  status: "pending" | "done";
-  adminComment: string | null;
+  status: SupportStatus;
+  awaitingAdmin: boolean;
   createdAt: string;
+  resolvedAt: string | null;
 };
+export type InboxTicketMessage = { id: string; author: "requester" | "admin"; adminEmail: string | null; body: string; createdAt: string };
+export type AdminAccount = { id: string; email: string };
+export type AdminTaskView = "mine" | "sent" | "all";
+export type AdminTaskRow = {
+  id: string;
+  title: string;
+  description: string;
+  status: SupportStatus;
+  createdBy: string | null;
+  createdByEmail: string | null;
+  /** null = sent to every admin; whoever starts it takes it. */
+  assignedTo: string | null;
+  assignedToEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+};
+export type AdminTaskComment = { id: string; authorId: string | null; authorEmail: string | null; body: string; createdAt: string };
+export type AdminBadgeCounts = { inbox: number; tasks: number };
 export type MaintenanceState = { maintenanceMode: boolean; updatedAt: string; updatedBy: string | null };
 export type AuditRow = {
   id: number;
@@ -418,10 +454,13 @@ export async function getEventOverrides(eventId: string): Promise<OverrideRow[]>
 }
 
 // Contact submissions are the platform's own data, not a venue's or a
-// couple's (spec §5 item 5) — unlike every other query in this module, this
-// one is allowed to read name/email/message. See the allow-list comment in
-// tests/security/admin-static.test.ts.
-type MessageDb = { id: string; name: string; email: string; message: string; status: string; created_at: string; handled_at: string | null };
+// couple's (spec §5 item 5) — unlike every other query in this module, the
+// inbox may read their name/email/message. See the allow-list comment in
+// tests/security/admin-static.test.ts. Support tickets (0089, 0150) are
+// filed by venue staff and couples against the team, not each other —
+// venue_name and (when a couple filed it) couple_names are shown the same
+// way the admin Events list already shows couple_names.
+type MessageDb = { id: string; name: string; email: string; message: string; status: SupportStatus; created_at: string; handled_at: string | null };
 const MESSAGE_COLUMNS = "id, name, email, message, status, created_at, handled_at";
 const toMessage = (m: MessageDb): MessageRow => ({
   id: m.id,
@@ -433,24 +472,7 @@ const toMessage = (m: MessageDb): MessageRow => ({
   handledAt: m.handled_at,
 });
 
-const MESSAGE_STATUSES = new Set(["new", "read", "answered"]);
-
-export async function listMessages(filter: { status?: string }): Promise<MessageRow[]> {
-  await requireAdmin();
-  let query = db().from("contact_submissions").select(MESSAGE_COLUMNS).order("created_at", { ascending: false }).limit(500);
-  // An unrecognised status (a stale bookmark, a hand-edited URL) falls back
-  // to "all" rather than a query that matches nothing.
-  if (filter.status && MESSAGE_STATUSES.has(filter.status)) query = query.eq("status", filter.status);
-  const { data, error } = await query;
-  if (error) throw error;
-  return ((data ?? []) as unknown as MessageDb[]).map(toMessage);
-}
-
-// Support tickets (0089): venue staff and couples both file these, against
-// the team, not each other — venue_name and (when a couple filed it)
-// coupleNames are shown the same way the admin Events list already shows
-// couple_names, not a privacy exception specific to this table.
-type SupportTicketDb = {
+type InboxTicketDb = {
   id: string;
   venue_id: string;
   event_id: string | null;
@@ -458,42 +480,233 @@ type SupportTicketDb = {
   name: string;
   problem: string;
   description: string;
-  status: "pending" | "done";
-  admin_comment: string | null;
+  status: SupportStatus;
+  awaiting_admin: boolean;
+  last_message_at: string;
   created_at: string;
+  resolved_at: string | null;
   venues: { name: string } | { name: string }[] | null;
   events: { couple_names: string } | { couple_names: string }[] | null;
 };
-const SUPPORT_TICKET_COLUMNS =
-  "id, venue_id, event_id, submitted_by, name, problem, description, status, admin_comment, created_at, venues(name), events(couple_names)";
-const SUPPORT_TICKET_STATUSES = new Set(["pending", "done"]);
+const INBOX_TICKET_COLUMNS =
+  "id, venue_id, event_id, submitted_by, name, problem, description, status, awaiting_admin, last_message_at, created_at, resolved_at, venues(name), events(couple_names)";
+const INBOX_LIMIT = 500;
+const INBOX_SOURCES = new Set(["public", "venue", "couple"]);
+const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
-function toSupportTicket(t: SupportTicketDb): SupportTicketRow {
-  const venue = Array.isArray(t.venues) ? t.venues[0] : t.venues;
-  const event = Array.isArray(t.events) ? t.events[0] : t.events;
+function toInboxTicket(t: InboxTicketDb): InboxTicket {
   return {
     id: t.id,
     venueId: t.venue_id,
-    venueName: venue?.name ?? "—",
+    venueName: one(t.venues)?.name ?? "—",
     eventId: t.event_id,
-    coupleNames: event?.couple_names ?? null,
+    coupleNames: one(t.events)?.couple_names ?? null,
     submittedBy: t.submitted_by,
     name: t.name,
     problem: t.problem,
     description: t.description,
     status: t.status,
-    adminComment: t.admin_comment,
+    awaitingAdmin: t.awaiting_admin,
     createdAt: t.created_at,
+    resolvedAt: t.resolved_at,
   };
 }
 
-export async function listSupportTickets(filter: { status?: string }): Promise<SupportTicketRow[]> {
+/**
+ * The "Пораки и барања" inbox: public contact messages and venue/couple
+ * tickets in one list, newest activity first. An unrecognised status or
+ * source (a stale bookmark, a hand-edited URL) falls back to "all" rather
+ * than a query that matches nothing.
+ */
+export async function listInbox(filter: { status?: string; source?: string }): Promise<InboxRow[]> {
   await requireAdmin();
-  let query = db().from("support_tickets").select(SUPPORT_TICKET_COLUMNS).order("created_at", { ascending: false }).limit(500);
-  if (filter.status && SUPPORT_TICKET_STATUSES.has(filter.status)) query = query.eq("status", filter.status);
-  const { data, error } = await query;
+  const status = isSupportStatus(filter.status) ? filter.status : undefined;
+  const source = filter.source && INBOX_SOURCES.has(filter.source) ? (filter.source as InboxSource) : undefined;
+
+  const contactsQuery = async (): Promise<InboxRow[]> => {
+    if (source && source !== "public") return [];
+    let q = db().from("contact_submissions").select(MESSAGE_COLUMNS).order("created_at", { ascending: false }).limit(INBOX_LIMIT);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
+    if (error) throw error;
+    return ((data ?? []) as MessageDb[]).map((m) => ({
+      kind: "contact",
+      id: m.id,
+      source: "public",
+      from: m.name,
+      venueName: null,
+      coupleNames: null,
+      subject: m.message.length > 90 ? `${m.message.slice(0, 90)}…` : m.message,
+      status: m.status,
+      awaitingAdmin: m.status === "new",
+      lastActivityAt: m.created_at,
+    }));
+  };
+  const ticketsQuery = async (): Promise<InboxRow[]> => {
+    if (source === "public") return [];
+    let q = db().from("support_tickets").select(INBOX_TICKET_COLUMNS).order("last_message_at", { ascending: false }).limit(INBOX_LIMIT);
+    if (status) q = q.eq("status", status);
+    if (source) q = q.eq("submitted_by", source);
+    const { data, error } = await q;
+    if (error) throw error;
+    return ((data ?? []) as unknown as InboxTicketDb[]).map((t) => ({
+      kind: "ticket",
+      id: t.id,
+      source: t.submitted_by,
+      from: t.name,
+      venueName: one(t.venues)?.name ?? "—",
+      coupleNames: one(t.events)?.couple_names ?? null,
+      subject: t.problem,
+      status: t.status,
+      awaitingAdmin: t.awaiting_admin,
+      lastActivityAt: t.last_message_at,
+    }));
+  };
+
+  const [contacts, tickets] = await Promise.all([contactsQuery(), ticketsQuery()]);
+  return [...contacts, ...tickets].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)).slice(0, INBOX_LIMIT);
+}
+
+export async function getContactMessage(id: string): Promise<MessageRow | null> {
+  await requireAdmin();
+  if (!isUuid(id)) return null;
+  const { data, error } = await db().from("contact_submissions").select(MESSAGE_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw error;
-  return ((data ?? []) as unknown as SupportTicketDb[]).map(toSupportTicket);
+  return data ? toMessage(data as MessageDb) : null;
+}
+
+export async function getInboxTicket(id: string): Promise<{ ticket: InboxTicket; messages: InboxTicketMessage[] } | null> {
+  await requireAdmin();
+  if (!isUuid(id)) return null;
+  const { data, error } = await db().from("support_tickets").select(INBOX_TICKET_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const { data: messages, error: messagesError } = await db()
+    .from("support_ticket_messages")
+    .select("id, author, admin_user_id, body, created_at")
+    .eq("ticket_id", id)
+    .order("created_at", { ascending: true });
+  if (messagesError) throw messagesError;
+  const rows = (messages ?? []) as { id: string; author: "requester" | "admin"; admin_user_id: string | null; body: string; created_at: string }[];
+  const emails = await adminEmails();
+  return {
+    ticket: toInboxTicket(data as unknown as InboxTicketDb),
+    messages: rows.map((m) => ({
+      id: m.id,
+      author: m.author,
+      adminEmail: m.admin_user_id ? (emails.get(m.admin_user_id) ?? null) : null,
+      body: m.body,
+      createdAt: m.created_at,
+    })),
+  };
+}
+
+// Admin accounts are Auth users with app_metadata.role = platform_admin
+// (docs/production/ADMIN.md) — no table of their own, so this pages through
+// auth.admin.listUsers the same way authUsersById does.
+async function loadAdmins(): Promise<AdminAccount[]> {
+  const admins: AdminAccount[] = [];
+  for (let page = 1; page <= 200; page++) {
+    const { data, error } = await db().auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    for (const u of data.users) if (u.app_metadata?.role === "platform_admin") admins.push({ id: u.id, email: u.email ?? u.id });
+    if (data.users.length < 1000) break;
+  }
+  return admins.sort((a, b) => a.email.localeCompare(b.email));
+}
+
+async function adminEmails(): Promise<Map<string, string>> {
+  return new Map((await loadAdmins()).map((a) => [a.id, a.email]));
+}
+
+export async function listAdmins(): Promise<AdminAccount[]> {
+  await requireAdmin();
+  return loadAdmins();
+}
+
+type AdminTaskDb = {
+  id: string;
+  title: string;
+  description: string;
+  status: SupportStatus;
+  created_by: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+const ADMIN_TASK_COLUMNS = "id, title, description, status, created_by, assigned_to, created_at, updated_at, completed_at";
+
+const toAdminTask = (t: AdminTaskDb, emails: Map<string, string>): AdminTaskRow => ({
+  id: t.id,
+  title: t.title,
+  description: t.description,
+  status: t.status,
+  createdBy: t.created_by,
+  createdByEmail: t.created_by ? (emails.get(t.created_by) ?? null) : null,
+  assignedTo: t.assigned_to,
+  assignedToEmail: t.assigned_to ? (emails.get(t.assigned_to) ?? null) : null,
+  createdAt: t.created_at,
+  updatedAt: t.updated_at,
+  completedAt: t.completed_at,
+});
+
+/**
+ * "mine": sent to me, or to every admin by someone else (I can pick it up).
+ * "sent": the tasks I created, so I can follow their status.
+ */
+export async function listAdminTasks(adminUserId: string, filter: { view?: string; status?: string }): Promise<AdminTaskRow[]> {
+  await requireAdmin();
+  let q = db().from("admin_tasks").select(ADMIN_TASK_COLUMNS).order("updated_at", { ascending: false }).limit(500);
+  if (filter.view === "sent") q = q.eq("created_by", adminUserId);
+  else if (filter.view !== "all") q = q.or(`assigned_to.eq.${adminUserId},and(assigned_to.is.null,created_by.neq.${adminUserId})`);
+  if (isSupportStatus(filter.status)) q = q.eq("status", filter.status);
+  const [{ data, error }, emails] = await Promise.all([q, adminEmails()]);
+  if (error) throw error;
+  return ((data ?? []) as AdminTaskDb[]).map((t) => toAdminTask(t, emails));
+}
+
+export async function getAdminTask(id: string): Promise<{ task: AdminTaskRow; comments: AdminTaskComment[] } | null> {
+  await requireAdmin();
+  if (!isUuid(id)) return null;
+  const [{ data, error }, { data: comments, error: commentsError }, emails] = await Promise.all([
+    db().from("admin_tasks").select(ADMIN_TASK_COLUMNS).eq("id", id).maybeSingle(),
+    db().from("admin_task_comments").select("id, author_id, body, created_at").eq("task_id", id).order("created_at", { ascending: true }),
+    adminEmails(),
+  ]);
+  if (error) throw error;
+  if (commentsError) throw commentsError;
+  if (!data) return null;
+  return {
+    task: toAdminTask(data as AdminTaskDb, emails),
+    comments: ((comments ?? []) as { id: string; author_id: string | null; body: string; created_at: string }[]).map((c) => ({
+      id: c.id,
+      authorId: c.author_id,
+      authorEmail: c.author_id ? (emails.get(c.author_id) ?? null) : null,
+      body: c.body,
+      createdAt: c.created_at,
+    })),
+  };
+}
+
+/**
+ * The sidebar's counts. inbox: new contact messages plus tickets whose
+ * sender spoke last. tasks: tasks waiting for me to start them — sent to me,
+ * or to every admin by someone else.
+ */
+export async function getAdminBadgeCounts(adminUserId: string): Promise<AdminBadgeCounts> {
+  await requireAdmin();
+  const [contacts, tickets, tasks] = await Promise.all([
+    db().from("contact_submissions").select("id", { count: "exact", head: true }).eq("status", "new"),
+    db().from("support_tickets").select("id", { count: "exact", head: true }).eq("awaiting_admin", true),
+    db()
+      .from("admin_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new")
+      .or(`assigned_to.eq.${adminUserId},and(assigned_to.is.null,created_by.neq.${adminUserId})`),
+  ]);
+  for (const r of [contacts, tickets, tasks]) if (r.error) throw r.error;
+  return { inbox: (contacts.count ?? 0) + (tickets.count ?? 0), tasks: tasks.count ?? 0 };
 }
 
 /**

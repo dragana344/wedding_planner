@@ -43,7 +43,34 @@ jobs:
       # already applied there produce. Anything else is a dashboard edit.
       - name: Drift check (production vs applied migrations)
         run: |
-          applied=$(npx supabase migration list --linked --output-format json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const m=JSON.parse(s).migrations;console.log(m.filter(x=>x.remote&&!x.local).map(x=>x.remote).join(" "))})')
+          success=0
+          for attempt in 1 2 3; do
+            : > /tmp/cli-err
+            : > /tmp/node-err
+            if raw=$(npx supabase migration list --linked --output-format json 2>/tmp/cli-err); then
+              if applied=$(printf '%s' "$raw" | node -e '
+                let s="";
+                process.stdin.on("data",d=>s+=d).on("end",()=>{
+                  let parsed;
+                  try { parsed = JSON.parse(s); } catch (e) { console.error("Could not parse migration list JSON: " + e.message); process.exit(1); }
+                  if (!Array.isArray(parsed.migrations)) { console.error("Unexpected shape, no migrations array: " + JSON.stringify(parsed).slice(0,500)); process.exit(1); }
+                  console.log(parsed.migrations.filter(x=>x.remote&&!x.local).map(x=>x.remote).join(" "));
+                });
+              ' 2>/tmp/node-err); then
+                success=1
+                break
+              fi
+            fi
+            echo "Attempt $attempt/3 to read migration status from production failed."
+            echo "--- supabase CLI stderr ---"; cat /tmp/cli-err
+            echo "--- parser stderr ---"; cat /tmp/node-err
+            echo "--- raw output (first 1000 chars) ---"; printf '%s' "${raw:-}" | head -c 1000; echo
+            if [ "$attempt" -lt 3 ]; then echo "Retrying in 5s..."; sleep 5; fi
+          done
+          if [ "$success" -ne 1 ]; then
+            echo "Giving up after 3 attempts to read migration status from production."
+            exit 1
+          fi
           if [ -n "$applied" ]; then echo "Production has migrations that are not in the repo: $applied"; exit 1; fi
       - name: Apply pending migrations
         run: npx supabase db push --linked --yes

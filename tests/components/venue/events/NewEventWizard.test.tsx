@@ -46,13 +46,24 @@ function pad2(n: number): string {
 }
 
 /** The date step (0144) dropped the native input for a calendar-only
- * picker — clicks `day` in whatever month it currently shows. No month
- * navigation is needed: nothing requires a future date, only a confirm
- * dialog on submit for a past one (see pickPastDate below). */
+ * picker — clicks `day`, navigating to next month first if that day has
+ * already passed this month. Most callers rely on the result being a
+ * genuinely future date (e.g. to avoid the unrelated past-date confirm
+ * dialog); see pickPastDate below for the one that wants the past. */
 async function pickDate(day: number): Promise<string> {
   const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  if (day < now.getDate()) {
+    await userEvent.click(screen.getByRole("button", { name: "Следен месец" }));
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+  }
   await userEvent.click(screen.getByRole("button", { name: String(day) }));
-  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(day)}`;
+  return `${year}-${pad2(month + 1)}-${pad2(day)}`;
 }
 
 /** Navigates the date-step calendar back one month and picks day 1 — reliably in the past, for the past-date confirmation test. */

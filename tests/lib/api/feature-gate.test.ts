@@ -78,6 +78,7 @@ const UNGATED: Record<string, string> = {
   "app/api/couple/menu-numbers/route.ts": "sending the guests' menu numbers to the venue is core to every event, like the headcount",
   "app/api/couple/changes/seen/route.ts": "marking the venue's changes and guest replies as seen is core to every event, like the headcount",
   "app/api/couple/support/route.ts": "reporting a problem to the team must always work, not gated by plan",
+  "app/api/couple/support/[id]/route.ts": "replying in a support conversation must always work, same as reporting the problem",
 };
 
 function coupleRoutes(): string[] {

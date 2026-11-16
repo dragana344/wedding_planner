@@ -5,7 +5,8 @@ import type { AdminContext } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // Core logic for the contact-messages and maintenance-flag Server Actions
-// (task 4.1). Kept apart from app/admin/(panel)/messages/actions.ts and
+// (task 4.1). Contact messages share the inbox's new → in_progress → done
+// statuses (migration 0150). Kept apart from app/admin/(panel)/messages/actions.ts and
 // app/admin/(panel)/system/actions.ts so it can be exercised directly from a
 // DB test, without a Next.js request context — those actions.ts modules just
 // wrap each of these in adminAction (guard → validate → run → audit), same
@@ -14,9 +15,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 const db = () => createServiceRoleClient();
 // revalidatePath throws outside a request (e.g. this module's own DB test
 // calls messageActionCore directly, with no Next.js render/request under it).
-const revalidate = (p: string) => {
+const revalidate = (p: string, type?: "layout") => {
   try {
-    revalidatePath(p);
+    revalidatePath(p, type);
   } catch {
     /* outside a request (tests) */
   }
@@ -28,7 +29,7 @@ async function check(p: PromiseLike<{ error: unknown }>): Promise<void> {
 const messageId = z.string().uuid();
 
 export const messageSchemas = {
-  setStatus: z.object({ id: messageId, status: z.enum(["new", "read", "answered"]) }),
+  setStatus: z.object({ id: messageId, status: z.enum(["new", "in_progress", "done"]) }),
   id: z.object({ id: messageId }),
   maintenance: z.object({ enabled: z.boolean() }),
 };
@@ -45,7 +46,8 @@ export const messageActionCore = {
         .update({ status: i.status, handled_at: i.status === "new" ? null : new Date().toISOString() })
         .eq("id", i.id)
     );
-    revalidate("/admin/messages");
+    // The layout, not just the page: the sidebar's inbox count changes too.
+    revalidate("/admin", "layout");
     // Never put the message text, name or email in the audit row
     // (constraints.md: no free text/PII in audit details) — id and status only.
     return { data: null, audit: { action: "admin_message_status", targetId: i.id, details: { status: i.status } } };
@@ -54,7 +56,7 @@ export const messageActionCore = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async remove(i: z.infer<typeof messageSchemas.id>, _ctx: AdminContext) {
     await check(db().from("contact_submissions").delete().eq("id", i.id));
-    revalidate("/admin/messages");
+    revalidate("/admin", "layout");
     return { data: null, audit: { action: "admin_message_deleted", targetId: i.id } };
   },
 

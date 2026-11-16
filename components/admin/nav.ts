@@ -4,6 +4,8 @@ export type AdminNavItem = {
   label: string;
   /** Reachable by address but not listed in the menu. */
   hidden?: boolean;
+  /** Which sidebar count (AdminBadgeCounts) shows next to it. */
+  badge?: "inbox" | "tasks";
 };
 
 export const ADMIN_NAV: AdminNavItem[] = [
@@ -13,8 +15,10 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/plans", icon: "chart", label: "Нивоа" },
   { href: "/admin/pricing", icon: "gift", label: "Ценовник" },
   { href: "/admin/vendors", icon: "case", label: "Соработници" },
-  { href: "/admin/messages", icon: "msg", label: "Контакт пораки" },
-  { href: "/admin/support", icon: "help", label: "Тикети за поддршка" },
+  // Public contact form + venue/couple tickets, in one inbox.
+  { href: "/admin/messages", icon: "msg", label: "Пораки и барања", badge: "inbox" },
+  // Internal tasks between admins.
+  { href: "/admin/support", icon: "help", label: "Тикети за поддршка", badge: "tasks" },
   { href: "/admin/audit", icon: "book", label: "Дневник на акции" },
   // The maintenance switch is an operator tool, not something the owner needs
   // day to day: the page stays at its address, out of the menu.
