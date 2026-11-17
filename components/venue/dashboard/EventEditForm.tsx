@@ -50,6 +50,7 @@ import { fetchEventChanges, type EventChangesData } from "@/lib/venue/changes-cl
 import { groupBySection, unseenChanges } from "@/lib/changes/rules";
 import { todayIn } from "@/lib/date";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
+import { TimeInput } from "@/components/shared/TimeInput";
 
 function PrivateLoading({ failed, onRetry }: { failed: boolean; onRetry?: () => void }) {
   if (!failed) return <p className="ev-hint">Се вчитува...</p>;
@@ -542,26 +543,14 @@ export function EventEditForm({
             <label className="lab-s" htmlFor="edit-start-time">
               Почеток
             </label>
-            <input
-              id="edit-start-time"
-              className="fld"
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
+            <TimeInput id="edit-start-time" className="fld" value={startTime} onChange={setStartTime} />
           </div>
 
           <div className="ev-field">
             <label className="lab-s" htmlFor="edit-end-time">
               Крај
             </label>
-            <input
-              id="edit-end-time"
-              className="fld"
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
+            <TimeInput id="edit-end-time" className="fld" value={endTime} onChange={setEndTime} />
           </div>
 
           <div className="ev-field">

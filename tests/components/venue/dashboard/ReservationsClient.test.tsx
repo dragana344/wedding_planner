@@ -155,7 +155,7 @@ describe("ReservationsClient", () => {
     await waitFor(() => expect(screen.getByTestId("floor-plan-element-t1")).toHaveAttribute("fill", "#16A34A"));
 
     // Switching to 01:00 is reported "reserved" — table renders red.
-    const timeInput = container.querySelector('input[type="time"]');
+    const timeInput = container.querySelector("#qb-start-time");
     expect(timeInput).not.toBeNull();
     fireEvent.change(timeInput as HTMLInputElement, { target: { value: "01:00" } });
 

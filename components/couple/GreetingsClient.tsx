@@ -32,7 +32,7 @@ export function GreetingsClient({ initialGreetings }: { initialGreetings: Greeti
   if (greetings.length === 0) {
     return (
       <p className="s4-empty">
-        Сè уште нема честитки. Споделете го QR кодот од <Link href="/couple/album">Албум</Link>.
+        Сè уште нема честитки. Гостите ги испраќаат од <Link href="/couple/invitation">поканата</Link>, откако ќе одговорат дали доаѓаат.
       </p>
     );
   }

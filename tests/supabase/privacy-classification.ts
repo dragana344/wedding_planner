@@ -25,9 +25,10 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   // already applied to this table's actor_id, and why both are left out of privacy.test.ts's blanket erasure checks below.
   // Internal tasks between platform admins (0150) — the team's own working notes, about no venue or couple
   // account, so no erasure path; same reasoning as audit_log's admin rows.
-  admin_task_comments: { id: N, task_id: N, author_id: N, body: N, created_at: N },
+  admin_task_comments: { id: N, task_id: N, author_id: N, body: N, created_at: N, attachment_paths: N },
   admin_tasks: {
     id: N, created_by: N, assigned_to: N, title: N, description: N, status: N, created_at: N, updated_at: N, completed_at: N,
+    created_by_unread: N, assigned_to_unread: N, attachment_paths: N,
   },
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N, manager_name: P },
   contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
@@ -62,7 +63,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C, reminder_sent_at: C,
   },
   event_greetings: {
-    id: N, event_id: N, first_name: P, last_name: P, message: P, video_path: P, video_bytes: N, hidden_at: N, created_at: N,
+    id: N, event_id: N, guest_id: N, first_name: P, last_name: P, message: P, video_path: P, video_bytes: N, hidden_at: N, created_at: N,
   },
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {

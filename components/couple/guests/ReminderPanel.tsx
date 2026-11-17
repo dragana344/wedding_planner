@@ -7,6 +7,7 @@ import { reminderMessage, shareLinks } from "@/lib/couple/invite-share";
 import { isoToSkopjeLocal, skopjeLocalToIso } from "@/lib/skopje-time";
 import { guestLink, useOrigin, type ShareContext } from "@/components/couple/guests/InviteSend";
 import { formatVenueDateTime } from "@/lib/date";
+import { TimeInput } from "@/components/shared/TimeInput";
 
 /** Mirrors lib/couple/reminders `Reminder` (a server-only module). */
 export interface ReminderView {
@@ -89,15 +90,25 @@ export function ReminderPanel({
         </p>
       ) : (
         <form onSubmit={save} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-          <input
-            type="datetime-local"
-            aria-label="Кога да се прати потсетникот"
-            className="fld"
-            style={{ width: "auto" }}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            required
-          />
+          <span role="group" aria-label="Кога да се прати потсетникот" style={{ display: "flex", gap: 6 }}>
+            <input
+              type="date"
+              aria-label="Датум на потсетникот"
+              className="fld"
+              style={{ width: "auto" }}
+              value={when.slice(0, 10)}
+              onChange={(e) => setWhen(`${e.target.value}T${when.slice(11, 16)}`)}
+              required
+            />
+            <TimeInput
+              aria-label="Време на потсетникот"
+              className="fld"
+              style={{ width: "6.5em" }}
+              value={when.slice(11, 16)}
+              onChange={(time) => setWhen(`${when.slice(0, 10)}T${time}`)}
+              required
+            />
+          </span>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
             Прати потсетник по email

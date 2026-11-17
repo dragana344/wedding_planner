@@ -6,6 +6,7 @@ import type { AgendaItem } from "@/lib/couple/agenda";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { formatMkDate } from "@/lib/date";
 import { Icon } from "@/components/venue/shell/Icon";
+import { TimeInput } from "@/components/shared/TimeInput";
 import "@/components/couple/InvitationCard.css";
 import "./AgendaClient.css";
 
@@ -127,7 +128,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
             <label className="lab-s" htmlFor="agenda-time">
               Време
             </label>
-            <input id="agenda-time" type="time" className="fld" value={time} onChange={(e) => setTime(e.target.value)} />
+            <TimeInput id="agenda-time" className="fld" value={time} onChange={setTime} />
           </div>
           <div>
             <label className="lab-s" htmlFor="agenda-title">
@@ -175,7 +176,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
           {items.map((item, idx) =>
             editingId === item.id ? (
               <div key={item.id} className="agenda-edit-row">
-                <input type="time" className="fld" value={editTime} onChange={(e) => setEditTime(e.target.value)} aria-label="Измени време" />
+                <TimeInput className="fld" value={editTime} onChange={setEditTime} aria-label="Измени време" />
                 <input className="fld" placeholder="Наслов" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required aria-label="Измени наслов" />
                 <input className="fld" placeholder="Локација (опционално)" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} aria-label="Измени локација" />
                 <input className="fld" placeholder="Белешки (опционално)" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} aria-label="Измени белешки" />

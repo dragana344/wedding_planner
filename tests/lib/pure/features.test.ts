@@ -6,12 +6,13 @@ import { INVITATION_TEMPLATES } from "@/lib/couple/invitation-templates";
 
 // Keys added after 0048, each by the migration that also extends the check
 // constraints and effective_features()'s key list.
-const ADDED_LATER: string[] = ["venue_branding"];
+const ADDED_LATER: string[] = ["venue_branding", "max_video_seconds"];
+const ADDED_IN_0151: string[] = ["max_video_seconds"];
 
 describe("feature catalogue (spec §4.1)", () => {
-  it("has the 27 features with unique keys and Macedonian labels", () => {
-    expect(FEATURE_KEYS).toHaveLength(27);
-    expect(new Set(FEATURE_KEYS).size).toBe(27);
+  it("has the 28 features with unique keys and Macedonian labels", () => {
+    expect(FEATURE_KEYS).toHaveLength(28);
+    expect(new Set(FEATURE_KEYS).size).toBe(28);
     for (const f of FEATURES) expect(f.label.length).toBeGreaterThan(2);
     expect(featureDef("max_guests")).toMatchObject({ scope: "event", kind: "limit" });
     expect(featureDef("reservations")).toMatchObject({ scope: "venue", kind: "switch" });
@@ -32,7 +33,7 @@ describe("feature catalogue (spec §4.1)", () => {
     const parseKeys = (list: string) => list.match(/'([a-z_]+)'/g)!.map((s) => s.slice(1, -1)).sort();
     // 0048 lists the original catalogue; later migrations extend it.
     const allSorted = FEATURE_KEYS.filter((k) => !ADDED_LATER.includes(k)).sort();
-    const eventScopeSorted = FEATURES.filter((f) => f.scope === "event").map((f) => f.key).sort();
+    const eventScopeSorted = FEATURES.filter((f) => f.scope === "event" && !ADDED_LATER.includes(f.key)).map((f) => f.key).sort();
 
     // `feature_key in (...)` check constraints: plan_features and
     // venue_feature_overrides accept the full catalogue; event_feature_overrides
@@ -64,7 +65,7 @@ describe("feature catalogue (spec §4.1)", () => {
   it("0087 extends every venue-scope list with venue_branding and leaves event overrides alone", () => {
     const sql = readFileSync("supabase/migrations/0087_venue_branding.sql", "utf8");
     const parseKeys = (list: string) => list.match(/'([a-z_]+)'/g)!.map((s) => s.slice(1, -1)).sort();
-    const allSorted = [...FEATURE_KEYS].sort();
+    const allSorted = FEATURE_KEYS.filter((k) => !ADDED_IN_0151.includes(k)).sort();
     for (const table of ["plan_features", "venue_feature_overrides"]) {
       const block = sql.match(new RegExp(`alter table public\\.${table} add constraint[\\s\\S]*?feature_key in \\(([^)]+)\\)`));
       expect(block, `no feature_key check for ${table} in 0087`).not.toBeNull();
@@ -74,5 +75,21 @@ describe("feature catalogue (spec §4.1)", () => {
     expect(parseKeys(unnest![1])).toEqual(allSorted);
     expect(sql).not.toMatch(/event_feature_overrides add constraint/);
     expect(featureDef("venue_branding")).toMatchObject({ scope: "venue", kind: "switch" });
+  });
+
+  it("0151 adds max_video_seconds to every list, event overrides included", () => {
+    const sql = readFileSync("supabase/migrations/0151_invitation_greetings_and_album_videos.sql", "utf8");
+    const parseKeys = (list: string) => list.match(/'([a-z_]+)'/g)!.map((s) => s.slice(1, -1)).sort();
+    const allSorted = [...FEATURE_KEYS].sort();
+    for (const table of ["plan_features", "venue_feature_overrides"]) {
+      const block = sql.match(new RegExp(`alter table public\\.${table} add constraint[\\s\\S]*?feature_key in \\(([^)]+)\\)`));
+      expect(block, `no feature_key check for ${table} in 0151`).not.toBeNull();
+      expect(parseKeys(block![1])).toEqual(allSorted);
+    }
+    const events = sql.match(/alter table public\.event_feature_overrides add constraint[\s\S]*?feature_key in \(([^)]+)\)/);
+    expect(parseKeys(events![1])).toEqual(FEATURES.filter((f) => f.scope === "event").map((f) => f.key).sort());
+    const unnest = sql.match(/select unnest\(array\[([^\]]+)\]\)/);
+    expect(parseKeys(unnest![1])).toEqual(allSorted);
+    expect(featureDef("max_video_seconds")).toMatchObject({ scope: "event", kind: "limit" });
   });
 });

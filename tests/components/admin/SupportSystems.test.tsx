@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/admin/support" }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }), usePathname: () => "/admin/support" }));
 vi.mock("@/lib/supabase/client", () => ({ createBrowserSupabaseClient: () => ({ auth: { signOut: vi.fn() } }) }));
 vi.mock("@/lib/admin/guard", () => ({ requireAdmin: vi.fn(async () => ({ adminUserId: "me", requestId: null })) }));
 
@@ -49,6 +50,9 @@ const task = (over: Record<string, unknown> = {}) => ({
   createdAt: "2028-01-01T10:00:00Z",
   updatedAt: "2028-01-01T10:00:00Z",
   completedAt: null,
+  createdByUnread: false,
+  assignedToUnread: false,
+  attachments: [],
   ...over,
 });
 
@@ -113,7 +117,7 @@ describe("Тикети за поддршка (admin tasks)", () => {
     fireEvent.change(screen.getByLabelText(/Наслов/), { target: { value: "Нова" } });
     fireEvent.change(screen.getByLabelText("Испрати до"), { target: { value: "other" } });
     fireEvent.click(screen.getByRole("button", { name: "Испрати задача" }));
-    await waitFor(() => expect(taskActions.createAdminTask).toHaveBeenCalledWith({ title: "Нова", description: "", assignedTo: "other" }));
+    await waitFor(() => expect(taskActions.createAdminTask).toHaveBeenCalledWith({ title: "Нова", description: "", assignedTo: "other", files: [] }));
     expect(push).toHaveBeenCalledWith("/admin/support?view=sent");
   });
 
@@ -150,13 +154,33 @@ describe("Тикети за поддршка (admin tasks)", () => {
   it("comments are added under the task", async () => {
     queries.getAdminTask.mockResolvedValue({
       task: task(),
-      comments: [{ id: "c1", authorId: "other", authorEmail: "other@test.mk", body: "Прв коментар", createdAt: "2028-01-01T11:00:00Z" }],
+      comments: [{ id: "c1", authorId: "other", authorEmail: "other@test.mk", body: "Прв коментар", createdAt: "2028-01-01T11:00:00Z", attachments: [] }],
     });
     render(await AdminTaskPage({ params: Promise.resolve({ id: "t1" }) }));
     expect(screen.getByText("Прв коментар")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Коментар"), { target: { value: "Одговор" } });
     fireEvent.click(screen.getByRole("button", { name: "Додај коментар" }));
-    await waitFor(() => expect(taskActions.commentOnAdminTask).toHaveBeenCalledWith({ id: "t1", body: "Одговор" }));
+    await waitFor(() => expect(taskActions.commentOnAdminTask).toHaveBeenCalledWith({ id: "t1", body: "Одговор", files: [] }));
+  });
+
+  it("shows the task's and a comment's attachments as links, and sends picked files when commenting", async () => {
+    queries.getAdminTask.mockResolvedValue({
+      task: task({ attachments: [{ path: "a.jpg", url: "https://x/a.jpg" }, { path: "b.pdf", url: "https://x/b.pdf" }] }),
+      comments: [
+        { id: "c1", authorId: "other", authorEmail: "other@test.mk", body: "Еве", createdAt: "2028-01-01T11:00:00Z", attachments: [{ path: "c.png", url: "https://x/c.png" }] },
+      ],
+    });
+    render(await AdminTaskPage({ params: Promise.resolve({ id: "t1" }) }));
+    // The thumbnails are decorative (alt="") inside a descriptive link, so
+    // they're intentionally not in the accessibility tree's "img" role.
+    expect(document.querySelectorAll("img")).toHaveLength(2); // a.jpg (task) + c.png (comment)
+    expect(screen.getByRole("link", { name: "PDF" })).toHaveAttribute("href", "https://x/b.pdf");
+
+    const picked = new File(["x"], "d.jpg", { type: "image/jpeg" });
+    fireEvent.change(screen.getByLabelText("Коментар"), { target: { value: "Одговор" } });
+    fireEvent.change(screen.getByLabelText("Прилози (фотографии или PDF)"), { target: { files: [picked] } });
+    fireEvent.click(screen.getByRole("button", { name: "Додај коментар" }));
+    await waitFor(() => expect(taskActions.commentOnAdminTask).toHaveBeenCalledWith({ id: "t1", body: "Одговор", files: [picked] }));
   });
 });
 

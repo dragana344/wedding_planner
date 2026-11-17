@@ -4,8 +4,8 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { POST as createCoOrganizerRoute } from "@/app/api/couple/co-organizers/route";
 import { POST as startPhoto } from "@/app/api/e/[token]/photos/route";
-import { POST as startVideo } from "@/app/api/e/[token]/greetings/video/route";
-import { POST as postGreeting } from "@/app/api/e/[token]/greetings/route";
+import { POST as startVideo } from "@/app/api/e/[token]/videos/route";
+import { POST as confirmVideo } from "@/app/api/e/[token]/videos/confirm/route";
 import { createCoOrganizer } from "@/lib/couple/co-organizers";
 import { runDueReminders } from "@/lib/couple/reminders";
 import { assertQuotaFor, getOrCreateAlbumToken, getStorageUsage, QUOTA_FULL_ERROR } from "@/lib/media/album";
@@ -193,13 +193,25 @@ describe("guest album routes on a plan without the album features", () => {
     for (const [handler, body] of [
       [startPhoto, { bytes: 10 }],
       [startVideo, { bytes: 10 }],
-      [postGreeting, { first_name: "А", last_name: "Б", message: "Честито" }],
+      [confirmVideo, { path: `pending/${eventId}/x`, consent: true }],
     ] as const) {
       const res = await handler(guestReq(token, body, "203.0.113.92"), { params: { token } });
       expect(res.status).toBe(403);
       expect(await res.json()).toEqual({ error: LOCKED });
     }
-    const { count } = await admin.from("event_greetings").select("*", { count: "exact", head: true }).eq("event_id", eventId);
+    const { count } = await admin.from("event_photos").select("*", { count: "exact", head: true }).eq("event_id", eventId);
     expect(count).toBe(0);
+  });
+
+  it("takes photos but no videos when the album is on and max_video_seconds is off (0151)", async () => {
+    const { eventId } = await fixture("Photos Only", [
+      { feature_key: "storage_gb", enabled: true, limit_value: null },
+      { feature_key: "photo_album", enabled: true },
+    ]);
+    const token = await getOrCreateAlbumToken(eventId);
+    expect((await startPhoto(guestReq(token, { bytes: 10 }, "203.0.113.93"), { params: { token } })).status).toBe(200);
+    const video = await startVideo(guestReq(token, { bytes: 10 }, "203.0.113.93"), { params: { token } });
+    expect(video.status).toBe(403);
+    expect(await video.json()).toEqual({ error: LOCKED });
   });
 });

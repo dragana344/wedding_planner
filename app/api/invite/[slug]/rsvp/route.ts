@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { errorResponse, withPublic } from "@/lib/api/handler";
 import { RSVP_FAILED_ERROR, RSVP_INVALID_ERROR, RSVP_NOT_FOUND_ERROR, rsvpBody, slugParams } from "@/lib/api/schemas";
 import { submitRsvpBySlug } from "@/lib/couple/rsvp";
+import { hasGreeted, issueGreetingTicket } from "@/lib/couple/invite-greetings";
 import { REQUEST_ID_HEADER } from "@/lib/log";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
@@ -16,7 +17,7 @@ export const POST = withPublic(
     const limit = await checkRateLimit(RATE_LIMITS.rsvp, `${params.slug}:${clientIp(request)}`);
     if (!limit.ok) return rateLimitedResponse(limit);
     try {
-      await submitRsvpBySlug(
+      const saved = await submitRsvpBySlug(
         params.slug,
         {
           ...(body.guest_token ? { guestToken: body.guest_token } : { fullName: body.full_name }),
@@ -29,7 +30,10 @@ export const POST = withPublic(
         },
         { ip: clientIp(request), requestId: request.headers.get(REQUEST_ID_HEADER) },
       );
-      return NextResponse.json({ ok: true });
+      // 0151: the greeting form that follows the answer sends this ticket to
+      // say which guest it is from (on the shared link nothing else does).
+      const greeted = await hasGreeted(saved.guestId).catch(() => false);
+      return NextResponse.json({ ok: true, greeting: { ticket: issueGreetingTicket(saved.eventId, saved.guestId), sent: greeted } });
     } catch (err) {
       return errorResponse(err, RSVP_FAILED_ERROR, request);
     }

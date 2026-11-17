@@ -20,10 +20,12 @@ describe("ReminderPanel (A10)", () => {
     render(<ReminderPanel initial={reminder} guests={[]} share={share} organizerSide={null} />);
 
     expect(screen.getByText(/15 дена пред настанот/)).toBeInTheDocument();
-    const when = screen.getByLabelText("Кога да се прати потсетникот") as HTMLInputElement;
-    expect(when.value).toBe("2027-07-05T10:00");
+    expect(screen.getByRole("group", { name: "Кога да се прати потсетникот" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Датум на потсетникот")).toHaveValue("2027-07-05");
+    expect(screen.getByLabelText("Време на потсетникот")).toHaveValue("10:00");
 
-    fireEvent.change(when, { target: { value: "2027-07-10T16:30" } });
+    fireEvent.change(screen.getByLabelText("Датум на потсетникот"), { target: { value: "2027-07-10" } });
+    fireEvent.change(screen.getByLabelText("Време на потсетникот"), { target: { value: "16:30" } });
     fireEvent.click(screen.getByRole("button", { name: "Зачувај потсетник" }));
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(

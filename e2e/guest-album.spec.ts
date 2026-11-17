@@ -2,14 +2,14 @@ import fs from "fs";
 import { test, expect } from "./fixtures";
 import { setUpCouple } from "./helpers";
 
-// Session 4 acceptance: a guest on a phone opens the album link, uploads ten
-// photos and leaves a greeting; the couple sees them, hides one and downloads
-// the album as a ZIP.
+// Session 4 acceptance: a guest on a phone opens the album link and uploads
+// ten photos; the couple sees them, hides one and downloads the album as a
+// ZIP. (0151: greetings moved to the invitation — see invitation-rsvp.spec.)
 
-test("guest uploads photos and a greeting; the couple moderates and downloads", async ({ page, anonPage }) => {
+test("guest uploads photos; the couple moderates and downloads", async ({ page, anonPage }) => {
   await setUpCouple(page);
   await page.goto("/couple/album");
-  await expect(page.getByText("Сè уште нема фотографии.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Сè уште нема фотографии ни видеа.", { exact: false })).toBeVisible();
   const guestUrl = new URL((await page.locator(".s4-link").textContent())!);
 
   // The guest, on a phone.
@@ -27,18 +27,15 @@ test("guest uploads photos and a greeting; the couple moderates and downloads", 
   });
   const JPEG = Buffer.from(dataUrl.split(",")[1], "base64");
   await anonPage.getByLabel("Вашето име (не е задолжително)").fill("Тетка Роса");
-  await anonPage.getByLabel(/Се согласувам фотографијата да биде прикажана/).check();
-  await anonPage.getByLabel("Изберете фотографии").setInputFiles(
+  await anonPage.getByLabel(/Се согласувам фотографиите и видеата да бидат прикажани/).check();
+  await anonPage.getByLabel("Изберете фотографии и видеа").setInputFiles(
     Array.from({ length: 10 }, (_, i) => ({ name: `IMG_${i}.jpg`, mimeType: "image/jpeg", buffer: JPEG })),
   );
   await expect(anonPage.getByText("10 / 10 прикачени")).toBeVisible({ timeout: 60_000 });
   await expect(anonPage.locator(".ga-error")).toHaveCount(0); // not role=alert: Next's route announcer has it too
 
-  await anonPage.getByLabel("Име", { exact: true }).fill("Ана");
-  await anonPage.getByLabel("Презиме", { exact: true }).fill("Петрова");
-  await anonPage.getByLabel("Порака").fill("Честито и среќен живот!");
-  await anonPage.getByRole("button", { name: "Испрати честитка" }).click();
-  await expect(anonPage.getByText("Ви благодариме! Честитката е испратена.")).toBeVisible();
+  // Greetings are no longer sent from here.
+  await expect(anonPage.getByRole("button", { name: "Испрати честитка" })).toHaveCount(0);
 
   // The couple.
   await page.reload();
@@ -56,12 +53,8 @@ test("guest uploads photos and a greeting; the couple moderates and downloads", 
   expect(bytes.subarray(0, 4).toString("hex")).toBe("504b0304"); // "PK\x03\x04"
 
   await page.goto("/couple/album/qr?format=a6&count=4&numbered=1");
-  await expect(page.getByText("Скенирај и сподели ги твоите фотографии")).toHaveCount(4);
+  await expect(page.getByText("Скенирај и сподели ги твоите фотографии и видеа")).toHaveCount(4);
   await expect(page.getByText("Маса 4")).toBeVisible();
-
-  await page.goto("/couple/greetings");
-  await expect(page.getByText("Ана Петрова")).toBeVisible();
-  await expect(page.getByText("Честито и среќен живот!")).toBeVisible();
 });
 
 test("an unknown album link shows a friendly not-found page", async ({ anonPage }) => {

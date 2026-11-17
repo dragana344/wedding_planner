@@ -89,7 +89,7 @@ function defaultFeatureRow(planId: string, key: FeatureKey): { plan_id: string; 
     plan_id: planId,
     feature_key: key,
     enabled: isLimit,
-    limit_value: !isLimit ? null : key === "storage_gb" ? 5 : key === "photo_retention_days" ? 15 : null,
+    limit_value: !isLimit ? null : key === "storage_gb" ? 5 : key === "photo_retention_days" ? 15 : key === "max_video_seconds" ? 30 : null,
   };
 }
 

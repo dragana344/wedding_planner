@@ -83,3 +83,28 @@ export async function putSignedUpload(bucket: string, path: string, token: strin
   });
   if (!response.ok) throw new Error("upload failed");
 }
+
+export const UPLOAD_FAILED = "Не успеа прикачувањето. Обидете се повторно.";
+
+/** POST JSON; returns the body or throws the server's message. */
+export async function postJson<T>(url: string, body: unknown, fallback = UPLOAD_FAILED): Promise<T> {
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : fallback);
+  return data as T;
+}
+
+/**
+ * Uploads a blob through a signed URL from `startUrl`, which gets `{ bytes,
+ * ...extra }`; returns the pending path to confirm.
+ */
+export async function signedUpload(startUrl: string, blob: Blob, extra: Record<string, unknown> = {}): Promise<string> {
+  const { path, token, bucket } = await postJson<{ path: string; token: string; bucket: string }>(startUrl, { ...extra, bytes: blob.size });
+  try {
+    await putSignedUpload(bucket, path, token, blob);
+  } catch {
+    throw new Error(UPLOAD_FAILED);
+  }
+  return path;
+}
+

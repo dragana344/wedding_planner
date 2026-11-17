@@ -66,8 +66,10 @@ vi.mock("@/lib/couple/guest-page", () => guestPage);
 const guestGreetings = vi.hoisted(() => ({ listGreetingsForGuest: vi.fn(async () => []) }));
 vi.mock("@/lib/couple/guest-greetings", () => guestGreetings);
 
-const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => undefined) }));
+const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => ({ eventId: "e1", guestId: "g1" })) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
+// 0151: the RSVP answer carries the ticket for the greeting that follows it.
+vi.mock("@/lib/couple/invite-greetings", () => ({ hasGreeted: vi.fn(async () => false), issueGreetingTicket: vi.fn(() => "ticket-g1") }));
 
 const contact = vi.hoisted(() => ({ submitContactMessage: vi.fn(async () => undefined) }));
 vi.mock("@/lib/venue/contact", () => contact);
@@ -438,7 +440,7 @@ describe("public routes", () => {
       ),
       { slug: "abcDEF123_-x" },
     );
-    expect(ok).toEqual({ status: 200, body: { ok: true } });
+    expect(ok).toEqual({ status: 200, body: { ok: true, greeting: { ticket: "ticket-g1", sent: false } } });
     expect(rsvp.submitRsvpBySlug).toHaveBeenCalledWith(
       "abcDEF123_-x",
       { fullName: "Ана", status: "confirmed", partySize: 3, childrenCount: 1, menuCounts: { "11111111-1111-4111-8111-111111111111": 3 }, allergies: "ореви", comment: "Доаѓаме!" },
@@ -450,7 +452,7 @@ describe("public routes", () => {
     const ok = await call(rsvpRoute.POST, req("POST", { full_name: "Ана", attending: false }, { couple: false }), {
       slug: "abcDEF123_-x",
     });
-    expect(ok).toEqual({ status: 200, body: { ok: true } });
+    expect(ok).toEqual({ status: 200, body: { ok: true, greeting: { ticket: "ticket-g1", sent: false } } });
     expect(rsvp.submitRsvpBySlug).toHaveBeenLastCalledWith(
       "abcDEF123_-x",
       { fullName: "Ана", status: "declined", partySize: 1 },
@@ -463,7 +465,7 @@ describe("public routes", () => {
     const ok = await call(rsvpRoute.POST, req("POST", { guest_token: token, status: "later" }, { couple: false }), {
       slug: "abcDEF123_-x",
     });
-    expect(ok).toEqual({ status: 200, body: { ok: true } });
+    expect(ok).toEqual({ status: 200, body: { ok: true, greeting: { ticket: "ticket-g1", sent: false } } });
     expect(rsvp.submitRsvpBySlug).toHaveBeenLastCalledWith(
       "abcDEF123_-x",
       { guestToken: token, status: "later", partySize: 1 },

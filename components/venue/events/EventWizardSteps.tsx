@@ -14,6 +14,7 @@ import { EventDatePicker } from "./EventDatePicker";
 import { EventTypeIllustration, SeatingModeIllustration } from "./EventTypeIllustration";
 import { PriceCalculator } from "./PriceCalculator";
 import { formatMkDateWithWeekday } from "@/lib/date";
+import { TimeInput } from "@/components/shared/TimeInput";
 
 const SEATING_MODE_META: Record<SeatingMode, { label: string; description: string }> = {
   full: { label: "Цел простор", description: "Настанот го зафаќа целиот простор (свадба, голема прослава)." },
@@ -218,13 +219,13 @@ export function DateTimeStep({
             <label className="lab-s" htmlFor="ev-wiz-start">
               <Icon name="clock" size="sm" /> Почеток
             </label>
-            <input id="ev-wiz-start" className="fld" type="time" value={startTime} onChange={(e) => onStartChange(e.target.value)} />
+            <TimeInput id="ev-wiz-start" className="fld" value={startTime} onChange={onStartChange} />
           </div>
           <div className="ev-field">
             <label className="lab-s" htmlFor="ev-wiz-end">
               <Icon name="clock" size="sm" /> Крај
             </label>
-            <input id="ev-wiz-end" className="fld" type="time" value={endTime} onChange={(e) => onEndChange(e.target.value)} />
+            <TimeInput id="ev-wiz-end" className="fld" value={endTime} onChange={onEndChange} />
           </div>
           {endsNextDay ? (
             <p className="ev-dt-hint">

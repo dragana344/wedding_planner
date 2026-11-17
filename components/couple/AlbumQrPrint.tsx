@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { MAX_PRINT_COUNT, type PrintOptions } from "@/lib/media/print-options";
 
-const CTA = "Скенирај и сподели ги твоите фотографии";
+const CTA = "Скенирај и сподели ги твоите фотографии и видеа";
 
 function Qr({ svg }: { svg: string | null }) {
   // The SVG is generated here by the qrcode library from our own URL.

@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { startOfDaySkopjeIso, endOfDaySkopjeIso } from "@/lib/admin/audit-filters";
 import { isSupportStatus, type SupportStatus } from "@/lib/support/status";
+import { signedAttachmentUrls } from "@/lib/admin/task-attachments";
 
 // Read models for the platform-admin dashboard (spec §3-4). Every query goes
 // through the service-role client: staff never see this data (RLS has no
@@ -114,8 +115,21 @@ export type AdminTaskRow = {
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+  /** True when the other side commented since this side last opened the task. */
+  createdByUnread: boolean;
+  assignedToUnread: boolean;
+  /** Photos/PDFs attached when the task was created (0153); signed, valid an hour. Empty in the list view — only getAdminTask resolves these. */
+  attachments: AdminTaskAttachment[];
 };
-export type AdminTaskComment = { id: string; authorId: string | null; authorEmail: string | null; body: string; createdAt: string };
+export type AdminTaskAttachment = { path: string; url: string };
+export type AdminTaskComment = {
+  id: string;
+  authorId: string | null;
+  authorEmail: string | null;
+  body: string;
+  createdAt: string;
+  attachments: AdminTaskAttachment[];
+};
 export type AdminBadgeCounts = { inbox: number; tasks: number };
 export type MaintenanceState = { maintenanceMode: boolean; updatedAt: string; updatedBy: string | null };
 export type AuditRow = {
@@ -634,10 +648,14 @@ type AdminTaskDb = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  created_by_unread: boolean;
+  assigned_to_unread: boolean;
+  attachment_paths: string[];
 };
-const ADMIN_TASK_COLUMNS = "id, title, description, status, created_by, assigned_to, created_at, updated_at, completed_at";
+const ADMIN_TASK_COLUMNS =
+  "id, title, description, status, created_by, assigned_to, created_at, updated_at, completed_at, created_by_unread, assigned_to_unread, attachment_paths";
 
-const toAdminTask = (t: AdminTaskDb, emails: Map<string, string>): AdminTaskRow => ({
+const toAdminTask = (t: AdminTaskDb, emails: Map<string, string>, urls: Map<string, string> = new Map()): AdminTaskRow => ({
   id: t.id,
   title: t.title,
   description: t.description,
@@ -649,6 +667,9 @@ const toAdminTask = (t: AdminTaskDb, emails: Map<string, string>): AdminTaskRow 
   createdAt: t.created_at,
   updatedAt: t.updated_at,
   completedAt: t.completed_at,
+  createdByUnread: t.created_by_unread,
+  assignedToUnread: t.assigned_to_unread,
+  attachments: t.attachment_paths.map((path) => ({ path, url: urls.get(path) ?? "" })),
 });
 
 /**
@@ -666,24 +687,41 @@ export async function listAdminTasks(adminUserId: string, filter: { view?: strin
   return ((data ?? []) as AdminTaskDb[]).map((t) => toAdminTask(t, emails));
 }
 
-export async function getAdminTask(id: string): Promise<{ task: AdminTaskRow; comments: AdminTaskComment[] } | null> {
+/** `viewerAdminUserId` clears that side's unread flag (sender opening a task
+ * clears createdByUnread, the assignee opening it clears assignedToUnread) —
+ * same "opening it marks it seen" rule as support tickets. Omit it for a
+ * read that shouldn't mark anything seen. */
+export async function getAdminTask(id: string, viewerAdminUserId?: string): Promise<{ task: AdminTaskRow; comments: AdminTaskComment[] } | null> {
   await requireAdmin();
   if (!isUuid(id)) return null;
   const [{ data, error }, { data: comments, error: commentsError }, emails] = await Promise.all([
     db().from("admin_tasks").select(ADMIN_TASK_COLUMNS).eq("id", id).maybeSingle(),
-    db().from("admin_task_comments").select("id, author_id, body, created_at").eq("task_id", id).order("created_at", { ascending: true }),
+    db().from("admin_task_comments").select("id, author_id, body, created_at, attachment_paths").eq("task_id", id).order("created_at", { ascending: true }),
     adminEmails(),
   ]);
   if (error) throw error;
   if (commentsError) throw commentsError;
   if (!data) return null;
+  const commentRows = (comments ?? []) as { id: string; author_id: string | null; body: string; created_at: string; attachment_paths: string[] }[];
+  const urls = await signedAttachmentUrls([...(data as AdminTaskDb).attachment_paths, ...commentRows.flatMap((c) => c.attachment_paths)]);
+  const task = toAdminTask(data as AdminTaskDb, emails, urls);
+  if (viewerAdminUserId === task.createdBy && task.createdByUnread) {
+    const { error: seenError } = await db().from("admin_tasks").update({ created_by_unread: false }).eq("id", id);
+    if (seenError) throw seenError;
+    task.createdByUnread = false;
+  } else if (viewerAdminUserId === task.assignedTo && task.assignedToUnread) {
+    const { error: seenError } = await db().from("admin_tasks").update({ assigned_to_unread: false }).eq("id", id);
+    if (seenError) throw seenError;
+    task.assignedToUnread = false;
+  }
   return {
-    task: toAdminTask(data as AdminTaskDb, emails),
-    comments: ((comments ?? []) as { id: string; author_id: string | null; body: string; created_at: string }[]).map((c) => ({
+    task,
+    comments: commentRows.map((c) => ({
       id: c.id,
       authorId: c.author_id,
       authorEmail: c.author_id ? (emails.get(c.author_id) ?? null) : null,
       body: c.body,
+      attachments: c.attachment_paths.map((path) => ({ path, url: urls.get(path) ?? "" })),
       createdAt: c.created_at,
     })),
   };
@@ -692,7 +730,8 @@ export async function getAdminTask(id: string): Promise<{ task: AdminTaskRow; co
 /**
  * The sidebar's counts. inbox: new contact messages plus tickets whose
  * sender spoke last. tasks: tasks waiting for me to start them — sent to me,
- * or to every admin by someone else.
+ * or to every admin by someone else — plus tasks I'm already part of
+ * (sender or assignee) where the other side commented since I last opened it.
  */
 export async function getAdminBadgeCounts(adminUserId: string): Promise<AdminBadgeCounts> {
   await requireAdmin();
@@ -702,8 +741,12 @@ export async function getAdminBadgeCounts(adminUserId: string): Promise<AdminBad
     db()
       .from("admin_tasks")
       .select("id", { count: "exact", head: true })
-      .eq("status", "new")
-      .or(`assigned_to.eq.${adminUserId},and(assigned_to.is.null,created_by.neq.${adminUserId})`),
+      .or(
+        `and(status.eq.new,assigned_to.eq.${adminUserId}),` +
+          `and(status.eq.new,assigned_to.is.null,created_by.neq.${adminUserId}),` +
+          `and(created_by.eq.${adminUserId},created_by_unread.eq.true),` +
+          `and(assigned_to.eq.${adminUserId},assigned_to_unread.eq.true)`,
+      ),
   ]);
   for (const r of [contacts, tickets, tasks]) if (r.error) throw r.error;
   return { inbox: (contacts.count ?? 0) + (tickets.count ?? 0), tasks: tasks.count ?? 0 };

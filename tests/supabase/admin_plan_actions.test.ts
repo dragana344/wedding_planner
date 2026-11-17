@@ -25,7 +25,7 @@ afterAll(async () => {
 });
 
 describe("plan actions (spec §5, task 3.4)", () => {
-  it("creates a plan with every switch off and every limit enabled/unlimited (storage_gb=5, photo_retention_days=15), then edits its features", async () => {
+  it("creates a plan with every switch off and every limit enabled/unlimited (storage_gb=5, photo_retention_days=15, max_video_seconds=30), then edits its features", async () => {
     const { data } = await planActionCore.create({ name: `Basic ${Date.now()}`, description: null, sortOrder: 1, isPublic: false }, ctx);
     created.push(data.id);
 
@@ -36,6 +36,7 @@ describe("plan actions (spec §5, task 3.4)", () => {
       expect(r.enabled, `${r.feature_key} enabled`).toBe(isLimit);
       if (r.feature_key === "storage_gb") expect(r.limit_value).toBe(5);
       else if (r.feature_key === "photo_retention_days") expect(r.limit_value).toBe(15);
+      else if (r.feature_key === "max_video_seconds") expect(r.limit_value).toBe(30);
       else expect(r.limit_value).toBeNull();
     }
 

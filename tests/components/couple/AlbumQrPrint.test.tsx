@@ -7,7 +7,7 @@ import { parsePrintOptions } from "@/lib/media/print-options";
 // C4: printable cards (A6, four to an A4 sheet) and a poster pointing guests
 // at the album's QR page.
 
-const CTA = "Скенирај и сподели ги твоите фотографии";
+const CTA = "Скенирај и сподели ги твоите фотографии и видеа";
 
 describe("parsePrintOptions", () => {
   it("defaults to eight A6 cards without table numbers", () => {

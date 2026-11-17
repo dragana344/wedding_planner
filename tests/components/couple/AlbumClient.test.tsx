@@ -7,7 +7,7 @@ import type { EventPhoto } from "@/lib/media/photos";
 // C3/C10: the couple's album — browse, filter, preview, hide, delete, download.
 
 const photo = (id: string, uploaderName: string | null, createdAt: string, hidden = false): EventPhoto => ({
-  id, url: `https://storage.test/${id}.jpg`, width: 800, height: 600, uploaderName, hidden, createdAt, bytes: 1000,
+  id, kind: "photo", url: `https://storage.test/${id}.jpg`, width: 800, height: 600, uploaderName, hidden, createdAt, bytes: 1000,
 });
 
 // Newest first, as the server lists them.
@@ -98,5 +98,15 @@ describe("AlbumClient", () => {
     await waitFor(() => expect(screen.getByTestId("photo-p0")).toBeInTheDocument());
     expect(global.fetch).toHaveBeenCalledWith(`/api/couple/album/photos?before=${encodeURIComponent("2027-06-12T20:00:00Z")}`);
     expect(screen.queryByRole("button", { name: "Прикажи уште" })).not.toBeInTheDocument();
+  });
+
+  it("shows a guest's video next to the photos and plays it in the preview (0151)", async () => {
+    const video: EventPhoto = { ...photo("v1", "Ана", "2027-06-13T02:00:00Z"), kind: "video", url: "https://storage.test/v1.mp4" };
+    renderAlbum({ initialPhotos: [video, ...PHOTOS] });
+    expect(within(screen.getByTestId("photo-v1")).getByText("▶ Видео")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Отвори видео од Ана" }));
+    const dialog = screen.getByRole("dialog", { name: "Преглед на видео" });
+    expect(dialog.querySelector("video")).toHaveAttribute("src", "https://storage.test/v1.mp4");
+    expect(within(dialog).queryByRole("img")).not.toBeInTheDocument();
   });
 });

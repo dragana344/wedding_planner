@@ -7,7 +7,7 @@ import type { Greeting } from "@/lib/media/greetings";
 // C2/C7: the couple reads their guests' greetings and can hide or delete them.
 
 const greeting = (id: string, over: Partial<Greeting> = {}): Greeting => ({
-  id, firstName: "Ана", lastName: "Петрова", message: "Честито и среќен живот!", videoUrl: null, hidden: false,
+  id, guestId: null, firstName: "Ана", lastName: "Петрова", message: "Честито и среќен живот!", videoUrl: null, hidden: false,
   createdAt: "2027-06-12T20:15:00Z", ...over,
 });
 
@@ -34,8 +34,11 @@ describe("GreetingsClient", () => {
 
   it("explains where greetings come from when there are none", () => {
     render(<GreetingsClient initialGreetings={[]} />);
-    expect(screen.getByText(/Сè уште нема честитки/)).toHaveTextContent("Сè уште нема честитки. Споделете го QR кодот од Албум.");
-    expect(screen.getByRole("link", { name: "Албум" })).toHaveAttribute("href", "/couple/album");
+    // 0151: greetings come back with the invitation, after the guest's RSVP.
+    expect(screen.getByText(/Сè уште нема честитки/)).toHaveTextContent(
+      "Сè уште нема честитки. Гостите ги испраќаат од поканата, откако ќе одговорат дали доаѓаат.",
+    );
+    expect(screen.getByRole("link", { name: "поканата" })).toHaveAttribute("href", "/couple/invitation");
   });
 
   it("hides and shows a greeting", async () => {

@@ -4,11 +4,13 @@ import { notFound } from "next/navigation";
 import { getAlbumByToken } from "@/lib/media/album";
 import { GuestAlbum } from "@/components/album/GuestAlbum";
 import { getEventFeatures } from "@/lib/entitlements/server";
+import { videoSecondsLimit } from "@/lib/media/limits";
 import "@/components/album/guest-album.css";
 import { getEventBranding } from "@/lib/venue/branding";
 
-// The guests' QR page (C1, C2): no login, the token in the link is the key.
-export const metadata: Metadata = { title: "Споделете ги вашите фотографии", robots: { index: false, follow: false } };
+// The guests' QR page (C1, 0151): photos and videos for the shared album. No
+// login, the token in the link is the key. Greetings come with the invitation.
+export const metadata: Metadata = { title: "Споделете ги вашите фотографии и видеа", robots: { index: false, follow: false } };
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +53,7 @@ export default async function GuestAlbumPage({ params }: { params: Promise<{ tok
         token={token}
         features={{
           photos: features?.photo_album.enabled ?? false,
-          greetings: features?.guest_greetings.enabled ?? false,
-          video: features?.video_greetings.enabled ?? false,
+          videoSeconds: features ? videoSecondsLimit(features.max_video_seconds) : 0,
         }}
       />
       <p className="ga-footer">

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SupportTicketPanel } from "@/components/support/SupportTicketPanel";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
 const mockFetch = vi.fn();
 beforeEach(() => {
   mockFetch.mockReset();

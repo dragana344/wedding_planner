@@ -3,7 +3,6 @@
 
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
-export const MAX_VIDEO_SECONDS = 30;
 /** Photos are resized in the browser so their longer edge is at most this. */
 export const PHOTO_MAX_EDGE = 2560;
 const GB = 1024 ** 3;
@@ -90,4 +89,34 @@ export function fitWithin(width: number, height: number, maxEdge: number): { wid
   if (longer <= maxEdge) return { width, height };
   const scale = maxEdge / longer;
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+/**
+ * The longest video a guest may send, in seconds, from the event's resolved
+ * `max_video_seconds` (0151): null = no length limit, 0 = no videos at all.
+ * A disabled feature resolves to limit 0 (0048), so it allows none.
+ */
+export function videoSecondsLimit(feature: { enabled: boolean; limit: number | null } | undefined): number | null {
+  if (!feature?.enabled) return 0;
+  if (feature.limit === null) return null;
+  return Math.max(0, Math.floor(feature.limit));
+}
+
+/** 30 → "30 секунди", 120 → "2 минути", 90 → "1 мин. и 30 сек.". */
+export function formatVideoLength(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (minutes === 0) return `${seconds} секунди`;
+  if (rest === 0) return minutes === 1 ? "1 минута" : `${minutes} минути`;
+  return `${minutes} мин. и ${rest} сек.`;
+}
+
+export function videoTooLongError(limitSeconds: number): string {
+  return `Видеото е подолго од ${formatVideoLength(limitSeconds)}.`;
+}
+
+/** Whether a video of `seconds` fits the limit; a length the browser couldn't read (NaN/null) is let through. */
+export function fitsVideoLength(limitSeconds: number | null, seconds: number | null | undefined): boolean {
+  if (limitSeconds === null || seconds == null || !Number.isFinite(seconds)) return true;
+  return seconds <= limitSeconds;
 }

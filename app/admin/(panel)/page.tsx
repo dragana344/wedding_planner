@@ -10,7 +10,7 @@ import { RangePanel } from "@/components/shared/RangePanel";
 export const dynamic = "force-dynamic";
 
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("mk-MK", { timeZone: "Europe/Skopje" });
+  return new Date(iso).toLocaleString("mk-MK", { timeZone: "Europe/Skopje", hourCycle: "h23" });
 }
 
 function WeeksTable({ weeks }: { weeks: { week: string; count: number }[] }) {

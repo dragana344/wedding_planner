@@ -136,6 +136,50 @@ describe("RsvpForm on a personal link (A1, A2)", () => {
   });
 });
 
+describe("RsvpForm greeting before answering (0152)", () => {
+  const greeting = { enabled: true, videoSeconds: 30, sent: false };
+
+  it("personal link: the greeting box shows immediately, before picking an answer", () => {
+    render(
+      <RsvpForm
+        slug="abc123"
+        accentColor="#C9992F"
+        guestToken="Tok_en-24charsXXXXXXXXXX"
+        invitee={{ fullName: "Петар", rsvpStatus: "invited", partySize: 1, childrenCount: 0, menuCounts: {}, allergies: null, rsvpComment: null }}
+        greeting={greeting}
+      />,
+    );
+    expect(screen.getByText(/Испратете честитка/)).toBeInTheDocument();
+    // No answer was picked yet.
+    expect(screen.queryByText(/Ви благодариме/)).not.toBeInTheDocument();
+  });
+
+  it("shared link: asks for a name first, then shows the greeting box with the ticket it gets back", async () => {
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" greeting={greeting} />);
+    expect(screen.getByText(/Сакате да испратите честитка пред да одговорите/)).toBeInTheDocument();
+
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ticket: "a.b.c", sent: false }) });
+    fireEvent.change(screen.getByLabelText("Вашето име"), { target: { value: "Марија Марковска" } });
+    fireEvent.click(screen.getByRole("button", { name: "Продолжи" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/invite/abc123/greetings/identify",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ full_name: "Марија Марковска" }) }),
+      ),
+    );
+    expect(await screen.findByText(/Испратете честитка/)).toBeInTheDocument();
+    expect(screen.queryByText(/Сакате да испратите честитка пред да одговорите/)).not.toBeInTheDocument();
+  });
+
+  it("no greeting box at all when the package has it off, or nothing was passed", () => {
+    const { rerender } = render(<RsvpForm slug="abc123" accentColor="#C9992F" greeting={{ enabled: false, videoSeconds: 0, sent: false }} />);
+    expect(screen.queryByText(/честитка/)).not.toBeInTheDocument();
+    rerender(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    expect(screen.queryByText(/честитка/)).not.toBeInTheDocument();
+  });
+});
+
 describe("RsvpForm privacy notice (COMP-001 R1-03)", () => {
   it("tells the guest who sees the answer, who is responsible, and links the policy", () => {
     render(<RsvpForm slug="abc123" accentColor="#C9992F" coupleNames="Ана и Марко" venueName="Сала Лотос" />);

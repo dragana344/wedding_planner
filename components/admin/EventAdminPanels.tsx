@@ -7,6 +7,7 @@ import type { FeatureMap } from "@/lib/entitlements/features";
 import { FeatureOverridesEditor } from "@/components/admin/FeatureOverridesEditor";
 import { ActionButton } from "@/components/admin/ActionButton";
 import { updateEvent, saveEventOverride, unlockCoupleLogin, regenerateCouplePassword } from "@/app/admin/(panel)/events/actions";
+import { TimeInput } from "@/components/shared/TimeInput";
 
 const STATUSES: { value: string; label: string }[] = [
   { value: "preparation", label: "Подготовка" },
@@ -91,13 +92,13 @@ function EditForm({ event }: { event: EventRow }) {
         <label className="lab-s" htmlFor="event-start">
           Почеток
         </label>
-        <input id="event-start" className="fld" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        <TimeInput id="event-start" className="fld" value={startTime} onChange={setStartTime} />
       </div>
       <div>
         <label className="lab-s" htmlFor="event-end">
           Крај
         </label>
-        <input id="event-end" className="fld" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+        <TimeInput id="event-end" className="fld" value={endTime} onChange={setEndTime} />
       </div>
       <div>
         <label className="lab-s" htmlFor="event-status">

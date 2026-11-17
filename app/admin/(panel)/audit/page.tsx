@@ -10,7 +10,7 @@ const ACTOR_TYPES = ["admin", "staff", "couple", "guest", "system"] as const;
 const ACTOR_LABELS: Record<(typeof ACTOR_TYPES)[number], string> = { admin: "админ", staff: "персонал", couple: "пар", guest: "гостин", system: "систем" };
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("mk-MK", { timeZone: VENUE_TIME_ZONE });
+  return new Date(iso).toLocaleString("mk-MK", { timeZone: VENUE_TIME_ZONE, hourCycle: "h23" });
 }
 
 // Builds a /admin/audit?... link that carries only the *validated* filters

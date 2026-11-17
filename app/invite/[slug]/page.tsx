@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getInvitationBySlug, getInvitationPhotoUrl } from "@/lib/couple/invitations";
 import { getInviteeByToken } from "@/lib/couple/rsvp";
 import { getSeatByToken } from "@/lib/couple/guest-page";
+import { getInvitationGreetingState } from "@/lib/couple/invite-greetings";
 import { FullInvitation } from "@/components/invite/FullInvitation";
 
 // One read per request, shared by the metadata and the page.
@@ -53,6 +54,9 @@ export default async function PublicInvitationPage({
   const invitee = guestToken ? await getInviteeByToken(slug, guestToken) : null;
   // A15: the guest's own table on their personal page.
   const mySeat = invitee && guestToken ? await getSeatByToken(slug, guestToken) : undefined;
+  // 0151: after the RSVP the guest can send the couple a greeting. If the
+  // package can't be read, the invitation still works, just without it.
+  const greeting = await getInvitationGreetingState(slug, invitee ? guestToken : undefined).catch(() => null);
 
   const photoUrl = getInvitationPhotoUrl(invitation.photo_path);
 
@@ -65,6 +69,7 @@ export default async function PublicInvitationPage({
         invitee={invitee}
         guestToken={invitee ? guestToken : undefined}
         mySeat={mySeat}
+        greeting={greeting}
       />
       {/* COMP-001: guests are data subjects too. */}
       <p style={{ textAlign: "center", fontSize: 12, padding: "16px 0 24px", margin: 0 }}>

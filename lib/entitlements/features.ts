@@ -11,7 +11,7 @@ export type FeatureKey =
   | "reservations" | "floor_plan" | "showcase_photos" | "max_rooms" | "max_active_events" | "reports"
   | "photo_album" | "guest_greetings" | "video_greetings" | "reminders" | "personal_invite_links" | "print_qr"
   | "storage_gb" | "photo_retention_days" | "co_organizers"
-  | "venue_branding";
+  | "venue_branding" | "max_video_seconds";
 
 export type FeatureDef = { key: FeatureKey; label: string; scope: FeatureScope; kind: FeatureKind };
 
@@ -36,6 +36,8 @@ export const FEATURES: readonly FeatureDef[] = [
   { key: "photo_album", label: "Албум со фотографии од гостите", scope: "event", kind: "switch" },
   { key: "guest_greetings", label: "Честитки од гостите", scope: "event", kind: "switch" },
   { key: "video_greetings", label: "Видео честитки", scope: "event", kind: "switch" },
+  // 0151: how long a guest's video may be, in the album and in a greeting (null = no limit).
+  { key: "max_video_seconds", label: "Максимална должина на видео (секунди)", scope: "event", kind: "limit" },
   { key: "reminders", label: "Потсетници до гостите", scope: "event", kind: "switch" },
   { key: "personal_invite_links", label: "Персонални линкови за покана", scope: "event", kind: "switch" },
   { key: "print_qr", label: "Печатење QR кодови", scope: "event", kind: "switch" },

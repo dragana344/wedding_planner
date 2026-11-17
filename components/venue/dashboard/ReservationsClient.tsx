@@ -34,6 +34,7 @@ import { deleteEventViaApi } from "@/lib/venue/events-client";
 import { hasFullEventOnDate } from "@/lib/venue/events";
 import { getVenueLogoUrl } from "@/lib/venue/venue-profile";
 import { useManagerElevation } from "@/components/venue/shell/ManagerElevationContext";
+import { TimeInput } from "@/components/shared/TimeInput";
 
 const TIME_PRESETS = ["11:00", "15:00", "17:00", "20:00", "22:00"];
 const ZOOM_MIN = 0.6;
@@ -488,18 +489,12 @@ export function ReservationsClient({
                   </button>
                 ))}
               </div>
-              <input
-                id="qb-start-time"
-                type="time"
-                className="fld qb-time-exact"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
+              <TimeInput id="qb-start-time" className="fld qb-time-exact" value={startTime} onChange={setStartTime} />
             </div>
           </div>
           <div className="qb-field">
             <label className="lab-s" htmlFor="qb-end-time">До (опционално)</label>
-            <input id="qb-end-time" type="time" className="fld" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            <TimeInput id="qb-end-time" className="fld" value={endTime} onChange={setEndTime} />
           </div>
           <div className="qb-field qb-field-narrow">
             <label className="lab-s" htmlFor="qb-party-size">Гости</label>

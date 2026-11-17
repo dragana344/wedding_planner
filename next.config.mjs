@@ -80,6 +80,13 @@ export const nextConfig = {
     staleTimes: {
       dynamic: 0,
     },
+    // Server Actions default to a 1 MB request body, which a phone photo or
+    // a scanned PDF easily exceeds (vendor-partner photo uploads and, since
+    // 0153, admin-task attachments both send the file straight through a
+    // Server Action, not a signed Storage URL).
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   async headers() {
     return [

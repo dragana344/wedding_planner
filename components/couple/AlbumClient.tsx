@@ -10,6 +10,15 @@ import { formatDay as dayOf, formatTime as timeOf } from "@/lib/media/format";
 
 const ALL = "";
 
+/** "фотографија од Ана" / "видео од Ана". */
+function itemName(photo: EventPhoto): string {
+  return `${photo.kind === "video" ? "видео" : "фотографија"} од ${photo.uploaderName ?? "гостин"}`;
+}
+
+function itemLabel(photo: EventPhoto): string {
+  const name = itemName(photo);
+  return name[0].toUpperCase() + name.slice(1);
+}
 
 function Preview({ photo, onClose }: { photo: EventPhoto; onClose: () => void }) {
   useEffect(() => {
@@ -21,9 +30,13 @@ function Preview({ photo, onClose }: { photo: EventPhoto; onClose: () => void })
   }, [onClose]);
 
   return (
-    <div className="s4-preview" role="dialog" aria-modal="true" aria-label="Преглед на фотографија" onClick={onClose}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- signed Storage URL, not optimisable */}
-      <img src={photo.url} alt={`Фотографија од ${photo.uploaderName ?? "гостин"}`} onClick={(e) => e.stopPropagation()} />
+    <div className="s4-preview" role="dialog" aria-modal="true" aria-label={photo.kind === "video" ? "Преглед на видео" : "Преглед на фотографија"} onClick={onClose}>
+      {photo.kind === "video" ? (
+        <video src={photo.url} controls autoPlay playsInline aria-label={itemLabel(photo)} onClick={(e) => e.stopPropagation()} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- signed Storage URL, not optimisable
+        <img src={photo.url} alt={itemLabel(photo)} onClick={(e) => e.stopPropagation()} />
+      )}
       <div className="s4-preview-bar" onClick={(e) => e.stopPropagation()}>
         <span>
           {photo.uploaderName ?? "Гостин"} · {dayOf(photo.createdAt)} {timeOf(photo.createdAt)}
@@ -39,7 +52,7 @@ function Preview({ photo, onClose }: { photo: EventPhoto; onClose: () => void })
   );
 }
 
-/** The couple's album (C3, C10): browse, filter, preview, hide, delete, download. */
+/** The couple's album (C3, C10): the guests' photos and videos (0151) — browse, filter, preview, hide, delete, download. */
 export function AlbumClient({
   initialPhotos,
   hasMore: initialHasMore,
@@ -92,7 +105,7 @@ export function AlbumClient({
   }
 
   async function remove(photo: EventPhoto) {
-    if (!window.confirm("Да се избрише оваа фотографија? Ова не може да се врати.")) return;
+    if (!window.confirm(`Да се избрише ${photo.kind === "video" ? "ова видео" : "оваа фотографија"}? Ова не може да се врати.`)) return;
     setError(null);
     const res = await fetch(`/api/couple/album/photos/${photo.id}`, { method: "DELETE" });
     if (!res.ok) return setError("Не успеа бришењето. Обидете се повторно.");
@@ -187,14 +200,24 @@ export function AlbumClient({
       )}
 
       {photos.length === 0 ? (
-        <p className="s4-empty">Сè уште нема фотографии. Споделете го QR кодот со гостите.</p>
+        <p className="s4-empty">Сè уште нема фотографии ни видеа. Споделете го QR кодот со гостите.</p>
       ) : (
         <ul className="s4-grid">
           {visible.map((p) => (
             <li key={p.id} className={`s4-photo${p.hidden ? " is-hidden" : ""}`} data-testid={`photo-${p.id}`}>
-              <button className="s4-thumb" type="button" onClick={() => setPreview(p)} aria-label={`Отвори фотографија од ${p.uploaderName ?? "гостин"}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- signed Storage URL, not optimisable */}
-                <img src={p.url} alt={`Фотографија од ${p.uploaderName ?? "гостин"}`} loading="lazy" decoding="async" />
+              <button className="s4-thumb" type="button" onClick={() => setPreview(p)} aria-label={`Отвори ${itemName(p)}`}>
+                {p.kind === "video" ? (
+                  <>
+                    {/* The first frame as the thumbnail; played in the preview. */}
+                    <video src={`${p.url}#t=0.1`} preload="metadata" muted playsInline aria-hidden />
+                    <span className="s4-video-badge" aria-hidden>
+                      ▶ Видео
+                    </span>
+                  </>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- signed Storage URL, not optimisable
+                  <img src={p.url} alt={itemLabel(p)} loading="lazy" decoding="async" />
+                )}
               </button>
               <div className="s4-photo-meta">
                 <span>{p.uploaderName ?? "Гостин"}</span>

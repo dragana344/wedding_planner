@@ -1,18 +1,19 @@
 import "server-only";
-import { randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { sniffVideoType } from "@/lib/media/sniff";
-import { MAX_VIDEO_BYTES } from "@/lib/media/limits";
-import { assertQuotaFor } from "@/lib/media/album";
-import { MEDIA_BUCKET, PENDING_PREFIX, readObjectHead, removeObject } from "@/lib/media/storage";
-import { INVALID_MEDIA_UPLOAD_ERROR } from "@/lib/media/photos";
+import { acceptVideo } from "@/lib/media/videos";
+import { MEDIA_BUCKET, removeObject } from "@/lib/media/storage";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
-// Guests' greetings (C2, C7): first and last name are required; a short video
-// is optional and goes through the same signed-upload + confirm path as photos.
+// Guests' greetings (C2, C7): a message, and optionally a short video that goes
+// through the same signed-upload + confirm path as album videos. Since 0151
+// they are sent from the invitation and belong to a guest (guestId); older
+// ones from the QR page carry only the name the guest typed.
+
+export { createVideoUpload, VIDEO_TOO_LARGE_ERROR, UNSUPPORTED_VIDEO_ERROR } from "@/lib/media/videos";
 
 export type Greeting = {
   id: string;
+  guestId: string | null;
   firstName: string;
   lastName: string;
   message: string;
@@ -23,55 +24,18 @@ export type Greeting = {
 
 export const NAME_REQUIRED_ERROR = "Внесете име и презиме.";
 export const MESSAGE_REQUIRED_ERROR = "Напишете порака.";
-export const VIDEO_TOO_LARGE_ERROR = "Видеото е преголемо (најмногу 100 MB).";
-export const UNSUPPORTED_VIDEO_ERROR = "Видеото не е поддржано. Снимете MP4, MOV или WebM.";
 
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const SIGNED_VIEW_SECONDS = 60 * 60;
-
-export async function createVideoUpload(eventId: string, declaredBytes: number): Promise<{ path: string; token: string; bucket: string }> {
-  if (declaredBytes > MAX_VIDEO_BYTES) throw new Error(VIDEO_TOO_LARGE_ERROR);
-  await assertQuotaFor(eventId, declaredBytes);
-  const { data, error } = await createServiceRoleClient()
-    .storage.from(MEDIA_BUCKET)
-    .createSignedUploadUrl(`${PENDING_PREFIX}/${eventId}/${randomUUID()}`);
-  if (error) throw error;
-  return { path: data.path, token: data.token, bucket: MEDIA_BUCKET };
-}
-
-/** Checks an uploaded video and moves it to its final name; returns path and size. */
-async function acceptVideo(eventId: string, pendingPath: string): Promise<{ path: string; bytes: number }> {
-  if (!new RegExp(`^${PENDING_PREFIX}/${eventId}/${UUID}$`).test(pendingPath)) throw new Error(INVALID_MEDIA_UPLOAD_ERROR);
-  const object = await readObjectHead(pendingPath);
-  if (!object) throw new Error(INVALID_MEDIA_UPLOAD_ERROR);
-
-  const refuse = async (message: string): Promise<never> => {
-    await removeObject(pendingPath);
-    throw new Error(message);
-  };
-  if (object.size > MAX_VIDEO_BYTES) return refuse(VIDEO_TOO_LARGE_ERROR);
-  const extension = sniffVideoType(object.head);
-  if (!extension) return refuse(UNSUPPORTED_VIDEO_ERROR);
-  try {
-    await assertQuotaFor(eventId, object.size);
-  } catch (err) {
-    return refuse((err as Error).message);
-  }
-
-  const finalPath = `${eventId}/videos/${randomUUID()}.${extension}`;
-  const { error } = await createServiceRoleClient().storage.from(MEDIA_BUCKET).move(pendingPath, finalPath);
-  if (error) throw error;
-  return { path: finalPath, bytes: object.size };
-}
 
 export async function createGreeting(
   eventId: string,
-  input: { firstName: string; lastName: string; message: string; videoPath?: string | null },
+  input: { firstName: string; lastName: string; message: string; videoPath?: string | null; guestId?: string | null },
 ): Promise<{ id: string }> {
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const message = input.message.trim();
-  if (!firstName || !lastName) throw new Error(NAME_REQUIRED_ERROR);
+  // A guest's own greeting takes their name from the guest list, which may be one word.
+  if (!firstName || (!lastName && !input.guestId)) throw new Error(NAME_REQUIRED_ERROR);
   if (!message) throw new Error(MESSAGE_REQUIRED_ERROR);
 
   const video = input.videoPath ? await acceptVideo(eventId, input.videoPath) : null;
@@ -79,6 +43,7 @@ export async function createGreeting(
     .from("event_greetings")
     .insert({
       event_id: eventId,
+      guest_id: input.guestId ?? null,
       first_name: firstName,
       last_name: lastName,
       message,
@@ -99,7 +64,7 @@ export async function listGreetings(eventId: string, opts: { includeHidden?: boo
   const client = createServiceRoleClient();
   let query = client
     .from("event_greetings")
-    .select("id, first_name, last_name, message, video_path, hidden_at, created_at")
+    .select("id, guest_id, first_name, last_name, message, video_path, hidden_at, created_at")
     .eq("event_id", eventId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
@@ -118,6 +83,7 @@ export async function listGreetings(eventId: string, opts: { includeHidden?: boo
 
   return rows.map((r) => ({
     id: r.id,
+    guestId: r.guest_id,
     firstName: r.first_name,
     lastName: r.last_name,
     message: r.message,

@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Invitee, RsvpAnswer } from "@/lib/couple/rsvp";
+import type { InvitationGreetingState } from "@/lib/couple/invite-greetings";
+import { postJson } from "@/components/album/media-client";
+import { InvitationGreeting } from "./InvitationGreeting";
+
+const IDENTIFY_FAILED = "Нешто тргна наопаку. Обидете се повторно.";
 
 const ANSWERS: { value: RsvpAnswer; label: string }[] = [
   { value: "confirmed", label: "Ќе присуствувам" },
@@ -39,6 +44,7 @@ export function RsvpForm({
   guestToken,
   menus = [],
   titleClassName = "font-display text-lg",
+  greeting = null,
 }: {
   slug: string;
   accentColor: string;
@@ -51,6 +57,8 @@ export function RsvpForm({
   menus?: { id: string; name: string }[];
   /** The invitation template's display face for the card title. */
   titleClassName?: string;
+  /** 0151: a greeting is offered once the guest has answered; null when the package has none. */
+  greeting?: InvitationGreetingState | null;
 }) {
   const personal = Boolean(invitee && guestToken);
   const initialStatus = isAnswer(invitee?.rsvpStatus) ? invitee.rsvpStatus : null;
@@ -71,6 +79,85 @@ export function RsvpForm({
   const [savedStatus, setSavedStatus] = useState<RsvpAnswer | null>(initialStatus);
   const [justSent, setJustSent] = useState(false);
   const [editing, setEditing] = useState(!initialStatus);
+  // Who a greeting is from, set by the RSVP response (on the shared link the
+  // only way to know), and whether that guest already sent one.
+  const [greetingTicket, setGreetingTicket] = useState<{ ticket: string; sent: boolean } | null>(null);
+  // 0152: the shared link's way to unlock the greeting box before answering
+  // — typing just a name, instead of the full RSVP, gets the same kind of ticket.
+  const [identifyName, setIdentifyName] = useState("");
+  const [identifying, setIdentifying] = useState(false);
+  const [identifyError, setIdentifyError] = useState<string | null>(null);
+  const [identifyTicket, setIdentifyTicket] = useState<{ ticket: string; sent: boolean } | null>(null);
+
+  async function handleIdentify(e: React.FormEvent) {
+    e.preventDefault();
+    const name = identifyName.trim();
+    if (!name) return;
+    setIdentifying(true);
+    setIdentifyError(null);
+    try {
+      setIdentifyTicket(await postJson<{ ticket: string; sent: boolean }>(`/api/invite/${slug}/greetings/identify`, { full_name: name }, IDENTIFY_FAILED));
+    } catch (err) {
+      setIdentifyError((err as Error).message || IDENTIFY_FAILED);
+    } finally {
+      setIdentifying(false);
+    }
+  }
+
+  // Before answering: a personal link already knows the guest; the shared
+  // link needs the mini name form above first. After answering, the
+  // (!editing && savedStatus) branch below has its own version of this,
+  // fed by the RSVP response's ticket instead.
+  const preAnswerGreeting =
+    greeting?.enabled && editing ? (
+      personal ? (
+        <InvitationGreeting
+          slug={slug}
+          accentColor={accentColor}
+          coupleNames={coupleNames}
+          sender={{ guest_token: guestToken! }}
+          videoSeconds={greeting.videoSeconds}
+          alreadySent={greeting.sent}
+        />
+      ) : identifyTicket ? (
+        <InvitationGreeting
+          key={identifyTicket.ticket}
+          slug={slug}
+          accentColor={accentColor}
+          coupleNames={coupleNames}
+          sender={{ ticket: identifyTicket.ticket }}
+          videoSeconds={greeting.videoSeconds}
+          alreadySent={identifyTicket.sent}
+        />
+      ) : (
+        <form onSubmit={handleIdentify} className="mt-6 space-y-3 border-t pt-5 text-left" style={{ borderColor: accentColor }}>
+          <div className="text-center">
+            <p className="font-medium text-neutral-800">Сакате да испратите честитка пред да одговорите?</p>
+            <p className="mt-1 text-sm text-neutral-600">Внесете го вашето име:</p>
+          </div>
+          <input
+            value={identifyName}
+            onChange={(e) => setIdentifyName(e.target.value)}
+            placeholder="Вашето име"
+            aria-label="Вашето име"
+            className={inputClass}
+          />
+          {identifyError ? (
+            <p className="text-sm text-red-700" role="alert">
+              {identifyError}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={identifying || !identifyName.trim()}
+            className="min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+            style={{ borderColor: accentColor, color: accentColor }}
+          >
+            {identifying ? "…" : "Продолжи"}
+          </button>
+        </form>
+      )
+    ) : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -119,6 +206,8 @@ export function RsvpForm({
         setError(message ?? "Нешто тргна наопаку. Обидете се повторно.");
         return;
       }
+      const saved = (await response.json().catch(() => ({}))) as { greeting?: { ticket: string; sent: boolean } };
+      setGreetingTicket(saved.greeting ?? null);
       setSavedStatus(status);
       setSavedMenuCounts(menuCounts);
       setJustSent(true);
@@ -138,6 +227,21 @@ export function RsvpForm({
         : savedStatus === "declined"
           ? "Нема да присуствувате"
           : "Ќе одговорите подоцна";
+    // A personal link names the guest even before this visit's answer; the
+    // shared link only after it, through the RSVP's ticket.
+    const greetingSender = personal ? { guest_token: guestToken! } : greetingTicket ? { ticket: greetingTicket.ticket } : null;
+    const greetingBlock =
+      greeting && greetingSender ? (
+        <InvitationGreeting
+          key={greetingTicket?.ticket ?? "personal"}
+          slug={slug}
+          accentColor={accentColor}
+          coupleNames={coupleNames}
+          sender={greetingSender}
+          videoSeconds={greeting.videoSeconds}
+          alreadySent={greetingTicket?.sent ?? greeting.sent}
+        />
+      ) : null;
     return (
       <div className="mt-8 rounded-2xl border p-6 text-center" style={{ borderColor: accentColor }}>
         {justSent ? <p className="font-medium text-neutral-800">{THANKS[savedStatus]}</p> : null}
@@ -172,6 +276,7 @@ export function RsvpForm({
               setSavedMenuCounts({});
               setAllergies("");
               setComment("");
+              setGreetingTicket(null);
               setEditing(true);
             }}
             className="mt-4 min-h-11 rounded-lg border px-4 py-2 text-sm font-semibold"
@@ -180,11 +285,13 @@ export function RsvpForm({
             Одговори за друго лице
           </button>
         )}
+        {greetingBlock}
       </div>
     );
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="mt-8 space-y-5 text-left">
       <p className={`text-center ${titleClassName}`} style={{ color: accentColor, fontSize: 28, margin: 0 }}>
         Потврда за доаѓање
@@ -344,5 +451,7 @@ export function RsvpForm({
         {isSubmitting ? "Се испраќа…" : "Испрати одговор"}
       </button>
     </form>
+    {preAnswerGreeting}
+    </>
   );
 }

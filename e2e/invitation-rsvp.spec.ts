@@ -39,6 +39,11 @@ test("public invitation loads and records an RSVP", async ({ page, anonPage }) =
   await anonPage.getByRole("button", { name: "Испрати одговор" }).click();
   await expect(anonPage.getByText("Го забележавме вашето доаѓање", { exact: false })).toBeVisible();
 
+  // 0151: after answering, the guest can send the couple a greeting.
+  await anonPage.getByLabel("Порака", { exact: true }).fill("Честито и среќен живот!");
+  await anonPage.getByRole("button", { name: "Испрати честитка" }).click();
+  await expect(anonPage.getByText("Ви благодариме! Вашата честитка е испратена.")).toBeVisible();
+
   // Recorded server-side...
   const { data: guest, error } = await admin
     .from("event_guests")
@@ -54,4 +59,7 @@ test("public invitation loads and records an RSVP", async ({ page, anonPage }) =
   await page.goto("/couple/guests");
   await expect(page.getByRole("button", { name: `Детали за ${guestName}` })).toBeVisible();
   await expect(page.getByRole("combobox", { name: `Статус за ${guestName}` })).toHaveValue("confirmed");
+
+  await page.goto("/couple/greetings");
+  await expect(page.getByText("Честито и среќен живот!")).toBeVisible();
 });

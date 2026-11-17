@@ -7,12 +7,16 @@ import { assertQuotaFor } from "@/lib/media/album";
 import { MEDIA_BUCKET, PENDING_PREFIX, PHOTO_UPLOAD_BUCKET, readObjectHead, removeObject } from "@/lib/media/storage";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
-// Guests' album photos (C1, C3, C10). Uploads go browser → Storage through a
+// Guests' album photos (C1, C3, C10); since 0151 the same rows hold their
+// album videos too (lib/media/videos), so listing, hiding, deleting and the
+// download serve both. Uploads go browser → Storage through a
 // signed URL (Vercel's 4.5 MB body limit), then confirm checks the bytes, the
 // real size and the quota before the photo joins the album.
 
 export type EventPhoto = {
   id: string;
+  /** Guests add videos to the album too (0151). */
+  kind: "photo" | "video";
   url: string;
   width: number | null;
   height: number | null;
@@ -101,6 +105,7 @@ export async function confirmPhotoUpload(
 type PhotoRow = {
   id: string;
   storage_path: string;
+  mime: string;
   bytes: number;
   width: number | null;
   height: number | null;
@@ -117,7 +122,7 @@ export async function listPhotos(
   const client = createServiceRoleClient();
   let query = client
     .from("event_photos")
-    .select("id, storage_path, bytes, width, height, uploader_name, hidden_at, created_at")
+    .select("id, storage_path, mime, bytes, width, height, uploader_name, hidden_at, created_at")
     .eq("event_id", eventId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
@@ -137,6 +142,7 @@ export async function listPhotos(
 
   return rows.map((r) => ({
     id: r.id,
+    kind: r.mime.startsWith("video/") ? "video" : "photo",
     url: urls.get(r.storage_path) ?? "",
     width: r.width,
     height: r.height,
@@ -163,7 +169,7 @@ export async function deletePhoto(eventId: string, photoId: string): Promise<voi
   await drainStorageCleanupQueue().catch(() => {}); // the hourly cron retries
 }
 
-/** Every visible photo, oldest first, for "download all". */
+/** Every visible photo and video, oldest first, for "download all". */
 export async function listPhotoFiles(eventId: string): Promise<PhotoFile[]> {
   const files: PhotoFile[] = [];
   const PAGE = 1000;

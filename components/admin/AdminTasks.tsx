@@ -7,20 +7,22 @@ import type { AdminAccount, AdminTaskComment, AdminTaskRow } from "@/lib/admin/q
 import { todayIn } from "@/lib/date";
 import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_PILL } from "@/lib/support/status";
 import { commentOnAdminTask, createAdminTask, deleteAdminTask, setAdminTaskStatus } from "@/app/admin/(panel)/support/actions";
-import { ThreadMessages, ThreadReplyForm } from "@/components/support/ThreadMessages";
+import { Attachments, ThreadMessages, ThreadReplyForm } from "@/components/support/ThreadMessages";
 import { StatusButtons } from "./StatusButtons";
 
 const EVERYONE = "";
 
 export const assigneeLabel = (task: AdminTaskRow): string => (task.assignedTo === null ? "Сите админи" : (task.assignedToEmail ?? "—"));
 
-/** "New task" form: title, description and who gets it (one admin, or every admin). */
+/** "New task" form: title, description, who gets it (one admin, or every
+ * admin), and up to 5 photo/PDF attachments (0153). */
 export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedTo, setAssignedTo] = useState(EVERYONE);
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const r = await createAdminTask({ title, description, assignedTo: assignedTo === EVERYONE ? null : assignedTo });
+    const r = await createAdminTask({ title, description, assignedTo: assignedTo === EVERYONE ? null : assignedTo, files });
     setBusy(false);
     if (!r.ok) {
       setError(r.error);
@@ -37,6 +39,7 @@ export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
     setTitle("");
     setDescription("");
     setAssignedTo(EVERYONE);
+    setFiles([]);
     setOpen(false);
     router.push(`/admin/support?view=sent`);
   }
@@ -81,6 +84,19 @@ export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={5000}
+              disabled={busy}
+            />
+          </div>
+          <div className="ev-field ev-field-wide">
+            <label className="lab-s" htmlFor="task-files">
+              Прилози (фотографии или PDF, најмногу 5)
+            </label>
+            <input
+              id="task-files"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              multiple
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               disabled={busy}
             />
           </div>
@@ -156,6 +172,7 @@ export function AdminTaskDetail({
     author: c.authorEmail ?? "—",
     body: c.body,
     createdAt: c.createdAt,
+    attachments: c.attachments,
   }));
 
   return (
@@ -171,6 +188,7 @@ export function AdminTaskDetail({
             {task.completedAt ? ` · решено ${todayIn(undefined, new Date(task.completedAt))}` : ""}
           </p>
           {task.description ? <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{task.description}</p> : null}
+          <Attachments items={task.attachments} />
           {canChangeStatus ? (
             <StatusButtons status={task.status} onChange={(status) => setAdminTaskStatus({ id: task.id, status })} />
           ) : isSender ? (
@@ -213,8 +231,9 @@ export function AdminTaskDetail({
             label="Коментар"
             placeholder="Напишете коментар..."
             submitLabel="Додај коментар"
-            onSend={async (body) => {
-              const r = await commentOnAdminTask({ id: task.id, body });
+            allowFiles
+            onSend={async (body, files) => {
+              const r = await commentOnAdminTask({ id: task.id, body, files });
               setError(r.ok ? null : r.error);
               return r.ok;
             }}

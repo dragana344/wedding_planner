@@ -18,7 +18,7 @@ export default async function AdminTaskPage({ params }: { params: Promise<{ id: 
   // Same per-request cached check as the gate above; this one is for the id.
   const ctx = await requireAdmin();
   const { id } = await params;
-  const found = await getAdminTask(id);
+  const found = await getAdminTask(id, ctx.adminUserId);
   if (!found) notFound();
   return (
     <div className="wrap">

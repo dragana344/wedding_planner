@@ -86,6 +86,10 @@ Decisions taken while working through `production-tasks/`, so nobody has to redi
 9. ~~**RSVP form language**~~: done (Session 2, A18), see "Language" above.
 10. **Accessibility fixes** (A11Y.md): unlabeled inputs, muted-colour contrast, `<html lang="en">` → `mk` — approve the markup/colour changes.
 
+## 2026-11-17: unit coverage floor re-measured (admin task unread flags + attachments)
+
+Same dilution as 2026-11-16, one day later: the admin-task unread-flag and photo/PDF-attachment work added `lib/admin/task-attachments.ts` and extended `lib/admin/task-actions-core.ts`/`lib/admin/queries.ts`, all tested almost entirely in the DB suite (`tests/supabase/admin_tasks.test.ts`), not the unit suite. Re-measured: unit statements 28.38% (floor stays **28**, 0.38 margin), branches 25.06% → **24** (was 25 — 0.06 margin was as thin as the exact failure 2026-11-16 describes), functions 31.04% → **30** (was 31, same reasoning), lines 30.07% → **29** (was 30, same reasoning). Include/exclude lists unchanged. From here the floors only go up again.
+
 ## 2026-11-16: unit coverage floor re-measured (admin inbox / support tickets)
 
 The admin-inbox/support-tickets merge added several new `app/api/*/support/[id]` route files and `lib/support/**` modules whose tests live mostly in the DB suite (`tests/supabase/**`), not the unit suite — same situation as 30 Sep and 19 Oct 2026. Re-measured and rounded down/up per metric: unit statements 29.02 → **28** (one point of margin, not just rounded down to 29 — that landed exactly on the measured value with no buffer, and the next CI run measured 28.99% on Node 22 vs 29.02% locally on a newer Node, failing on noise alone), branches 25.78 → **25** (raised from 24), functions 31.42 → **31** (raised from 29), lines 30.76 → **30** (lowered from 31, the one that originally failed). Include/exclude lists unchanged. From here the floors only go up again.

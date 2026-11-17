@@ -48,7 +48,7 @@ export interface Invitee {
 }
 
 /** Same shape the column check enforces (0060); anything else is not worth a query. */
-const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
+export const INVITE_TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
 
 /**
  * The guest behind a personal invite link, or null when the token is
@@ -108,7 +108,7 @@ export interface RsvpRequester {
  * their row. An unmatched or ambiguous (2+ same-name) submission becomes a
  * new guest instead of risking an update to the wrong person.
  */
-export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester: RsvpRequester = {}): Promise<void> {
+export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester: RsvpRequester = {}): Promise<{ eventId: string; guestId: string }> {
   const client = createServiceRoleClient();
 
   const { data: invitation, error: invitationError } = await client
@@ -203,7 +203,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
     if (ANSWERS.has(guest.rsvp_status) && guest.rsvp_status !== status && eventInfo?.contact_email) {
       await notifyCoupleOfChange(eventInfo.contact_email, guest.full_name, guest.rsvp_status, status, cleanText(input.comment));
     }
-    return;
+    return { eventId: invitation.event_id, guestId: guest.id };
   }
 
   const { data: created, error: insertError } = await client
@@ -221,6 +221,7 @@ export async function submitRsvpBySlug(slug: string, input: RsvpInput, requester
   if (insertError) throw insertError;
   await replaceGuestMenuCounts(created.id, menuCounts);
   await audit(created.id, null);
+  return { eventId: invitation.event_id, guestId: created.id };
 }
 
 /** Statuses a guest has actually answered with; a change from one of these is news to the couple. */

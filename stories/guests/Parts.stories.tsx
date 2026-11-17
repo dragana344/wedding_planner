@@ -79,21 +79,21 @@ export const DayTomorrow: Story = {
 };
 
 export const AlbumAll: Story = {
-  name: "Албум: фотографии, честитки, видео",
+  name: "Албум: фотографии и видеа",
   render: () => albumPage(),
+};
+
+export const AlbumShortVideos: Story = {
+  name: "Албум: видеа до 30 секунди",
+  render: () => albumPage({ photos: true, videoSeconds: 30 }),
 };
 
 export const AlbumPhotosOnly: Story = {
   name: "Албум: само фотографии",
-  render: () => albumPage({ photos: true, greetings: false, video: false }),
-};
-
-export const AlbumNoVideo: Story = {
-  name: "Албум: фотографии и честитки, без видео",
-  render: () => albumPage({ photos: true, greetings: true, video: false }),
+  render: () => albumPage({ photos: true, videoSeconds: 0 }),
 };
 
 export const AlbumNothing: Story = {
   name: "Албум: ништо во пакетот",
-  render: () => albumPage({ photos: false, greetings: false, video: false }),
+  render: () => albumPage({ photos: false, videoSeconds: 0 }),
 };

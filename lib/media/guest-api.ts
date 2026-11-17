@@ -24,7 +24,8 @@ export const ALBUM_RATE_LIMITS = {
   /** All photo uploads to one album, whoever sends them. */
   uploadPerEvent: { bucket: "album-upload-event", limit: 3000, windowSeconds: 3600, failClosed: false },
   /**
-   * Video greetings wait unconfirmed in a 100 MB-per-file bucket, so their
+   * Videos (album videos on the QR page, greeting videos on the invitation)
+   * wait unconfirmed in a 100 MB-per-file bucket, so their
    * starts are budgeted tighter than photos' (15 MB, own bucket); the
    * per-event cap below is what bounds the storage, the per-IP one only has
    * to survive a hall full of guests behind one Wi-Fi address.
@@ -33,13 +34,25 @@ export const ALBUM_RATE_LIMITS = {
   videoUploadPerEvent: { bucket: "album-video-event", limit: 100, windowSeconds: 3600, failClosed: false },
   /** Greetings per IP per album. Guests on the venue's Wi-Fi share one IP. */
   greeting: { bucket: "greeting", limit: 10, windowSeconds: 3600, failClosed: false },
+  /** Typing a name to unlock the greeting box before answering (0152), shared-link only. */
+  greetingIdentify: { bucket: "greeting-identify", limit: 20, windowSeconds: 3600, failClosed: false },
 } satisfies Record<string, RateLimitRule>;
 
 export const albumParams = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{22,64}$/) });
 type AlbumParams = z.infer<typeof albumParams>;
 
 export const photoUploadBody = z.object({ bytes: z.number().int().min(1).max(MAX_PHOTO_BYTES + 1) });
-export const videoUploadBody = z.object({ bytes: z.number().int().min(1).max(MAX_VIDEO_BYTES + 1) });
+export const videoUploadBody = z.object({
+  bytes: z.number().int().min(1).max(MAX_VIDEO_BYTES + 1),
+  /** The length the guest's browser measured; null when it couldn't tell. */
+  seconds: z.number().min(0).max(86400).nullish(),
+});
+
+export const videoConfirmBody = z.object({
+  path: z.string().min(1).max(200),
+  consent: z.literal(true, { error: CONSENT_REQUIRED_ERROR }),
+  uploader_name: z.string().max(120).nullish(),
+});
 
 export const photoConfirmBody = z.object({
   path: z.string().min(1).max(200),
@@ -49,12 +62,23 @@ export const photoConfirmBody = z.object({
   height: z.number().int().min(1).max(20000).optional(),
 });
 
-export const greetingBody = z.object({
-  first_name: z.string().max(60),
-  last_name: z.string().max(60),
-  message: z.string().max(1000),
-  video_path: z.string().min(1).max(200).nullish(),
-});
+/** Who sends a greeting from the invitation: a personal link's token, or the RSVP's ticket (0151). */
+const greetingSender = {
+  guest_token: z.string().max(64).nullish(),
+  ticket: z.string().max(200).nullish(),
+};
+const hasSender = (b: { guest_token?: string | null; ticket?: string | null }) => Boolean(b.guest_token || b.ticket);
+
+export const invitationGreetingBody = z
+  .object({ ...greetingSender, message: z.string().max(1000), video_path: z.string().min(1).max(200).nullish() })
+  .refine(hasSender);
+
+export const invitationGreetingVideoBody = z
+  .object({ ...greetingSender, bytes: z.number().int().min(1).max(MAX_VIDEO_BYTES + 1), seconds: z.number().min(0).max(86400).nullish() })
+  .refine(hasSender);
+
+/** Shared link, before answering (0152): just a name, to get a greeting ticket. */
+export const invitationGreetingIdentifyBody = z.object({ full_name: z.string().trim().min(1).max(120) });
 
 /** 403 with the locked-feature message (admin spec §4.4). */
 export function lockedResponse(): NextResponse {

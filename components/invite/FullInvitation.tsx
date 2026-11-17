@@ -12,6 +12,7 @@ import {
 } from "next/font/google";
 import { RsvpForm } from "./RsvpForm";
 import type { Invitee } from "@/lib/couple/rsvp";
+import type { InvitationGreetingState } from "@/lib/couple/invite-greetings";
 import { CountdownTimer, DayBanner, formatMkDate, formatMkWeekday } from "./countdown";
 import { SeatFinder, seatText, type SeatView } from "./SeatFinder";
 import { COURSE_LABELS, COURSE_ORDER, mapsHref } from "@/lib/couple/invitation-program";
@@ -191,6 +192,7 @@ export function FullInvitation({
   invitee = null,
   guestToken,
   mySeat,
+  greeting = null,
 }: {
   slug: string;
   invitation: PublicInvitation;
@@ -200,6 +202,8 @@ export function FullInvitation({
   guestToken?: string;
   /** A15: the personal-link guest's table (seat null: seating not ready). */
   mySeat?: { found: boolean; seat: SeatView | null };
+  /** 0151: the greeting offered after the RSVP; null when greetings are off. */
+  greeting?: InvitationGreetingState | null;
 }) {
   const theme = THEMES[invitation.template_id] ?? THEMES["romantic-floral"];
   const target = new Date(`${invitation.event_date}T${invitation.start_time ?? "00:00:00"}`);
@@ -456,6 +460,7 @@ export function FullInvitation({
             invitee={invitee}
             guestToken={guestToken}
             menus={invitation.menus.map(({ id, name }) => ({ id, name }))}
+            greeting={greeting?.enabled ? greeting : null}
           />
         </div>
       </div>
