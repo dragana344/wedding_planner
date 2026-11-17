@@ -25,6 +25,8 @@ describe("ChecklistClient", () => {
     expect(screen.getByText("Book photographer")).toBeInTheDocument();
     expect(screen.getByText(/1 отворени/i)).toBeInTheDocument();
 
+    // Folded while there are tasks already: open it first.
+    fireEvent.click(screen.getByRole("button", { name: "Додај задача", expanded: false }));
     fireEvent.change(screen.getByLabelText("Наслов на задачата"), { target: { value: "Send invitations" } });
     // The second "Додај задача" is the submit; the first folds the card.
     fireEvent.click(screen.getAllByRole("button", { name: "Додај задача" })[1]);
@@ -184,13 +186,20 @@ describe("ChecklistClient", () => {
     expect(screen.queryByText("Order cake")).not.toBeInTheDocument();
   });
 
-  it("folds the add form away and back", () => {
+  it("starts with the add form folded when there are tasks, and opens and folds it", () => {
     global.fetch = vi.fn();
     render(<ChecklistClient coupleNames="Марко и Ана" initialItems={items} initialStats={stats} />);
-    const toggle = screen.getByRole("button", { name: "Додај задача", expanded: true });
-    fireEvent.click(toggle);
+    const toggle = screen.getByRole("button", { name: "Додај задача", expanded: false });
     expect(screen.queryByLabelText("Наслов на задачата")).not.toBeInTheDocument();
     fireEvent.click(toggle);
+    expect(screen.getByLabelText("Наслов на задачата")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText("Наслов на задачата")).not.toBeInTheDocument();
+  });
+
+  it("starts with the add form open when there are no tasks yet", () => {
+    global.fetch = vi.fn();
+    render(<ChecklistClient coupleNames="Марко и Ана" initialItems={[]} initialStats={{ ...stats, total: 0, open: 0, done: 0 }} />);
     expect(screen.getByLabelText("Наслов на задачата")).toBeInTheDocument();
   });
 

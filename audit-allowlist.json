@@ -1,0 +1,6 @@
+{
+  "GHSA-fc5q-39xc-vjpf": {
+    "reason": "picomatch ReDoS: every published version (newest 4.0.7) is affected and no patched release exists yet. Reached only through build-time tooling (Sentry's rollup plugin), which matches our own fixed file globs, never user input; it is not part of the running app. Re-check weekly and delete this entry once a patched picomatch is published.",
+    "until": "2026-12-18"
+  }
+}

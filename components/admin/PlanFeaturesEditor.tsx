@@ -33,7 +33,7 @@ export function PlanFeaturesEditor({
 
   return (
     <div>
-      <table className="s1-tbl">
+      <table className="s1-tbl s1-cards">
         <thead>
           <tr>
             <th>Функција</th>
@@ -46,12 +46,12 @@ export function PlanFeaturesEditor({
             const warn = ZERO_BLOCKS_EVERYTHING.has(f.key) && (!value.enabled || value.limit === "0");
             return (
               <tr key={f.key}>
-                <td>
+                <td data-label="Функција" className="tc-main">
                   <label>
                     <input type="checkbox" aria-label={f.label} checked={value.enabled} onChange={(e) => set(f.key, { enabled: e.target.checked })} /> {f.label}
                   </label>
                 </td>
-                <td>
+                <td data-label="Лимит">
                   {f.kind === "limit" ? (
                     <input
                       className="fld"

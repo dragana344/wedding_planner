@@ -11,6 +11,9 @@ import { listUnseenSections } from "@/lib/venue/unseen-changes";
 import { listVenueNotifications } from "@/lib/venue/notifications";
 import { errorFields, log } from "@/lib/log";
 import "./panel.css";
+import "./mobile-venue.css";
+import "./mobile-venue-dash.css";
+import "./mobile-venue-res.css";
 
 // Private area: keep out of search engines (COMP-004).
 export const metadata: Metadata = { robots: { index: false, follow: false } };

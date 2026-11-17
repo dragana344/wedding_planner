@@ -266,7 +266,7 @@ export function FullInvitation({
             }}
           >
             {sections.map((s) => (
-              <a key={s.id} href={`#${s.id}`} style={{ flex: "0 0 auto", padding: "6px 9px", fontSize: 14, color: theme.rsvpAccent, textDecoration: "none", borderRadius: 999 }}>
+              <a key={s.id} href={`#${s.id}`} style={{ flex: "1 0 auto", display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 40, padding: "6px 10px", fontSize: 14, color: theme.rsvpAccent, textDecoration: "none", borderRadius: 999 }}>
                 {s.label}
               </a>
             ))}

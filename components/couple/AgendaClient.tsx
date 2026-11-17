@@ -6,6 +6,7 @@ import type { AgendaItem } from "@/lib/couple/agenda";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { formatMkDate } from "@/lib/date";
 import { Icon } from "@/components/venue/shell/Icon";
+import { AddPanel } from "@/components/shared/AddPanel";
 import { TimeInput } from "@/components/shared/TimeInput";
 import "@/components/couple/InvitationCard.css";
 import "./AgendaClient.css";
@@ -27,6 +28,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   const [editLocation, setEditLocation] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +69,17 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   }
 
   async function handleMove(id: string, direction: "up" | "down") {
+    if (isMoving) return;
     setError(null);
+    const before = items;
+    const idx = items.findIndex((i) => i.id === id);
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= items.length) return;
+    // Move it on screen straight away; the server's order replaces it after.
+    const next = [...items];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    setItems(next);
+    setIsMoving(true);
     try {
       const updated = await jsonOrThrow(
         await fetch(`/api/couple/agenda/${id}`, {
@@ -78,7 +90,10 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
       );
       setItems(updated);
     } catch (err) {
+      setItems(before);
       setError(err instanceof Error ? err.message : "Не успеа преуредувањето.");
+    } finally {
+      setIsMoving(false);
     }
   }
 
@@ -116,14 +131,9 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2" style={{ alignItems: "start" }}>
-      <div className="panel couple-card">
-        <div className="panel-h">
-          <h2 className="panel-t">
-            <Icon name="plus" size="sm" /> Додај точка
-          </h2>
-        </div>
-        <form onSubmit={handleAdd} style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="cp-split">
+      <AddPanel title="Додај точка" defaultOpen={items.length === 0}>
+        <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
             <label className="lab-s" htmlFor="agenda-time">
               Време
@@ -159,9 +169,9 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
             {isSubmitting ? "Се додава..." : "Додади"}
           </button>
         </form>
-      </div>
+      </AddPanel>
 
-      <div className="panel couple-card invite-card">
+      <div className="panel couple-card invite-card agenda-card">
         <div className="invite-frame">
           <h2 className={`invite-title ${cormorant.className}`}>Агенда</h2>
           <p className="invite-sub">
@@ -204,13 +214,13 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
                   {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}
                 </div>
                 <div className="agenda-actions">
-                  <button type="button" onClick={() => handleMove(item.id, "up")} disabled={idx === 0} aria-label="Помести нагоре" className="agenda-icon-btn">
+                  <button type="button" onClick={() => handleMove(item.id, "up")} disabled={idx === 0 || isMoving} aria-label="Помести нагоре" className="agenda-icon-btn">
                     ↑
                   </button>
                   <button
                     type="button"
                     onClick={() => handleMove(item.id, "down")}
-                    disabled={idx === items.length - 1}
+                    disabled={idx === items.length - 1 || isMoving}
                     aria-label="Помести надолу"
                     className="agenda-icon-btn"
                   >

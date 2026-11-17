@@ -110,7 +110,7 @@ describe("Тикети за поддршка (admin tasks)", () => {
     expect(screen.getByRole("link", { name: "Испратени од мене" })).toHaveAttribute("href", "/admin/support?view=sent");
     expect(screen.getByRole("link", { name: "Отвори" })).toHaveAttribute("href", "/admin/support/t1");
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Нова задача" }));
+    fireEvent.click(screen.getByRole("button", { name: "Нова задача" }));
     const options = within(screen.getByLabelText("Испрати до")).getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual(["Сите админи (кој прв ќе ја земе)", "other@test.mk"]);
 

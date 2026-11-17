@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AddPanel } from "@/components/shared/AddPanel";
 import { useRouter } from "next/navigation";
 import {
   createVendorPartner,
@@ -62,7 +63,8 @@ function toInput(d: Draft) {
 
 export function VendorPartnersClient({ vendors }: { vendors: VendorPartner[] }) {
   const router = useRouter();
-  const [adding, setAdding] = useState(false);
+  // Bumped after each save so the add form starts empty again.
+  const [addKey, setAddKey] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -74,73 +76,73 @@ export function VendorPartnersClient({ vendors }: { vendors: VendorPartner[] }) 
   }
 
   return (
-    <section className="panel">
-      <div className="panel-h">
-        <h2 className="panel-t">Соработници</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
-          Додади соработник
-        </button>
-      </div>
-      {status ? <p className="s1-empty">{status}</p> : null}
-      {vendors.length === 0 ? <p className="s1-empty">Нема соработници. Додадете го првиот подолу.</p> : null}
-      {vendors.map((v) => (
-        <div key={v.id} className="s1-price-card">
-          <div className="s1-price-card-head">
-            <b>{v.name}</b>
-            <span className="pill">{CATEGORY_LABELS[v.category]}</span>
-            {v.is_featured ? <span className="pill p-ok">Издвоено</span> : null}
-          </div>
-          <p>
-            {v.city} — {v.short_description}
-          </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setEditingId(v.id)}>
-              Уреди
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={() => remove(v.id, v.name)}>
-              Избриши
-            </button>
-          </div>
-          {editingId === v.id ? (
-            <VendorForm
-              vendorId={v.id}
-              initial={{
-                category: v.category,
-                name: v.name,
-                city: v.city,
-                shortDescription: v.short_description,
-                fullDescription: v.full_description ?? "",
-                phone: v.phone ?? "",
-                viberPhone: v.viber_phone ?? "",
-                whatsappPhone: v.whatsapp_phone ?? "",
-                websiteUrl: v.website_url ?? "",
-                instagramUrl: v.instagram_url ?? "",
-                facebookUrl: v.facebook_url ?? "",
-                isFeatured: v.is_featured,
-              }}
-              coverPhotoPath={v.cover_photo_path}
-              galleryPhotoPaths={v.gallery_photo_paths}
-              onDone={() => {
-                setEditingId(null);
-                router.refresh();
-              }}
-            />
-          ) : null}
-        </div>
-      ))}
-      {adding ? (
+    <>
+      <AddPanel title="Додади соработник" defaultOpen={vendors.length === 0}>
         <VendorForm
+          key={addKey}
           vendorId={null}
           initial={EMPTY}
           coverPhotoPath={null}
           galleryPhotoPaths={[]}
           onDone={() => {
-            setAdding(false);
+            setAddKey((k) => k + 1);
             router.refresh();
           }}
         />
-      ) : null}
-    </section>
+      </AddPanel>
+      <section className="panel">
+        <div className="panel-h">
+          <h2 className="panel-t">Соработници</h2>
+        </div>
+        {status ? <p className="s1-empty">{status}</p> : null}
+        {vendors.length === 0 ? <p className="s1-empty">Нема соработници. Додадете го првиот погоре.</p> : null}
+        {vendors.map((v) => (
+          <div key={v.id} className="s1-price-card">
+            <div className="s1-price-card-head">
+              <b>{v.name}</b>
+              <span className="pill">{CATEGORY_LABELS[v.category]}</span>
+              {v.is_featured ? <span className="pill p-ok">Издвоено</span> : null}
+            </div>
+            <p>
+              {v.city} — {v.short_description}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setEditingId(v.id)}>
+                Уреди
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => remove(v.id, v.name)}>
+                Избриши
+              </button>
+            </div>
+            {editingId === v.id ? (
+              <VendorForm
+                vendorId={v.id}
+                initial={{
+                  category: v.category,
+                  name: v.name,
+                  city: v.city,
+                  shortDescription: v.short_description,
+                  fullDescription: v.full_description ?? "",
+                  phone: v.phone ?? "",
+                  viberPhone: v.viber_phone ?? "",
+                  whatsappPhone: v.whatsapp_phone ?? "",
+                  websiteUrl: v.website_url ?? "",
+                  instagramUrl: v.instagram_url ?? "",
+                  facebookUrl: v.facebook_url ?? "",
+                  isFeatured: v.is_featured,
+                }}
+                coverPhotoPath={v.cover_photo_path}
+                galleryPhotoPaths={v.gallery_photo_paths}
+                onDone={() => {
+                  setEditingId(null);
+                  router.refresh();
+                }}
+              />
+            ) : null}
+          </div>
+        ))}
+      </section>
+    </>
   );
 }
 

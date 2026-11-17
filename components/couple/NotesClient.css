@@ -209,12 +209,26 @@
   gap: 8px;
 }
 
+.nt .nt-back {
+  display: none;
+}
 @media (max-width: 1100px) {
   .nt .nt-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* One at a time: the list, or the note being written. */
   .nt .nt-editor {
-    order: -1;
+    display: none;
+  }
+  .nt .nt-grid.is-editing .nt-editor {
+    display: flex;
+  }
+  .nt .nt-grid.is-editing .nt-list {
+    display: none;
+  }
+  .nt .nt-back {
+    display: inline-flex;
+    align-self: flex-start;
   }
 }
 @media (max-width: 640px) {

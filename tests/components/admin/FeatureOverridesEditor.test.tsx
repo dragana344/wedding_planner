@@ -32,4 +32,16 @@ describe("FeatureOverridesEditor", () => {
     expect(screen.getByLabelText("Резервации")).toBeInTheDocument();
     expect(screen.getAllByRole("row").length).toBe(FEATURE_KEYS.length + 1);
   });
+
+  it("folds a feature's edit fields behind 'Уреди' on phones (row class only — CSS does the hiding)", () => {
+    const onSave = vi.fn(async () => ({ ok: true as const, data: null }));
+    render(<FeatureOverridesEditor scope="event" features={features} overrides={[]} onSave={onSave} />);
+    const toggle = screen.getByRole("button", { name: "Уреди Распоред на седење" });
+    const row = toggle.closest("tr")!;
+    expect(row).not.toHaveClass("is-open");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(row).toHaveClass("is-open");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
 });

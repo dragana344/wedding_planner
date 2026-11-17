@@ -5,7 +5,15 @@ import { getVenueDetail, getVenueOverrides, listPlans } from "@/lib/admin/querie
 import { getVenueFeatures } from "@/lib/entitlements/server";
 import { VenueAdminPanels } from "@/components/admin/VenueAdminPanels";
 import { BackButton } from "@/components/admin/BackButton";
-import { todayIn } from "@/lib/date";
+import { formatMkDate, todayIn } from "@/lib/date";
+
+const STATUS_LABEL: Record<string, string> = {
+  preparation: "Подготовка",
+  confirmed: "Потврден",
+  in_progress: "Во тек",
+  completed: "Завршен",
+  cancelled: "Откажан",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +37,7 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
         {venue.events.length === 0 ? (
           <p className="s1-empty">Нема настани за овој локал.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Датум</th>
@@ -40,11 +48,11 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
             <tbody>
               {venue.events.map((e) => (
                 <tr key={e.id} className={e.date < today ? "row-past" : undefined}>
-                  <td>{e.date}</td>
-                  <td>
+                  <td data-label="Датум">{formatMkDate(e.date)}</td>
+                  <td data-label="Пар" className="tc-main">
                     <Link href={`/admin/events/${e.id}`}>{e.coupleNames}</Link>
                   </td>
-                  <td>{e.status}</td>
+                  <td data-label="Статус">{STATUS_LABEL[e.status] ?? e.status}</td>
                 </tr>
               ))}
             </tbody>

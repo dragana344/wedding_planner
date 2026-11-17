@@ -55,7 +55,8 @@ import { getVenueLogoUrl } from "@/lib/venue/venue-profile";
 import { Modal } from "./Modal";
 import { TableTypeForm } from "@/components/venue/TableTypeForm";
 
-const ZOOM_MIN = 0.6;
+// Low enough to see a big hall whole on a phone.
+const ZOOM_MIN = 0.15;
 const ZOOM_MAX = 1.4;
 const ZOOM_STEP = 0.15;
 
@@ -206,12 +207,34 @@ export function RoomFloorPlanPage({
   // re-fit after saving new dimensions below still work from there.
   const [zoom, setZoom] = useState(1);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  /** The zoom that shows the whole room: its width always; on a phone also
+   * its height, so nothing is off screen. */
+  function wholeRoomZoom(w: number, h: number): number {
     const el = canvasWrapRef.current;
-    if (!el) return;
-    setZoom(fitZoom(widthCm, PX_PER_CM, el.clientWidth, ZOOM_MIN));
+    if (!el) return 1;
+    const cs = getComputedStyle(el);
+    const inner = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const byWidth = fitZoom(w, PX_PER_CM, inner, ZOOM_MIN);
+    if (window.innerWidth > 900) return byWidth;
+    return Math.min(byWidth, fitZoom(h, PX_PER_CM, window.innerHeight * 0.6, ZOOM_MIN));
+  }
+  useEffect(() => {
+    setZoom(wholeRoomZoom(widthCm, heightCm));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id]);
+  // The box around the canvas follows the zoom: a CSS scale alone leaves the
+  // full-size footprint behind it as empty space.
+  const canvasZoomRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = canvasZoomRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setCanvasSize({ w: el.offsetWidth, h: el.offsetHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -653,9 +676,7 @@ export function RoomFloorPlanPage({
       setDimensionsSaved(true);
       // The room's own width just changed, so the zoom level that fit before
       // may not anymore — re-fit rather than leaving a now-wrong zoom in place.
-      if (canvasWrapRef.current) {
-        setZoom(fitZoom(nextWidthCm, PX_PER_CM, canvasWrapRef.current.clientWidth, ZOOM_MIN));
-      }
+      setZoom(wholeRoomZoom(nextWidthCm, nextHeightCm));
     } catch (err) {
       setDimensionsError(errorMessage(err, "Не успеа зачувувањето на големината. Обидете се повторно."));
     }
@@ -1082,6 +1103,9 @@ export function RoomFloorPlanPage({
               <Icon name="plus" size="sm" />
             </button>
           </div>
+          <button type="button" className="btn btn-ghost rp-fit" onClick={() => setZoom(wholeRoomZoom(widthCm, heightCm))}>
+            <Icon name="resize" size="sm" /> Цела сала
+          </button>
           <button type="button" className="btn btn-ghost" onClick={toggleFullscreen}>
             <Icon name="expand" size="sm" /> {isFullscreen ? "Излез од цел екран" : "Цел екран"}
           </button>
@@ -1119,7 +1143,8 @@ export function RoomFloorPlanPage({
               </button>
             </div>
           ) : null}
-          <div className="qb-canvas-zoom" style={{ transform: `scale(${zoom})` }}>
+          <div className="rp-canvas-sizer" style={canvasSize ? { width: canvasSize.w * zoom, height: canvasSize.h * zoom } : undefined}>
+          <div ref={canvasZoomRef} className="qb-canvas-zoom" style={{ transform: `scale(${zoom})` }}>
             <FloorPlanCanvas
               widthCm={widthCm}
               heightCm={heightCm}
@@ -1132,6 +1157,7 @@ export function RoomFloorPlanPage({
               onDelete={handleDelete}
               watermarkUrl={logoUrl}
             />
+          </div>
           </div>
         </div>
       </section>

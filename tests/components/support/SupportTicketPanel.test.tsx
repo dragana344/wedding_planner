@@ -35,6 +35,9 @@ describe("SupportTicketPanel", () => {
     const newTicket = ticket({ id: "t2", problem: "Нов проблем", status: "new" });
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true, ticket: newTicket }) });
 
+    // With past tickets the form starts folded behind its "+" header.
+    expect(screen.queryByLabelText(/^Име/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Пријавете проблем" }));
     fireEvent.change(screen.getByLabelText(/^Име/), { target: { value: "Ана" } });
     fireEvent.change(screen.getByLabelText(/Проблем/), { target: { value: "Нов проблем" } });
     fireEvent.change(screen.getByLabelText(/Опис/), { target: { value: "Опис на новиот проблем" } });

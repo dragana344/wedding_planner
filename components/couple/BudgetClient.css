@@ -294,7 +294,8 @@
 }
 
 /* Add-item card */
-.bg .bg-add .bg-card-head {
+.bg .bg-add .bg-card-head,
+.bg .bg-suggestions > .bg-card-head {
   padding: 0;
 }
 .bg .bg-add-toggle {
@@ -387,8 +388,15 @@
   .bg .bg-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* One column: add form, then the expenses, then the suggestions. */
   .bg .bg-side {
+    display: contents;
+  }
+  .bg .bg-add {
     order: -1;
+  }
+  .bg .bg-suggestions {
+    order: 1;
   }
 }
 @media (max-width: 640px) {
@@ -397,6 +405,12 @@
   }
   .bg .bg-score-num {
     font-size: 34px;
+    white-space: nowrap;
+  }
+  .bg .bg-score,
+  .bg .bg-secondary {
+    flex-wrap: wrap;
+    row-gap: 0;
   }
   .bg .bg-secondary-num {
     font-size: 22px;

@@ -7,6 +7,15 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AdminBadgeCounts } from "@/lib/admin/queries";
 import { ADMIN_NAV, matchAdminNav } from "./nav";
+import { useDrawer } from "@/components/venue/shell/useDrawer";
+import { BottomTabBar } from "@/components/shared/BottomTabBar";
+
+const TAB_ITEMS: { href: string; label: string; badge?: "inbox" | "tasks" }[] = [
+  { href: "/admin", label: "Преглед" },
+  { href: "/admin/venues", label: "Локали" },
+  { href: "/admin/messages", label: "Пораки", badge: "inbox" },
+  { href: "/admin/support", label: "Тикети", badge: "tasks" },
+];
 
 export function AdminShell({ children, badges }: { children: React.ReactNode; badges?: AdminBadgeCounts }) {
   const pathname = usePathname();
@@ -14,6 +23,15 @@ export function AdminShell({ children, badges }: { children: React.ReactNode; ba
   // nav use "/admin/venues" (proxy.ts rewrites one to the other), so a page
   // opened directly or refreshed has no "/admin" prefix to match on.
   const active = matchAdminNav(pathname.startsWith("/admin") ? pathname : `/admin${pathname === "/" ? "" : pathname}`);
+
+  const { open: drawerOpen, toggle: toggleDrawer, close: closeDrawer, drawerRef, buttonRef } = useDrawer();
+  const tabs = TAB_ITEMS.map((t) => ({
+    href: t.href,
+    label: t.label,
+    icon: ADMIN_NAV.find((i) => i.href === t.href)!.icon,
+    active: active.href === t.href,
+    badge: t.badge && badges ? badges[t.badge] : undefined,
+  }));
 
   async function signOut() {
     await createBrowserSupabaseClient().auth.signOut({ scope: "local" });
@@ -28,7 +46,7 @@ export function AdminShell({ children, badges }: { children: React.ReactNode; ba
     <div className="vp app">
       <IconSprite />
 
-      <aside className="side">
+      <aside id="panel-nav" ref={drawerRef} className={`side${drawerOpen ? " open" : ""}`}>
         <div className="brand">
           <svg className="mark" width="40" height="40" viewBox="0 0 42 42" aria-hidden>
             <path d="M21 4 34 15.5 21 38 8 15.5 21 4Z" fill="#E0B44E" />
@@ -62,6 +80,8 @@ export function AdminShell({ children, badges }: { children: React.ReactNode; ba
         </nav>
       </aside>
 
+      {drawerOpen && <div className="scrim" onClick={closeDrawer} aria-hidden />}
+
       <div className="main">
         <header className="top">
           <div className="title-wrap">
@@ -78,6 +98,14 @@ export function AdminShell({ children, badges }: { children: React.ReactNode; ba
 
         {children}
       </div>
+
+      <BottomTabBar
+        items={tabs}
+        moreOpen={drawerOpen}
+        moreActive={!tabs.some((t) => t.active)}
+        onMore={toggleDrawer}
+        moreRef={buttonRef}
+      />
     </div>
   );
 }

@@ -134,9 +134,9 @@ export function ReminderPanel({
       ) : null}
 
       {share.slug && toRemind.length > 0 ? (
-        <>
-          <h3 style={{ fontSize: 14, margin: "6px 0 0" }}>Прати рачно ({toRemind.length})</h3>
-          <ul aria-label="Прати рачно" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <details className="cg-remind">
+          <summary>Прати рачно ({toRemind.length})</summary>
+          <ul aria-label="Прати рачно" className="cg-remind-list">
             {toRemind.map((g) => {
               const links = shareLinks(
                 g.phone,
@@ -151,9 +151,9 @@ export function ReminderPanel({
                 }),
               );
               return (
-                <li key={g.id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                  <strong style={{ fontWeight: 600 }}>{g.full_name}</strong>
-                  <span style={{ display: "flex", gap: 6 }}>
+                <li key={g.id}>
+                  <strong>{g.full_name}</strong>
+                  <span className="cg-remind-links">
                     <a href={links.whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
                       WhatsApp
                     </a>
@@ -165,7 +165,7 @@ export function ReminderPanel({
               );
             })}
           </ul>
-        </>
+        </details>
       ) : null}
     </section>
   );

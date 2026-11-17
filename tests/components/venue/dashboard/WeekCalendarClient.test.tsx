@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { WeekCalendarClient } from "@/components/venue/dashboard/WeekCalendarClient";
 import type { EventDetail } from "@/lib/venue/events";
 
@@ -124,5 +124,37 @@ describe("WeekCalendarClient — room colors", () => {
     expect(colorOf("=a")).toBe("rgb(201, 153, 47)");
     expect(colorOf("=b")).toBe("rgb(37, 99, 235)");
     expect(colorOf("=c")).toBe("rgb(139, 143, 153)");
+  });
+});
+
+describe("WeekCalendarClient on a phone", () => {
+  const desktopMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((query: string) => ({ ...desktopMatchMedia(query), matches: true })) as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = desktopMatchMedia;
+    };
+  });
+
+  it("lists the day's events instead of an hour grid, with an empty state", () => {
+    const { unmount } = render(<WeekCalendarClient rooms={[]} events={[]} totalCapacity={0} />);
+    expect(screen.getByText("Нема настани овој ден.")).toBeInTheDocument();
+    expect(screen.queryByText("07:00")).not.toBeInTheDocument();
+    unmount();
+
+    render(<WeekCalendarClient rooms={[]} events={[baseEvent({ start_time: "18:00:00", end_time: "23:00:00" })]} totalCapacity={0} />);
+    const row = screen.getByRole("link", { name: /Ана и Петар/ });
+    expect(row).toHaveTextContent("18:00");
+    expect(row).toHaveTextContent("Потврден");
+  });
+
+  it("folds the filters behind 'Филтри' and counts the active ones", () => {
+    render(<WeekCalendarClient rooms={[]} events={[]} totalCapacity={0} />);
+    const toggle = screen.getByRole("button", { name: "Филтри" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    fireEvent.change(screen.getByDisplayValue("Сите статуси"), { target: { value: "confirmed" } });
+    expect(screen.getByRole("button", { name: "Филтри (1)" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("link", { name: /Нов настан/ })).toHaveLength(1);
   });
 });

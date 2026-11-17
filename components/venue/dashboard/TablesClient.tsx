@@ -53,7 +53,7 @@ export function TablesClient({
         </button>
       </div>
 
-      <section className="tiles" aria-label="Преглед" style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
+      <section className="tiles tiles-compact" aria-label="Преглед" style={{ gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
         <div className="tile">
           <span className="badge"><Icon name="pin" size="lg" /></span>
           <div>

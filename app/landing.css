@@ -332,9 +332,9 @@
 /* faq */
 .lp .faq { display: grid; gap: 12px; max-width: 960px; }
 .lp .faq details { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 0 22px; }
-.lp .faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; font-weight: 700; }
+.lp .faq summary { cursor: pointer; list-style: none; overflow-x: clip; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 18px; font-weight: 700; }
 .lp .faq summary::-webkit-details-marker { display: none; }
-.lp .faq summary::after { content: "+"; font: 600 22px/1 var(--f-display); color: var(--red); transition: transform 0.2s; }
+.lp .faq summary::after { content: "+"; flex: none; width: 18px; text-align: center; font: 600 22px/1 var(--f-display); color: var(--red); transition: transform 0.2s; }
 .lp .faq details[open] summary::after { transform: rotate(45deg); }
 .lp .faq details p { color: var(--muted); padding-bottom: 18px; max-width: 64ch; }
 
@@ -716,4 +716,19 @@
   .lp .vps-tile-label { left: 10px; right: 10px; bottom: 10px; font-size: 12.5px; }
   .lp .vps-tile-arrow { display: none; }
   .lp .vps-foot { justify-content: center; text-align: center; }
+}
+
+/* Phones: 16px fields so iOS doesn't zoom the page on every tap, and
+   roomier tap targets for the small text links/buttons. */
+@media (max-width: 880px) {
+  .lp .auth-card .fld,
+  .lp .contact-form input,
+  .lp .contact-form textarea {
+    font-size: 16px;
+  }
+  .lp .auth-card .auth-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
 }

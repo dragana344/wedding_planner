@@ -46,7 +46,8 @@ jobs:
       - name: Bundle size (PERF-003, informational)
         run: npm run bundle:report -- --markdown >> "$GITHUB_STEP_SUMMARY"
 
-  # SEC-011: high/critical vulnerabilities in production dependencies fail CI.
+  # SEC-011: high/critical vulnerabilities in production dependencies fail CI,
+  # except time-limited, documented entries in audit-allowlist.json.
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -56,7 +57,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - run: npm audit --omit=dev --audit-level=high
+      - run: node scripts/audit-gate.mjs
 
   # SEC-011: committed secrets anywhere in history fail CI.
   secret-scan:

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describeChange } from "@/lib/changes/format";
 import { SECTIONS_FOR_VIEWER, SECTION_LABELS } from "@/lib/changes/rules";
 import type { ChangeSection } from "@/lib/changes/types";
-import { todayIn } from "@/lib/date";
+import { formatMkDate, todayIn } from "@/lib/date";
 import { type NotificationColor, venueKindColor } from "@/lib/notification-colors";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -85,7 +85,7 @@ type AuditRow = {
 /** The event date (event_deleted) and/or which manager did it, joined for display. */
 function detailFor(row: AuditRow): string | null {
   const d = row.details ?? {};
-  const parts = [row.action === "event_deleted" && typeof d.event_date === "string" ? d.event_date : null, row.manager_name ? `од ${row.manager_name}` : null];
+  const parts = [row.action === "event_deleted" && typeof d.event_date === "string" ? formatMkDate(d.event_date) : null, row.manager_name ? `од ${row.manager_name}` : null];
   const joined = parts.filter(Boolean).join(" · ");
   return joined || null;
 }
@@ -155,7 +155,7 @@ export async function listVenueNotifications(
     unseen: false,
     eventId: e.id,
     title: `Нов настан: ${e.couple_names}`,
-    detail: e.event_date,
+    detail: `Датум: ${formatMkDate(e.event_date)}`,
   }));
 
   const fromCouple = wantCouple

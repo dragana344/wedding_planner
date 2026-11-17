@@ -62,7 +62,7 @@ function PlanDetailsForm({ plan }: { plan: PlanRow }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end", padding: "0 20px 16px" }}>
+    <form onSubmit={submit} className="adm-inline-form" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end", padding: "0 20px 16px" }}>
       <div>
         <label className="lab-s" htmlFor="plan-name">
           Име

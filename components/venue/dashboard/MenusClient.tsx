@@ -82,7 +82,7 @@ export function MenusClient({
   return (
     <div className="wrap">
       <section
-        className="tiles"
+        className="tiles tiles-compact"
         style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}
       >
         <div className="tile">
@@ -115,7 +115,7 @@ export function MenusClient({
       </section>
 
       <section className="panel">
-        <div className="panel-h">
+        <div className="panel-h mp-head">
           <h2 className="panel-t">Мени / Пакети</h2>
           <div className="seg">
             <button

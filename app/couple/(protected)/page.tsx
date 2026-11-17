@@ -90,7 +90,7 @@ export default async function CoupleDashboardPage() {
                 <div key={item.id} className="up-row">
                   <span>
                     <b>{item.title}</b>
-                    <span>{item.time ?? "Нема поставено време"}</span>
+                    <span>{item.time ? item.time.slice(0, 5) : "Нема поставено време"}</span>
                   </span>
                 </div>
               ))}

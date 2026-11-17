@@ -52,3 +52,19 @@ if (typeof window !== "undefined" && typeof window.PointerEvent === "undefined")
 if (typeof Element !== "undefined" && typeof Element.prototype.scrollIntoView === "undefined") {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// jsdom does not implement matchMedia. Default: a desktop-width screen (no
+// media query matches); a test can replace window.matchMedia to act as a phone.
+if (typeof window !== "undefined" && typeof window.matchMedia === "undefined") {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}

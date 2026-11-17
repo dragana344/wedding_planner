@@ -37,6 +37,12 @@ function formatDate(iso: string) {
   const d = new Date(`${iso}T00:00:00`);
   return `${d.getDate()} ${MK_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+/** "23 Ное 2026", or "23 Ное" within the current year (phone event rows). */
+function formatShortDate(iso: string) {
+  const d = new Date(`${iso}T00:00:00`);
+  const day = `${d.getDate()} ${MK_MONTHS[d.getMonth()].slice(0, 3)}`;
+  return d.getFullYear() === new Date().getFullYear() ? day : `${day} ${d.getFullYear()}`;
+}
 function weekdayName(iso: string) {
   return MK_DAYS[new Date(`${iso}T00:00:00`).getDay()];
 }
@@ -176,7 +182,7 @@ export function EventsClient({
   const page = usePaged(visible, `${filter}|${query}`);
 
   return (
-    <div className="wrap">
+    <div className="wrap evp">
       <div className="actions">
         <Link className="btn btn-gold" href="/venue/events/new">
           <Icon name="plus" />
@@ -184,8 +190,8 @@ export function EventsClient({
         </Link>
       </div>
 
-      <section className="tiles" aria-label="Преглед">
-        <div className="tile">
+      <section className="tiles tiles-compact" aria-label="Преглед">
+        <div className="tile evp-desk">
           <span className="badge"><Icon name="cal" size="lg" /></span>
           <div>
             <div className="num">{stats.total}</div>
@@ -199,7 +205,7 @@ export function EventsClient({
             <div className="lab">Претстојни<span>идни настани</span></div>
           </div>
         </div>
-        <div className="tile">
+        <div className="tile evp-desk">
           <span className="badge"><Icon name="check" size="lg" /></span>
           <div>
             <div className="num">{stats.today}</div>
@@ -222,7 +228,7 @@ export function EventsClient({
         </div>
       </section>
 
-      <div className="bar">
+      <div className="bar ev-bar">
         <div className="chips" role="group" aria-label="Филтри">
           {FILTERS.map((f) => (
             <button
@@ -248,7 +254,7 @@ export function EventsClient({
         </div>
       </div>
 
-      <section className="panel">
+      <section className="panel ev-list">
         <div className="scroll">
           <div className="grid">
             <div className="row head" style={{ gridTemplateColumns: "minmax(330px, 1.55fr) minmax(190px, 0.85fr) minmax(215px, 0.95fr) 150px" }}>
@@ -293,6 +299,16 @@ export function EventsClient({
                         {event.unseenSections.includes("menu_numbers") ? <span className="ev-hint">Нови бројки</span> : null}
                       </div>
                       <div className="kind">{type.label}</div>
+                      <div className="evp-mline">
+                        {[
+                          formatShortDate(event.event_date),
+                          event.guest_count_estimate != null ? `${event.guest_count_estimate} гости` : null,
+                          roomNames || null,
+                          type.label,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
                       {event.guest_count_estimate != null ? (
                         <div className="guests">
                           <Icon name="users" size="sm" />

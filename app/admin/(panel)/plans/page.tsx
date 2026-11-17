@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin/guard";
 import Link from "next/link";
 import { listPlans } from "@/lib/admin/queries";
 import { CreatePlanForm } from "@/components/admin/CreatePlanForm";
+import { AddPanel } from "@/components/shared/AddPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,20 +11,15 @@ export default async function PlansPage() {
   const plans = await listPlans();
   return (
     <div className="wrap">
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Ново ниво</h2>
-        </div>
-        <div style={{ padding: "0 20px 16px" }}>
-          <CreatePlanForm />
-        </div>
-      </section>
+      <AddPanel title="Ново ниво" defaultOpen={plans.length === 0}>
+        <CreatePlanForm />
+      </AddPanel>
 
       <section className="panel">
         {plans.length === 0 ? (
           <p className="s1-empty">Нема дефинирани нивоа.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Ниво</th>
@@ -35,12 +31,12 @@ export default async function PlansPage() {
             <tbody>
               {plans.map((p) => (
                 <tr key={p.id}>
-                  <td>
+                  <td data-label="Ниво" className="tc-main">
                     <Link href={`/admin/plans/${p.id}`}>{p.name}</Link>
                   </td>
-                  <td>{p.isDefault ? "Да" : "—"}</td>
-                  <td>{p.isPublic ? "Да" : "—"}</td>
-                  <td>{p.venueCount}</td>
+                  <td data-label="Стандардно">{p.isDefault ? "Да" : "—"}</td>
+                  <td data-label="Јавно">{p.isPublic ? "Да" : "—"}</td>
+                  <td data-label="Локали">{p.venueCount}</td>
                 </tr>
               ))}
             </tbody>

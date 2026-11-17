@@ -15,7 +15,7 @@ function formatDateTime(iso: string) {
 
 function WeeksTable({ weeks }: { weeks: { week: string; count: number }[] }) {
   return (
-    <table className="s1-tbl">
+    <table className="s1-tbl s1-cards">
       <thead>
         <tr>
           <th>Недела од</th>
@@ -25,8 +25,8 @@ function WeeksTable({ weeks }: { weeks: { week: string; count: number }[] }) {
       <tbody>
         {weeks.map((w) => (
           <tr key={w.week}>
-            <td>{formatMkDate(w.week)}</td>
-            <td>{w.count}</td>
+            <td data-label="Недела од" className="tc-main">{formatMkDate(w.week)}</td>
+            <td data-label="Нови локали">{w.count}</td>
           </tr>
         ))}
       </tbody>
@@ -37,7 +37,7 @@ function WeeksTable({ weeks }: { weeks: { week: string; count: number }[] }) {
 function ActionsTable({ rows }: { rows: { id: number; occurredAt: string; action: string }[] }) {
   if (rows.length === 0) return <p className="s1-empty">Нема акции во избраниот период.</p>;
   return (
-    <table className="s1-tbl">
+    <table className="s1-tbl s1-cards">
       <thead>
         <tr>
           <th>Кога</th>
@@ -47,8 +47,8 @@ function ActionsTable({ rows }: { rows: { id: number; occurredAt: string; action
       <tbody>
         {rows.map((r) => (
           <tr key={r.id}>
-            <td>{formatDateTime(r.occurredAt)}</td>
-            <td>{r.action}</td>
+            <td data-label="Кога">{formatDateTime(r.occurredAt)}</td>
+            <td data-label="Акција" className="tc-main">{r.action}</td>
           </tr>
         ))}
       </tbody>
@@ -160,7 +160,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         {audit.rows.length === 0 ? (
           <p className="s1-empty">Нема забележани акции.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Кога</th>
@@ -170,8 +170,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             <tbody>
               {audit.rows.slice(0, 20).map((r) => (
                 <tr key={r.id}>
-                  <td>{formatDateTime(r.occurredAt)}</td>
-                  <td>{r.action}</td>
+                  <td data-label="Кога">{formatDateTime(r.occurredAt)}</td>
+                  <td data-label="Акција" className="tc-main">{r.action}</td>
                 </tr>
               ))}
             </tbody>

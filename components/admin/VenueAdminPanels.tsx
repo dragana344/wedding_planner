@@ -47,7 +47,7 @@ export function VenueAdminPanels({
         {venue.staff.length === 0 ? (
           <p className="s1-empty" style={{ padding: "0 20px 16px" }}>Нема најава за овој локал.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Е-пошта (најава)</th>
@@ -58,8 +58,8 @@ export function VenueAdminPanels({
             <tbody>
               {venue.staff.map((s) => (
                 <tr key={s.userId}>
-                  <td>{s.email}</td>
-                  <td>{s.lastSignInAt?.slice(0, 10) ?? "—"}</td>
+                  <td data-label="Е-пошта (најава)" className="tc-main">{s.email}</td>
+                  <td data-label="Последна најава">{s.lastSignInAt?.slice(0, 10) ?? "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <ActionButton label="Ресетирај лозинка" action={() => sendStaffPasswordReset({ venueId: venue.id, userId: s.userId })} />
@@ -101,7 +101,7 @@ export function VenueAdminPanels({
         {venue.managers.length === 0 ? (
           <p className="s1-empty">Нема менаџери.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Име</th>
@@ -171,10 +171,10 @@ function ManagerRow({ venueId, manager }: { venueId: string; manager: { id: stri
 
   return (
     <tr>
-      <td>{manager.name}</td>
-      <td>{manager.isOwner ? "Сопственик" : "Менаџер"}</td>
+      <td data-label="Име" className="tc-main">{manager.name}</td>
+      <td data-label="Улога">{manager.isOwner ? "Сопственик" : "Менаџер"}</td>
       <td>
-        <form onSubmit={submit} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <form onSubmit={submit} className="adm-inline-form" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input
             type="text"
             className="fld"
@@ -236,7 +236,7 @@ function RenameForm({ venueId, initialName }: { venueId: string; initialName: st
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8, alignItems: "end", padding: "0 20px 16px" }}>
+    <form onSubmit={submit} className="adm-inline-form" style={{ display: "flex", gap: 8, alignItems: "end", padding: "0 20px 16px" }}>
       <div>
         <label className="lab-s" htmlFor="venue-name">
           Име на локалот

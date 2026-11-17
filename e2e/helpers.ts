@@ -63,7 +63,8 @@ export async function signUpVenue(page: Page): Promise<VenueAccount> {
   await page.getByRole("button", { name: "Регистрирај се" }).click();
 
   await page.waitForURL((url) => url.pathname === "/venue", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Преглед на неделата" })).toBeVisible();
+  // The page title, not a dashboard card: some cards are hidden on phones.
+  await expect(page.getByRole("heading", { level: 1, name: "КОНТРОЛНА ТАБЛА" })).toBeVisible();
   return account;
 }
 
