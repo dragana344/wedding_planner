@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 import { elevateAsOwner, setUpCouple, signUpVenue, type VenueAccount } from "./helpers";
 
 // D1: every panel page is usable on a 390 px phone — no sideways scrolling of
-// the page itself — and the navigation lives in a drawer behind "Мени".
+// the page itself — with a bottom tab bar whose "Повеќе" opens the full menu.
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 // Many pages per test, each prefetching the whole nav: more than the default minute on a busy machine.
@@ -23,7 +23,7 @@ async function expectNoHorizontalScroll(page: Page, path: string, account?: Venu
   expect(overflow, `${path} scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
 }
 
-test("venue panel fits a phone and opens its menu as a drawer", async ({ page }) => {
+test("venue panel fits a phone and navigates from the bottom bar", async ({ page }) => {
   const account = await signUpVenue(page);
   for (const path of [
     "/venue", "/venue/calendar", "/venue/reservations", "/venue/events", "/venue/events/new",
@@ -33,13 +33,18 @@ test("venue panel fits a phone and opens its menu as a drawer", async ({ page })
   }
 
   await page.goto("/venue");
-  const menu = page.getByRole("button", { name: "Мени" });
+  const bar = page.getByRole("navigation", { name: "Брза навигација" });
+  await bar.getByRole("link", { name: "Календар" }).click();
+  await page.waitForURL("**/venue/calendar");
+  await expect(bar.getByRole("link", { name: "Календар" })).toHaveAttribute("aria-current", "page");
+
+  const menu = page.getByRole("button", { name: "Повеќе" });
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#panel-nav")).not.toBeInViewport();
   await menu.click();
   await expect(page.locator("#panel-nav")).toBeInViewport();
-  await page.locator("#panel-nav").getByRole("link", { name: "Резервации" }).click();
-  await page.waitForURL("**/venue/reservations");
+  await page.locator("#panel-nav").getByRole("link", { name: "Известувања" }).click();
+  await page.waitForURL("**/venue/notifications");
   await expect(page.locator("#panel-nav")).not.toBeInViewport();
 });
 

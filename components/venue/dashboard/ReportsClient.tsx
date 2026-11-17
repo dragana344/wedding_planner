@@ -6,11 +6,14 @@ import { STATUS_META, TYPE_META } from "@/lib/venue/event-display";
 import type { ReportData, ReportFilters } from "@/lib/venue/reports";
 import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 
-const MONTH = new Intl.DateTimeFormat("mk-MK", { month: "long", year: "numeric", timeZone: "UTC" });
+// Spelled out rather than Intl: browsers without Macedonian month data
+// (some phone/headless builds) print "2026 M07" instead of a name.
+const MONTHS = ["јануари", "февруари", "март", "април", "мај", "јуни", "јули", "август", "септември", "октомври", "ноември", "декември"];
 const NUMBER = new Intl.NumberFormat("de-DE"); // 230.000 — the dot grouping used for денари
 
 function monthLabel(month: string): string {
-  return MONTH.format(new Date(`${month}-01T00:00:00Z`)).replace(/\s*г\.?$/, "");
+  const [year, mm] = month.split("-");
+  return `${MONTHS[Number(mm) - 1]} ${year}`;
 }
 
 function money(n: number): string {
@@ -157,7 +160,7 @@ export function ReportsClient({
         {reportError ? <p role="alert" style={{ margin: "0 20px 16px" }}>{reportError}</p> : null}
       </section>
 
-      <section className="tiles" aria-label="Вкупно" aria-busy={isLoading} style={isLoading ? { opacity: 0.55 } : undefined}>
+      <section className="tiles tiles-compact" aria-label="Вкупно" aria-busy={isLoading} style={isLoading ? { opacity: 0.55 } : undefined}>
         <div className="tile">
           <div>
             <div className="num">{totals.events}</div>

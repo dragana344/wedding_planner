@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin/guard";
+import { FilterBar } from "@/components/admin/FilterBar";
 import Link from "next/link";
 import { listAudit } from "@/lib/admin/queries";
 import { VENUE_TIME_ZONE } from "@/lib/date";
@@ -45,30 +46,38 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       {/* defaultValues come from the *validated* filters, not raw
           searchParams: an invalid/dropped value (a bad UUID, an unknown
           actor, a nonsense date) never gets echoed back into the form. */}
-      <form className="bar" aria-label="Филтер на дневникот">
-        <input className="fld" name="action" defaultValue={filters.action} placeholder="Акција" aria-label="Акција" />
-        <select className="fld" name="actor" defaultValue={filters.actorType ?? ""} aria-label="Актер">
-          <option value="">Сите актери</option>
-          {ACTOR_TYPES.map((a) => (
-            <option key={a} value={a}>
-              {ACTOR_LABELS[a]}
-            </option>
-          ))}
-        </select>
-        <input className="fld" name="venue" defaultValue={filters.venueId} placeholder="ID на локал" aria-label="ID на локал" />
-        <input className="fld" name="event" defaultValue={filters.eventId} placeholder="ID на настан" aria-label="ID на настан" />
-        <input type="date" className="fld" name="from" defaultValue={filters.from} aria-label="Од датум" />
-        <input type="date" className="fld" name="to" defaultValue={filters.to} aria-label="До датум" />
-        <button className="btn btn-gold" type="submit">
-          Филтрирај
-        </button>
-      </form>
+      <FilterBar activeCount={[filters.venueId, filters.eventId, filters.action, filters.actorType, filters.from, filters.to].filter(Boolean).length}>
+        <form className="bar" aria-label="Филтер на дневникот">
+          <input className="fld" name="action" defaultValue={filters.action} placeholder="Акција" aria-label="Акција" />
+          <select className="fld" name="actor" defaultValue={filters.actorType ?? ""} aria-label="Актер">
+            <option value="">Сите актери</option>
+            {ACTOR_TYPES.map((a) => (
+              <option key={a} value={a}>
+                {ACTOR_LABELS[a]}
+              </option>
+            ))}
+          </select>
+          <input className="fld" name="venue" defaultValue={filters.venueId} placeholder="ID на локал" aria-label="ID на локал" />
+          <input className="fld" name="event" defaultValue={filters.eventId} placeholder="ID на настан" aria-label="ID на настан" />
+          <label className="fbar-date">
+            <span>Од</span>
+            <input type="date" className="fld" name="from" defaultValue={filters.from} aria-label="Од датум" />
+          </label>
+          <label className="fbar-date">
+            <span>До</span>
+            <input type="date" className="fld" name="to" defaultValue={filters.to} aria-label="До датум" />
+          </label>
+          <button className="btn btn-gold" type="submit">
+            Филтрирај
+          </button>
+        </form>
+      </FilterBar>
 
       <section className="panel">
         {rows.length === 0 ? (
           <p className="s1-empty">Нема записи што одговараат на филтерот.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Време</th>
@@ -83,15 +92,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td>{formatDateTime(r.occurredAt)}</td>
-                  <td>{ACTOR_LABELS[r.actorType as (typeof ACTOR_TYPES)[number]] ?? r.actorType}</td>
-                  <td>{r.action}</td>
-                  <td>{r.venueId ? <Link href={`/admin/venues/${r.venueId}`}>локал</Link> : "—"}</td>
-                  <td>{r.eventId ? <Link href={`/admin/events/${r.eventId}`}>настан</Link> : "—"}</td>
-                  <td>
+                  <td data-label="Време">{formatDateTime(r.occurredAt)}</td>
+                  <td data-label="Актер">{ACTOR_LABELS[r.actorType as (typeof ACTOR_TYPES)[number]] ?? r.actorType}</td>
+                  <td data-label="Акција" className="tc-main">{r.action}</td>
+                  <td data-label="Локал">{r.venueId ? <Link href={`/admin/venues/${r.venueId}`}>локал</Link> : "—"}</td>
+                  <td data-label="Настан">{r.eventId ? <Link href={`/admin/events/${r.eventId}`}>настан</Link> : "—"}</td>
+                  <td data-label="Детали">
                     <code>{JSON.stringify(r.details)}</code>
                   </td>
-                  <td>
+                  <td data-label="Барање">
                     <code>{r.requestId ?? "—"}</code>
                   </td>
                 </tr>

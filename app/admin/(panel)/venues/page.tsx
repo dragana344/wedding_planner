@@ -34,7 +34,7 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
         {venues.length === 0 ? (
           <p className="s1-empty">Нема локали што одговараат на филтерот.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Локал</th>
@@ -49,15 +49,15 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
             <tbody>
               {venues.map((v) => (
                 <tr key={v.id}>
-                  <td>
+                  <td data-label="Локал" className="tc-main">
                     <Link href={`/admin/venues/${v.id}`}>{v.name}</Link>
                   </td>
-                  <td>{v.planName}</td>
-                  <td>{formatMkDate(v.createdAt)}</td>
-                  <td>{v.staffCount}</td>
-                  <td>{v.eventCount}</td>
-                  <td>{v.lastSignInAt ? formatMkDate(v.lastSignInAt) : "—"}</td>
-                  <td>{v.blockedAt ? "Блокиран" : "Активен"}</td>
+                  <td data-label="Ниво">{v.planName}</td>
+                  <td data-label="Регистриран">{formatMkDate(v.createdAt)}</td>
+                  <td data-label="Вработени">{v.staffCount}</td>
+                  <td data-label="Настани">{v.eventCount}</td>
+                  <td data-label="Последна најава">{v.lastSignInAt ? formatMkDate(v.lastSignInAt) : "—"}</td>
+                  <td data-label="Статус">{v.blockedAt ? "Блокиран" : "Активен"}</td>
                 </tr>
               ))}
             </tbody>

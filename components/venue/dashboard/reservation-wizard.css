@@ -1,0 +1,501 @@
+/* New table reservation (ReservationWizard): a centred window on a laptop,
+   a bottom sheet on a phone; ivory/gold like the rest of the panel. */
+.vp .rw-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgb(46 38 23 / 0.45);
+}
+.vp .rw {
+  position: fixed;
+  z-index: 91;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(860px, calc(100dvh - 48px));
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgba(46, 38, 23, 0.28);
+  outline: none;
+  overflow: hidden;
+}
+.vp .rw-head {
+  position: relative;
+  padding: 18px 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.vp .rw-handle {
+  display: none;
+}
+.vp .rw-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 400;
+}
+.vp .rw-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.vp .rw-steps {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.vp .rw-steps li {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px 12px;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.vp .rw-steps li.is-on {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+.vp .rw-steps li.is-done {
+  color: var(--gold-text);
+}
+.vp .rw-step-n {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--line-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+.vp .rw-steps li.is-on .rw-step-n {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  color: var(--on-gold);
+}
+.vp .rw-steps li.is-done .rw-step-n {
+  background: var(--gold-tint);
+  color: var(--gold-text);
+}
+.vp .rw-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 24px 20px;
+}
+.vp .rw-q {
+  margin: 18px 0 10px;
+  color: var(--gold-text);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.vp .rw-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.vp .rw-chips,
+.vp .rw-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vp .rw-chips button,
+.vp .rw-times button,
+.vp .rw-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp .rw-times {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+.vp .rw-times button {
+  flex-direction: column;
+  gap: 1px;
+  min-height: 58px;
+  padding: 6px 8px;
+}
+.vp .rw-times button b {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 400;
+}
+.vp .rw-times button span {
+  color: #2f7a45;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.vp .rw-times button span.is-full {
+  color: var(--bad);
+}
+.vp .rw-chips button[aria-pressed="true"],
+.vp .rw-times button[aria-pressed="true"],
+.vp .rw-date.is-on {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.vp .rw-date input {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+}
+.vp .rw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+.vp .rw-field label {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.vp .rw-field-inline .fld {
+  max-width: 200px;
+}
+.vp .rw-link {
+  margin-top: 12px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--gold-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp .rw-stepper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.vp .rw-stepper button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  background: none;
+  color: var(--gold-text);
+  cursor: pointer;
+}
+.vp .rw-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.vp .rw-stepper input {
+  width: 64px;
+  height: 52px;
+  border: 0;
+  border-inline: 1px solid var(--line);
+  text-align: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  -moz-appearance: textfield;
+}
+.vp .rw-stepper input::-webkit-inner-spin-button,
+.vp .rw-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+.vp .rw-note {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.vp .rw-error {
+  margin: 14px 0 0;
+  color: var(--bad);
+  font-size: 14px;
+}
+
+/* Step 2 */
+.vp .rw-step2-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.vp .rw-step2-head .rw-q {
+  margin-bottom: 18px;
+}
+.vp .rw-seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+}
+.vp .rw-seg button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vp .rw-seg button[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  color: var(--on-gold);
+}
+.vp .rw-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.vp .rw-table {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "dot name state" "dot seats state";
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vp .rw-table-dot {
+  grid-area: dot;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+.vp .rw-table-name {
+  grid-area: name;
+  font-weight: 700;
+}
+.vp .rw-table-seats {
+  grid-area: seats;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.vp .rw-table-state {
+  grid-area: state;
+  color: #2f7a45;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.vp .rw-table.is-on {
+  border-color: var(--gold);
+  background: var(--gold-tint);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.vp .rw-table.is-on .rw-table-dot {
+  background: #f59e0b;
+}
+.vp .rw-table.is-on .rw-table-state {
+  color: var(--gold-text);
+}
+.vp .rw-table.is-taken {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.vp .rw-table.is-taken .rw-table-dot {
+  background: #dc2626;
+}
+.vp .rw-table.is-taken .rw-table-state {
+  color: var(--bad);
+}
+.vp .rw-map {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbf7ee;
+  padding: 4px;
+}
+.vp .rw-map-sizer {
+  flex: none;
+  overflow: hidden;
+}
+/* globals.css paints bare submit buttons; keep this one gold. */
+.vp .rw-actions .rw-submit {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  color: var(--on-gold);
+}
+.vp .rw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.vp .rw-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+}
+.vp .rw-warn {
+  color: var(--bad);
+}
+
+/* Step 3 */
+.vp .rw-summary {
+  position: relative;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  background: var(--gold-tint);
+}
+.vp .rw-summary-eyebrow {
+  color: var(--gold-text);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.vp .rw-summary p {
+  margin: 4px 70px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.35;
+}
+.vp .rw-summary .rw-link {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+}
+
+/* Footer */
+.vp .rw-foot {
+  padding: 12px 24px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.vp .rw-picked {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.vp .rw-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vp .rw-actions .btn {
+  min-height: 46px;
+  justify-content: center;
+}
+.vp .rw-actions .btn-gold {
+  min-width: 160px;
+}
+
+@media (max-width: 900px) {
+  .vp .rw {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 22px 22px 0 0;
+  }
+  .vp .rw-head {
+    padding: 22px 16px 0;
+  }
+  .vp .rw-handle {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 99px;
+    background: var(--line);
+  }
+  .vp .rw-title {
+    font-size: 21px;
+  }
+  .vp .rw-close {
+    top: 16px;
+  }
+  .vp .rw-body {
+    padding: 4px 16px 18px;
+  }
+  .vp .rw-foot {
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .vp .rw-actions .btn {
+    flex: 1;
+  }
+  .vp .rw-actions .btn-gold {
+    flex: 1.6;
+    min-width: 0;
+  }
+  .vp .rw-tables {
+    grid-template-columns: 1fr;
+  }
+  .vp .rw-date input,
+  .vp .rw-stepper input {
+    font-size: 16px;
+  }
+}
+.vp .rw-hours {
+  margin-top: 10px;
+}
+.vp .rw-hours + .rw-link,
+.vp .rw-link + .rw-link {
+  display: block;
+}
+.vp .rw-hint-top {
+  margin: -4px 0 10px;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Guest, GuestSide, GuestStats, InvitationChannel, RsvpStatus } from "@/lib/couple/guests";
 import { STATUS_LABELS } from "@/lib/couple/guest-labels";
@@ -10,6 +10,8 @@ import { GuestDetail } from "@/components/couple/guests/GuestDetail";
 import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
 import { BulkSendDialog, type SendActions, type ShareContext } from "@/components/couple/guests/InviteSend";
 import { formatVenueDateTime } from "@/lib/date";
+import { Icon } from "@/components/venue/shell/Icon";
+import { AddPanel } from "@/components/shared/AddPanel";
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RsvpStatus[]).map((value) => ({ value, label: STATUS_LABELS[value] }));
 
@@ -41,9 +43,7 @@ function matchesMenuFilter(guest: Guest, filter: string, menuIds: string[]): boo
 
 type SentFilter = "" | "sent" | "unsent";
 
-// .fld is full-width by default; filters share one row and wrap on phones.
-const FILTER_STYLE: React.CSSProperties = { width: "auto", flex: "1 1 150px" };
-const COLUMN_STYLE: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 10, minWidth: 0 };
+const COLUMN_STYLE: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 };
 
 /** A file's text, via FileReader where `Blob.text()` is missing (older browsers). */
 function readFileText(file: File): Promise<string> {
@@ -139,7 +139,11 @@ export function GuestsClient({
   const [menuFilter, setMenuFilter] = useState<string>("");
   const [sentFilter, setSentFilter] = useState<SentFilter>("");
   const [onlyNew, setOnlyNew] = useState(false);
+  const [sideView, setSideView] = useState<"all" | GuestSide>("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const sideListRef = useRef<HTMLDivElement>(null);
   const [openGuestId, setOpenGuestId] = useState<string | null>(null);
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const closeDetail = useCallback(() => setOpenGuestId(null), []);
   const [bulkOpen, setBulkOpen] = useState(false);
   const closeBulk = useCallback(() => setBulkOpen(false), []);
@@ -331,43 +335,24 @@ export function GuestsClient({
 
   function renderGuestRow(guest: Guest) {
     const unsent = guest.invitation_sent_at === null;
+    const menuText = menuSummary(guest, menus);
+    const actionsOpen = openActionsId === guest.id;
     return (
-      <div
-        key={guest.id}
-        className="ev"
-        data-unsent={unsent ? "true" : "false"}
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          minWidth: 0,
-          borderLeft: unsent ? "3px solid var(--bad)" : undefined,
-        }}
-      >
-        <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-          <button
-            type="button"
-            onClick={() => setOpenGuestId(guest.id)}
-            aria-label={`Детали за ${guest.full_name}`}
-            style={{ fontWeight: 700, margin: 0, padding: 0, background: "none", border: 0, cursor: "pointer", textAlign: "left", color: "var(--ink)" }}
-          >
+      <div key={guest.id} className={`cg-row${actionsOpen ? " is-open" : ""}`} data-unsent={unsent ? "true" : "false"}>
+        <div className="cg-main">
+          <button type="button" className="cg-name" onClick={() => setOpenGuestId(guest.id)} aria-label={`Детали за ${guest.full_name}`}>
             {guest.full_name}
           </button>
-          {newIds.has(guest.id) ? (
-            <span className="change-mark" style={{ marginLeft: 8 }}>
-              Ново
-            </span>
-          ) : null}
-          <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>
-            {guest.phone ?? "Нема телефон"} · {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
-            {menuSummary(guest, menus) ? ` · ${menuSummary(guest, menus)}` : ""}
+          {newIds.has(guest.id) ? <span className="change-mark">Ново</span> : null}
+          <p className="cg-meta">
+            {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
+            {guest.phone ? ` · ${guest.phone}` : ""}
+            {menuText ? ` · ${menuText}` : ""}
           </p>
-          {unsent ? <p style={{ color: "var(--bad)", fontSize: 12.5, fontWeight: 600, margin: 0 }}>Неиспратена покана</p> : null}
-          {guest.notes ? <p style={{ color: "var(--muted)", fontSize: 13.5, margin: 0 }}>{guest.notes}</p> : null}
+          {unsent ? <p className="cg-unsent">Неиспратена покана</p> : null}
+          {guest.notes ? <p className="cg-meta">{guest.notes}</p> : null}
           {guest.rsvp_changed_via_link_at ? (
-            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: 0 }}>
+            <p className="cg-meta cg-small">
               Одговор преку поканата: {formatLinkChange(guest.rsvp_changed_via_link_at)}
               {guest.rsvp_previous_status
                 ? ` (претходно: ${STATUS_LABELS[guest.rsvp_previous_status] ?? guest.rsvp_previous_status})`
@@ -375,7 +360,19 @@ export function GuestsClient({
             </p>
           ) : null}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, minWidth: 0, maxWidth: "100%" }}>
+        <span className={`cg-status cg-st-${guest.rsvp_status}`} aria-hidden="true">
+          {STATUS_LABELS[guest.rsvp_status] ?? guest.rsvp_status}
+        </span>
+        <button
+          type="button"
+          className="cg-more"
+          aria-expanded={actionsOpen}
+          aria-label={`Акции за ${guest.full_name}`}
+          onClick={() => setOpenActionsId(actionsOpen ? null : guest.id)}
+        >
+          <span aria-hidden="true">⋯</span>
+        </button>
+        <div className="cg-actions">
           {canSend(guest) ? (
             <button type="button" className="btn btn-ghost" onClick={() => setOpenGuestId(guest.id)} aria-label={`Прати покана на ${guest.full_name}`}>
               Прати
@@ -383,8 +380,7 @@ export function GuestsClient({
           ) : null}
           <select
             aria-label={`Статус за ${guest.full_name}`}
-            className="fld"
-            style={{ width: "auto", maxWidth: "100%" }}
+            className="fld cg-select"
             value={guest.rsvp_status}
             onChange={(e) => handleStatusChange(guest.id, e.target.value as RsvpStatus)}
           >
@@ -400,13 +396,12 @@ export function GuestsClient({
               onClick={() => handleSideChange(guest.id, guest.side === "bride" ? "groom" : "bride")}
               aria-label={`Премести ${guest.full_name} на другата страна`}
               className="btn btn-ghost"
-              style={{ whiteSpace: "normal", textAlign: "left" }}
             >
-              Премести на страната на {guest.side === "bride" ? "младоженецот" : "невестата"}
+              Кон {guest.side === "bride" ? "младоженецот" : "невестата"}
             </button>
           ) : null}
           {canManage(guest) ? (
-            <button type="button" onClick={() => handleDelete(guest.id)} aria-label={`Избриши ${guest.full_name}`} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+            <button type="button" onClick={() => handleDelete(guest.id)} aria-label={`Избриши ${guest.full_name}`} className="btn btn-ghost cg-del">
               Избриши
             </button>
           ) : null}
@@ -430,26 +425,65 @@ export function GuestsClient({
       ) : null}
       <GuestsSummary stats={stats} canSendNumbers={!organizerSide} />
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      <AddPanel title="Нов гостин" defaultOpen={guests.length === 0}>
+        <form onSubmit={handleAdd} className="cg-add">
+          <input className="fld cg-span2" aria-label="Име и презиме" placeholder="Име и презиме" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          <input className="fld" aria-label="Телефон (по желба)" placeholder="Телефон (по желба)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <input
+            className="fld"
+            type="email"
+            aria-label="Email (по желба)"
+            placeholder="Email (по желба)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <label className="cg-field">
+            <span className="lab-s">Број на лица</span>
+            <input className="fld" type="number" aria-label="Број на лица" min={1} value={partySize} onChange={(e) => setPartySize(e.target.value)} />
+          </label>
+          {isWedding ? (
+            <label className="cg-field">
+              <span className="lab-s">Страна</span>
+              <select aria-label="Страна" className="fld" value={side} onChange={(e) => setSide(e.target.value as GuestSide)}>
+                {SIDE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <input className="fld cg-span2" aria-label="Белешки (по желба)" placeholder="Белешки (по желба)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          {error ? (
+            <p role="alert" className="cg-span2" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" disabled={isSubmitting} className="btn btn-gold cg-span2 cg-submit">
+            {isSubmitting ? "Се додава..." : "Додади гостин"}
+          </button>
+        </form>
+      </AddPanel>
+
+      <div className="cg-filters">
         <input
           type="search"
           aria-label="Пребарај гости"
           placeholder="Пребарај гости…"
-          className="fld"
+          className="fld cg-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{ flex: "1 1 220px" }}
         />
-        <select aria-label="Филтер по статус" className="fld" style={FILTER_STYLE} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RsvpStatus | "")}>
-          <option value="">Сите статуси</option>
+        <select aria-label="Филтер по статус" className="fld" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RsvpStatus | "")}>
+          <option value="">Статус</option>
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
         </select>
-        <select aria-label="Филтер по мени" className="fld" style={FILTER_STYLE} value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}>
-          <option value="">Сите менија</option>
+        <select aria-label="Филтер по мени" className="fld" value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}>
+          <option value="">Мени</option>
           {menus.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -457,13 +491,15 @@ export function GuestsClient({
           ))}
           {menus.length > 1 ? <option value="none">Нема избрано мени</option> : null}
         </select>
-        <select aria-label="Филтер по покана" className="fld" style={FILTER_STYLE} value={sentFilter} onChange={(e) => setSentFilter(e.target.value as SentFilter)}>
-          <option value="">Сите покани</option>
+        <select aria-label="Филтер по покана" className="fld" value={sentFilter} onChange={(e) => setSentFilter(e.target.value as SentFilter)}>
+          <option value="">Покана</option>
           <option value="sent">Испратени</option>
           <option value="unsent">Неиспратени</option>
         </select>
+      </div>
+      <div className="cg-tools">
         {hasNew ? (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+          <label className="cg-only-new">
             <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
             Само нови
           </label>
@@ -494,63 +530,72 @@ export function GuestsClient({
       {notice ? <p style={{ color: "var(--ok)", fontSize: 13.5, margin: 0 }}>{notice}</p> : null}
 
       {isWedding ? (
-        // Not the bare `grid` class: panel.css gives `.vp .grid` a 1010px min-width (tables).
-        <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2">
-          <div style={COLUMN_STYLE}>
-            <h2 className="panel-t">Страна на невестата</h2>
-            {brideGuests.length === 0 ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p> : brideGuests.map(renderGuestRow)}
+        <>
+          <div className="seg gold cg-sides" role="group" aria-label="Прикажи страна">
+            {(
+              [
+                ["all", "Сите", visibleGuests.length],
+                ["bride", "Невеста", brideGuests.length],
+                ["groom", "Младоженец", groomGuests.length],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={sideView === value}
+                onClick={() => {
+                  setSideView(value);
+                  setCollapsed({});
+                  // Mid-list (switch pinned), jump back to where the chosen side starts.
+                  const list = sideListRef.current;
+                  if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start" });
+                }}
+              >
+                {label} <span className="cg-side-n">{count}</span>
+              </button>
+            ))}
           </div>
-          <div style={COLUMN_STYLE}>
-            <h2 className="panel-t">Страна на младоженецот</h2>
-            {groomGuests.length === 0 ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p> : groomGuests.map(renderGuestRow)}
+          {/* Not the bare `grid` class: panel.css gives `.vp .grid` a 1010px min-width (tables). */}
+          <div ref={sideListRef} className={`cg-side-list ${sideView === "all" ? "flex flex-col gap-4 sm:grid sm:grid-cols-2" : "flex flex-col gap-4"}`}>
+            {(
+              [
+                ["bride", "Страна на невестата", brideGuests],
+                ["groom", "Страна на младоженецот", groomGuests],
+                ...(sideView === "all" && unassignedGuests.length > 0 ? [["none", "Недоделени", unassignedGuests] as const] : []),
+              ] as const
+            )
+              .filter(([key]) => sideView === "all" || key === sideView)
+              .map(([key, title, list]) => {
+                const isCollapsed = Boolean(collapsed[key]);
+                return (
+                  <div key={key} className={key === "none" ? "sm:col-span-2" : undefined} style={COLUMN_STYLE}>
+                    <h2 className="panel-t cg-col-h">
+                      <button
+                        type="button"
+                        className="cg-col-toggle"
+                        aria-expanded={!isCollapsed}
+                        onClick={() => setCollapsed((c) => ({ ...c, [key]: !isCollapsed }))}
+                      >
+                        <span>{title}</span>
+                        <span className="cg-side-n">{list.length}</span>
+                        <Icon name="down" size="sm" className="cg-col-chev" />
+                      </button>
+                    </h2>
+                    {isCollapsed ? null : list.length === 0 ? (
+                      <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p>
+                    ) : (
+                      list.map(renderGuestRow)
+                    )}
+                  </div>
+                );
+              })}
           </div>
-          {unassignedGuests.length > 0 ? (
-            <div className="sm:col-span-2" style={COLUMN_STYLE}>
-              <h2 className="panel-t">Недоделени</h2>
-              {unassignedGuests.map(renderGuestRow)}
-            </div>
-          ) : null}
-        </div>
+        </>
       ) : (
         <div style={COLUMN_STYLE}>
           {visibleGuests.length === 0 ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p> : visibleGuests.map(renderGuestRow)}
         </div>
       )}
-
-      <form onSubmit={handleAdd} className="ev" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 className="panel-t" style={{ margin: 0 }}>
-          Додади гостин рачно
-        </h2>
-        <input className="fld" aria-label="Име и презиме" placeholder="Име и презиме" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-        <input className="fld" aria-label="Телефон (по желба)" placeholder="Телефон (по желба)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <input
-          className="fld"
-          type="email"
-          aria-label="Email (по желба)"
-          placeholder="Email (по желба)"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input className="fld" type="number" aria-label="Број на лица" min={1} value={partySize} onChange={(e) => setPartySize(e.target.value)} />
-        <input className="fld" aria-label="Белешки (по желба)" placeholder="Белешки (по желба)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        {isWedding ? (
-          <select aria-label="Страна" className="fld" value={side} onChange={(e) => setSide(e.target.value as GuestSide)}>
-            {SIDE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        {error ? (
-          <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
-            {error}
-          </p>
-        ) : null}
-        <button type="submit" disabled={isSubmitting} className="btn btn-gold" style={{ alignSelf: "flex-start" }}>
-          {isSubmitting ? "Се додава..." : "Додади гостин"}
-        </button>
-      </form>
 
       {openGuest ? (
         <GuestDetail

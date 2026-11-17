@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin/guard";
 import { getAdminBadgeCounts } from "@/lib/admin/queries";
 import { AdminShell } from "@/components/admin/AdminShell";
+import "../mobile-admin.css";
 
 export const dynamic = "force-dynamic";
 

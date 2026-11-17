@@ -60,8 +60,10 @@ describe("GuestsClient", () => {
     expect(screen.getByText("Ана Петровска")).toBeInTheDocument();
     expect(screen.getByText("покани на листата")).toBeInTheDocument(); // guests summary headline
     expect(screen.queryByText("Страна на невестата")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Страна")).not.toBeInTheDocument();
 
+    // The add form is folded while the list has guests.
+    fireEvent.click(screen.getByRole("button", { name: "Нов гостин", expanded: false }));
+    expect(screen.queryByLabelText("Страна")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Марко С." } });
     fireEvent.change(screen.getByLabelText(/Email/), { target: { value: "marko@example.mk" } });
     fireEvent.click(screen.getByRole("button", { name: /додади гостин/i }));
@@ -69,6 +71,25 @@ describe("GuestsClient", () => {
     await waitFor(() => expect(screen.getByText("Марко С.")).toBeInTheDocument());
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(JSON.parse(init.body)).toMatchObject({ full_name: "Марко С.", email: "marko@example.mk", side: null });
+  });
+
+  it("opens the add form straight away while the list is empty", () => {
+    render(<GuestsClient initialGuests={[]} initialStats={makeStats({ total: 0, pending: 0 })} eventType="birthday" />);
+    expect(screen.getByRole("button", { name: "Нов гостин", expanded: true })).toBeInTheDocument();
+    expect(screen.getByLabelText("Име и презиме")).toBeInTheDocument();
+  });
+
+  it("toggles a row's actions with its ⋯ button (phones show them only when open)", () => {
+    render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
+    const more = screen.getByRole("button", { name: "Акции за Ана Петровска" });
+    const row = more.closest(".cg-row")!;
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(row).not.toHaveClass("is-open");
+    fireEvent.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(row).toHaveClass("is-open");
+    fireEvent.click(more);
+    expect(row).not.toHaveClass("is-open");
   });
 
   it("changes a guest's RSVP status", async () => {
@@ -87,8 +108,9 @@ describe("GuestsClient", () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...weddingGuests[0], side: "groom" }) });
     render(<GuestsClient initialGuests={weddingGuests} initialStats={stats} eventType="wedding" />);
 
-    expect(screen.getByRole("heading", { name: "Страна на невестата" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Страна на младоженецот" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Страна на невестата/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Страна на младоженецот/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Нов гостин" }));
     expect(screen.getByLabelText("Страна")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /премести ана петровска на другата страна/i }));
@@ -99,6 +121,44 @@ describe("GuestsClient", () => {
         expect.objectContaining({ method: "PATCH", body: JSON.stringify({ type: "side", side: "groom" }) }),
       ),
     );
+  });
+});
+
+describe("GuestsClient bride/groom switch (phone remodel)", () => {
+  const weddingGuests = [
+    makeGuest({ side: "bride" }),
+    makeGuest({ id: "g2", full_name: "Марко С.", side: "groom" }),
+    makeGuest({ id: "g3", full_name: "Јана Н.", side: "groom" }),
+  ];
+
+  it("shows one side at a time from the Сите / Невеста / Младоженец switch, with counts", () => {
+    render(<GuestsClient initialGuests={weddingGuests} initialStats={stats} eventType="wedding" />);
+    const sw = screen.getByRole("group", { name: "Прикажи страна" });
+    expect(within(sw).getByRole("button", { name: "Сите 3" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(within(sw).getByRole("button", { name: "Младоженец 2" }));
+    expect(screen.queryByRole("heading", { name: /Страна на невестата/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Марко С.")).toBeInTheDocument();
+    expect(screen.queryByText("Ана Петровска")).not.toBeInTheDocument();
+
+    fireEvent.click(within(sw).getByRole("button", { name: "Невеста 1" }));
+    expect(screen.getByText("Ана Петровска")).toBeInTheDocument();
+    expect(screen.queryByText("Марко С.")).not.toBeInTheDocument();
+  });
+
+  it("folds a side's list from its heading", () => {
+    render(<GuestsClient initialGuests={weddingGuests} initialStats={stats} eventType="wedding" />);
+    const brideToggle = screen.getByRole("button", { name: /Страна на невестата/ });
+    expect(brideToggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(brideToggle);
+    expect(brideToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Ана Петровска")).not.toBeInTheDocument();
+    expect(screen.getByText("Марко С.")).toBeInTheDocument();
+  });
+
+  it("has no switch for a non-wedding event", () => {
+    render(<GuestsClient initialGuests={guests} initialStats={stats} eventType="birthday" />);
+    expect(screen.queryByRole("group", { name: "Прикажи страна" })).not.toBeInTheDocument();
   });
 });
 

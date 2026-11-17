@@ -92,7 +92,10 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
         </p>
       ) : null}
       {blocked ? (
-        <p className="guests-summary-menu">{`За да ги испратите бројките, чекаме одговор од: ${notDone.map((g) => g.full_name).join(", ")}`}</p>
+        <details className="guests-summary-wait">
+          <summary>{`Чекаме одговор од ${notDone.length} ${notDone.length === 1 ? "гостин" : "гости"} пред да ги испратите бројките`}</summary>
+          <p className="guests-summary-menu">{`За да ги испратите бројките, чекаме одговор од: ${notDone.map((g) => g.full_name).join(", ")}`}</p>
+        </details>
       ) : null}
 
       {confirming ? (

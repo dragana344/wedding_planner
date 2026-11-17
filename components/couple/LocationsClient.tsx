@@ -6,6 +6,7 @@ import type { Location } from "@/lib/couple/locations";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { formatMkDate } from "@/lib/date";
 import { Icon } from "@/components/venue/shell/Icon";
+import { AddPanel } from "@/components/shared/AddPanel";
 import "@/components/couple/InvitationCard.css";
 import "./LocationsClient.css";
 
@@ -99,14 +100,9 @@ export function LocationsClient({
   }
 
   return (
-    <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2" style={{ alignItems: "start" }}>
-      <div className="panel couple-card">
-        <div className="panel-h">
-          <h2 className="panel-t">
-            <Icon name="plus" size="sm" /> Додади локација
-          </h2>
-        </div>
-        <form onSubmit={handleAdd} style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="cp-split">
+      <AddPanel title="Нова локација" defaultOpen={locations.length === 0}>
+        <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
             <label className="lab-s" htmlFor="location-label">
               Назив
@@ -130,9 +126,9 @@ export function LocationsClient({
             {isSubmitting ? "Се додава..." : "Додади"}
           </button>
         </form>
-      </div>
+      </AddPanel>
 
-      <div className="panel couple-card invite-card">
+      <div className="panel couple-card invite-card agenda-card">
         <div className="invite-frame">
           <h2 className={`invite-title ${cormorant.className}`}>Локации</h2>
           <p className="invite-sub">

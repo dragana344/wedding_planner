@@ -8,8 +8,8 @@ import { IconSprite } from "@/components/venue/shell/IconSprite";
 import { LogoutButton } from "@/components/couple/LogoutButton";
 import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
-import { DrawerButton } from "@/components/venue/shell/DrawerButton";
 import { useDrawer } from "@/components/venue/shell/useDrawer";
+import { BottomTabBar } from "@/components/shared/BottomTabBar";
 import { buildCoupleNavItems, matchCoupleNavItem, COUPLE_NAV_GROUP_LABELS, type CoupleNavDots } from "./nav";
 import { formatMkDate } from "@/lib/date";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
@@ -48,6 +48,17 @@ export function CoupleShell({
     ? { title: "ПАКЕТИ", subtitle: "Што вклучува секој пакет" }
     : { title: active?.title ?? "", subtitle: active?.subtitle ?? "" };
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
+  const tabHrefs = [
+    { href: "/couple", label: "Почетна" },
+    { href: "/couple/guests", label: "Гости" },
+    ...(rooms[0] ? [{ href: `/couple/seating/${rooms[0].id}`, label: "Распоред" }] : []),
+    { href: "/couple/budget", label: "Буџет" },
+  ];
+  const tabs = tabHrefs.flatMap(({ href, label }) => {
+    const item = navItems.find((i) => i.href === href);
+    return item ? [{ href, label, icon: item.icon, active: active?.href === href, dot: item.dot }] : [];
+  });
+  const moreDot = navItems.some((i) => i.dot && !tabs.some((t) => t.href === i.href));
 
   return (
     <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
@@ -123,7 +134,6 @@ export function CoupleShell({
       <div className="main">
         <header className="top">
           <div className="title-wrap">
-            <DrawerButton open={drawerOpen} onClick={toggleDrawer} buttonRef={buttonRef} />
             <div>
               <h1 className="page-title">{heading.title}</h1>
               <p className="page-sub">{heading.subtitle}</p>
@@ -131,7 +141,7 @@ export function CoupleShell({
           </div>
 
           <div className="meta">
-            <div className="meta-item">
+            <div className="meta-item meta-clock">
               <Icon name="cal" size="lg" style={{ color: "var(--ink-2)" }} />
               <div>
                 <div className="meta-lab">Датум на настанот</div>
@@ -146,6 +156,15 @@ export function CoupleShell({
 
         {isLocked(active?.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
       </div>
+
+      <BottomTabBar
+        items={tabs}
+        moreOpen={drawerOpen}
+        moreActive={!tabs.some((t) => t.active)}
+        moreDot={moreDot}
+        onMore={toggleDrawer}
+        moreRef={buttonRef}
+      />
     </div>
   );
 }

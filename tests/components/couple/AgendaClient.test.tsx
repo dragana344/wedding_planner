@@ -25,6 +25,7 @@ describe("AgendaClient", () => {
     expect(screen.getByText("Церемонија")).toBeInTheDocument();
     expect(screen.getByText("Црква Св. Климент Охридски")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Додај точка" }));
     fireEvent.change(screen.getByLabelText("Наслов"), { target: { value: "Вечера" } });
     fireEvent.change(screen.getByLabelText("Локација (опционално)"), { target: { value: "Ресторан Панорама" } });
     fireEvent.click(screen.getByRole("button", { name: /додади/i }));

@@ -1,0 +1,227 @@
+/* Admin panel on phones: data tables (.s1-tbl.s1-cards) become a stack of
+ * cards — the row's main field first, in serif, the rest as small
+ * "label: value" lines taken from each cell's data-label. */
+@media (max-width: 760px) {
+  .vp .s1-cards,
+  .vp .s1-cards tbody {
+    display: block;
+    width: 100%;
+  }
+  .vp .s1-cards thead {
+    display: none;
+  }
+  .vp .s1-cards tr {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .vp .s1-cards tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .vp .s1-cards td {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    max-width: none !important;
+    padding: 0;
+    border: 0;
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+  }
+  .vp .s1-cards td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    color: var(--muted);
+    font-family: var(--data);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .vp .s1-cards td.tc-main {
+    order: -1;
+    display: block;
+    margin-bottom: 4px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .vp .s1-cards td.tc-main::before {
+    display: none;
+  }
+  .vp .s1-cards td.tc-main a {
+    color: var(--ink);
+    font-weight: 400;
+  }
+  /* Cells holding only buttons/inputs (no label) sit full width at the end. */
+  .vp .s1-cards td:not([data-label]) {
+    margin-top: 6px;
+  }
+  .vp .s1-cards td:not([data-label]):empty {
+    display: none;
+  }
+  .vp .s1-cards td .fld,
+  .vp .s1-cards td select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Filter rows above the tables: one field per line, full width. */
+  .vp .s1-filters,
+  .vp form.s1-filter {
+    flex-wrap: wrap;
+  }
+  .vp .wrap > form,
+  .vp .wrap > .s1-filter {
+    flex-wrap: wrap;
+  }
+}
+
+/* Filter fold (components/admin/FilterBar.tsx) and labelled date fields. */
+.vp .fbar-toggle {
+  display: none;
+}
+.vp .fbar-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.vp .fbar-date > span {
+  color: var(--muted);
+  font-family: var(--data);
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .vp .fbar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .vp .fbar-toggle {
+    display: inline-flex;
+    align-self: flex-start;
+  }
+  .vp .fbar-chev {
+    transition: transform 0.15s ease;
+  }
+  .vp .fbar.is-open .fbar-chev {
+    transform: rotate(180deg);
+  }
+  .vp .fbar-count {
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 99px;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+  }
+  .vp .fbar:not(.is-open) > form {
+    display: none;
+  }
+  .vp .bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vp .bar > *,
+  .vp .bar .fld {
+    width: 100%;
+    min-width: 0;
+  }
+  .vp .fbar-date {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+  .vp .bar > .btn {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 760px) {
+  /* View switchers: equal-width segments on one row. */
+  .vp .bar > .seg {
+    flex-wrap: nowrap;
+  }
+  .vp .bar > .seg a,
+  .vp .bar > .seg button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 6px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  .vp .bar > form {
+    width: 100%;
+  }
+  .vp .bar > form .fld {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* Feature overrides (FeatureOverridesEditor): on phones each feature is one
+ * short row — name, what applies now, "Уреди" — and the edit fields open
+ * only for the feature being changed. */
+.vp .ov-edit,
+.vp .ov-flag {
+  display: none;
+}
+@media (max-width: 760px) {
+  .vp .ov-row:not(.is-open) .ov-detail {
+    display: none;
+  }
+  .vp .ov-flag {
+    display: inline-flex;
+  }
+  .vp .ov-edit {
+    display: inline-flex;
+    min-height: 34px;
+    margin-left: auto;
+    padding: 6px 12px;
+  }
+  .vp .ov-row td[data-label="Важи сега"] {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .vp .ov-row td[data-label="Важи сега"]::before {
+    display: none;
+  }
+  .vp .ov-row.is-open {
+    background: var(--gold-tint);
+  }
+}
+
+/* Small inline admin forms (event date/time/status, plan fields, staff/
+ * manager actions): one full-width field per line on phones. */
+@media (max-width: 760px) {
+  .vp .adm-inline-form {
+    flex-direction: column;
+    align-items: stretch !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .vp .adm-inline-form > * {
+    width: 100%;
+    min-width: 0;
+  }
+  .vp .adm-inline-form .fld {
+    width: 100% !important;
+  }
+  .vp .adm-inline-form > label:has(input[type="checkbox"]) {
+    width: auto;
+  }
+}
+
+@media (min-width: 761px) {
+  .vp .fbar .bar > .fld {
+    width: auto;
+    flex: 1 1 180px;
+  }
+}

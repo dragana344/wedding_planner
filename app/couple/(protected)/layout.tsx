@@ -8,6 +8,7 @@ import { CoupleShell } from "@/components/couple/shell/CoupleShell";
 import { dotsFor, loadCoupleMarks } from "@/lib/couple/change-marks";
 import { getEventBranding } from "@/lib/venue/branding";
 import "@/app/venue/panel.css";
+import "@/app/couple/mobile-couple.css";
 
 // Private area: keep out of search engines (COMP-004).
 export const metadata: Metadata = { robots: { index: false, follow: false } };

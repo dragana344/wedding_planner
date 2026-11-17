@@ -714,4 +714,222 @@
   .cs-page .cs-head-sprig {
     display: none;
   }
+  /* Title gets the whole line; the send button sits full-width below it. */
+  .cs-page .cs-head-text {
+    flex-basis: 100%;
+  }
+  .cs-page .cs-title {
+    font-size: 26px;
+  }
+  .cs-page .cs-btn-send {
+    flex: 1 1 100%;
+    justify-content: center;
+    height: 44px;
+  }
+  /* Toolbar: two even columns of buttons, view switch on its own row. */
+  .cs-page .cs-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cs-page .cs-toolbar > .cs-btn,
+  .cs-page .cs-toolbar > .cs-menu > .cs-btn {
+    width: 100%;
+    justify-content: center;
+    height: 42px;
+  }
+  .cs-page .cs-toolbar > .cs-menu {
+    grid-column: 1 / -1;
+  }
+  .cs-page .cs-toolbar-div {
+    display: none;
+  }
+  .cs-page .cs-views {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cs-page .cs-views button {
+    justify-content: center;
+  }
+}
+
+/* Phones (couple look): one "Алатки" menu instead of a wall of buttons, the
+   table list first, and a picked table's seats in a bottom sheet. */
+.cs-page .cs-tools-wide {
+  display: contents;
+}
+.cs-page .cs-tools-phone {
+  display: none;
+}
+@media (max-width: 900px) {
+  .cs-page .cs-tools-wide {
+    display: none;
+  }
+  .cs-page .cs-tools-phone {
+    display: block;
+  }
+  .cs-page .cs-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .cs-page .cs-toolbar > .cs-toolbar-div {
+    display: none;
+  }
+  .cs-page .cs-toolbar > .cs-views {
+    grid-column: 1 / -1;
+  }
+  /* Dragging guests onto seats isn't a phone gesture: tapping a table opens
+     its seats in the sheet instead, so the drag rail is hidden here. */
+  .cs-page .cs-side {
+    display: none;
+  }
+  .cs-page .s3-table-card {
+    min-height: 64px;
+  }
+}
+.cs-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(46 38 23 / 0.4);
+}
+.cs-page .cs-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 81;
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--cs-card);
+  box-shadow: 0 -10px 30px rgba(46, 38, 23, 0.2);
+}
+.cs-page .cs-sheet-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px 0 10px;
+  background: var(--cs-card);
+}
+.cs-page .cs-sheet-handle {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 40px;
+  height: 4px;
+  margin-left: -20px;
+  border-radius: 99px;
+  background: var(--cs-line);
+}
+.cs-page .cs-sheet-hint {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--cs-muted);
+}
+.cs-page .cs-sheet input {
+  font-size: 16px;
+}
+
+/* Phone "Гости" view: each guest, their seats and table; tap to pick a table. */
+.cs-page .cs-glist {
+  padding: 14px;
+}
+.cs-page .cs-glist-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 2px 6px;
+  font-size: 14px;
+  color: var(--cs-ink);
+}
+.cs-page .cs-glist-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cs-gold-dark);
+}
+.cs-page .cs-glist-rows,
+.cs-page .cs-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cs-page .cs-glist-row,
+.cs-page .cs-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 12px;
+  border: 1px solid var(--cs-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--cs-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cs-page .cs-glist-row:disabled {
+  cursor: default;
+}
+.cs-page .cs-glist-row.is-done {
+  background: var(--cs-card);
+}
+.cs-page .cs-glist-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.cs-page .cs-glist-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+}
+.cs-page .cs-glist-where {
+  font-size: 12.5px;
+  color: var(--cs-muted);
+}
+.cs-page .cs-glist-count,
+.cs-page .cs-pick-free {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: #eef6ef;
+  color: #2f6b3c;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cs-page .cs-glist-count.is-open {
+  background: var(--cs-gold-tint);
+  color: var(--cs-gold-dark);
+}
+.cs-page .cs-pick-row {
+  justify-content: space-between;
+  font-weight: 600;
+}
+.cs-page .cs-pick-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cs-page .cs-pick-row:disabled .cs-pick-free {
+  background: #f6e3e1;
+  color: #a8433a;
+}
+@media (max-width: 900px) {
+  .cs-page .cs-views {
+    display: flex;
+  }
+  .cs-page .cs-views button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
 }

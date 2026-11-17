@@ -85,6 +85,23 @@ export function WeekCalendarClient({
 }) {
   const today = useMemo(() => new Date(), []);
   const [viewMode, setViewMode] = useState<ViewMode>("week");
+  // A week's seven columns don't fit a phone: there the planner opens on
+  // today's day view (the Недела/Месец buttons still switch).
+  useEffect(() => {
+    if (window.matchMedia?.("(max-width: 640px)").matches) setViewMode("day");
+  }, []);
+  // Phones (≤900px): the day/week views become a list instead of an hour
+  // grid, filters fold behind "Филтри", and the side widgets step aside.
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(max-width: 900px)");
+    if (!mq) return;
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener?.("change", sync);
+    return () => mq.removeEventListener?.("change", sync);
+  }, []);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [anchor, setAnchor] = useState(today);
   const [miniCalMonth, setMiniCalMonth] = useState(today);
   const [roomFilter, setRoomFilter] = useState("all");
@@ -194,6 +211,7 @@ export function WeekCalendarClient({
   // Legend: every room, plus "Без сала" when a shown event has no room.
   const hasRoomless = filteredEvents.some((ev) => !ev.room_ids.some((id) => roomIds.includes(id)));
   const todayIso = isoOf(today);
+  const activeFilters = [roomFilter, typeFilter, statusFilter].filter((f) => f !== "all").length;
 
   return (
     <div className="wrap cal-page">
@@ -223,7 +241,7 @@ export function WeekCalendarClient({
             <button className="sq" type="button" aria-label="Следно" onClick={() => step(1)}>
               <Icon name="right" size="sm" />
             </button>
-            <button className="btn btn-ghost" type="button" onClick={jumpToToday}>
+            <button className="btn btn-ghost cal-today-wide" type="button" onClick={jumpToToday}>
               Денес
             </button>
             <select
@@ -247,7 +265,28 @@ export function WeekCalendarClient({
               ))}
             </select>
           </div>
-          <div className="cal-filters">
+          {isPhone ? (
+            <div className="cal-phone-bar">
+              <button type="button" className="btn btn-ghost" onClick={jumpToToday}>
+                Денес
+              </button>
+              <button
+                type="button"
+                className={`btn btn-ghost cal-filter-toggle${activeFilters ? " is-active" : ""}`}
+                aria-expanded={filtersOpen}
+                aria-controls="cal-filters"
+                onClick={() => setFiltersOpen((v) => !v)}
+              >
+                <Icon name="filter" size="sm" /> Филтри{activeFilters ? ` (${activeFilters})` : ""}
+              </button>
+            </div>
+          ) : null}
+          {isPhone ? (
+            <Link className="btn btn-gold cal-new-phone" href="/venue/events/new">
+              <Icon name="plus" size="sm" /> Нов настан
+            </Link>
+          ) : null}
+          <div id="cal-filters" className={`cal-filters${filtersOpen ? " is-open" : ""}`}>
             <select className="fld" value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
               <option value="all">Сите сали</option>
               {rooms.map((r) => (
@@ -274,9 +313,11 @@ export function WeekCalendarClient({
                 <option key={s} value={s}>{STATUS_META[s].label}</option>
               ))}
             </select>
-            <Link className="btn btn-gold" href="/venue/events/new">
-              <Icon name="plus" size="sm" /> Нов настан
-            </Link>
+            {isPhone ? null : (
+              <Link className="btn btn-gold" href="/venue/events/new">
+                <Icon name="plus" size="sm" /> Нов настан
+              </Link>
+            )}
           </div>
         </div>
 
@@ -311,13 +352,15 @@ export function WeekCalendarClient({
                   setViewMode("day");
                 }}
               />
+            ) : isPhone ? (
+              <DayList days={daysInView} todayIso={todayIso} eventsByDate={eventsByDate} rooms={rooms} grouped={viewMode === "week"} />
             ) : (
               <TimeGrid days={daysInView} todayIso={todayIso} eventsByDate={eventsByDate} rooms={rooms} />
             )}
           </div>
 
           <div className="cal-side">
-            <div className="cal-side-block">
+            <div className="cal-side-block cal-side-mini">
               <div className="mini-cal-nav">
                 <button
                   className="sq"
@@ -413,7 +456,7 @@ export function WeekCalendarClient({
               )}
             </div>
 
-            <div className="cal-side-block">
+            <div className="cal-side-block cal-side-types">
               <p className="card-t">Типови на настани {viewMode === "week" ? "(неделно)" : viewMode === "day" ? "(денес)" : "(месечно)"}</p>
               <TypeDonut counts={typeCounts} total={visibleEvents.length} />
             </div>
@@ -515,6 +558,69 @@ function MonthGrid({
   );
 }
 
+/** Phones: the day (or each day of the week) as a list of its events. */
+function DayList({
+  days,
+  todayIso,
+  eventsByDate,
+  rooms,
+  grouped,
+}: {
+  days: Date[];
+  todayIso: string;
+  eventsByDate: Map<string, EventDetail[]>;
+  rooms: RoomWithSeatTotal[];
+  grouped: boolean;
+}) {
+  const roomIds = rooms.map((r) => r.id);
+  const byStart = (a: EventDetail, b: EventDetail) => (a.start_time ?? "").localeCompare(b.start_time ?? "");
+  const weekTotal = days.reduce((n, d) => n + (eventsByDate.get(isoOf(d))?.length ?? 0), 0);
+  if (grouped && weekTotal === 0) return <p className="cal-list-empty">Нема настани оваа недела.</p>;
+  return (
+    <div className="cal-list">
+      {days.map((d) => {
+        const iso = isoOf(d);
+        const dayEvents = [...(eventsByDate.get(iso) ?? [])].sort(byStart);
+        if (grouped && dayEvents.length === 0) return null;
+        return (
+          <section key={iso} className="cal-list-day" aria-label={`${MK_DAYS_LONG[(d.getDay() + 6) % 7]} ${d.getDate()} ${MK_MONTHS[d.getMonth()]}`}>
+            {grouped ? (
+              <h3 className={`cal-list-h${iso === todayIso ? " is-today" : ""}`}>
+                {MK_DAYS_LONG[(d.getDay() + 6) % 7]}, {d.getDate()} {MK_MONTHS[d.getMonth()]}
+              </h3>
+            ) : null}
+            {dayEvents.length === 0 ? (
+              <p className="cal-list-empty">Нема настани овој ден.</p>
+            ) : (
+              dayEvents.map((ev) => {
+                const color = eventRoomColor(ev.room_ids, roomIds);
+                const roomNames = ev.room_ids.map((id) => rooms.find((r) => r.id === id)?.name).filter(Boolean).join(", ");
+                const status = STATUS_META[ev.status];
+                return (
+                  <Link key={ev.id} href={`/venue/events?event=${ev.id}`} className="cal-list-row" style={{ borderLeftColor: color }}>
+                    <span className="cal-list-time">{formatTime(ev.start_time) ?? "—"}</span>
+                    <span className="cal-list-main">
+                      <b>
+                        {ev.couple_names} <ChangeMark sections={ev.unseenSections} />
+                      </b>
+                      <span>
+                        {[eventTypeLabel(ev), roomNames || "Без сала", ev.guest_count_estimate != null ? `${ev.guest_count_estimate} гости` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </span>
+                    {status ? <span className={`pill ${status.pill}`}>{status.label}</span> : null}
+                  </Link>
+                );
+              })
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function TimeGrid({
   days,
   todayIso,
@@ -547,7 +653,7 @@ function TimeGrid({
   const showNowLine = nowGridMinutes !== null && nowGridMinutes >= HOUR_START * 60 && nowGridMinutes <= HOUR_END * 60;
 
   return (
-    <div className="cal-grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+    <div className={`cal-grid${days.length === 1 ? " is-day" : ""}`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
       <div className="cal-grid-corner" />
       {days.map((d) => {
         const iso = isoOf(d);

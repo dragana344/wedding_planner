@@ -1,0 +1,337 @@
+/* Phone redesign (2026-11-17): Резервации + Календар. Loaded after mobile-venue.css. */
+
+/* ===================== Резервации ===================== */
+/* Phone-only pieces stay out of the desktop layout. */
+.vp .qb-rp-head,
+.vp .qb-rp-detail {
+  display: none;
+}
+/* "+ Нова резервација" opens the booking window (ReservationWizard). */
+.vp .qb-new-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+.vp .qb-new-btn {
+  min-height: 46px;
+  padding: 0 22px;
+}
+.vp .qb-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid #bfe0c8;
+  border-radius: 14px;
+  background: #eef8f1;
+  color: #1f5f33;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .vp .qb-new-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  /* Day bar: "‹ Денес ›" + count on one line, room chips, full-width search. */
+  .vp .qb-day > .panel-h {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .vp .qb-day > .panel-h > .panel-t {
+    grid-column: 1 / -1;
+    font-size: 13px;
+  }
+  .vp .qb-day > .panel-h > .qb-day-nav {
+    grid-column: 1;
+  }
+  .vp .qb-day > .panel-h > .qb-day-nav .btn {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+  .vp .qb-day > .panel-h > .qb-day-nav .sq {
+    width: 40px;
+    height: 40px;
+  }
+  .vp .qb-day > .panel-h > .count {
+    grid-column: 2;
+    grid-row: 2;
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .vp .qb-day > .panel-h > .seg {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+  .vp .qb-day > .panel-h > .seg button {
+    flex: 1 1 auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .vp .qb-wide-only {
+    display: none;
+  }
+  .vp .qb-day > .panel-h > .fld {
+    grid-column: 1 / -1;
+  }
+
+  /* The list: one tappable line per reservation; contact + actions open under it. */
+  .vp .qb-slot-table {
+    padding: 0;
+  }
+  .vp .qb-slot-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .vp .qb-slot-head + .qb-slot-row {
+    border-top: 0;
+  }
+  .vp .qb-slot-row > * {
+    display: none !important;
+  }
+  .vp .qb-slot-row > .qb-rp-head {
+    display: grid !important;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 16px;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .vp .qb-slot-row.is-open > .qb-rp-head {
+    background: var(--gold-tint);
+  }
+  .vp .qb-rp-time {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+  }
+  .vp .qb-rp-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .vp .qb-rp-main b {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vp .qb-rp-main span {
+    font-size: 12.5px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vp .qb-rp-head .pill {
+    padding: 4px 10px;
+    font-size: 11.5px;
+  }
+  .vp .qb-slot-row.is-open > .qb-rp-detail {
+    display: flex !important;
+    order: 2;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px 10px 80px;
+    background: var(--gold-tint);
+  }
+  .vp .qb-rp-phone {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .vp .qb-slot-row.is-open > .qb-row-actions {
+    display: flex !important;
+    gap: 8px;
+    padding: 0 16px 14px 80px;
+    background: var(--gold-tint);
+    order: 3;
+  }
+  .vp .qb-slot-row.is-open > .qb-row-actions .btn {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+}
+
+/* ===================== Календар ===================== */
+@media (max-width: 900px) {
+  .vp .cal-page .cal-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .vp .cal-page .cal-toolbar > .seg {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .vp .cal-page .cal-toolbar > .seg button {
+    flex: 1 1 0;
+    min-height: 42px;
+  }
+  /* ‹ Вторник, 17 Ноември 2026 › on one line; month/year jumps step aside. */
+  .vp .cal-page .cal-nav {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 8px;
+  }
+  .vp .cal-page .cal-nav .sq {
+    width: 44px;
+    height: 44px;
+  }
+  .vp .cal-page .cal-nav .cal-range {
+    text-align: center;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 400;
+  }
+  .vp .cal-page .cal-nav .cal-jump,
+  .vp .cal-page .cal-nav .cal-today-wide {
+    display: none;
+  }
+  .vp .cal-page .cal-phone-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .vp .cal-page .cal-filter-toggle.is-active {
+    border-color: var(--gold);
+    background: var(--gold-tint);
+    color: var(--gold-text);
+  }
+  .vp .cal-page .cal-new-phone {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+  .vp .cal-page .cal-filters.is-open {
+    order: 1;
+  }
+  .vp .cal-page .cal-filters {
+    display: none;
+  }
+  .vp .cal-page .cal-filters.is-open {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .vp .cal-page .cal-filters.is-open .fld {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Side widgets: the upcoming list stays; the mini month, the donut and
+     the stat tiles repeat what the views above already show. */
+  .vp .cal-page .cal-side-mini,
+  .vp .cal-page .cal-side-types,
+  .vp .cal-page .cal-stats {
+    display: none !important;
+  }
+  .vp .cal-page .cal-legend {
+    padding: 10px 16px;
+  }
+
+  /* The day / week list. */
+  .vp .cal-page .cal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px 16px 16px;
+  }
+  .vp .cal-page .cal-list-day {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .vp .cal-page .cal-list-h {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-text);
+  }
+  .vp .cal-page .cal-list-h.is-today::after {
+    content: " · денес";
+    color: var(--muted);
+  }
+  .vp .cal-page .cal-list-row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--gold);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .vp .cal-page .cal-list-time {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  .vp .cal-page .cal-list-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .vp .cal-page .cal-list-main b {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vp .cal-page .cal-list-main span {
+    font-size: 12.5px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vp .cal-page .cal-list-row .pill {
+    padding: 4px 10px;
+    font-size: 11.5px;
+  }
+  .vp .cal-page .cal-list-empty {
+    margin: 0;
+    padding: 18px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--muted);
+  }
+}
+
+/* 901–1340px: the side column stacks under the planner (panel.css) and the
+   small month calendar stretched to the full width with huge cells. */
+@media (min-width: 901px) and (max-width: 1340px) {
+  .vp .cal-page .cal-side-mini {
+    max-width: 360px;
+  }
+}

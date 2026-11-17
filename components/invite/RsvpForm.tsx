@@ -32,7 +32,7 @@ function partySummary(partySize: number, childrenCount: number, menuParts: strin
   return `${people}${children}${menuParts.length > 0 ? ` · ${menuParts.join(", ")}` : ""}`;
 }
 
-const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base";
+const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-[16px]";
 const labelClass = "mb-1 block text-sm text-neutral-600";
 
 export function RsvpForm({

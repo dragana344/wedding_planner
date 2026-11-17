@@ -10,7 +10,7 @@ const MESSAGE_REQUIRED = "Напишете порака.";
 const VIDEO_TOO_LARGE = "Видеото е преголемо (најмногу 100 MB).";
 const ALREADY_SENT = "Веќе испративте честитка. Ви благодариме!";
 
-const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-base";
+const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-[16px]";
 const labelClass = "mb-1 block text-sm text-neutral-600";
 
 /**

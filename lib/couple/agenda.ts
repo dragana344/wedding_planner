@@ -28,6 +28,9 @@ export async function listAgendaItems(eventId: string): Promise<AgendaItem[]> {
     .select(COLUMNS)
     .eq("event_id", eventId)
     .order("sort_order")
+    // Tie-break so rows that share a sort_order still list in a stable order.
+    .order("created_at")
+    .order("id")
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
   return checkListBound(data, "event_agenda_items");
@@ -101,10 +104,11 @@ export async function moveAgendaItem(
   const swapIdx = direction === "up" ? idx - 1 : idx + 1;
   if (swapIdx < 0 || swapIdx >= items.length) return items;
 
-  const a = items[idx];
-  const b = items[swapIdx];
-  // REL-005: both updates in one statement (migration 0041).
-  const { error } = await client.rpc("swap_agenda_items", { p_event_id: eventId, p_item_a: a.id, p_item_b: b.id });
+  const ids = items.map((i) => i.id);
+  [ids[idx], ids[swapIdx]] = [ids[swapIdx], ids[idx]];
+  // Renumbers every row in one statement (0154), so duplicate sort_orders
+  // can't make a move a no-op.
+  const { error } = await client.rpc("reorder_agenda_items", { p_event_id: eventId, p_item_ids: ids });
   if (error) throw error;
 
   return listAgendaItems(eventId);
