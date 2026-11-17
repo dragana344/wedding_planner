@@ -14,7 +14,8 @@ import { MAX_ATTACHMENTS, TOO_MANY_ATTACHMENTS_ERROR, removeTaskAttachments, upl
 //     every admin (assigned_to null) can be started by any admin except the
 //     one who sent it, and starting it makes them the assignee.
 //   - comments: any admin.
-//   - delete: the admin who sent it.
+//   - delete: any admin (the sender, the receiver, or anyone else on the team —
+//     a task sent from another admin's account must be removable too).
 
 const db = () => createServiceRoleClient();
 // The layout, not just the page: the sidebar's task count changes too.
@@ -158,9 +159,9 @@ export const adminTaskActionCore = {
     return { data: null, audit: { action: "admin_task_comment", targetId: i.id } };
   },
 
-  async remove(i: z.infer<typeof adminTaskSchemas.id>, ctx: AdminContext) {
-    const task = await loadTask(i.id);
-    if (task.created_by !== ctx.adminUserId) throw new Error("Задачата може да ја избрише само админот што ја испратил.");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async remove(i: z.infer<typeof adminTaskSchemas.id>, _ctx: AdminContext) {
+    await loadTask(i.id); // "not found" before touching storage
     // Comments cascade-delete with the task (0150's FK), but their storage
     // files don't — remove those explicitly first, same as the task's own.
     const [{ data: taskRow, error: taskReadError }, { data: comments, error: commentsReadError }] = await Promise.all([

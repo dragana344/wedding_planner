@@ -92,3 +92,37 @@
 .agenda-edit-row:first-child {
   border-top: 0;
 }
+.agenda-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  /* Time + dot + title on one line; the controls get their own line under it. */
+  .agenda-row {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .agenda-time {
+    min-width: 52px;
+    font-size: 20px;
+  }
+  .agenda-content {
+    flex: 1 1 0;
+  }
+  .agenda-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .agenda-icon-btn,
+  .agenda-link {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 1px solid #efe4cb;
+    border-radius: 9px;
+    background: #fff;
+  }
+}

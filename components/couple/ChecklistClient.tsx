@@ -126,7 +126,7 @@ export function ChecklistClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filter, setFilter] = useState<"all" | "open" | "done">("all");
   const [query, setQuery] = useState("");
-  const [addOpen, setAddOpen] = useState(true);
+  const [addOpen, setAddOpen] = useState(initialItems.length === 0);
   // Rows whose subtasks are showing; `focusSubtaskId` is the one whose
   // "Додај подзадача" was just clicked, so its input takes focus.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());

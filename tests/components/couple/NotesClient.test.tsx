@@ -23,6 +23,20 @@ const notes: Note[] = [
 ];
 
 describe("NotesClient", () => {
+  it("switches between the list and the editor (narrow screens show one at a time)", async () => {
+    global.fetch = vi.fn();
+    const { container } = render(<NotesClient coupleNames="Ана и Марко" initialNotes={notes} />);
+    const grid = container.querySelector(".nt-grid")!;
+    expect(grid).not.toHaveClass("is-editing");
+
+    fireEvent.click(screen.getByRole("button", { name: /Прашања за локал/ }));
+    await waitFor(() => expect(grid).toHaveClass("is-editing"));
+    expect(screen.getByLabelText("Наслов")).toHaveValue("Прашања за локал");
+
+    fireEvent.click(screen.getByRole("button", { name: "Мои белешки" }));
+    await waitFor(() => expect(grid).not.toHaveClass("is-editing"));
+  });
+
   it("renders the note count and list, filtered by search", () => {
     render(<NotesClient coupleNames="Ана и Марко" initialNotes={notes} />);
 

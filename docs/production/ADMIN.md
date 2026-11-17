@@ -148,7 +148,7 @@ Every `admin_*` action currently recorded (from `lib/admin/*-actions-core.ts`):
 | `admin_task_created` | Тикети за поддршка — send a task to one admin or to every admin |
 | `admin_task_status` | Тикети за поддршка — the receiver moves the task to Во тек / Решено |
 | `admin_task_comment` | Тикети за поддршка — comment on a task |
-| `admin_task_deleted` | Тикети за поддршка — the sender deletes a task |
+| `admin_task_deleted` | Тикети за поддршка — any admin deletes a task |
 | `admin_maintenance_on` | System — turn maintenance mode on |
 | `admin_maintenance_off` | System — turn maintenance mode off |
 

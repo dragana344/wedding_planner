@@ -6,15 +6,15 @@ import { AdminTasksTable, CreateAdminTaskForm } from "@/components/admin/AdminTa
 export const dynamic = "force-dynamic";
 
 const VIEWS = [
+  { key: "all", label: "Сите" },
   { key: "mine", label: "Доделени на мене" },
   { key: "sent", label: "Испратени од мене" },
-  { key: "all", label: "Сите" },
 ] as const;
 
 const EMPTY: Record<(typeof VIEWS)[number]["key"], string> = {
+  all: "Нема задачи.",
   mine: "Немате задачи.",
   sent: "Сè уште немате испратено задача.",
-  all: "Нема задачи.",
 };
 
 // Internal tasks between admins (0150). Venue and couple tickets live in the
@@ -24,7 +24,7 @@ export default async function AdminTasksPage({ searchParams }: { searchParams: P
   // Same per-request cached check as the gate above; this one is for the id.
   const ctx = await requireAdmin();
   const { view: rawView, status } = await searchParams;
-  const view = VIEWS.find((v) => v.key === rawView)?.key ?? "mine";
+  const view = VIEWS.find((v) => v.key === rawView)?.key ?? "all";
   const [tasks, admins] = await Promise.all([listAdminTasks(ctx.adminUserId, { view, status }), listAdmins()]);
   const href = (key: string, s?: string) => `/admin/support?view=${key}${s ? `&status=${s}` : ""}`;
 

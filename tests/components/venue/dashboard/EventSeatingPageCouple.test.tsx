@@ -186,3 +186,43 @@ describe("EventSeatingPage — couple look", () => {
     await waitFor(() => expect(a.confirm).toHaveBeenCalledWith("e1", "r1"));
   });
 });
+
+describe("EventSeatingPage — couple look on a phone", () => {
+  const desktopMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((query: string) => ({ ...desktopMatchMedia(query), matches: true })) as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = desktopMatchMedia;
+    };
+  });
+
+  it("opens on the table list and shows a tapped table's seats in a sheet", async () => {
+    renderPage(actions());
+    const card = await screen.findByRole("button", { name: /Маса 1/ });
+    fireEvent.click(card);
+    const sheet = await screen.findByRole("dialog", { name: "Седишта — Маса 1" });
+    expect(within(sheet).getByDisplayValue("Ана Петровска")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Готово" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("seats a guest from the Гости view by picking a table", async () => {
+    const a = actions();
+    renderPage(a);
+    fireEvent.click(await screen.findByRole("button", { name: "Гости" }));
+    fireEvent.click(screen.getByRole("button", { name: /Игор Стојанов: 0 од 1 места/ }));
+    const sheet = screen.getByRole("dialog", { name: "Маса за Игор Стојанов" });
+    fireEvent.click(within(sheet).getByRole("button", { name: /Маса 1\s*3 слободни/ }));
+    await waitFor(() =>
+      expect(a.saveTableSeats).toHaveBeenCalledWith(
+        "r1",
+        "t1",
+        [
+          { seatNumber: 1, guestId: "g1", guestName: null },
+          { seatNumber: 2, guestId: "g2", guestName: null },
+        ],
+        [{ seatNumber: 1, guestId: "g1", guestName: null }],
+      ),
+    );
+  });
+});

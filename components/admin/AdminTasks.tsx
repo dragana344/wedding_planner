@@ -9,6 +9,8 @@ import { SUPPORT_STATUS_LABEL, SUPPORT_STATUS_PILL } from "@/lib/support/status"
 import { commentOnAdminTask, createAdminTask, deleteAdminTask, setAdminTaskStatus } from "@/app/admin/(panel)/support/actions";
 import { Attachments, ThreadMessages, ThreadReplyForm } from "@/components/support/ThreadMessages";
 import { StatusButtons } from "./StatusButtons";
+import { AddPanel } from "@/components/shared/AddPanel";
+import { Icon } from "@/components/venue/shell/Icon";
 
 const EVERYONE = "";
 
@@ -18,7 +20,6 @@ export const assigneeLabel = (task: AdminTaskRow): string => (task.assignedTo ==
  * admin), and up to 5 photo/PDF attachments (0153). */
 export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedTo, setAssignedTo] = useState(EVERYONE);
@@ -40,83 +41,74 @@ export function CreateAdminTaskForm({ admins }: { admins: AdminAccount[] }) {
     setDescription("");
     setAssignedTo(EVERYONE);
     setFiles([]);
-    setOpen(false);
     router.push(`/admin/support?view=sent`);
   }
 
   return (
-    <section className="panel">
-      <div className="panel-h">
-        <h2 className="panel-t">Нова задача</h2>
-        <button type="button" className="btn btn-ghost" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          {open ? "Откажи" : "+ Нова задача"}
+    <AddPanel title="Нова задача">
+      <form onSubmit={submit} className="ev-form">
+        <div className="ev-field">
+          <label className="lab-s" htmlFor="task-title">
+            Наслов <span className="req">*</span>
+          </label>
+          <input id="task-title" className="fld" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required disabled={busy} />
+        </div>
+        <div className="ev-field">
+          <label className="lab-s" htmlFor="task-assignee">
+            Испрати до
+          </label>
+          <select id="task-assignee" className="fld" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} disabled={busy}>
+            <option value={EVERYONE}>Сите админи (кој прв ќе ја земе)</option>
+            {admins.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="ev-field ev-field-wide">
+          <label className="lab-s" htmlFor="task-description">
+            Опис
+          </label>
+          <textarea
+            id="task-description"
+            className="fld"
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={5000}
+            disabled={busy}
+          />
+        </div>
+        <div className="ev-field ev-field-wide">
+          <label className="lab-s" htmlFor="task-files">
+            Прилози (фотографии или PDF, најмногу 5)
+          </label>
+          <input
+            id="task-files"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            disabled={busy}
+          />
+        </div>
+        {error ? (
+          <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" className="btn btn-gold" disabled={busy || !title.trim()}>
+          {busy ? "Се испраќа..." : "Испрати задача"}
         </button>
-      </div>
-      {open ? (
-        <form onSubmit={submit} className="ev-form" style={{ padding: "16px 20px" }}>
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="task-title">
-              Наслов <span className="req">*</span>
-            </label>
-            <input id="task-title" className="fld" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required disabled={busy} />
-          </div>
-          <div className="ev-field">
-            <label className="lab-s" htmlFor="task-assignee">
-              Испрати до
-            </label>
-            <select id="task-assignee" className="fld" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} disabled={busy}>
-              <option value={EVERYONE}>Сите админи (кој прв ќе ја земе)</option>
-              {admins.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.email}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="ev-field ev-field-wide">
-            <label className="lab-s" htmlFor="task-description">
-              Опис
-            </label>
-            <textarea
-              id="task-description"
-              className="fld"
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={5000}
-              disabled={busy}
-            />
-          </div>
-          <div className="ev-field ev-field-wide">
-            <label className="lab-s" htmlFor="task-files">
-              Прилози (фотографии или PDF, најмногу 5)
-            </label>
-            <input
-              id="task-files"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              multiple
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-              disabled={busy}
-            />
-          </div>
-          {error ? (
-            <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" className="btn btn-gold" disabled={busy || !title.trim()}>
-            {busy ? "Се испраќа..." : "Испрати задача"}
-          </button>
-        </form>
-      ) : null}
-    </section>
+      </form>
+    </AddPanel>
   );
 }
 
 export function AdminTasksTable({ tasks }: { tasks: AdminTaskRow[] }) {
   return (
-    <table className="s1-tbl">
+    <table className="s1-tbl s1-cards">
       <thead>
         <tr>
           <th>Ажурирано</th>
@@ -130,11 +122,11 @@ export function AdminTasksTable({ tasks }: { tasks: AdminTaskRow[] }) {
       <tbody>
         {tasks.map((t) => (
           <tr key={t.id}>
-            <td>{todayIn(undefined, new Date(t.updatedAt))}</td>
-            <td>{t.title}</td>
-            <td>{t.createdByEmail ?? "—"}</td>
-            <td>{assigneeLabel(t)}</td>
-            <td>
+            <td data-label="Ажурирано">{todayIn(undefined, new Date(t.updatedAt))}</td>
+            <td data-label="Задача" className="tc-main">{t.title}</td>
+            <td data-label="Од">{t.createdByEmail ?? "—"}</td>
+            <td data-label="До">{assigneeLabel(t)}</td>
+            <td data-label="Статус">
               <span className={`pill ${SUPPORT_STATUS_PILL[t.status]}`}>{SUPPORT_STATUS_LABEL[t.status]}</span>
             </td>
             <td>
@@ -150,7 +142,7 @@ export function AdminTasksTable({ tasks }: { tasks: AdminTaskRow[] }) {
 }
 
 /** One task: the receiver's status buttons (the sender just watches the
- * status), the comment thread, and delete for the sender. */
+ * status), the comment thread, and a small delete button for any admin. */
 export function AdminTaskDetail({
   task,
   comments,
@@ -164,7 +156,6 @@ export function AdminTaskDetail({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const isSender = task.createdBy === currentAdminId;
 
   const entries = comments.map((c) => ({
     id: c.id,
@@ -180,7 +171,23 @@ export function AdminTaskDetail({
       <section className="panel">
         <div className="panel-h">
           <h2 className="panel-t">{task.title}</h2>
-          <span className={`pill ${SUPPORT_STATUS_PILL[task.status]}`}>{SUPPORT_STATUS_LABEL[task.status]}</span>
+          <div className="s1-task-tools">
+            <span className={`pill ${SUPPORT_STATUS_PILL[task.status]}`}>{SUPPORT_STATUS_LABEL[task.status]}</span>
+            <button
+              type="button"
+              className="sq sq-danger"
+              aria-label="Избриши задача"
+              title="Избриши задача"
+              onClick={async () => {
+                if (!window.confirm("Да се избрише задачата? Ова не може да се врати.")) return;
+                const r = await deleteAdminTask({ id: task.id });
+                if (r.ok) router.push("/admin/support");
+                else setError(r.error);
+              }}
+            >
+              <Icon name="trash" size="sm" />
+            </button>
+          </div>
         </div>
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <p className="muted" style={{ margin: 0 }}>
@@ -191,26 +198,6 @@ export function AdminTaskDetail({
           <Attachments items={task.attachments} />
           {canChangeStatus ? (
             <StatusButtons status={task.status} onChange={(status) => setAdminTaskStatus({ id: task.id, status })} />
-          ) : isSender ? (
-            <p className="muted" style={{ margin: 0 }}>
-              Статусот го менува админот што ја доби задачата — овде гледате кога ќе ја започне и заврши.
-            </p>
-          ) : null}
-          {isSender ? (
-            <div>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={async () => {
-                  if (!window.confirm("Да се избрише задачата?")) return;
-                  const r = await deleteAdminTask({ id: task.id });
-                  if (r.ok) router.push("/admin/support?view=sent");
-                  else setError(r.error);
-                }}
-              >
-                Избриши задача
-              </button>
-            </div>
           ) : null}
         </div>
       </section>
@@ -220,7 +207,7 @@ export function AdminTaskDetail({
           <h2 className="panel-t">Коментари</h2>
         </div>
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <ThreadMessages entries={entries} empty="Нема коментари." />
+          <ThreadMessages entries={entries} empty="" />
           {error ? (
             <p role="alert" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
               {error}
@@ -229,8 +216,9 @@ export function AdminTaskDetail({
           <ThreadReplyForm
             id="task-comment"
             label="Коментар"
+            hideLabel
             placeholder="Напишете коментар..."
-            submitLabel="Додај коментар"
+            submitLabel="Испрати"
             allowFiles
             onSend={async (body, files) => {
               const r = await commentOnAdminTask({ id: task.id, body, files });

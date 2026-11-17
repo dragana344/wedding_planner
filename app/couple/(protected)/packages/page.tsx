@@ -30,7 +30,11 @@ export default async function PackagesPage() {
               {pkg.description ? (
                 <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 12px" }}>{pkg.description}</p>
               ) : null}
-              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              <details className="pk-feats">
+                <summary>
+                  Што вклучува ({EVENT_FEATURES.filter((f) => pkg.features[f.key].enabled).length} од {EVENT_FEATURES.length})
+                </summary>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {EVENT_FEATURES.map((feature) => {
                   const resolved = pkg.features[feature.key];
                   // Switch features are plain on/off (green/red). A limit
@@ -62,7 +66,8 @@ export default async function PackagesPage() {
                     </li>
                   );
                 })}
-              </ul>
+                </ul>
+              </details>
             </div>
           </section>
         ))}

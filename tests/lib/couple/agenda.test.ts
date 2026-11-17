@@ -46,6 +46,30 @@ describe("lib/couple/agenda", () => {
     await admin.from("venues").delete().eq("id", venue!.id);
   });
 
+  it("moves a row even when two rows share a sort_order, and renumbers them all (0154)", async () => {
+    const { data: venue } = await admin.from("venues").insert({ name: "Agenda Dup Venue" }).select().single();
+    const { data: event } = await admin
+      .from("events")
+      .insert({ venue_id: venue!.id, couple_names: "Agenda Dup Couple", event_date: "2027-02-01" })
+      .select()
+      .single();
+    const a = await addAgendaItem(event!.id, { time: null, title: "А", location: null, notes: null });
+    const b = await addAgendaItem(event!.id, { time: null, title: "Б", location: null, notes: null });
+    const c = await addAgendaItem(event!.id, { time: null, title: "В", location: null, notes: null });
+    // The state that used to make ↑/↓ a no-op: Б and В both at position 1.
+    await admin.from("event_agenda_items").update({ sort_order: 1 }).eq("id", c.id);
+
+    const listed = await listAgendaItems(event!.id);
+    const lastId = listed[2].id;
+    const middleId = listed[1].id;
+    const moved = await moveAgendaItem(event!.id, lastId, "up");
+    expect(moved.map((i) => i.id)).toEqual([a.id, lastId, middleId]);
+    expect(moved.map((i) => i.sort_order)).toEqual([0, 1, 2]);
+    expect(new Set([b.id, c.id])).toEqual(new Set([lastId, middleId]));
+
+    await admin.from("venues").delete().eq("id", venue!.id);
+  });
+
   it("scopes updates and deletes to the given event, refusing to touch another event's item", async () => {
     const { data: venue } = await admin.from("venues").insert({ name: "Agenda Scope Venue" }).select().single();
     const { data: eventA } = await admin

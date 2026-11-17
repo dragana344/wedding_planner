@@ -24,7 +24,7 @@ export function FeatureOverridesEditor({
 }) {
   const rows = FEATURES.filter((f) => scope === "venue" || f.scope === "event");
   return (
-    <table className="s1-tbl">
+    <table className="s1-tbl s1-cards">
       <thead>
         <tr>
           <th>Функција</th>
@@ -60,6 +60,8 @@ function OverrideRowEditor({
   const [limit, setLimit] = useState(current?.limitValue?.toString() ?? "");
   const [note, setNote] = useState(current?.note ?? "");
   const [status, setStatus] = useState<string | null>(null);
+  // Phones only: the edit fields stay folded until "Уреди" (CSS ignores it on wider screens).
+  const [open, setOpen] = useState(false);
   const router = useRouter();
 
   async function save() {
@@ -90,19 +92,23 @@ function OverrideRowEditor({
       : "Отклучено";
 
   return (
-    <tr>
-      <td>{def.label}</td>
-      <td>
+    <tr className={`ov-row${open ? " is-open" : ""}`}>
+      <td data-label="Функција" className="tc-main">{def.label}</td>
+      <td data-label="Важи сега">
         <span className={`pill ${statusVariant}`}>{statusLabel}</span>
+        {current ? <span className="pill p-info ov-flag">Исклучок</span> : null}
+        <button type="button" className="btn btn-ghost ov-edit" aria-expanded={open} onClick={() => setOpen((v) => !v)} aria-label={`Уреди ${def.label}`}>
+          {open ? "Затвори" : "Уреди"}
+        </button>
       </td>
-      <td>
+      <td data-label="Исклучок" className="ov-detail">
         <select className="fld" aria-label={def.label} value={mode} onChange={(e) => setMode(e.target.value)}>
           <option value="inherit">Од нивото</option>
           <option value="on">Отклучи</option>
           <option value="off">Заклучи</option>
         </select>
       </td>
-      <td>
+      <td data-label="Лимит" className="ov-detail">
         {def.kind === "limit" ? (
           <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input type="checkbox" aria-label={`Промени лимит за ${def.label}`} checked={limitOverride} onChange={(e) => setLimitOverride(e.target.checked)} />
@@ -122,10 +128,10 @@ function OverrideRowEditor({
           "—"
         )}
       </td>
-      <td>
+      <td data-label="Белешка" className="ov-detail">
         <input className="fld" aria-label={`Белешка за ${def.label}`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
       </td>
-      <td>
+      <td className="ov-detail">
         <button type="button" className="btn btn-ghost" onClick={save} aria-label={`Зачувај ${def.label}`}>
           Зачувај
         </button>

@@ -32,7 +32,7 @@ export function CreatePlanForm() {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+    <form onSubmit={submit} className="adm-inline-form" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
       <div>
         <label className="lab-s" htmlFor="new-plan-name">
           Име

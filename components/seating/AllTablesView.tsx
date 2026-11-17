@@ -16,7 +16,8 @@ export function AllTablesView({
   highlightedId: string | null;
   onHighlight: (elementId: string | null) => void;
 }) {
-  const tables = [...seating.tables].sort((a, b) => a.number - b.number);
+  // By the name people see ("Маса 2" before "Маса 10"), not the internal number.
+  const tables = [...seating.tables].sort((a, b) => tableTitle(a).localeCompare(tableTitle(b), "mk", { numeric: true }));
   // e.g. a family's party size was lowered after they were seated.
   const overbooked = seating.guests.filter((g) => g.seatsTaken > g.partySize);
 

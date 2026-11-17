@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/couple", useRouter: () => ({ push: vi.fn() }) }));
 
 import { CoupleShell } from "@/components/couple/shell/CoupleShell";
 import { buildCoupleNavItems } from "@/components/couple/shell/nav";
+
+// The sidebar; phones also get a bottom bar repeating a few of its links.
+const mainNav = () => within(screen.getByRole("navigation", { name: "Главна навигација" }));
 
 describe("couple nav dots", () => {
   it("marks only the sections flagged", () => {
@@ -19,9 +22,9 @@ describe("couple nav dots", () => {
         <p>content</p>
       </CoupleShell>,
     );
-    expect(screen.getByRole("link", { name: /Гости.*не е видено/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Мени" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Буџет" })).toBeInTheDocument();
+    expect(mainNav().getByRole("link", { name: /Гости.*не е видено/ })).toBeInTheDocument();
+    expect(mainNav().getByRole("link", { name: "Мени" })).toBeInTheDocument();
+    expect(mainNav().getByRole("link", { name: "Буџет" })).toBeInTheDocument();
   });
 
   it("puts Известувања right after Почетна, ungrouped, with a dot when flagged", () => {
@@ -37,7 +40,7 @@ describe("couple nav dots", () => {
         <p>content</p>
       </CoupleShell>,
     );
-    expect(screen.getByRole("link", { name: /Известувања.*не е видено/ })).toBeInTheDocument();
+    expect(mainNav().getByRole("link", { name: /Известувања.*не е видено/ })).toBeInTheDocument();
   });
 
   it("shows no dots by default", () => {

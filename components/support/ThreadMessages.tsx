@@ -72,6 +72,7 @@ export function ThreadReplyForm({
   placeholder,
   submitLabel = "Испрати",
   allowFiles = false,
+  hideLabel = false,
   onSend,
 }: {
   id: string;
@@ -79,6 +80,8 @@ export function ThreadReplyForm({
   placeholder?: string;
   submitLabel?: string;
   allowFiles?: boolean;
+  /** Keeps the label for screen readers only, when the section's own heading already says it. */
+  hideLabel?: boolean;
   onSend: (body: string, files: File[]) => Promise<boolean>;
 }) {
   const router = useRouter();
@@ -106,7 +109,7 @@ export function ThreadReplyForm({
 
   return (
     <form className="sp-reply" onSubmit={submit}>
-      <label className="lab-s" htmlFor={id}>
+      <label className={hideLabel ? "sr-only" : "lab-s"} htmlFor={id}>
         {label}
       </label>
       <textarea

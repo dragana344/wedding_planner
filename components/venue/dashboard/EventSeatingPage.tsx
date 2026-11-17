@@ -23,6 +23,7 @@ import { type Room, type TableType } from "@/lib/venue/rooms";
 import { TableSeatsPanel } from "@/components/seating/TableSeatsPanel";
 import { GuestRail } from "@/components/seating/GuestRail";
 import { AllTablesView } from "@/components/seating/AllTablesView";
+import { SeatingGuestList } from "@/components/seating/SeatingGuestList";
 import { ToolbarMenu, type ToolbarMenuItem } from "@/components/seating/ToolbarMenu";
 import { PrinterIcon, QrIcon, SprigIcon } from "@/components/seating/couple-icons";
 import "@/components/seating/couple-seating.css";
@@ -204,6 +205,38 @@ export function EventSeatingPage({
   const [isLoadingPreset, setIsLoadingPreset] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [sideTab, setSideTab] = useState<"guests" | "table">("guests");
+  // Couple look on a phone: the table list is the starting view and a picked
+  // table's seats open in a bottom sheet (no dragging on a small screen).
+  const [isPhone, setIsPhone] = useState(false);
+  const [seatSheetOpen, setSeatSheetOpen] = useState(false);
+  const [showGuestList, setShowGuestList] = useState(false);
+  /** The guest whose table is being picked in the phone sheet. */
+  const [guestPickId, setGuestPickId] = useState<string | null>(null);
+  const anySheetOpen = seatSheetOpen || guestPickId !== null;
+  useEffect(() => {
+    if (look !== "couple") return;
+    const mq = window.matchMedia("(max-width: 900px)");
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    if (mq.matches) setShowAllTables(true);
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [look]);
+  useEffect(() => {
+    if (!anySheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSeatSheetOpen(false);
+      setGuestPickId(null);
+    };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [anySheetOpen]);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   // Project C: a wide room starts zoomed to fit the visible width instead of
   // overflowing into a horizontal scrollbar at 100% — once per room, not a
@@ -959,6 +992,33 @@ export function EventSeatingPage({
     }
   }
 
+  /** Phone guest list: put a guest in the next free seats of one table, as
+   * many as they still need (or as many as are free). */
+  async function seatGuestAtTable(guestId: string, elementId: string) {
+    if (!seating || !actions.saveTableSeats) return;
+    const guest = seating.guests.find((g) => g.id === guestId);
+    const table = seating.tables.find((t) => t.elementId === elementId);
+    if (!guest || !table) return;
+    const loaded = seating.seats
+      .filter((s) => s.elementId === elementId)
+      .map((s) => ({ seatNumber: s.seatNumber, guestId: s.guestId, guestName: s.guestId ? null : s.guestName }));
+    const taken = new Set(loaded.map((s) => s.seatNumber));
+    const free = Array.from({ length: table.capacity }, (_, i) => i + 1).filter((n) => !taken.has(n));
+    const count = Math.min(Math.max(guest.partySize - guest.seatsTaken, 1), free.length);
+    if (count === 0) return;
+    const added = free.slice(0, count).map((seatNumber) => ({ seatNumber, guestId, guestName: null }));
+    setSeatNotice(null);
+    try {
+      setSeating(await actions.saveTableSeats(room.id, elementId, [...loaded, ...added], loaded));
+      setSeatVersion((v) => v + 1);
+      await refreshHistory();
+    } catch (err) {
+      if (actions.getRoomSeating) setSeating(await actions.getRoomSeating(eventId, room.id));
+      setSeatVersion((v) => v + 1);
+      setSeatNotice(errorMessage(err, "Не успеа доделувањето на маса."));
+    }
+  }
+
   /** The couple panel's look of this same editor (see the `look` prop). */
   function renderCouple() {
     const canEdit = !viewOnly;
@@ -984,6 +1044,29 @@ export function EventSeatingPage({
       { key: "music", label: "Музика", onSelect: () => handleAddMovable("music") },
       { key: "photo_stage", label: "Бина за сликање", onSelect: () => handleAddMovable("photo_stage") },
     ];
+
+    const undoDisabled = actions.getHistoryState ? !history.canUndo || isUndoing : !canUndo || isUndoing;
+    const toolItems: ToolbarMenuItem[] = [
+      ...(printLinks
+        ? [
+            { key: "print", label: "Печати план", onSelect: () => window.open(printLinks.plan, "_blank") },
+            ...(printLinks.qr ? [{ key: "qr", label: "QR по маса", onSelect: () => window.open(printLinks.qr!, "_blank") }] : []),
+          ]
+        : []),
+      ...(canEdit
+        ? [
+            { key: "undo", label: "← Врати", onSelect: () => void handleUndo(), disabled: undoDisabled, separated: Boolean(printLinks) },
+            ...(actions.redo ? [{ key: "redo", label: "Повтор →", onSelect: () => void handleRedo(), disabled: !history.canRedo || isRedoing }] : []),
+            ...(actions.resetToBaseline
+              ? [{ key: "reset", label: "Првичен распоред", onSelect: () => void handleResetToBaseline(), disabled: isResettingBaseline }]
+              : []),
+          ]
+        : []),
+    ];
+    const openSeatSheet = (id: string | null) => {
+      if (!isPhone || !id || !seating?.tables.some((t) => t.elementId === id)) return;
+      setSeatSheetOpen(true);
+    };
 
     const selectedLabel = selectedTable ? (canvasElements.find((c) => c.id === selectedTable.id)?.label ?? "Маса") : "";
     const selectedType = selectedTable ? tableTypes.find((tt) => tt.id === selectedTable.table_type_id) : undefined;
@@ -1028,6 +1111,7 @@ export function EventSeatingPage({
               <span className="cs-toolbar-div" aria-hidden />
             </>
           ) : null}
+          <div className="cs-tools-wide">
           {printLinks ? (
             <>
               <Link href={printLinks.plan} className="cs-btn" target="_blank">
@@ -1068,16 +1152,42 @@ export function EventSeatingPage({
               ) : null}
             </>
           ) : null}
+          </div>
+          {toolItems.length > 0 ? (
+            <div className="cs-tools-phone">
+              <ToolbarMenu label="Алатки" icon="dots" items={toolItems} />
+            </div>
+          ) : null}
           {seating ? (
             <div className="cs-views" role="group" aria-label="Приказ">
-              <button type="button" aria-pressed={!showAllTables} onClick={() => setShowAllTables(false)}>
+              <button
+                type="button"
+                aria-pressed={!showAllTables && !(isPhone && showGuestList)}
+                onClick={() => {
+                  setShowAllTables(false);
+                  setShowGuestList(false);
+                }}
+              >
                 <Icon name="tables" size="sm" />
                 План
               </button>
-              <button type="button" aria-pressed={showAllTables} onClick={() => setShowAllTables(true)}>
+              <button
+                type="button"
+                aria-pressed={showAllTables && !(isPhone && showGuestList)}
+                onClick={() => {
+                  setShowAllTables(true);
+                  setShowGuestList(false);
+                }}
+              >
                 <Icon name="menu" size="sm" />
-                Листа на маси
+                {isPhone ? "Маси" : "Листа на маси"}
               </button>
+              {isPhone ? (
+                <button type="button" aria-pressed={showGuestList} onClick={() => setShowGuestList(true)}>
+                  <Icon name="users" size="sm" />
+                  Гости
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1108,13 +1218,31 @@ export function EventSeatingPage({
 
         {/* "Листа на маси" takes the plan's place; a picked card is the
             selected table once the couple switches back to План. */}
-        {showAllTables && seating ? (
+        {isPhone && showGuestList && seating ? (
+          <>
+            {seatNotice ? <p className="cs-note">{seatNotice}</p> : null}
+            <SeatingGuestList
+              seating={seating}
+              readOnly={seatingReadOnly || viewOnly || !actions.saveTableSeats}
+              onPick={(id) => setGuestPickId(id)}
+            />
+          </>
+        ) : showAllTables && seating ? (
           <div className="cs-card cs-list">
             <AllTablesView
               roomName={room.name}
               seating={seating}
               highlightedId={highlightedId}
               onHighlight={(id) => {
+                if (isPhone) {
+                  setHighlightedId(id ?? highlightedId);
+                  if (id ?? highlightedId) {
+                    setSelectedId(id ?? highlightedId);
+                    setSeatNotice(null);
+                    openSeatSheet(id ?? highlightedId);
+                  }
+                  return;
+                }
                 setHighlightedId(id);
                 if (!id) return;
                 setSelectedId(id);
@@ -1159,6 +1287,7 @@ export function EventSeatingPage({
                   onSelect={(id) => {
                     setSelectedId(id);
                     setSeatNotice(null);
+                    if (!groupMode) openSeatSheet(id);
                   }}
                   onMoveEnd={handleMoveEnd}
                   onResizeEnd={handleResizeEnd}
@@ -1286,6 +1415,78 @@ export function EventSeatingPage({
             </aside>
           </div>
         )}
+
+        {isPhone && seatSheetOpen && selectedSeatTable && seating ? (
+          <>
+            <div className="cs-sheet-scrim" onClick={() => setSeatSheetOpen(false)} aria-hidden />
+            <div className="cs-sheet" role="dialog" aria-modal="true" aria-label={`Седишта — ${tableTitle(selectedSeatTable)}`}>
+              <div className="cs-sheet-bar">
+                <span className="cs-sheet-handle" aria-hidden />
+                <button type="button" className="cs-btn cs-btn-primary" onClick={() => setSeatSheetOpen(false)}>
+                  Готово
+                </button>
+              </div>
+              <p className="cs-sheet-hint">Допрете слободно седиште и изберете гостин од листата.</p>
+              <TableSeatsPanel
+                key={`sheet:${selectedSeatTable.elementId}:${selectedSeatTable.capacity}:${seatVersion}`}
+                variant="couple"
+                table={selectedSeatTable}
+                seats={seating.seats.filter((s) => s.elementId === selectedSeatTable.elementId)}
+                guests={seating.guests}
+                readOnly={seatingReadOnly || viewOnly || !actions.saveTableSeats}
+                onSave={saveSelectedSeats}
+              />
+            </div>
+          </>
+        ) : null}
+        {isPhone && guestPickId && seating
+          ? (() => {
+              const guest = seating.guests.find((g) => g.id === guestPickId);
+              if (!guest) return null;
+              const needs = Math.max(guest.partySize - guest.seatsTaken, 0);
+              const tables = [...seating.tables]
+                .map((t) => ({ t, free: t.capacity - seating.seats.filter((s) => s.elementId === t.elementId).length }))
+                .sort((a, b) => tableTitle(a.t).localeCompare(tableTitle(b.t), "mk", { numeric: true }));
+              const close = () => setGuestPickId(null);
+              return (
+                <>
+                  <div className="cs-sheet-scrim" onClick={close} aria-hidden />
+                  <div className="cs-sheet" role="dialog" aria-modal="true" aria-label={`Маса за ${guest.fullName}`}>
+                    <div className="cs-sheet-bar">
+                      <span className="cs-sheet-handle" aria-hidden />
+                      <button type="button" className="cs-btn" onClick={close}>
+                        Затвори
+                      </button>
+                    </div>
+                    <h3 className="cs-seats-title">{guest.fullName}</h3>
+                    <p className="cs-sheet-hint">
+                      {needs > 0
+                        ? `Треба уште ${needs} ${needs === 1 ? "место" : "места"}. Изберете маса — гостинот оди на првите слободни седишта.`
+                        : "Сите места се веќе доделени. Изберете маса за уште едно место, или отворете ја масата за да преместите."}
+                    </p>
+                    <ul className="cs-pick-list">
+                      {tables.map(({ t, free }) => (
+                        <li key={t.elementId}>
+                          <button
+                            type="button"
+                            className="cs-pick-row"
+                            disabled={free === 0}
+                            onClick={async () => {
+                              close();
+                              await seatGuestAtTable(guest.id, t.elementId);
+                            }}
+                          >
+                            <span>{tableTitle(t)}</span>
+                            <span className="cs-pick-free">{free === 0 ? "Полна" : `${free} слободни`}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              );
+            })()
+          : null}
       </div>
     );
   }

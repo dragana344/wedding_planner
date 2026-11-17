@@ -324,7 +324,7 @@ export function ClientsClient() {
 
   return (
     <div className="wrap">
-      <section className="tiles" aria-label="Преглед" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
+      <section className="tiles tiles-compact" aria-label="Преглед" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
         <div className="tile">
           <span className="badge"><Icon name="user" size="lg" /></span>
           <div>
@@ -355,7 +355,7 @@ export function ClientsClient() {
         </div>
       </section>
 
-      <div className="bar">
+      <div className="bar ev-bar">
         <EventTypeFilter value={tab} counts={typeCounts} total={events.length} onChange={setTab} />
         <div className="search">
           <Icon name="search" size="sm" />
@@ -369,7 +369,7 @@ export function ClientsClient() {
         </div>
       </div>
 
-      <section className="panel">
+      <section className="panel ev-list">
         <div className="scroll">
           <div className="grid">
             {tableHead}
@@ -391,7 +391,7 @@ export function ClientsClient() {
       </section>
 
       {finishedVisible.length > 0 ? (
-        <section className="panel cl-done" aria-label="Завршени настани">
+        <section className="panel cl-done ev-list" aria-label="Завршени настани">
           <div className="panel-h">
             <button type="button" className="cl-done-toggle" aria-expanded={showFinished} onClick={() => setShowFinished((v) => !v)}>
               <Icon name="down" size="sm" className={showFinished ? "cl-caret open" : "cl-caret"} />

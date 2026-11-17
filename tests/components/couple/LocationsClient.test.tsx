@@ -22,6 +22,7 @@ describe("LocationsClient", () => {
 
     expect(screen.getByText("Црква")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Нова локација" }));
     fireEvent.change(screen.getByLabelText("Назив"), { target: { value: "Ресторан" } });
     fireEvent.click(screen.getByRole("button", { name: /додади/i }));
 

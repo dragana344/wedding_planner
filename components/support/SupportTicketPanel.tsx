@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { SupportTicket } from "@/lib/venue/support";
 import { SupportTicketForm } from "./SupportTicketForm";
 import { SupportTicketList } from "./SupportTicketList";
+import { AddPanel } from "@/components/shared/AddPanel";
 
 /** Form + this caller's own tickets and their conversations, for one of
  * /api/venue/support or /api/couple/support. Owns the list locally so a new
@@ -13,14 +14,9 @@ export function SupportTicketPanel({ endpoint, initialTickets }: { endpoint: str
 
   return (
     <>
-      <section className="panel">
-        <div className="panel-h">
-          <h2 className="panel-t">Пријавете проблем</h2>
-        </div>
-        <div style={{ padding: "16px 20px" }}>
-          <SupportTicketForm endpoint={endpoint} onSubmitted={(ticket) => setTickets((t) => [ticket, ...t])} />
-        </div>
-      </section>
+      <AddPanel title="Пријавете проблем" defaultOpen={initialTickets.length === 0}>
+        <SupportTicketForm endpoint={endpoint} onSubmitted={(ticket) => setTickets((t) => [ticket, ...t])} />
+      </AddPanel>
 
       <section className="panel">
         <div className="panel-h">

@@ -10,8 +10,8 @@ import { VenueNav } from "./VenueNav";
 import { OnboardingTour } from "./OnboardingTour";
 import { LockedContent } from "@/components/entitlements/LockedBanner";
 import type { FeatureKey } from "@/lib/entitlements/features";
-import { DrawerButton } from "./DrawerButton";
 import { useDrawer } from "./useDrawer";
+import { BottomTabBar } from "@/components/shared/BottomTabBar";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
 import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
@@ -24,6 +24,15 @@ const MK_MONTHS = [
   "Јули", "Август", "Септември", "Октомври", "Ноември", "Декември",
 ];
 const MK_DAYS = ["Недела", "Понеделник", "Вторник", "Среда", "Четврток", "Петок", "Сабота"];
+
+const TAB_ITEMS = [
+  { href: "/venue", label: "Табла", icon: "home" },
+  TABLE_RESERVATIONS_ENABLED
+    ? { href: "/venue/reservations", label: "Резервации", icon: "book" }
+    : { href: "/venue/tables", label: "Маси", icon: "tables" },
+  { href: "/venue/calendar", label: "Календар", icon: "cal" },
+  { href: "/venue/events", label: "Настани", icon: "cal-dot" },
+];
 
 /**
  * Live clock for the top bar. Rendered only after mount — the server and client
@@ -66,6 +75,9 @@ export function PanelShell({
   const now = useNow();
   const active = matchNavItem(pathname);
   const isLocked = (feature?: FeatureKey) => Boolean(feature && lockedFeatures.includes(feature));
+  const tabs = TAB_ITEMS.map((t) => ({ ...t, active: active.href === t.href, badge: badges?.[t.href], dot: dots?.[t.href] }));
+  const inTabs = (href: string) => TAB_ITEMS.some((t) => t.href === href);
+  const moreDot = [...Object.entries(badges ?? {}), ...Object.entries(dots ?? {})].some(([href, v]) => !inTabs(href) && Boolean(v));
 
   return (
     <div className={`vp app${mini ? " mini" : ""}`} style={(brand?.vars ?? undefined) as React.CSSProperties | undefined}>
@@ -132,7 +144,6 @@ export function PanelShell({
       <div className="main">
         <header className="top">
           <div className="title-wrap">
-            <DrawerButton open={drawerOpen} onClick={toggleDrawer} buttonRef={buttonRef} />
             <div>
               <h1 className="page-title">{active.title}</h1>
               <p className="page-sub">{active.subtitle}</p>
@@ -140,7 +151,7 @@ export function PanelShell({
           </div>
 
           <div className="meta">
-            <div className="meta-item">
+            <div className="meta-item meta-clock">
               <Icon name="cal" size="lg" style={{ color: "var(--ink-2)" }} />
               <div>
                 <div className="meta-lab">Денес е</div>
@@ -152,7 +163,7 @@ export function PanelShell({
                 <div className="meta-lab">{now ? MK_DAYS[now.getDay()] : ""}</div>
               </div>
             </div>
-            <div className="meta-item">
+            <div className="meta-item meta-clock">
               <Icon name="clock" size="lg" style={{ color: "var(--ink-2)" }} />
               <div className="meta-val">
                 {now
@@ -169,6 +180,15 @@ export function PanelShell({
         <PasswordResetNotice />
         {isLocked(active.feature) ? <LockedContent audience="venue">{children}</LockedContent> : children}
       </div>
+
+      <BottomTabBar
+        items={tabs}
+        moreOpen={drawerOpen}
+        moreActive={!inTabs(active.href)}
+        moreDot={moreDot}
+        onMore={toggleDrawer}
+        moreRef={buttonRef}
+      />
 
       <Suspense fallback={null}>
         <OnboardingTour />

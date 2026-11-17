@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin/guard";
+import { FilterBar } from "@/components/admin/FilterBar";
 import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listEvents, listVenues } from "@/lib/admin/queries";
@@ -25,35 +26,43 @@ export default async function EventsPage({
   const today = todayIn();
   return (
     <div className="wrap">
-      <form className="bar" aria-label="Филтер на настани">
-        <select className="fld" name="venue" defaultValue={venue ?? ""} aria-label="Локал">
-          <option value="">Сите локали</option>
-          {venues.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name}
-            </option>
-          ))}
-        </select>
-        <input type="date" className="fld" name="from" defaultValue={from} aria-label="Од датум" />
-        <input type="date" className="fld" name="to" defaultValue={to} aria-label="До датум" />
-        <select className="fld" name="status" defaultValue={status ?? ""} aria-label="Статус">
-          <option value="">Сите статуси</option>
-          {STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <button className="btn btn-gold" type="submit">
-          <Icon name="search" size="sm" /> Филтрирај
-        </button>
-      </form>
+      <FilterBar activeCount={[venue, from, to, status].filter(Boolean).length}>
+        <form className="bar" aria-label="Филтер на настани">
+          <select className="fld" name="venue" defaultValue={venue ?? ""} aria-label="Локал">
+            <option value="">Сите локали</option>
+            {venues.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+          <label className="fbar-date">
+            <span>Од</span>
+            <input type="date" className="fld" name="from" defaultValue={from} aria-label="Од датум" />
+          </label>
+          <label className="fbar-date">
+            <span>До</span>
+            <input type="date" className="fld" name="to" defaultValue={to} aria-label="До датум" />
+          </label>
+          <select className="fld" name="status" defaultValue={status ?? ""} aria-label="Статус">
+            <option value="">Сите статуси</option>
+            {STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-gold" type="submit">
+            <Icon name="search" size="sm" /> Филтрирај
+          </button>
+        </form>
+      </FilterBar>
 
       <section className="panel">
         {events.length === 0 ? (
           <p className="s1-empty">Нема настани што одговараат на филтерот.</p>
         ) : (
-          <table className="s1-tbl">
+          <table className="s1-tbl s1-cards">
             <thead>
               <tr>
                 <th>Датум</th>
@@ -67,14 +76,14 @@ export default async function EventsPage({
             <tbody>
               {events.map((e) => (
                 <tr key={e.id} className={e.date < today ? "row-past" : undefined}>
-                  <td>{formatMkDate(e.date)}</td>
-                  <td>{e.startTime ? e.startTime.slice(0, 5) : "—"}</td>
-                  <td>{e.venueName}</td>
-                  <td>
+                  <td data-label="Датум">{formatMkDate(e.date)}</td>
+                  <td data-label="Време">{e.startTime ? e.startTime.slice(0, 5) : "—"}</td>
+                  <td data-label="Локал">{e.venueName}</td>
+                  <td data-label="Пар" className="tc-main">
                     <Link href={`/admin/events/${e.id}`}>{e.coupleNames}</Link>
                   </td>
-                  <td>{STATUSES.find((s) => s.value === e.status)?.label ?? e.status}</td>
-                  <td>{e.guestEstimate ?? "—"}</td>
+                  <td data-label="Статус">{STATUSES.find((s) => s.value === e.status)?.label ?? e.status}</td>
+                  <td data-label="Гости (проценка)">{e.guestEstimate ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

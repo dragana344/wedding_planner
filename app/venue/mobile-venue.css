@@ -1,0 +1,628 @@
+/* Venue panel on phones (2026-11-17 phone remodel). Loaded after panel.css;
+ * everything here is scoped to phone/tablet widths unless noted. */
+
+@media (max-width: 900px) {
+  /* ---------- Контролна табла ---------- */
+  /* Настани / Календар / Известувања already live in the bottom bar and the
+     Повеќе sheet — on a phone only the two main actions stay, side by side. */
+  .vp .quick-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .vp .quick-row .qa:not(.qa-primary) {
+    display: none;
+  }
+  .vp .quick-row .qa {
+    padding: 12px;
+    gap: 10px;
+  }
+  .vp .quick-row .qa-ic {
+    width: 36px;
+    height: 36px;
+  }
+  .vp .quick-row .qa-tx b {
+    font-size: 12px;
+  }
+  .vp .quick-row .qa-tx span {
+    display: none;
+  }
+
+  /* Today's rows: time + name share the line, the status pill drops under
+     the name instead of squeezing it to one word per line. */
+  .vp .plan-row {
+    grid-template-columns: 10px 46px minmax(0, 1fr);
+    gap: 4px 10px;
+    padding: 12px 8px;
+  }
+  .vp .plan-row > .pill {
+    grid-column: 3;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .vp .top .page-title {
+    font-size: 18px;
+  }
+  /* Summary numbers on phones: every .tiles grid becomes ONE cream card
+     (like the couple's Буџет summary) — numbers side by side, centered,
+     thin dividers, no icon chips; a 4th+ number wraps to a second row. */
+  .vp .tiles,
+  .vp .tiles-compact {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0 !important;
+    padding: 6px 0;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(46, 38, 23, 0.05);
+  }
+  .vp .tiles .tile {
+    flex: 1 1 30%;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    margin: 6px 0 6px -1px;
+    padding: 6px 8px !important;
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    text-align: center;
+  }
+  .vp .tiles .tile > div {
+    min-width: 0;
+    width: 100%;
+  }
+  .vp .tiles .tile .badge {
+    display: none !important;
+  }
+  .vp .tiles .tile .num {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 26px;
+    line-height: 1.1;
+  }
+  .vp .tiles .tile .lab {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.25;
+    color: var(--muted);
+  }
+  .vp .tiles .tile .lab span {
+    display: none;
+  }
+  /* Primary page action ("+ ДОДАДИ …"): full width, not floating right. */
+  .vp .actions > .btn,
+  .vp .actions > a.btn {
+    flex: 1;
+    justify-content: center;
+  }
+  /* Month overview: this month only; "Отвори календар" is right below. */
+  .vp .mini-cal-row .mini-cal-block + .mini-cal-block {
+    display: none;
+  }
+}
+
+/* ---------- Резервации: hour timeline ---------- */
+.vp .hour-slider-readout {
+  display: none;
+}
+/* 24 labels crush together below ~1500px: every third hour is labelled. */
+.vp .hour-slider-seg.is-minor .hour-slider-hour,
+.vp .hour-slider-seg.is-minor .hour-slider-pct {
+  visibility: hidden;
+}
+.vp .hour-slider-hour,
+.vp .hour-slider-pct {
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  /* 24 labels can't fit a phone: the selected hour is spelled out above the
+     bar, and the bar itself labels every third hour. */
+  .vp .hour-slider {
+    padding: 4px 12px 14px;
+  }
+  .vp .hour-slider-readout {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .vp .hour-slider-readout b {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .vp .hour-slider-track {
+    padding: 8px 8px 4px;
+  }
+  .vp .hour-slider-bar {
+    height: 40px;
+  }
+  .vp .hour-slider-pct {
+    display: none;
+  }
+  .vp .hour-slider-seg.is-minor .hour-slider-hour {
+    visibility: hidden;
+  }
+  .vp .hour-slider-hour {
+    font-size: 10.5px;
+    white-space: nowrap;
+  }
+  .vp .hour-slider-thumb {
+    bottom: 22px;
+  }
+}
+
+/* ---------- Резервации: map + the day's list ---------- */
+@media (max-width: 900px) {
+  .vp .qb-canvas-wrap {
+    padding: 12px;
+  }
+  .vp .qb-canvas-caption {
+    padding: 0 16px 10px;
+    font-size: 13px;
+  }
+  /* The day's list: one card per reservation instead of an 8-column row. */
+  .vp .qb-slot-table {
+    padding: 4px 0 6px;
+  }
+  .vp .qb-slot-head {
+    display: none;
+  }
+  .vp .qb-slot-row {
+    grid-template-columns: 52px repeat(3, minmax(0, 1fr));
+    gap: 6px 10px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    align-items: start;
+  }
+  .vp .qb-slot-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 19px;
+    line-height: 1.2;
+  }
+  .vp .qb-slot-row > :nth-child(2) {
+    grid-column: 2 / -1;
+    font-size: 15px;
+  }
+  .vp .qb-slot-row > :nth-child(3) {
+    grid-column: 2 / -1;
+    color: var(--ink-2);
+  }
+  .vp .qb-slot-row > :nth-child(4),
+  .vp .qb-slot-row > :nth-child(5),
+  .vp .qb-slot-row > :nth-child(6) {
+    min-width: 0;
+    color: var(--ink-2);
+  }
+  .vp .qb-slot-row > :nth-child(4) {
+    grid-column: 2;
+  }
+  .vp .qb-slot-row > :nth-child(4)::before,
+  .vp .qb-slot-row > :nth-child(5)::before,
+  .vp .qb-slot-row > :nth-child(6)::before {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .vp .qb-slot-row > :nth-child(4)::before {
+    content: "Сала";
+  }
+  .vp .qb-slot-row > :nth-child(5)::before {
+    content: "Гости";
+  }
+  .vp .qb-slot-row > :nth-child(6)::before {
+    content: "Келнер";
+  }
+  .vp .qb-slot-row > :nth-child(7) {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+  .vp .qb-slot-row > :nth-child(8) {
+    grid-column: 1 / -1;
+    justify-content: stretch !important;
+  }
+  .vp .qb-slot-row > :nth-child(8) .btn {
+    flex: 1 1 0;
+  }
+  .vp .qb-day-nav {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+/* ---------- Настани ---------- */
+@media (max-width: 900px) {
+  /* Search on its own full-width line, the filters one swipeable row. */
+  .vp .ev-bar {
+    min-width: 0;
+    max-width: 100%;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    padding: 10px;
+    gap: 10px;
+  }
+  .vp .ev-bar .search {
+    order: -1;
+  }
+  .vp .ev-bar .search input {
+    width: 100%;
+  }
+  .vp .ev-bar .chips {
+    flex: none;
+    max-width: calc(100% + 20px);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -10px;
+    padding: 0 10px;
+  }
+  .vp .ev-bar .chips::-webkit-scrollbar {
+    display: none;
+  }
+  .vp .ev-bar .chip {
+    flex: none;
+    min-height: 40px;
+  }
+
+  /* One card per event instead of a 4-column table. */
+  .vp .ev-list .scroll {
+    overflow: visible;
+    background: none;
+  }
+  .vp .ev-list .scroll > .grid {
+    min-width: 0;
+  }
+  .vp .ev-list .row.head {
+    display: none;
+  }
+  .vp .ev-list .row.ev {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px 12px;
+    align-items: start;
+    width: 100%;
+    margin: 0;
+    padding: 14px 16px;
+    border-width: 0 0 1px !important;
+    border-radius: 0;
+  }
+  .vp .ev-list .row.ev > :not(.ev-name):not(:last-child) {
+    grid-column: 1 / -1;
+  }
+  .vp .ev-list .row.ev > .lines {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 13px;
+  }
+  .vp .ev-list .row.ev > .lines .sub {
+    margin: 0;
+    padding: 0;
+  }
+  .vp .ev-list .row.ev > .lines .sub::before {
+    content: "·";
+    margin-right: 2px;
+  }
+  .vp .ev-list .row.ev > .lines div {
+    gap: 6px;
+  }
+  .vp .ev-list .row.ev > :last-child {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .vp .ev-list .thumb {
+    display: none;
+  }
+  .vp .ev-list .ttl {
+    flex-wrap: wrap;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 400;
+  }
+}
+
+/* ---------- event form sections (all widths): gold section titles ---------- */
+.vp .ev-fieldset {
+  border-color: var(--line);
+  border-radius: 14px;
+}
+.vp .ev-fieldset > legend.lab-s {
+  padding: 0 6px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+}
+
+/* ---------- pop-ups (Modal.tsx) ---------- */
+@media (max-width: 900px) {
+  /* A sheet rising from the bottom, above the bottom bar (70). */
+  .vp .modal-backdrop {
+    z-index: 80;
+    align-items: flex-end;
+    padding: 0;
+  }
+  .vp .modal-panel,
+  .vp .modal-panel.wide {
+    max-width: none;
+    max-height: 94dvh;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+  .vp .modal-close {
+    width: 40px;
+    height: 40px;
+  }
+  .vp .modal-head h2 {
+    white-space: normal;
+  }
+}
+
+/* ---------- Календар ---------- */
+.vp .cal-month-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.vp .cal-side-block .card-t {
+  color: var(--gold-text);
+}
+@media (max-width: 900px) {
+  .vp .cal-grid.is-day {
+    min-width: 0;
+  }
+  /* Month: a coloured bar per event — names don't fit a 50px column; tapping
+     the day opens it in the day view. */
+  .vp .cal-month-cell {
+    min-height: 56px;
+    padding: 4px 3px;
+    align-items: center;
+  }
+  .vp .cal-month-top {
+    justify-content: center;
+  }
+  .vp .cal-month-top .cal-multi {
+    display: none;
+  }
+  .vp .cal-month-chips {
+    width: 100%;
+  }
+  .vp .cal-month-chip {
+    height: 5px;
+    padding: 0;
+    font-size: 0;
+    border-left-width: 0 !important;
+    background: currentColor !important;
+    opacity: 0.85;
+  }
+  .vp .cal-month-chip .i {
+    display: none;
+  }
+  .vp .cal-month-more {
+    text-align: center;
+  }
+  .vp .cal-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Мени / Пакети filter chips: gold when picked, like every other filter. */
+.vp .mp-chip[aria-pressed="true"],
+.vp .mp-chip[aria-checked="true"] {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold));
+  color: var(--on-gold);
+  border-color: transparent;
+}
+
+/* ---------- Известувања ---------- */
+.vp .nf-row {
+  background: var(--surface);
+}
+@media (max-width: 900px) {
+  .vp .nf-filters,
+  .vp .nf-managers {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -14px;
+    padding: 0 14px 2px;
+  }
+  .vp .nf-filters::-webkit-scrollbar,
+  .vp .nf-managers::-webkit-scrollbar {
+    display: none;
+  }
+  .vp .nf-filters > *,
+  .vp .nf-managers > * {
+    flex: none;
+    white-space: nowrap;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* The type filter has a "Повеќе видови" dropdown, which a scrolling row
+     would clip — it wraps instead. */
+  .vp .ev-bar .chips.tf,
+  .vp .ev-bar .search {
+    flex: none;
+  }
+  .vp .ev-bar .chips.tf {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+  }
+}
+
+/* ---------- Извештаи ---------- */
+@media (max-width: 900px) {
+  .vp .s3-report-table {
+    font-size: 13px;
+  }
+  .vp .s3-report-table th,
+  .vp .s3-report-table td {
+    padding: 9px 8px;
+    vertical-align: top;
+  }
+  .vp .s3-report-table th:first-child,
+  .vp .s3-report-table td:first-child {
+    padding-left: 16px;
+  }
+  .vp .s3-report-table th {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* Totals with long money values: two per row. */
+  .vp section.tiles-compact[aria-label="Вкупно"] .tile {
+    flex-basis: 45%;
+  }
+  .vp .s3-report-filter {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 16px 16px !important;
+  }
+  .vp .s3-report-filter label {
+    min-width: 0;
+  }
+  .vp .s3-report-filter .fld {
+    width: 100%;
+  }
+}
+
+/* An add panel nested inside a card: no second card frame. */
+.vp .addp.addp-inset {
+  border: 1px dashed var(--line);
+  box-shadow: none;
+  background: transparent;
+}
+.vp .addp.addp-inset .addp-body {
+  padding: 14px 16px 16px;
+}
+
+/* ---------- new-event wizard ---------- */
+@media (max-width: 640px) {
+  /* Two per row so "Корпоративен настан" or "Конференција" fit whole. */
+  .vp .ev-wiz-types {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .vp .ev-wiz-types:has(.ev-wiz-ty-art) .ev-wiz-ty {
+    padding: 14px 8px 12px;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+  }
+}
+
+/* Мени / Пакети on phones: switch and "+ Ново" share one row; each dish is
+   name + price on one line, diet tags under the name. */
+@media (max-width: 900px) {
+  .vp .mp-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .vp .mp-head .panel-t {
+    grid-column: 1 / -1;
+  }
+  .vp .mp-head .seg button {
+    flex: 1;
+  }
+  .vp .mp-head > .btn {
+    min-height: 42px;
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+  .vp .mp-dish-row-main {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 4px;
+    align-items: center;
+  }
+  .vp .mp-dish-row-main .mp-dish-name {
+    grid-column: 1;
+    grid-row: 1;
+    white-space: normal;
+  }
+  .vp .mp-dish-row-main .mp-price {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+  }
+  .vp .mp-dish-row-main .mp-tag {
+    grid-column: 1;
+    justify-self: start;
+  }
+  .vp .mp-dish-row-main .mp-lead {
+    display: none;
+  }
+}
+
+/* Room floor-plan editor on phones: the "Додај елемент" tiles become one
+   swipeable row so the room itself shows up without a long scroll. */
+@media (max-width: 900px) {
+  .vp .rp-tile-grid {
+    display: flex !important;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .vp .rp-tile-grid .rp-tile {
+    flex: 0 0 92px;
+    min-height: 74px;
+    padding: 8px 6px;
+    font-size: 12px;
+    line-height: 1.2;
+    scroll-snap-align: start;
+  }
+  .vp .rp-canvas-toolbar {
+    gap: 8px;
+  }
+}
+
+/* New-event wizard on phones: the card's own padding shouldn't squeeze the
+   calendar or push the page wider than the screen. */
+@media (max-width: 900px) {
+  .vp .ev-wiz-main {
+    min-width: 0;
+    max-width: 100%;
+    padding: 18px 14px 14px;
+  }
+  .vp .ev-cal {
+    padding: 12px 8px;
+  }
+  .vp .ev-wiz-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

@@ -773,6 +773,23 @@
   color: var(--gold-lo);
   background: var(--gold-tint);
 }
+/* Small trash button (e.g. delete a ticket): quiet until hovered. */
+.vp .sq-danger {
+  width: 34px;
+  height: 34px;
+  color: var(--muted);
+}
+.vp .sq-danger:hover,
+.vp .sq-danger:focus-visible {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.vp .s1-task-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .vp .seg {
   display: flex;
   gap: 6px;
@@ -2451,13 +2468,14 @@
 .vp .rp-canvas-wrap {
   position: relative;
 }
-.vp .rp-canvas-wrap .qb-canvas-zoom {
+/* The sizer takes the canvas's zoomed size, centred; the canvas scales from
+ * its top-left corner inside it, so there's no empty footprint around it. */
+.vp .rp-canvas-sizer {
   margin: 0 auto;
-  /* The shared default (top left) anchors zoomed-in overflow to the
-   * bottom-right only, which drifts off-centre the moment zoom > 100% even
-   * though the box itself is centred. Center-origin keeps it centred at
-   * every zoom level instead. */
-  transform-origin: center;
+  overflow: hidden;
+}
+.vp .rp-canvas-wrap .qb-canvas-zoom {
+  transform-origin: top left;
 }
 /* In fullscreen (requestFullscreen on this element), centre the room both
  * ways — normally it only needs horizontal centring, since it already
@@ -5450,8 +5468,10 @@
 .vp .ev-cal-weekdays,
 .vp .ev-cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  /* minmax(0, …): seven equal columns that always fit, however narrow the
+     phone — plain 1fr let the cells push the calendar past the screen. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
 }
 .vp .ev-cal-weekdays span {
   text-align: center;
@@ -5487,8 +5507,10 @@
      columns, aspect-ratio creates a circular sizing dependency some
      browsers resolve by falling back to each item's content size
      instead of the column's actual width. */
-  width: 100%;
-  height: 38px;
+  width: min(100%, 40px);
+  min-width: 0;
+  height: 40px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6131,4 +6153,329 @@
 }
 .vp .sp-reply .btn {
   align-self: flex-start;
+}
+
+/* ===========================================================================
+   Ivory & gold (2026-11-17): the couple Буџет/Чеклиста/Белешки look, made the
+   look of every panel — warm ivory canvas, cream cards with soft gold lines,
+   gold letter-spaced section titles. Token-level, so a venue's own accent
+   colour (branding, 0087) still replaces the gold.
+   =========================================================================== */
+.vp {
+  --ink: #2e2617;
+  --ink-2: #574a33;
+  --muted: #786b52; /* ≥ 4.5:1 on the cream card and canvas */
+  --faint: #a99d85;
+  --canvas: #f7f4ee;
+  --surface: #fffdf8;
+  --line: #eaddbf;
+  --line-soft: #f6eedc;
+}
+.vp .top {
+  background: #fffdf8;
+}
+.vp .panel,
+.vp .tile {
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(46, 38, 23, 0.05);
+}
+.vp .panel-t,
+.vp .card-t {
+  color: var(--gold-text);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.vp .fld {
+  background: #fff;
+}
+/* Used by a few screens but never defined before — same as the gold button. */
+.vp .btn-primary {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  border: 0;
+  color: var(--on-gold);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--gold-lo) 95%, transparent);
+}
+.vp .fld:focus {
+  border-color: var(--gold);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+.vp .btn-ghost:hover {
+  border-color: var(--gold);
+  background: #fff;
+}
+.vp .seg button[aria-pressed="true"],
+.vp .seg a[aria-current="page"] {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  color: var(--on-gold);
+}
+
+/* Collapsible "+ ДОДАДИ …" panel (components/shared/AddPanel.tsx). */
+.vp .addp {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(46, 38, 23, 0.05);
+}
+.vp .addp-h {
+  margin: 0;
+}
+.vp .addp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: var(--gold-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.vp .addp-toggle:hover {
+  background: var(--gold-tint);
+}
+.vp .addp-chev {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.vp .addp.is-open .addp-toggle {
+  border-bottom: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+}
+.vp .addp.is-open .addp-chev {
+  transform: rotate(180deg);
+}
+.vp .addp-body {
+  padding: 18px 20px 20px;
+}
+
+/* ---------- bottom tab bar + "Повеќе" sheet (phones) ---------- */
+.vp .tabbar {
+  display: none;
+}
+@media (max-width: 900px) {
+  .vp .tabbar {
+    position: fixed;
+    inset: auto 0 0 0;
+    /* Above the "Повеќе" sheet (.side, 60) so the same button closes it. */
+    z-index: 70;
+    display: flex;
+    background: #fffdf8;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(46, 38, 23, 0.06);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .vp .tabbar a,
+  .vp .tabbar button {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 5px 2px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .vp .tabbar .on {
+    color: var(--gold-text);
+  }
+  .vp .tabbar .on .tab-ic {
+    background: var(--gold-tint);
+  }
+  .vp .tabbar .tab-ic {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 30px;
+    border-radius: 999px;
+  }
+  .vp .tabbar .tab-lab {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vp .tabbar .tab-badge {
+    position: absolute;
+    top: -2px;
+    right: 4px;
+    min-width: 17px;
+    padding: 1px 4px;
+    border-radius: 99px;
+    background: var(--bad);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: center;
+  }
+  .vp .tabbar .tab-dot {
+    position: absolute;
+    top: 2px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bad);
+  }
+  .vp .main {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  /* The sidebar becomes a sheet sliding up from the bottom. */
+  .vp .side,
+  .vp.app.mini .side {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: auto;
+    max-height: 86dvh;
+    border-radius: 22px 22px 0 0;
+    background: #fffdf8;
+    color: var(--ink);
+    padding: 0 0 calc(84px + env(safe-area-inset-bottom));
+    transform: translateY(100%);
+    box-shadow: 0 -10px 30px rgba(46, 38, 23, 0.18);
+  }
+  .vp .side.open {
+    transform: translateY(0);
+  }
+  .vp .side::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 10px auto 0;
+    border-radius: 99px;
+    background: var(--line);
+  }
+  .vp .side .brand {
+    padding: 12px 18px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .vp .side .brand-name {
+    color: var(--ink);
+    font-size: 16px;
+  }
+  .vp .side .brand-sub {
+    color: var(--muted);
+  }
+  .vp .side .nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px;
+  }
+  .vp .side .nav-sec {
+    grid-column: 1 / -1;
+    margin: 6px 4px 0;
+    color: var(--gold-text);
+    letter-spacing: 0.16em;
+  }
+  .vp .side .nav a,
+  .vp .side .nav button {
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    min-height: 82px;
+    padding: 12px 6px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    overflow-wrap: break-word;
+  }
+  .vp .side .nav a .i,
+  .vp .side .nav button .i {
+    width: 22px;
+    height: 22px;
+    color: var(--gold-text);
+  }
+  .vp .side .nav a.on,
+  .vp .side .nav button.on {
+    border-color: var(--gold);
+    background: var(--gold-tint);
+    color: var(--ink);
+    box-shadow: none;
+  }
+  .vp .side .nav a.on .i {
+    color: var(--gold-text);
+  }
+  .vp .side .nav .nav-badge,
+  .vp .side .nav .unseen-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    margin: 0;
+  }
+  .vp .side .quick {
+    margin: 0 14px 8px;
+  }
+  .vp .side .devs {
+    display: none;
+  }
+  .vp .side > a[href="/privacy"] {
+    color: var(--muted) !important;
+    text-align: center;
+  }
+  .vp .scrim {
+    background: rgb(46 38 23 / 0.4);
+  }
+
+  /* Top bar: just the page title and the account/logout button. */
+  .vp .top .meta-clock {
+    display: none;
+  }
+  .vp .top .meta-item:last-child {
+    padding-left: 0;
+  }
+
+  /* Phone-wide safety: long words and numbers wrap instead of spilling out of
+     their box; inputs at 16px so iOS doesn't zoom the page on every tap. */
+  .vp .main {
+    overflow-wrap: break-word;
+  }
+  .vp .fld,
+  .vp .main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .vp .main select,
+  .vp .main textarea {
+    font-size: 16px;
+  }
+  .vp .wrap {
+    padding: 16px 14px 24px;
+    gap: 16px;
+  }
+  .vp .panel-h {
+    padding: 14px 16px;
+  }
+  .vp .btn {
+    min-height: 42px;
+    justify-content: center;
+  }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .vp .addp-chev {
+    transition: none;
+  }
 }

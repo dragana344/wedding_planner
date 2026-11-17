@@ -1,0 +1,427 @@
+/* Couple panel: phone layouts and the ivory/gold look on pages that predate it. */
+
+/* ---------- Гости: compact guest rows ---------- */
+.vp .cg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 12px;
+}
+.vp .cg-row[data-unsent="true"] {
+  border-left-color: var(--bad);
+}
+.vp .cg-main {
+  min-width: 0;
+}
+.vp .cg-name {
+  max-width: 100%;
+  margin: 0 6px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16.5px;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: break-word;
+}
+.vp .cg-name:hover {
+  color: var(--gold-text);
+}
+.vp .cg-meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.vp .cg-small {
+  font-size: 12px;
+}
+.vp .cg-unsent {
+  margin: 2px 0 0;
+  color: var(--bad);
+  font-size: 12px;
+  font-weight: 600;
+}
+.vp .cg-status {
+  display: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--line-soft);
+  color: var(--ink-2);
+}
+.vp .cg-st-confirmed {
+  background: var(--ok-bg);
+  color: #0b7a44;
+}
+.vp .cg-st-declined {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.vp .cg-st-later,
+.vp .cg-st-pending {
+  background: var(--warn-bg);
+  color: #8a5a12;
+}
+.vp .cg-more {
+  display: none;
+}
+/* Wide screens: actions always shown, on their own line under the guest. */
+.vp .cg-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.vp .cg-actions .btn {
+  padding: 8px 12px;
+}
+.vp .cg-select {
+  width: 150px;
+  max-width: 100%;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.vp .cg-del {
+  color: var(--bad);
+}
+.vp .cg-col-h {
+  margin: 4px 0 2px;
+}
+/* Сите / Невеста / Младоженец switch above the guest list. */
+.vp .cg-sides {
+  align-self: flex-start;
+}
+.vp .cg-sides button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vp .cg-side-n {
+  flex: none;
+  white-space: nowrap;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgb(46 38 23 / 0.08);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+}
+.vp .cg-col-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.vp .cg-col-chev {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.vp .cg-col-toggle[aria-expanded="false"] .cg-col-chev {
+  transform: rotate(-90deg);
+}
+.vp .cg-side-list {
+  scroll-margin-top: 170px;
+}
+@media (max-width: 900px) {
+  /* Pinned under the top bar, so the other side is one tap away mid-list. */
+  .vp .cg-sides {
+    position: sticky;
+    top: 66px;
+    z-index: 20;
+    align-self: stretch;
+    flex-wrap: nowrap;
+    box-shadow: 0 4px 12px rgba(46, 38, 23, 0.08);
+  }
+  .vp .cg-sides button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+    padding: 9px 4px;
+    min-height: 42px;
+    gap: 5px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .vp .cg-sides .cg-side-n {
+    min-width: max-content;
+    padding: 1px 6px;
+    font-size: 11.5px;
+  }
+}
+.vp .cg-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.vp .cg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.vp .cg-only-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.vp .cg-add {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.vp .cg-span2 {
+  grid-column: 1 / -1;
+}
+.vp .cg-field {
+  display: block;
+  min-width: 0;
+}
+.vp .cg-submit {
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  /* Row = name + status chip + ⋯; the actions open beneath on tap. */
+  .vp .cg-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding: 11px 10px 11px 12px;
+  }
+  .vp .cg-status {
+    display: inline-block;
+    max-width: 112px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .vp .cg-more {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink-2);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .vp .cg-row.is-open .cg-more {
+    border-color: var(--gold);
+    background: var(--gold-tint);
+  }
+  .vp .cg-actions {
+    display: none;
+    grid-column: 1 / -1;
+    justify-content: stretch;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
+  .vp .cg-row.is-open .cg-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vp .cg-actions .cg-select {
+    width: 100%;
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  .vp .cg-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .vp .cg-filters .cg-search {
+    grid-column: 1 / -1;
+  }
+  .vp .cg-filters select.fld {
+    padding-left: 8px;
+    padding-right: 4px;
+  }
+  .vp .cg-tools .btn {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+  }
+  .vp .cg-add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vp .cg-submit {
+    justify-self: stretch;
+  }
+}
+
+/* Collapsible lists inside cards (waiting-for-answer names, manual reminders). */
+.vp .guests-summary-wait,
+.vp .cg-remind {
+  margin-top: 8px;
+}
+.vp .guests-summary-wait > summary,
+.vp .cg-remind > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--gold-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.vp .guests-summary-wait > summary::-webkit-details-marker,
+.vp .cg-remind > summary::-webkit-details-marker {
+  display: none;
+}
+.vp .guests-summary-wait > summary::after,
+.vp .cg-remind > summary::after {
+  content: "▾";
+  margin-left: auto;
+  font-size: 12px;
+}
+.vp .guests-summary-wait[open] > summary::after,
+.vp .cg-remind[open] > summary::after {
+  content: "▴";
+}
+.vp .cg-remind-list {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.vp .cg-remind-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.vp .cg-remind-list strong {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.vp .cg-remind-links {
+  display: flex;
+  gap: 6px;
+}
+
+/* Headline numbers in the serif of the budget card. */
+.vp .stat-summary-num {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+@media (max-width: 900px) {
+  .vp .panel.couple-card.stat-summary {
+    padding: 18px 18px;
+  }
+  .vp .stat-summary-headline {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .vp .stat-summary-headline-secondary {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .vp .stat-summary-stat-main .stat-summary-num {
+    font-size: 40px;
+  }
+  .vp .stat-summary-stat:not(.stat-summary-stat-main) .stat-summary-num {
+    font-size: 24px;
+  }
+  .vp .stat-summary-stat:not(.stat-summary-stat-main) {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .vp .stat-summary-legend {
+    gap: 4px 14px;
+    font-size: 13px;
+  }
+  .vp .cg-remind-links .btn {
+    padding: 8px 12px;
+    min-height: 38px;
+  }
+}
+
+/* Couple pages set their own inline padding (22px sides); phones need the room. */
+@media (max-width: 900px) {
+  .vp .main > main {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+/* Add form beside its list on wide screens (Агенда, Локации); stacked on phones. */
+.vp .cp-split {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .vp .cp-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 900px) {
+  /* The framed "invitation card" lists (Агенда, Локации): less nested padding. */
+  .vp .panel.invite-card.agenda-card {
+    padding: 8px;
+  }
+  .vp .agenda-card .invite-frame {
+    padding: 24px 16px;
+  }
+}
+
+/* Пакети: each package's feature list folds behind "Што вклучува". */
+.vp .pk-feats > summary {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  color: var(--gold-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.vp .pk-feats > summary::-webkit-details-marker {
+  display: none;
+}
+.vp .pk-feats > summary::after {
+  content: "▾";
+  margin-left: auto;
+}
+.vp .pk-feats[open] > summary::after {
+  content: "▴";
+}
+.vp .pk-feats li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

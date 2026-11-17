@@ -10,7 +10,7 @@ export const INBOX_SOURCE_LABEL: Record<InboxSource, string> = { public: "Јав
 // message — see the allow-list comment in tests/security/admin-static.test.ts.
 export function InboxTable({ rows }: { rows: InboxRow[] }) {
   return (
-    <table className="s1-tbl">
+    <table className="s1-tbl s1-cards">
       <thead>
         <tr>
           <th>Последно</th>
@@ -25,13 +25,13 @@ export function InboxTable({ rows }: { rows: InboxRow[] }) {
         {rows.map((r) => (
           <tr key={`${r.kind}-${r.id}`}>
             {/* Europe/Skopje calendar date, not the raw UTC date (REL-006). */}
-            <td>{todayIn(undefined, new Date(r.lastActivityAt))}</td>
-            <td>{INBOX_SOURCE_LABEL[r.source]}</td>
-            <td>
+            <td data-label="Последно">{todayIn(undefined, new Date(r.lastActivityAt))}</td>
+            <td data-label="Извор">{INBOX_SOURCE_LABEL[r.source]}</td>
+            <td data-label="Од">
               {r.from}
               {r.venueName ? <div className="muted">{r.coupleNames ? `${r.coupleNames} · ${r.venueName}` : r.venueName}</div> : null}
             </td>
-            <td style={{ maxWidth: 360 }}>
+            <td data-label="Тема" className="tc-main" style={{ maxWidth: 360 }}>
               {r.subject}
               {r.awaitingAdmin ? (
                 <span className="pill p-bad" style={{ marginLeft: 8 }}>
@@ -39,7 +39,7 @@ export function InboxTable({ rows }: { rows: InboxRow[] }) {
                 </span>
               ) : null}
             </td>
-            <td>
+            <td data-label="Статус">
               <span className={`pill ${SUPPORT_STATUS_PILL[r.status]}`}>{SUPPORT_STATUS_LABEL[r.status]}</span>
             </td>
             <td>

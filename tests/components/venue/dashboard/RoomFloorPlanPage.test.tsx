@@ -332,7 +332,7 @@ describe("RoomFloorPlanPage palette (B4)", () => {
       for (let i = 0; i < 10; i++) fireEvent.click(screen.getByRole("button", { name: "Зголеми" }));
       expect(zoomScale(container)).toBe("scale(1.4)");
       for (let i = 0; i < 20; i++) fireEvent.click(screen.getByRole("button", { name: "Намали" }));
-      expect(zoomScale(container)).toBe("scale(0.6)");
+      expect(zoomScale(container)).toBe("scale(0.15)");
     });
   });
 

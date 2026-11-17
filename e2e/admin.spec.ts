@@ -79,6 +79,8 @@ test("admin builds a plan, locks seating for a venue, then unlocks it for one ev
     // not the brief's guessed "Име на нивото"/"Креирај").
     await page.goto(`${ADMIN_BASE}/plans`);
     const planName = `Basic ${uniqueId()}`;
+    // The form sits folded behind the "+ НОВО НИВО" panel (AddPanel).
+    await page.getByRole("button", { name: "Ново ниво" }).click();
     await page.getByLabel("Име", { exact: true }).fill(planName);
     await page.getByRole("button", { name: "Додади ниво" }).click();
     await page.waitForURL((url) => /^\/admin\/plans\/[0-9a-f-]{36}$/.test(url.pathname), { timeout: 30_000 });

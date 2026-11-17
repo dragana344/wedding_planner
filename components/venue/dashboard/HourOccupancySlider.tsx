@@ -56,8 +56,13 @@ export function HourOccupancySlider({
     }
   }
 
+  const active = hours.find((h) => h.hour === activeHour);
+
   return (
     <div className="hour-slider">
+      <p className="hour-slider-readout" aria-hidden>
+        <b>{hourLabel(activeHour)}</b> · {active ? `${active.pct}% зафатено` : "—"}
+      </p>
       <div
         ref={trackRef}
         className="hour-slider-track"
@@ -76,7 +81,7 @@ export function HourOccupancySlider({
           <button
             key={h.hour}
             type="button"
-            className="hour-slider-seg"
+            className={`hour-slider-seg${h.hour % 3 === 0 ? "" : " is-minor"}`}
             aria-pressed={h.hour === activeHour}
             onClick={() => onHourChange(h.hour)}
           >

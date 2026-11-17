@@ -64,6 +64,8 @@ describe("BudgetClient", () => {
     });
     render(<BudgetClient coupleNames="Ана и Марко" initialSummary={baseSummary} />);
 
+    // Folded while there are items already (phone: keeps the list on screen).
+    fireEvent.click(screen.getByRole("button", { name: "Прикажи ја формата за нова ставка" }));
     fireEvent.change(screen.getByLabelText("Име на ставка"), { target: { value: "Florist Y" } });
     fireEvent.change(screen.getByLabelText("Проценет износ"), { target: { value: "800" } });
     fireEvent.click(screen.getByRole("button", { name: /додади ставка/i }));
@@ -127,6 +129,11 @@ describe("BudgetClient", () => {
     });
     render(<BudgetClient coupleNames="Ана и Марко" initialSummary={baseSummary} />);
 
+    // With items already in the budget the suggestions start folded.
+    const toggle = screen.getByRole("button", { name: /Предложени ставки/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Торта")).not.toBeInTheDocument();
+    fireEvent.click(toggle);
     expect(screen.getByText("Торта")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /додади торта/i }));
 

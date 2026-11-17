@@ -100,11 +100,27 @@ describe("admin tasks", () => {
     ]);
   });
 
-  it("only the sender can delete a task", async () => {
-    const { data } = await core.create({ title: "За бришење", description: "", assignedTo: receiver }, as(sender));
-    await expect(core.remove({ id: data.id }, as(receiver))).rejects.toThrow("Задачата може да ја избрише само админот што ја испратил.");
-    await core.remove({ id: data.id }, as(sender));
-    expect(await getAdminTask(data.id)).toBeNull();
+  it("any admin can delete a task: the sender, the receiver, or a third admin", async () => {
+    for (const deleter of [sender, receiver, third]) {
+      const { data } = await core.create({ title: "За бришење", description: "", assignedTo: receiver }, as(sender));
+      await core.remove({ id: data.id }, as(deleter));
+      expect(await getAdminTask(data.id)).toBeNull();
+    }
+  });
+
+  it("a task can be deleted in any state: new, in progress or done", async () => {
+    for (const status of ["new", "in_progress", "done"] as const) {
+      const { data } = await core.create({ title: `Во состојба ${status}`, description: "", assignedTo: receiver }, as(sender));
+      if (status !== "new") await core.setStatus({ id: data.id, status: "in_progress" }, as(receiver));
+      if (status === "done") await core.setStatus({ id: data.id, status: "done" }, as(receiver));
+      expect((await getAdminTask(data.id))?.task.status).toBe(status);
+      await core.remove({ id: data.id }, as(third));
+      expect(await getAdminTask(data.id)).toBeNull();
+    }
+  });
+
+  it("refuses to delete a task that doesn't exist", async () => {
+    await expect(core.remove({ id: "00000000-0000-4000-8000-000000000000" }, as(sender))).rejects.toThrow("Задачата не е пронајдена.");
   });
 
   it("the tasks badge counts new tasks waiting for me (mine, or open to everyone and not sent by me)", async () => {

@@ -98,19 +98,21 @@ describe("Пораки и барања (inbox)", () => {
 });
 
 describe("Тикети за поддршка (admin tasks)", () => {
-  it("lists my tasks, with view tabs, and offers every other admin (or everyone) as a receiver", async () => {
+  it("opens on all tasks, with Сите as the first view tab, and offers every other admin (or everyone) as a receiver", async () => {
     queries.listAdminTasks.mockResolvedValue([task()]);
     queries.listAdmins.mockResolvedValue([
       { id: "me", email: "me@test.mk" },
       { id: "other", email: "other@test.mk" },
     ]);
     render(await AdminTasksPage({ searchParams: Promise.resolve({}) }));
-    expect(queries.listAdminTasks).toHaveBeenCalledWith("me", { view: "mine", status: undefined });
-    expect(screen.getByRole("link", { name: "Доделени на мене" })).toHaveAttribute("aria-current", "page");
+    expect(queries.listAdminTasks).toHaveBeenCalledWith("me", { view: "all", status: undefined });
+    const tabs = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.startsWith("/admin/support?view="));
+    expect(tabs.map((l) => l.textContent)).toEqual(["Сите", "Доделени на мене", "Испратени од мене"]);
+    expect(screen.getByRole("link", { name: "Сите" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Испратени од мене" })).toHaveAttribute("href", "/admin/support?view=sent");
     expect(screen.getByRole("link", { name: "Отвори" })).toHaveAttribute("href", "/admin/support/t1");
 
-    fireEvent.click(screen.getByRole("button", { name: "+ Нова задача" }));
+    fireEvent.click(screen.getByRole("button", { name: "Нова задача" }));
     const options = within(screen.getByLabelText("Испрати до")).getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual(["Сите админи (кој прв ќе ја земе)", "other@test.mk"]);
 
@@ -127,7 +129,12 @@ describe("Тикети за поддршка (admin tasks)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Во тек" }));
     await waitFor(() => expect(taskActions.setAdminTaskStatus).toHaveBeenCalledWith({ id: "t1", status: "in_progress" }));
     expect(screen.getByRole("button", { name: "Решено" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Избриши задача" })).not.toBeInTheDocument();
+  });
+
+  it("the receiver can delete a task too, not only its sender", async () => {
+    queries.getAdminTask.mockResolvedValue({ task: task(), comments: [] });
+    render(await AdminTaskPage({ params: Promise.resolve({ id: "t1" }) }));
+    expect(screen.getByRole("button", { name: "Избриши задача" })).toBeInTheDocument();
   });
 
   it("the sender only watches the status (no status buttons) and can delete", async () => {
@@ -135,7 +142,7 @@ describe("Тикети за поддршка (admin tasks)", () => {
     render(await AdminTaskPage({ params: Promise.resolve({ id: "t1" }) }));
     expect(screen.getByText("Во тек")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Решено" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Статусот го менува админот што ја доби задачата/)).toBeInTheDocument();
+    expect(screen.queryByText(/Статусот го менува админот што ја доби задачата/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Избриши задача" })).toBeInTheDocument();
   });
 
@@ -159,7 +166,7 @@ describe("Тикети за поддршка (admin tasks)", () => {
     render(await AdminTaskPage({ params: Promise.resolve({ id: "t1" }) }));
     expect(screen.getByText("Прв коментар")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Коментар"), { target: { value: "Одговор" } });
-    fireEvent.click(screen.getByRole("button", { name: "Додај коментар" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати" }));
     await waitFor(() => expect(taskActions.commentOnAdminTask).toHaveBeenCalledWith({ id: "t1", body: "Одговор", files: [] }));
   });
 
@@ -179,7 +186,7 @@ describe("Тикети за поддршка (admin tasks)", () => {
     const picked = new File(["x"], "d.jpg", { type: "image/jpeg" });
     fireEvent.change(screen.getByLabelText("Коментар"), { target: { value: "Одговор" } });
     fireEvent.change(screen.getByLabelText("Прилози (фотографии или PDF)"), { target: { files: [picked] } });
-    fireEvent.click(screen.getByRole("button", { name: "Додај коментар" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати" }));
     await waitFor(() => expect(taskActions.commentOnAdminTask).toHaveBeenCalledWith({ id: "t1", body: "Одговор", files: [picked] }));
   });
 });

@@ -38,6 +38,7 @@ describe("ManagersSection", () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ managers: [{ id: "2", name: "Нов", isOwner: false, createdAt: "2026-01-02" }] }) });
     render(<ManagerElevationProvider><ManagersSection /></ManagerElevationProvider>);
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Нов менаџер" }));
     fireEvent.change(screen.getByLabelText("Име на нов менаџер"), { target: { value: "Нов" } });
     fireEvent.change(screen.getByLabelText("Лозинка на нов менаџер"), { target: { value: "new-pass-123" } });
     fireEvent.click(screen.getByRole("button", { name: "Додади менаџер" }));
@@ -83,6 +84,7 @@ describe("ManagersSection", () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ managers: [] }) });
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => { throw new SyntaxError("Unexpected token <"); } });
     render(<ManagerElevationProvider><ManagersSection /></ManagerElevationProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Нов менаџер" }));
     fireEvent.change(screen.getByLabelText("Име на нов менаџер"), { target: { value: "Нов" } });
     fireEvent.change(screen.getByLabelText("Лозинка на нов менаџер"), { target: { value: "password-123" } });
     fireEvent.click(screen.getByRole("button", { name: "Додади менаџер" }));

@@ -78,7 +78,7 @@ describe("venue notifications", () => {
     );
     const list = await listVenueNotifications(staff, venueA);
     const item = list.find((n) => n.kind === "event_deleted")!;
-    expect(item.detail).toBe("2027-08-01 · од Марко");
+    expect(item.detail).toBe("1 август 2027 · од Марко");
     // The existing export row (seeded in beforeAll) has no manager_name — detail stays plain.
     expect(list.find((n) => n.kind === "data_exported")!.detail).toBeNull();
   });

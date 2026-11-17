@@ -106,7 +106,8 @@ function suggestionKey(category: string, name: string): string {
 export function BudgetClient({ coupleNames, initialSummary }: { coupleNames: string; initialSummary: BudgetSummary }) {
   const [summary, setSummary] = useState(initialSummary);
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM);
-  const [formOpen, setFormOpen] = useState(true);
+  const [formOpen, setFormOpen] = useState(initialSummary.items.length === 0);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(initialSummary.items.length === 0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ItemFormState>(EMPTY_FORM);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -524,10 +525,19 @@ export function BudgetClient({ coupleNames, initialSummary }: { coupleNames: str
           </section>
 
           <section className="cs-card bg-suggestions">
-            <div className="bg-card-head">
-              <h2 className="bg-card-title">Предложени ставки</h2>
-            </div>
-            {suggestions.length === 0 ? (
+            <h2 className="bg-card-head">
+              <button
+                type="button"
+                className="bg-add-toggle"
+                onClick={() => setSuggestionsOpen((v) => !v)}
+                aria-expanded={suggestionsOpen}
+              >
+                <span className="bg-card-title">Предложени ставки</span>
+                <span className="bg-muted">{suggestions.length}</span>
+                <Icon name="down" size="sm" className="bg-caret" />
+              </button>
+            </h2>
+            {!suggestionsOpen ? null : suggestions.length === 0 ? (
               <p className="bg-empty">Ги додадовте сите предложени ставки.</p>
             ) : (
               suggestions.map((s) => (

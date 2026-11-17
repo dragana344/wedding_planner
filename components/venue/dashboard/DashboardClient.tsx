@@ -210,8 +210,53 @@ export function DashboardClient({
   const nextMonthDate = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 1);
   const nextMonthCells = buildMonthCells(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
 
+  // Phone summary (dm-sum): today's counts in one card, shown under 900px only.
+  const activeReservations = shownReservations.filter((r) => r.status !== "cancelled");
+  const reservationGuests = activeReservations.reduce((n, r) => n + r.party_size, 0);
+  const eventGuests = shownTodayEvents.reduce((n, e) => n + (e.guest_count_estimate ?? 0), 0);
+  const nothingToday = shownTodayEvents.length === 0 && (!TABLE_RESERVATIONS_ENABLED || shownReservations.length === 0);
+  const wrapClass = [
+    "wrap dm",
+    shownTodayEvents.length === 0 ? "dm-no-events" : "",
+    TABLE_RESERVATIONS_ENABLED && shownReservations.length === 0 ? "dm-no-res" : "",
+    TABLE_RESERVATIONS_ENABLED ? "" : "dm-res-off",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="wrap">
+    <div className={wrapClass}>
+      <section className="dm-sum" aria-label="Денес накратко">
+        <p className="dm-sum-eyebrow">Денес · {formatDateLong(today).replace(/ \d{4}$/, "")}</p>
+        <div className="dm-sum-nums">
+          <div>
+            <b>{shownTodayEvents.length}</b>
+            <span>{shownTodayEvents.length === 1 ? "настан" : "настани"}</span>
+          </div>
+          {TABLE_RESERVATIONS_ENABLED ? (
+            <div>
+              <b>{activeReservations.length}</b>
+              <span>{activeReservations.length === 1 ? "резервација" : "резервации"}</span>
+            </div>
+          ) : null}
+          <div>
+            <b>{formatCount(eventGuests + reservationGuests)}</b>
+            <span>гости</span>
+          </div>
+        </div>
+        {occupancy != null && shownTodayEvents.length > 0 ? (
+          <div className="dm-sum-occ">
+            <span className="dm-sum-bar">
+              <span style={{ width: `${Math.min(occupancy, 100)}%` }} className={overCapacity ? "is-over" : undefined} />
+            </span>
+            <span className="dm-sum-occ-lab">
+              Пополнетост <b>{occupancy}%</b> · {stats.peakGuests} од {stats.totalCapacity} места
+            </span>
+          </div>
+        ) : null}
+        {nothingToday ? <p className="dm-sum-empty">Нема ништо закажано денес.</p> : null}
+      </section>
+
       <section className="quick-row">
         {QUICK_ACTIONS.map((a) => (
           <Link
@@ -266,7 +311,7 @@ export function DashboardClient({
         ДЕНЕС — {formatDateLong(today).toUpperCase()}
       </div>
 
-      <section className="tiles" aria-label="Преглед за денес">
+      <section className="tiles tiles-compact" aria-label="Преглед за денес">
         <div className="tile">
           <span className="badge"><Icon name="cal-dot" size="lg" /></span>
           <div>
@@ -317,7 +362,7 @@ export function DashboardClient({
 
       <div className="dash-grid">
         {/* ---- today's reservations ---- */}
-        <section className="panel">
+        <section className="panel dm-p-res">
           <div className="panel-h">
             <h2 className="panel-t">
               <Icon name="book" size="sm" /> Резервации за денес
@@ -350,7 +395,7 @@ export function DashboardClient({
                     <span className="plan-name">
                       <b>{r.guest_name}</b>
                       <span>
-                        {[r.phone, room?.name, `${r.party_size} гости`].filter(Boolean).join(" · ")}
+                        {[room?.name, `${r.party_size} гости`, r.phone].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                     <span className={`pill ${status.pill}`}>{status.label}</span>
@@ -369,7 +414,7 @@ export function DashboardClient({
         </section>
 
         {/* ---- floor-plan mini overview ---- */}
-        <section className="panel">
+        <section className="panel dm-p-plan">
           <div className="panel-h">
             <h2 className="panel-t">
               <Icon name="tables" size="sm" /> Распоред на маси
@@ -443,7 +488,7 @@ export function DashboardClient({
         </section>
 
         {/* ---- day plan ---- */}
-        <section className="panel">
+        <section className="panel dm-p-day">
           <div className="panel-h">
             <h2 className="panel-t">
               <Icon name="note" size="sm" /> Дневен план
@@ -498,7 +543,7 @@ export function DashboardClient({
         </section>
 
         {/* ---- week overview ---- */}
-        <section className="panel">
+        <section className="panel dm-p-week">
           <div className="panel-h">
             <h2 className="panel-t">Преглед на неделата</h2>
           </div>
@@ -516,7 +561,7 @@ export function DashboardClient({
         </section>
 
         {/* ---- upcoming events ---- */}
-        <section className="panel">
+        <section className="panel dm-p-up">
           <div className="panel-h">
             <h2 className="panel-t">Претстојни настани</h2>
           </div>
@@ -548,7 +593,7 @@ export function DashboardClient({
         </section>
 
         {/* ---- month overview: this month + next, side by side ---- */}
-        <section className="panel">
+        <section className="panel dm-p-month">
           <div className="panel-h">
             <h2 className="panel-t">Месечен преглед</h2>
           </div>

@@ -3,9 +3,10 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PanelShell } from "@/components/venue/shell/PanelShell";
 import { CoupleShell } from "@/components/couple/shell/CoupleShell";
+import { AdminShell } from "@/components/admin/AdminShell";
 
-// D1: under 900px the sidebar becomes a drawer opened from a "Мени" button in
-// the top bar. Both panels share the behaviour (useDrawer).
+// D1: under 900px the sidebar becomes a sheet opened from the bottom tab bar's
+// "Повеќе" button. All three panels share the behaviour (useDrawer).
 
 let pathname = "/venue";
 vi.mock("next/navigation", () => ({
@@ -25,6 +26,7 @@ const shells = [
       </CoupleShell>
     ),
   },
+  { name: "admin", path: "/admin", ui: () => <AdminShell badges={{ inbox: 3, tasks: 0 } as never}>x</AdminShell> },
 ];
 
 describe.each(shells)("$name shell drawer", ({ path, ui }) => {
@@ -33,8 +35,16 @@ describe.each(shells)("$name shell drawer", ({ path, ui }) => {
     document.body.style.overflow = "";
   });
 
-  const button = () => screen.getByRole("button", { name: "Мени" });
+  const button = () => screen.getByRole("button", { name: "Повеќе" });
   const drawer = () => document.getElementById("panel-nav")!;
+
+  it("shows the main sections in the bottom bar, marking the current one", () => {
+    render(ui());
+    const bar = screen.getByRole("navigation", { name: "Брза навигација" });
+    const links = bar.querySelectorAll("a");
+    expect(links.length).toBeGreaterThanOrEqual(3);
+    expect(bar.querySelector('a[aria-current="page"]')).toHaveAttribute("href", path);
+  });
 
   it("opens from the menu button and locks page scroll", async () => {
     render(ui());

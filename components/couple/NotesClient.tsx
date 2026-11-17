@@ -55,6 +55,9 @@ export function NotesClient({ coupleNames, initialNotes }: { coupleNames: string
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
+  // Phones show either the list or the editor (wider screens show both).
+  const [editing, setEditing] = useState(false);
+  const editorRef = useRef<HTMLElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Bumped whenever the active draft's identity changes (reset or switching
   // to a different note). A scheduled autosave captures the generation at
@@ -156,9 +159,20 @@ export function NotesClient({ coupleNames, initialNotes }: { coupleNames: string
     }
   }
 
+  function openEditor() {
+    setEditing(true);
+    requestAnimationFrame(() => editorRef.current?.scrollIntoView?.({ block: "start" }));
+  }
+
   async function handleSaveAndNew() {
     await flushDraft();
     resetDraft();
+    openEditor();
+  }
+
+  async function handleBackToList() {
+    await flushDraft();
+    setEditing(false);
   }
 
   async function handleDelete() {
@@ -174,9 +188,11 @@ export function NotesClient({ coupleNames, initialNotes }: { coupleNames: string
       }
     }
     resetDraft();
+    setEditing(false);
   }
 
   async function handleSelectNote(note: Note) {
+    openEditor();
     if (note.id === draftId) return;
     await flushDraft();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -251,7 +267,7 @@ export function NotesClient({ coupleNames, initialNotes }: { coupleNames: string
         </label>
       </section>
 
-      <div className="nt-grid">
+      <div className={`nt-grid${editing ? " is-editing" : ""}`}>
         <section className="cs-card nt-list" aria-labelledby="nt-list-h">
           <div className="nt-card-head">
             <h2 id="nt-list-h" className="nt-card-title">
@@ -294,7 +310,11 @@ export function NotesClient({ coupleNames, initialNotes }: { coupleNames: string
           )}
         </section>
 
-        <section className="cs-card nt-editor">
+        <section className="cs-card nt-editor" ref={editorRef}>
+          <button type="button" className="cs-btn nt-back" onClick={() => void handleBackToList()}>
+            <Icon name="left" size="sm" />
+            Мои белешки
+          </button>
           <div className="nt-field">
             <label className="lab-s" htmlFor="note-title">
               Наслов
