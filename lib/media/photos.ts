@@ -169,16 +169,23 @@ export async function deletePhoto(eventId: string, photoId: string): Promise<voi
   await drainStorageCleanupQueue().catch(() => {}); // the hourly cron retries
 }
 
-/** Every visible photo and video, oldest first, for "download all". */
-export async function listPhotoFiles(eventId: string): Promise<PhotoFile[]> {
+/**
+ * Every visible photo and video, oldest first, for "download all". `before`
+ * (an ISO timestamp fixed when the download page rendered) keeps only files
+ * added before it, so the ZIP parts don't shift when guests upload between
+ * part requests (lib/media/download-pin.ts).
+ */
+export async function listPhotoFiles(eventId: string, before?: string): Promise<PhotoFile[]> {
   const files: PhotoFile[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await createServiceRoleClient()
+    let query = createServiceRoleClient()
       .from("event_photos")
       .select("id, storage_path, bytes, mime, uploader_name, created_at")
       .eq("event_id", eventId)
-      .is("hidden_at", null)
+      .is("hidden_at", null);
+    if (before) query = query.lt("created_at", before);
+    const { data, error } = await query
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);

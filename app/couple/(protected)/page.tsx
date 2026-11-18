@@ -14,6 +14,7 @@ import { ChangeNotice } from "@/components/couple/ChangeNotice";
 import { coupleNotice } from "@/lib/changes/couple-notice";
 import { loadCoupleMarks, NO_MARKS } from "@/lib/couple/change-marks";
 import { eventStartInstant, eventEndInstant } from "@/lib/couple/event-hero";
+import { COUPLE_DOWNLOADS_HREF } from "@/lib/couple/access";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,21 @@ export default async function CoupleDashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* Group A task 7: the keepsake download, any time before or after the day. */}
+      <section className="panel couple-card" style={{ marginBottom: 16 }}>
+        <div className="panel-h">
+          <h2 className="panel-t"><Icon name="book" size="sm" /> {summary.event_type === "wedding" ? "Преземи ја вашата свадба" : "Преземете го вашиот настан"}</h2>
+        </div>
+        <p style={{ color: "var(--muted)", fontSize: 13.5, padding: "8px 14px 0", margin: 0 }}>
+          Книга со поканата, гостите, честитките и буџетот, табели за Excel и сите фотографии и видеа — ваши засекогаш.
+        </p>
+        <div style={{ padding: "10px 14px 14px" }}>
+          <Link href={COUPLE_DOWNLOADS_HREF} style={{ color: "#8a6a22", fontSize: 13.5 }}>
+            Преземи →
+          </Link>
+        </div>
+      </section>
 
       <ContactInfoEditor
         contactEmail={summary.contact_email}

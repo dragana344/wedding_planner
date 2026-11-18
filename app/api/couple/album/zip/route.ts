@@ -1,35 +1,30 @@
 import { NextResponse } from "next/server";
 import { withCoupleEvent } from "@/lib/api/handler";
-import { formatTime } from "@/lib/media/format";
-import { listPhotoFiles, type PhotoFile } from "@/lib/media/photos";
+import { albumEntryName } from "@/lib/couple/keepsake/names";
+import { listPhotoFiles } from "@/lib/media/photos";
 import { openObjectStream } from "@/lib/media/storage";
 import { planZipParts, zipStream } from "@/lib/media/zip";
+import { parseDownloadPin } from "@/lib/media/download-pin";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // C3: "download all" — the visible photos as a stored (uncompressed) ZIP,
 // streamed from Storage through this function without buffering. Albums come
 // in parts of ~200 MB (planZipParts) so a part finishes inside maxDuration on
 // an ordinary connection. The 4.5 MB limit applies to request bodies, not to
-// streamed responses.
+// streamed responses. `before` (set by the album page) pins the photo list,
+// so the parts don't shift between requests (lib/media/download-pin.ts).
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const INVALID_PART_ERROR = "Непостоечки дел од албумот.";
 
-function hhmm(iso: string): string {
-  return formatTime(iso).replace(":", "");
-}
-
-function entryName(file: PhotoFile, index: number): string {
-  const who = (file.uploaderName ?? "").normalize("NFC").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "gostin";
-  const extension = file.path.slice(file.path.lastIndexOf(".") + 1);
-  return `${String(index + 1).padStart(3, "0")}-${who}-${hhmm(file.createdAt)}.${extension}`;
-}
-
 export const GET = withCoupleEvent(
   async ({ request, eventId }) => {
-    const part = Number(new URL(request.url).searchParams.get("part") ?? "1");
-    const parts = planZipParts(await listPhotoFiles(eventId));
+    const searchParams = new URL(request.url).searchParams;
+    const part = Number(searchParams.get("part") ?? "1");
+    const before = parseDownloadPin(searchParams);
+    if (before === null) return NextResponse.json({ error: INVALID_PART_ERROR }, { status: 400 });
+    const parts = planZipParts(await listPhotoFiles(eventId, before));
     if (!Number.isInteger(part) || part < 1 || part > parts.length) {
       return NextResponse.json({ error: INVALID_PART_ERROR }, { status: 400 });
     }
@@ -37,7 +32,7 @@ export const GET = withCoupleEvent(
     const { data: event } = await createServiceRoleClient().from("events").select("event_date").eq("id", eventId).single();
     const offset = parts.slice(0, part - 1).reduce((n, p) => n + p.length, 0);
     const entries = parts[part - 1].map((file, i) => ({
-      name: entryName(file, offset + i),
+      name: albumEntryName(file, offset + i),
       size: file.bytes,
       open: () => openObjectStream(file.path),
     }));
@@ -50,5 +45,7 @@ export const GET = withCoupleEvent(
       },
     });
   },
-  { feature: "photo_album", fallbackError: "Не успеа преземањето на албумот." },
+  // No `feature`: downloading what the couple already has keeps working
+  // after a downgrade (group A task 2) and in the read-only period.
+  { fallbackError: "Не успеа преземањето на албумот." },
 );

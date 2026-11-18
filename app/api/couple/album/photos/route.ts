@@ -12,5 +12,6 @@ export const GET = withCoupleEvent(
     const photos = await listPhotos(eventId, { includeHidden: true, limit: PAGE + 1, before: valid });
     return NextResponse.json({ photos: photos.slice(0, PAGE), hasMore: photos.length > PAGE });
   },
-  { feature: "photo_album", fallbackError: "Не успеа вчитувањето на фотографиите." },
+  // No `feature`: reading the album keeps working after a downgrade.
+  { fallbackError: "Не успеа вчитувањето на фотографиите." },
 );

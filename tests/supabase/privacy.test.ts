@@ -480,7 +480,12 @@ describe("retention purge mechanism (DATA-007)", () => {
     expect(result).toEqual({ events_erased: 1, contact_submissions_deleted: 1 });
     await drainStorageCleanupQueue();
 
-    expect(await remainingPersonalData(ancient.eventId, ancient.checklistId)).toEqual([]);
+    // 0170: a retention erasure keeps the organizer's names/contacts on the
+    // event row (the venue's booking record) — everything else goes.
+    expect(await remainingPersonalData(ancient.eventId, ancient.checklistId)).toEqual(["events"]);
+    expect(await must(admin.from("events").select("couple_names, contact_email, seating_draft").eq("id", ancient.eventId).single())).toEqual({
+      couple_names: `Couple ${ancient.tag}`, contact_email: `${ancient.tag}@couple.test`, seating_draft: {},
+    });
     expect(await remainingPersonalData(recent.eventId, recent.checklistId)).toContain("event_guests");
     expect((await admin.from("contact_submissions").select("name").like("email", `%-${stamp}@privacy.test`)).data).toEqual([{ name: "New" }]);
     expect(await objectExists("invitation-photos", ancient.invitationPath)).toBe(false);

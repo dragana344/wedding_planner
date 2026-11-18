@@ -123,11 +123,18 @@ describe("feature gate coverage (every couple write is gated or listed)", () => 
       "app/api/couple/co-organizers/route.ts": "co_organizers", "app/api/couple/co-organizers/[id]/route.ts": "co_organizers",
       "app/api/couple/reminder/route.ts": "reminders",
       "app/api/couple/guests/email/route.ts": "personal_invite_links", "app/api/couple/guests/sent/route.ts": "personal_invite_links",
-      "app/api/couple/album/photos/route.ts": "photo_album", "app/api/couple/album/photos/[id]/route.ts": "photo_album",
-      "app/api/couple/album/zip/route.ts": "photo_album", "app/api/couple/greetings/[id]/route.ts": "guest_greetings",
+      "app/api/couple/album/photos/[id]/route.ts": "photo_album", "app/api/couple/greetings/[id]/route.ts": "guest_greetings",
     };
     for (const [file, key] of Object.entries(expected)) {
       expect(readFileSync(file, "utf8"), file).toContain(`feature: "${key}"`);
+    }
+  });
+
+  it("the album listing and ZIP download need no feature, so a downgrade never blocks downloads (group A task 2)", () => {
+    for (const file of ["app/api/couple/album/photos/route.ts", "app/api/couple/album/zip/route.ts"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toContain('feature: "');
+      expect(/export (const|async function) (POST|PUT|PATCH|DELETE)\b/.test(source), file).toBe(false);
     }
   });
 });

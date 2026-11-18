@@ -72,6 +72,9 @@ import * as seatingResetBaselineRoute from "@/app/api/couple/seating/reset-basel
 import * as albumPhotosRoute from "@/app/api/couple/album/photos/route";
 import * as albumPhotoIdRoute from "@/app/api/couple/album/photos/[id]/route";
 import * as albumZipRoute from "@/app/api/couple/album/zip/route";
+import * as downloadBookRoute from "@/app/api/couple/download/book/route";
+import * as downloadTablesRoute from "@/app/api/couple/download/tables/route";
+import * as downloadMediaRoute from "@/app/api/couple/download/media/route";
 import * as greetingIdRoute from "@/app/api/couple/greetings/[id]/route";
 import * as menuNumbersRoute from "@/app/api/couple/menu-numbers/route";
 import * as changesRoute from "@/app/api/couple/changes/route";
@@ -443,7 +446,11 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       GET: async () => {
         const res = await call(agendaRoute.GET, NONE, "GET");
         expect(res.status).toBe(200);
-        expect((res.json as Row[]).map((r) => r.id).sort()).toEqual([...A.agendaIds].sort());
+        // Event A has a hall booked, so it also has the restaurant item added on its own (0158).
+        const rows = res.json as Row[];
+        expect(rows.map((r) => r.id)).toEqual(expect.arrayContaining([...A.agendaIds]));
+        expect(rows.every((r) => r.event_id === A.eventId)).toBe(true);
+        for (const id of B.agendaIds) expect(rows.map((r) => r.id)).not.toContain(id);
       },
       POST: async () => {
         const res = await call(agendaRoute.POST, NONE, "POST", { body: { title: "A new agenda" } });
@@ -1218,6 +1225,39 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
     methods: {
       GET: async () => {
         const res = await call(albumZipRoute.GET, NONE, "GET", { query: { part: "1" } });
+        expect(res.status).toBe(200);
+        expect(res.text.startsWith("PK")).toBe(true);
+      },
+    },
+  },
+  // Group A task 7: the keepsake downloads. The PDF's text is compressed, so
+  // the book is checked through its data (tests/supabase/keepsake_download);
+  // the CSVs and ZIP names are stored as-is, so `call` sees any leak of B.
+  "download/book/route.ts": {
+    module: downloadBookRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(downloadBookRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(res.text.startsWith("%PDF-")).toBe(true);
+      },
+    },
+  },
+  "download/tables/route.ts": {
+    module: downloadTablesRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(downloadTablesRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(res.text.startsWith("PK")).toBe(true);
+      },
+    },
+  },
+  "download/media/route.ts": {
+    module: downloadMediaRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(downloadMediaRoute.GET, NONE, "GET", { query: { part: "1" } });
         expect(res.status).toBe(200);
         expect(res.text.startsWith("PK")).toBe(true);
       },

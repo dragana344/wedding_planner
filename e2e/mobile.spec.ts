@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { elevateAsOwner, setUpCouple, signUpVenue, type VenueAccount } from "./helpers";
+import { elevateAsOwner, setUpCouple, createVenueAndSignIn, type VenueAccount } from "./helpers";
 
 // D1: every panel page is usable on a 390 px phone — no sideways scrolling of
 // the page itself — with a bottom tab bar whose "Повеќе" opens the full menu.
@@ -24,7 +24,7 @@ async function expectNoHorizontalScroll(page: Page, path: string, account?: Venu
 }
 
 test("venue panel fits a phone and navigates from the bottom bar", async ({ page }) => {
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   for (const path of [
     "/venue", "/venue/calendar", "/venue/reservations", "/venue/events", "/venue/events/new",
     "/venue/tables", "/venue/clients", "/venue/menus", "/venue/settings", "/venue/support",
@@ -51,7 +51,7 @@ test("venue panel fits a phone and navigates from the bottom bar", async ({ page
 test("couple panel and guest album fit a phone", async ({ page, anonPage }) => {
   await setUpCouple(page);
   for (const path of [
-    "/couple", "/couple/guests", "/couple/menu", "/couple/agenda", "/couple/locations", "/couple/budget",
+    "/couple", "/couple/guests", "/couple/menu", "/couple/agenda", "/couple/budget",
     "/couple/checklist", "/couple/notes", "/couple/invitation", "/couple/album", "/couple/greetings", "/couple/album/qr",
   ]) {
     await expectNoHorizontalScroll(page, path);

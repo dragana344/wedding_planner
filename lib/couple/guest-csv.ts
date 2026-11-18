@@ -33,11 +33,12 @@ function cell(value: string | number | null): string {
   let text = value === null ? "" : String(value);
   // Guests type some of these fields themselves (CSV/formula injection).
   if (FORMULA_START.test(text)) text = `'${text}`;
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  return /[";,\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 /**
- * CSV for Excel/Sheets: UTF-8 with BOM (Cyrillic), CRLF. Never includes the
+ * CSV for Excel/Sheets: UTF-8 with BOM (Cyrillic), CRLF, ";" between columns
+ * (what Excel expects with a Macedonian locale). Never includes the
  * invite token. One column per event menu (header = its name) holds how many
  * of the guest's party eat it, blank for none; with a single menu a confirmed
  * guest's whole party eats it.
@@ -62,9 +63,9 @@ export function guestsToCsv(guests: readonly Guest[], menus: readonly { id: stri
       g.invitation_sent_at ? `Да${g.invitation_channel ? ` (${g.invitation_channel})` : ""}` : "Не",
     ]
       .map(cell)
-      .join(","),
+      .join(";"),
   );
-  return "﻿" + [[...HEADER_BEFORE_MENUS, ...menus.map((m) => m.name), ...HEADER_AFTER_MENUS].map(cell).join(","), ...lines].join("\r\n") + "\r\n";
+  return "﻿" + [[...HEADER_BEFORE_MENUS, ...menus.map((m) => m.name), ...HEADER_AFTER_MENUS].map(cell).join(";"), ...lines].join("\r\n") + "\r\n";
 }
 
 // ---------------------------------------------------------------------------

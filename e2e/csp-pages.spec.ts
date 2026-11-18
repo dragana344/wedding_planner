@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { elevateAsOwner, setUpCouple, signUpVenue } from "./helpers";
+import { elevateAsOwner, setUpCouple, createVenueAndSignIn } from "./helpers";
 
 // SEC-001: every page of the venue panel, the couple panel and the public
 // pages loads without a single Content-Security-Policy violation (the csp
@@ -25,7 +25,6 @@ const COUPLE_PAGES = [
   "/couple",
   "/couple/menu",
   "/couple/agenda",
-  "/couple/locations",
   "/couple/guests",
   "/couple/budget",
   "/couple/checklist",
@@ -36,6 +35,7 @@ const COUPLE_PAGES = [
   "/couple/messages",
   "/couple/album",
   "/couple/notifications",
+  "/couple/download",
 ];
 
 test("public pages load without CSP violations", async ({ page }) => {
@@ -47,7 +47,7 @@ test("public pages load without CSP violations", async ({ page }) => {
 });
 
 test("every venue panel page loads without CSP violations", async ({ page }) => {
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   for (const path of VENUE_PAGES) {
     const res = await page.goto(path);
     expect(res!.status(), path).toBe(200);

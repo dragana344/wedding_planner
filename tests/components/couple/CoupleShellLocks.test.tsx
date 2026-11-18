@@ -17,9 +17,13 @@ describe("couple lock UI (spec §4.4)", () => {
     );
     expect(mainNav().getByRole("link", { name: /Буџет/ })).toHaveAttribute("data-locked", "true");
     expect(screen.getByText(/Оваа функција не е вклучена во вашиот пакет/)).toBeInTheDocument();
-    const veil = screen.getByText("content").closest(".locked-blur");
-    expect(veil).toHaveAttribute("aria-hidden", "true");
-    expect(veil).toHaveAttribute("inert");
+    // Group A task 2: a downgrade never hides data — the page stays readable,
+    // not blurred, inert or hidden from assistive tech.
+    const content = screen.getByText("content");
+    expect(content.closest("[aria-hidden]")).toBeNull();
+    expect(content.closest("[inert]")).toBeNull();
+    expect(document.querySelector(".locked-blur")).toBeNull();
+    expect(screen.getByRole("status").textContent).toMatch(/гледате и преземате/);
   });
 
   it("gives a locked nav item an accessible name a screen reader announces as locked", () => {

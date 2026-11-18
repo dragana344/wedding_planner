@@ -40,6 +40,8 @@ export type VenueRow = {
 };
 export type VenueDetail = VenueRow & {
   blockedReason: string | null;
+  /** 0172: when the admin-scheduled deletion runs; null when none is scheduled. */
+  deletionScheduledFor: string | null;
   staff: { userId: string; email: string; lastSignInAt: string | null }[];
   managers: { id: string; name: string; isOwner: boolean }[];
   rooms: { id: string; name: string }[];
@@ -56,6 +58,10 @@ export type EventRow = {
   status: string;
   type: string | null;
   guestEstimate: number | null;
+  /** 0170: end date set by a cancellation / by the admin; see lib/couple/access.ts. */
+  accessUntil: string | null;
+  accessExtendedUntil: string | null;
+  personalDataErasedAt: string | null;
 };
 export type PlanRow = {
   id: string;
@@ -68,7 +74,17 @@ export type PlanRow = {
   features: Record<string, { enabled: boolean; limit: number | null }>;
 };
 export type OverrideRow = { featureKey: string; enabled: boolean | null; limitOverride: boolean; limitValue: number | null; note: string | null };
-export type MessageRow = { id: string; name: string; email: string; message: string; status: SupportStatus; createdAt: string; handledAt: string | null };
+/** kind: 'demo' for /signup's "request a demo" form (0173), 'contact' for the landing page's contact form. */
+export type MessageRow = {
+  id: string;
+  kind: "contact" | "demo";
+  name: string;
+  email: string;
+  message: string;
+  status: SupportStatus;
+  createdAt: string;
+  handledAt: string | null;
+};
 /** One row of the "Пораки и барања" inbox: a public contact message or a venue/couple support ticket. */
 export type InboxRow = {
   kind: "contact" | "ticket";
@@ -311,6 +327,7 @@ type VenueDetailDb = {
   created_at: string;
   blocked_at: string | null;
   blocked_reason: string | null;
+  deletion_scheduled_for: string | null;
   plans: { name: string };
   venue_staff: { user_id: string }[];
   venue_managers: { id: string; name: string; is_owner: boolean }[];
@@ -324,7 +341,7 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
   const { data, error } = await db()
     .from("venues")
     .select(
-      "id, name, plan_id, created_at, blocked_at, blocked_reason, plans(name), venue_staff(user_id), venue_managers(id, name, is_owner), rooms(id, name), events(id, event_date, couple_names, status, event_type)"
+      "id, name, plan_id, created_at, blocked_at, blocked_reason, deletion_scheduled_for, plans(name), venue_staff(user_id), venue_managers(id, name, is_owner), rooms(id, name), events(id, event_date, couple_names, status, event_type)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -347,6 +364,7 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
     eventCount: v.events.length,
     blockedAt: v.blocked_at,
     blockedReason: v.blocked_reason,
+    deletionScheduledFor: v.deletion_scheduled_for,
     lastSignInAt:
       staff
         .map((s) => s.lastSignInAt)
@@ -365,7 +383,8 @@ export async function getVenueDetail(id: string): Promise<VenueDetail | null> {
   };
 }
 
-const EVENT_COLUMNS = "id, venue_id, event_date, start_time, end_time, couple_names, status, event_type, guest_count_estimate, venues(name)";
+const EVENT_COLUMNS =
+  "id, venue_id, event_date, start_time, end_time, couple_names, status, event_type, guest_count_estimate, couple_access_until, couple_access_extended_until, personal_data_erased_at, venues(name)";
 type EventDb = {
   id: string;
   venue_id: string;
@@ -376,6 +395,9 @@ type EventDb = {
   status: string;
   event_type: string | null;
   guest_count_estimate: number | null;
+  couple_access_until: string | null;
+  couple_access_extended_until: string | null;
+  personal_data_erased_at: string | null;
   venues: { name: string };
 };
 const toEvent = (e: EventDb): EventRow => ({
@@ -389,6 +411,9 @@ const toEvent = (e: EventDb): EventRow => ({
   status: e.status,
   type: e.event_type,
   guestEstimate: e.guest_count_estimate,
+  accessUntil: e.couple_access_until,
+  accessExtendedUntil: e.couple_access_extended_until,
+  personalDataErasedAt: e.personal_data_erased_at,
 });
 
 export async function listEvents(filter: { venueId?: string; from?: string; to?: string; status?: string }): Promise<EventRow[]> {
@@ -474,10 +499,20 @@ export async function getEventOverrides(eventId: string): Promise<OverrideRow[]>
 // filed by venue staff and couples against the team, not each other —
 // venue_name and (when a couple filed it) couple_names are shown the same
 // way the admin Events list already shows couple_names.
-type MessageDb = { id: string; name: string; email: string; message: string; status: SupportStatus; created_at: string; handled_at: string | null };
-const MESSAGE_COLUMNS = "id, name, email, message, status, created_at, handled_at";
+type MessageDb = {
+  id: string;
+  kind: "contact" | "demo";
+  name: string;
+  email: string;
+  message: string;
+  status: SupportStatus;
+  created_at: string;
+  handled_at: string | null;
+};
+const MESSAGE_COLUMNS = "id, kind, name, email, message, status, created_at, handled_at";
 const toMessage = (m: MessageDb): MessageRow => ({
   id: m.id,
+  kind: m.kind,
   name: m.name,
   email: m.email,
   message: m.message,
@@ -526,6 +561,12 @@ function toInboxTicket(t: InboxTicketDb): InboxTicket {
   };
 }
 
+/** A demo request's message is "Локал: …" lines (lib/venue/contact.ts), shown on one line. */
+function contactSubject(m: MessageDb): string {
+  const text = m.kind === "demo" ? `Барање за демо · ${m.message.split("\n").filter(Boolean).join(" · ")}` : m.message;
+  return text.length > 90 ? `${text.slice(0, 90)}…` : text;
+}
+
 /**
  * The "Пораки и барања" inbox: public contact messages and venue/couple
  * tickets in one list, newest activity first. An unrecognised status or
@@ -550,7 +591,7 @@ export async function listInbox(filter: { status?: string; source?: string }): P
       from: m.name,
       venueName: null,
       coupleNames: null,
-      subject: m.message.length > 90 ? `${m.message.slice(0, 90)}…` : m.message,
+      subject: contactSubject(m),
       status: m.status,
       awaitingAdmin: m.status === "new",
       lastActivityAt: m.created_at,

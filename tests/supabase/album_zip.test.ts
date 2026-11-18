@@ -7,7 +7,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { GET as zipRoute } from "@/app/api/couple/album/zip/route";
-import { confirmPhotoUpload, createPhotoUpload, setPhotoHidden } from "@/lib/media/photos";
+import { confirmPhotoUpload, createPhotoUpload, listPhotoFiles, setPhotoHidden } from "@/lib/media/photos";
+import { downloadPin, partHref } from "@/lib/media/download-pin";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
 
 // C3: "download all" streams the visible photos as a ZIP, in parts.
@@ -73,5 +74,26 @@ describe("album zip", () => {
   it("refuses a part that does not exist", async () => {
     expect((await zipRoute(zipRequest("5"), { params: {} })).status).toBe(400);
     expect((await zipRoute(zipRequest("abc"), { params: {} })).status).toBe(400);
+  });
+
+  it("pinned to the page's moment (`before`), a photo added later stays out of every part", async () => {
+    const pin = downloadPin();
+    await new Promise((r) => setTimeout(r, 5));
+    const bytes = jpeg(9);
+    const upload = await createPhotoUpload(eventId, bytes.length);
+    await guest.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, new Blob([bytes], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+    await confirmPhotoUpload(eventId, { path: upload.path, uploaderName: "Доцна" });
+
+    expect(await listPhotoFiles(eventId, pin)).toHaveLength(2);
+    expect(await listPhotoFiles(eventId)).toHaveLength(3);
+    const res = await zipRoute(
+      new NextRequest(`http://localhost${partHref("/api/couple/album/zip", 1, pin)}`, { headers: { "x-couple-event-id": eventId } }),
+      { params: {} },
+    );
+    expect(res.status).toBe(200);
+    const zip = Buffer.from(await res.arrayBuffer());
+    expect(zip.includes(Buffer.from("Доцна"))).toBe(false);
+    expect(zip.includes(Buffer.from("Тетка-Роса"))).toBe(true);
+    expect((await zipRoute(new NextRequest("http://localhost/api/couple/album/zip?part=1&before=nope", { headers: { "x-couple-event-id": eventId } }), { params: {} })).status).toBe(400);
   });
 });

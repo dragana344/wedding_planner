@@ -17,10 +17,13 @@ import { NextRequest, NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { INVALID_ID_ERROR, INVALID_INPUT_ERROR, parseInput } from "@/lib/api/schemas";
 import { LOCKED_MESSAGE, type FeatureKey } from "@/lib/entitlements/features";
+import { COUPLE_ACCESS_PHASE_HEADER, READ_ONLY_MESSAGE } from "@/lib/couple/access";
 import { REQUEST_ID_HEADER, errorFields, log } from "@/lib/log";
 
 export const COUPLE_EVENT_HEADER = "x-couple-event-id";
 export const NOT_AUTHENTICATED_ERROR = "Не сте најавени";
+
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /**
  * Parsed JSON request body when a route declares no `body` schema. Every
@@ -79,6 +82,14 @@ export type HandlerOptions<B = JsonBody, P = unknown> = {
    * stays readable and removable).
    */
   feature?: FeatureKey;
+  /**
+   * Couple routes only: keep accepting this write in the read-only
+   * "memories" period after the event (group A task 2). Without it,
+   * POST/PUT/PATCH/DELETE answer 403 READ_ONLY_MESSAGE once the event is
+   * over. Reserved for support tickets and moderating guests' photos and
+   * greetings — nothing that edits the couple's own planning data.
+   */
+  allowAfterEvent?: boolean;
 };
 
 export type PublicHandlerContext<P, B = JsonBody> = {
@@ -236,6 +247,16 @@ export function withCoupleEvent<P = Record<string, never>, B = JsonBody>(
     withRequestLog(request, async () => {
       const eventId = request.headers.get(COUPLE_EVENT_HEADER);
       if (!eventId) return NextResponse.json({ error: NOT_AUTHENTICATED_ERROR }, { status: 401 });
+      // The phase comes from proxy.ts (validated session, browser copy
+      // stripped), so no extra query. No header — tests calling the route
+      // directly — means "active", like a request without a session side.
+      if (
+        request.headers.get(COUPLE_ACCESS_PHASE_HEADER) === "memories" &&
+        WRITE_METHODS.has(request.method) &&
+        !options.allowAfterEvent
+      ) {
+        return NextResponse.json({ error: READ_ONLY_MESSAGE }, { status: 403 });
+      }
       return run(request, await context?.params, options, async (req, params, body) => {
         // Checked after params/body validation (above, inside `run`) so a
         // request that fails plain input validation never reaches the

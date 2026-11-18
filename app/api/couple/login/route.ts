@@ -7,6 +7,7 @@ import { withRequestLog } from "@/lib/api/handler";
 import { errorFields, log, logSecurityEvent } from "@/lib/log";
 import { RATE_LIMITS, checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { ACCESS_CLOSED_MESSAGE, eventAccessPhase, type CoupleAccessRow } from "@/lib/couple/access";
 
 // Admin spec D8: verbatim copy for a blocked venue's couples.
 const BLOCKED_VENUE_MESSAGE = "Пристапот е привремено оневозможен.";
@@ -55,15 +56,22 @@ async function login(request: NextRequest) {
   // own `if (error) throw error` above) reaches withRequestLog's catch,
   // which logs it and rethrows so Next.js answers its own generic 500,
   // before any session is ever created.
-  const { data: venueState, error: venueStateError } = await createServiceRoleClient()
+  const { data: eventState, error: eventStateError } = await createServiceRoleClient()
     .from("events")
-    .select("venues(blocked_at)")
+    .select("event_date, couple_access_until, couple_access_extended_until, personal_data_erased_at, venues(blocked_at)")
     .eq("id", result.eventId)
     .single();
-  if (venueStateError) throw venueStateError;
-  if ((venueState as unknown as { venues: { blocked_at: string | null } | null } | null)?.venues?.blocked_at) {
+  if (eventStateError) throw eventStateError;
+  const event = eventState as unknown as CoupleAccessRow & { venues: { blocked_at: string | null } | null };
+  if (event.venues?.blocked_at) {
     logSecurityEvent("couple_login_blocked_venue", { event_id: result.eventId });
     return NextResponse.json({ error: BLOCKED_VENUE_MESSAGE }, { status: 403 });
+  }
+  // Group A task 2: the couple's access ends some months after the event
+  // (lib/couple/access.ts); an erased event is closed too.
+  if (eventAccessPhase(event) === "closed") {
+    logSecurityEvent("couple_login_access_closed", { event_id: result.eventId });
+    return NextResponse.json({ error: ACCESS_CLOSED_MESSAGE }, { status: 403 });
   }
 
   // Couple change marks only count after the first login. Co-organizers log in

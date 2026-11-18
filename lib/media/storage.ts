@@ -86,8 +86,8 @@ async function sweepBucket(bucket: string, cutoff: number): Promise<number> {
 }
 
 /** The object's bytes as a stream (for "download all"); nothing is buffered. */
-export async function openObjectStream(path: string): Promise<ReadableStream<Uint8Array>> {
-  const { data, error } = await createServiceRoleClient().storage.from(MEDIA_BUCKET).createSignedUrl(path, 15 * 60);
+export async function openObjectStream(path: string, bucket = MEDIA_BUCKET): Promise<ReadableStream<Uint8Array>> {
+  const { data, error } = await createServiceRoleClient().storage.from(bucket).createSignedUrl(path, 15 * 60);
   if (error || !data) throw error ?? new Error("signed URL missing");
   const response = await fetch(data.signedUrl, { cache: "no-store" });
   if (!response.ok || !response.body) throw new Error(`storage download failed: ${response.status}`);

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { adminClient, elevateAsOwner, setUpCouple, signUpVenue, uniqueId } from "./helpers";
+import { adminClient, elevateAsOwner, setUpCouple, createVenueAndSignIn, uniqueId } from "./helpers";
 
 // TEST-007: automated accessibility audit (axe, WCAG 2.1 A/AA) of the key
 // screens. Every screen's full result is attached to the report and serious/
@@ -34,7 +34,7 @@ test("public screens", async ({ page }) => {
 });
 
 test("venue panel screens", async ({ page }) => {
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   // /venue/events/new and /venue/settings now require manager elevation to
   // show their real content (venue-manager-staff-login spec) — without
   // this, the audit would only ever see the "managers only" blocking

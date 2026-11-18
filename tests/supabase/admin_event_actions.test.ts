@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { eventActionCore } from "@/lib/admin/event-actions-core";
+import { eventActionCore, eventSchemas } from "@/lib/admin/event-actions-core";
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 const ctx = { adminUserId: "00000000-0000-4000-8000-00000000ad01", requestId: "req-admin" };
@@ -94,5 +94,35 @@ describe("admin event actions", () => {
     const missingId = "22222222-3333-4000-8000-444444444444";
     await expect(eventActionCore.unlockCouple({ eventId: missingId }, ctx)).rejects.toThrow("Настанот не постои.");
     await expect(eventActionCore.regenerateCouplePassword({ eventId: missingId }, ctx)).rejects.toThrow("Настанот не постои.");
+  });
+
+  it("extends the couple's access end (0170), audits old/new dates, and can remove the extension", async () => {
+    // event_date is 2028-08-02 after the update test above: default end 2029-02-02.
+    const r = await eventActionCore.extendCoupleAccess({ eventId, until: "2029-05-02" }, ctx);
+    expect(r.data).toEqual({ accessEnd: "2029-05-02" });
+    expect(r.audit).toMatchObject({ action: "couple_access_extended", eventId, venueId, details: { old_end: "2029-02-02", new_end: "2029-05-02" } });
+    expect((await admin.rpc("event_access_end", { p_event_id: eventId })).data).toBe("2029-05-02");
+
+    const cleared = await eventActionCore.extendCoupleAccess({ eventId, until: null }, ctx);
+    expect(cleared.audit).toMatchObject({ details: { old_end: "2029-05-02", new_end: "2029-02-02" } });
+    expect((await admin.from("events").select("couple_access_extended_until").eq("id", eventId).single()).data).toEqual({ couple_access_extended_until: null });
+  });
+
+  it("refuses an access end in the past, and for a missing event", async () => {
+    await expect(eventActionCore.extendCoupleAccess({ eventId, until: "2020-01-01" }, ctx)).rejects.toThrow("Датумот не може да биде во минатото.");
+    await expect(eventActionCore.extendCoupleAccess({ eventId: "22222222-3333-4000-8000-444444444444", until: null }, ctx)).rejects.toThrow("Настанот не постои.");
+  });
+
+  it("refuses an access end before the event day, and a day that doesn't exist; accepts the event day itself", async () => {
+    // event_date is 2028-08-02 (see above).
+    await expect(eventActionCore.extendCoupleAccess({ eventId, until: "2028-08-01" }, ctx)).rejects.toThrow("Датумот не може да биде пред датумот на настанот.");
+    await expect(eventActionCore.extendCoupleAccess({ eventId, until: "2029-02-31" }, ctx)).rejects.toThrow("Неважечки датум: таков ден не постои во календарот.");
+    const parse = (until: string | null) => eventSchemas.extendAccess.safeParse({ eventId, until });
+    expect(parse("2029-02-31").error?.issues[0].message).toBe("Неважечки датум: таков ден не постои во календарот.");
+    expect(parse("2029-13-01").success).toBe(false);
+    expect(parse("2028-02-29").success).toBe(true);
+    expect(parse(null).success).toBe(true);
+    expect((await eventActionCore.extendCoupleAccess({ eventId, until: "2028-08-02" }, ctx)).data).toEqual({ accessEnd: "2028-08-02" });
+    await eventActionCore.extendCoupleAccess({ eventId, until: null }, ctx);
   });
 });

@@ -10,6 +10,7 @@ import { Icon } from "@/components/venue/shell/Icon";
 import { SprigIcon } from "@/components/seating/couple-icons";
 import "@/components/seating/couple-seating.css";
 import "./ChecklistClient.css";
+import { useReadOnly } from "@/components/shared/ReadOnlyContext";
 
 function SubtaskList({ item, onChanged, autoFocus }: { item: ChecklistItem; onChanged: () => void; autoFocus: boolean }) {
   const [newTitle, setNewTitle] = useState("");
@@ -116,6 +117,8 @@ export function ChecklistClient({
   initialStats: ChecklistStats;
 }) {
   const [items, setItems] = useState(initialItems);
+  // The read-only period after the event: no add form (the API refuses anyway).
+  const readOnly = useReadOnly();
   const [stats, setStats] = useState(initialStats);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -376,7 +379,7 @@ export function ChecklistClient({
           </ul>
         </section>
 
-        <section className="cs-card ck-add" aria-labelledby="ck-add-h">
+        <section className="cs-card ck-add" aria-labelledby="ck-add-h" hidden={readOnly}>
           <h2 id="ck-add-h" className="ck-card-head">
             <button type="button" className="ck-add-toggle" aria-expanded={addOpen} onClick={() => setAddOpen((v) => !v)}>
               <Icon name="plus" size="sm" />

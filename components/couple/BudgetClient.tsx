@@ -10,6 +10,7 @@ import { SprigIcon } from "@/components/seating/couple-icons";
 import { formatDen } from "@/lib/money";
 import "@/components/seating/couple-seating.css";
 import "./BudgetClient.css";
+import { useReadOnly } from "@/components/shared/ReadOnlyContext";
 
 interface ItemFormState {
   category: string;
@@ -105,6 +106,8 @@ function suggestionKey(category: string, name: string): string {
  */
 export function BudgetClient({ coupleNames, initialSummary }: { coupleNames: string; initialSummary: BudgetSummary }) {
   const [summary, setSummary] = useState(initialSummary);
+  // The read-only period after the event: no add form (the API refuses anyway).
+  const readOnly = useReadOnly();
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM);
   const [formOpen, setFormOpen] = useState(initialSummary.items.length === 0);
   const [suggestionsOpen, setSuggestionsOpen] = useState(initialSummary.items.length === 0);
@@ -430,7 +433,7 @@ export function BudgetClient({ coupleNames, initialSummary }: { coupleNames: str
         </section>
 
         <div className="bg-side">
-          <section className="cs-card bg-add">
+          <section className="cs-card bg-add" hidden={readOnly}>
             <h2 className="bg-card-head">
               <button
                 type="button"
@@ -524,7 +527,7 @@ export function BudgetClient({ coupleNames, initialSummary }: { coupleNames: str
             ) : null}
           </section>
 
-          <section className="cs-card bg-suggestions">
+          <section className="cs-card bg-suggestions" hidden={readOnly}>
             <h2 className="bg-card-head">
               <button
                 type="button"

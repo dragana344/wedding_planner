@@ -31,6 +31,9 @@ export const POST = withCoupleEvent(
   },
   {
     invalidJsonError: INVALID_JSON_ERROR,
+    // Only a read marker, sent by the screens on their own: it must not
+    // fail in the read-only period after the event.
+    allowAfterEvent: true,
     body: z.object({ section: z.enum(SECTIONS), up_to: z.string().datetime({ offset: true }) }),
     fallbackError: "Не успеа означувањето како видено.",
   },

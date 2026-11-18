@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { GuestSide } from "@/lib/couple/guests";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { useOrigin } from "@/components/couple/guests/InviteSend";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 export interface CoOrganizerRow {
   id: string;
@@ -160,7 +161,7 @@ export function CoOrganizersPanel({ initial }: { initial: CoOrganizerRow[] }) {
             style={{ width: "auto", flex: "1 1 160px" }}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            minLength={10}
+            minLength={MIN_PASSWORD_LENGTH}
             required
             autoComplete="off"
           />

@@ -36,7 +36,7 @@ describe("CSRF origin check (SEC-015)", () => {
   });
 
   it("refuses a cross-origin DELETE to a venue route", async () => {
-    const res = await middleware(req("/api/venue/signup", { method: "DELETE", headers: { origin: "https://evil.example" } }));
+    const res = await middleware(req("/api/venue/demo", { method: "DELETE", headers: { origin: "https://evil.example" } }));
     expect(res.status).toBe(403);
   });
 
@@ -74,7 +74,7 @@ describe("venue session gate (AUTH-001)", () => {
   });
 
   it("does not redirect venue API routes (they answer with their own 401)", async () => {
-    const res = await middleware(req("/api/venue/signup", { method: "POST" }));
+    const res = await middleware(req("/api/venue/settings", { method: "POST" }));
     expect(res.status).toBe(200);
   });
 });
@@ -117,6 +117,7 @@ describe("maintenance mode (REL-007)", () => {
     // Daily cron jobs keep running through a maintenance window.
     expect((await middleware(req("/api/cron/reminders"))).status).not.toBe(503);
     expect((await middleware(req("/api/cron/storage-cleanup"))).status).not.toBe(503);
+    expect((await middleware(req("/api/cron/retention"))).status).not.toBe(503);
   });
 
   it("lets the team through with the bypass link, then via cookie", async () => {

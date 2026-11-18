@@ -13,3 +13,4 @@ export const updateEvent = adminAction(schemas.update, core.update);
 export const saveEventOverride = adminAction(schemas.saveOverride, core.saveOverride);
 export const unlockCoupleLogin = adminAction(schemas.id, core.unlockCouple);
 export const regenerateCouplePassword = adminAction(schemas.id, core.regenerateCouplePassword);
+export const extendCoupleAccess = adminAction(schemas.extendAccess, core.extendCoupleAccess);

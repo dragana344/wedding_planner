@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { GuestSide } from "@/lib/couple/guests";
+import { PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 // A12: the couple's second logins, one per side of the family. Managed by the
 // couple's own login only (the routes refuse co-organizers).
@@ -15,7 +16,7 @@ export interface CoOrganizer {
 const COLUMNS = "id, side, username, created_at";
 
 /** Messages the database raises on purpose (0061), passed through as-is. */
-const DB_MESSAGES = ["Лозинката мора да има најмалку 10 знаци.", "Корисничкото име е зафатено."];
+const DB_MESSAGES = [PASSWORD_LENGTH_ERROR, "Корисничкото име е зафатено."];
 
 function userFacing(error: { message: string; code?: string }): Error {
   const known = DB_MESSAGES.find((m) => error.message.includes(m));

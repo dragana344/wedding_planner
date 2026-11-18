@@ -2,7 +2,8 @@
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminHost } from "@/lib/admin/host";
-import { COUPLE_ORGANIZER_SIDE_HEADER, validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
+import { COUPLE_ORGANIZER_SIDE_HEADER, checkCoupleSession, validateAndRenewCoupleSession } from "@/lib/couple/session-verify";
+import { ACCESS_CLOSED_MESSAGE, ACCESS_CLOSED_REASON, COUPLE_ACCESS_PHASE_HEADER } from "@/lib/couple/access";
 import { isMaintenanceModeStale, peekMaintenanceMode, refreshMaintenanceMode } from "@/lib/platform-settings";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 import { REQUEST_ID_HEADER } from "@/lib/log";
@@ -38,6 +39,7 @@ async function gateCouple(request: NextRequest, requestId: string): Promise<Next
   const headers = new Headers(request.headers);
   headers.delete("x-couple-event-id");
   headers.delete(COUPLE_ORGANIZER_SIDE_HEADER);
+  headers.delete(COUPLE_ACCESS_PHASE_HEADER);
   headers.set(REQUEST_ID_HEADER, requestId);
 
   if (UNGATED_COUPLE_PATHS.has(pathname)) {
@@ -48,15 +50,23 @@ async function gateCouple(request: NextRequest, requestId: string): Promise<Next
     return NextResponse.next({ request: { headers } });
   }
 
-  const session = token ? await validateAndRenewCoupleSession(token) : null;
-  if (!session) {
+  const check = token ? await checkCoupleSession(token) : null;
+  if (!check || !("session" in check)) {
+    // Group A task 2: once the event's access has closed, say so instead of
+    // showing a bare sign-in screen.
+    const closed = Boolean(check && "closed" in check);
     if (pathname.startsWith("/api/couple")) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ error: closed ? ACCESS_CLOSED_MESSAGE : "Not authenticated" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/couple/login", request.url));
+    const loginUrl = new URL("/couple/login", request.url);
+    if (closed) loginUrl.searchParams.set("reason", ACCESS_CLOSED_REASON);
+    return NextResponse.redirect(loginUrl);
   }
+  const { session } = check;
 
   headers.set("x-couple-event-id", session.eventId);
+  // The read-only "memories" period: withCoupleEvent refuses writes from this.
+  headers.set(COUPLE_ACCESS_PHASE_HEADER, session.phase);
   // Session 2 (A12): a co-organizer's side of the family; absent for the couple's own login.
   if (session.organizerSide) headers.set(COUPLE_ORGANIZER_SIDE_HEADER, session.organizerSide);
   return NextResponse.next({ request: { headers } });

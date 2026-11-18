@@ -3,6 +3,7 @@ import { AgendaClient } from "@/components/couple/AgendaClient";
 import { BudgetClient } from "@/components/couple/BudgetClient";
 import { GuestsClient } from "@/components/couple/GuestsClient";
 import { StorageMeter } from "@/components/couple/StorageMeter";
+import { DownloadsView } from "@/components/couple/DownloadsView";
 import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
 import { CoupleShell } from "@/components/couple/shell/CoupleShell";
 import { brandVars } from "@/lib/venue/brand-palette";
@@ -69,12 +70,13 @@ export const Agenda: Story = {
     children: (
       <AgendaClient
         initialItems={[
-          { id: "a1", event_id: EVENT_ID, time: "17:00", title: "Венчавка во црква", location: "Црква Св. Климент Охридски", notes: null, sort_order: 10 },
-          { id: "a2", event_id: EVENT_ID, time: "18:00", title: "Пречек на гости", location: "Ресторан Панорама", notes: "Музика во живо на влез", sort_order: 20 },
-          { id: "a3", event_id: EVENT_ID, time: null, title: "Торта", location: null, notes: null, sort_order: 30 },
+          { id: "a1", event_id: EVENT_ID, time: "17:00", title: "Венчавка во црква", location: "Црква Св. Климент Охридски", address: "Партизански Одреди бб, Скопје", map_url: null, notes: null, sort_order: 10 },
+          { id: "a2", event_id: EVENT_ID, time: "18:00", title: "Пречек на гости", location: "Ресторан Панорама", address: "Водно бб, Скопје", map_url: "https://www.google.com/maps/search/?api=1&query=Panorama", notes: "Музика во живо на влез", sort_order: 20 },
+          { id: "a3", event_id: EVENT_ID, time: null, title: "Торта", location: null, address: null, map_url: null, notes: null, sort_order: 30 },
         ]}
         coupleNames="Ана и Марко"
         eventDate="2026-10-18"
+        venue={{ name: "Ресторан Панорама", address: "Водно бб, Скопје", rooms: ["Голема сала"] }}
       />
     ),
   },
@@ -83,7 +85,7 @@ export const Agenda: Story = {
 export const AgendaEmpty: Story = {
   name: "Програма: празна",
   parameters: { nextjs: { navigation: { pathname: "/couple/agenda" } } },
-  args: { children: <AgendaClient initialItems={[]} coupleNames="Ана и Марко" eventDate="2026-10-18" /> },
+  args: { children: <AgendaClient initialItems={[]} coupleNames="Ана и Марко" eventDate="2026-10-18" venue={{ name: "Ресторан Панорама", address: "Водно бб, Скопје", rooms: [] }} /> },
 };
 
 const budgetItem = (id: string, category: string, name: string, estimated_amount: number | null, paid_amount: number) => ({
@@ -175,4 +177,35 @@ export const TwoRooms: Story = {
   ...Guests,
   name: "Настан во две сали",
   args: { ...Guests.args, rooms: [{ id: "r1", name: "Голема сала" }, { id: "r2", name: "Тераса" }] },
+};
+
+const MB = 1024 ** 2;
+
+export const Downloads: Story = {
+  name: "Преземи сè: во периодот за спомени",
+  parameters: { nextjs: { navigation: { pathname: "/couple/download" } } },
+  args: {
+    access: { phase: "memories", end: "2027-12-12", cancelled: false, isWedding: true },
+    children: (
+      <main style={{ padding: "18px 22px 28px" }}>
+        <DownloadsView
+          isWedding
+          accessEnd="2027-12-12"
+          media={{ before: "2027-07-01T10:00:00.000Z", parts: [196 * MB, 188 * MB, 42 * MB], albumCount: 412, greetingVideoCount: 9, hasInvitationPhoto: true }}
+        />
+      </main>
+    ),
+  },
+};
+
+export const DownloadsEmpty: Story = {
+  ...Downloads,
+  name: "Преземи сè: пред настанот, без фотографии",
+  args: {
+    children: (
+      <main style={{ padding: "18px 22px 28px" }}>
+        <DownloadsView isWedding accessEnd={null} media={{ before: "2027-07-01T10:00:00.000Z", parts: [], albumCount: 0, greetingVideoCount: 0, hasInvitationPhoto: false }} />
+      </main>
+    ),
+  },
 };

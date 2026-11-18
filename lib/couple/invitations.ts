@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { IMAGE_SNIFF_BYTES, sniffImageType } from "@/lib/image-type";
 import { drainStorageCleanupQueue } from "@/lib/storage-cleanup";
-import { type ProgramDish, type ProgramItem, type ProgramLocation } from "@/lib/couple/invitation-program";
+import { placesOf, type ProgramDish, type ProgramItem, type ProgramLocation } from "@/lib/couple/invitation-program";
 import { getEventMenus } from "@/lib/couple/menu";
 import { eventHasFeature } from "@/lib/entitlements/server";
 import { getVenueBranding } from "@/lib/venue/branding";
@@ -23,7 +23,8 @@ export interface InvitationInput {
 }
 
 const COLUMNS = "event_id, template_id, message, photo_path, public_slug";
-const BUCKET = "invitation-photos";
+export const INVITATION_PHOTO_BUCKET = "invitation-photos";
+const BUCKET = INVITATION_PHOTO_BUCKET;
 
 function generateSlug(): string {
   return randomBytes(9).toString("base64url");
@@ -183,22 +184,26 @@ export async function getInvitationBySlug(slug: string): Promise<PublicInvitatio
     .map((r) => (Array.isArray(r.rooms) ? r.rooms[0]?.name : r.rooms?.name))
     .filter((n): n is string => Boolean(n));
 
-  const [agenda, locations, menus, seatingEnabled, branding] = await Promise.all([
-    client.from("event_agenda_items").select("time, title").eq("event_id", invitation.event_id).order("sort_order").limit(100),
-    client.from("event_locations").select("label, address, map_url").eq("event_id", invitation.event_id).order("sort_order").limit(50),
+  const [agenda, menus, seatingEnabled, branding] = await Promise.all([
+    client.from("event_agenda_items").select("time, title, location, address, map_url").eq("event_id", invitation.event_id).order("sort_order").limit(100),
     getEventMenus(invitation.event_id),
     eventHasFeature(invitation.event_id, "seating"),
     getVenueBranding(event.venue_id),
   ]);
   if (agenda.error) throw agenda.error;
-  if (locations.error) throw locations.error;
   return {
     couple_names: event.couple_names,
     event_date: event.event_date,
     start_time: event.start_time,
     event_type: event.event_type,
-    agenda: agenda.data.map((item) => ({ time: item.time ? String(item.time).slice(0, 5) : null, title: item.title })),
-    locations: locations.data,
+    agenda: agenda.data.map((item) => ({
+      time: item.time ? String(item.time).slice(0, 5) : null,
+      title: item.title,
+      location: item.location,
+      address: item.address,
+      map_url: item.map_url,
+    })),
+    locations: placesOf(agenda.data),
     menus: menus.map(({ id, name, dishes }) => ({ id, name, dishes })),
     seating_enabled: seatingEnabled,
     venue_name: venue?.name ?? "",

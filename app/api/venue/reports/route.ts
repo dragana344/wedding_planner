@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const manager = await requireManagerElevation(request, venueId);
     if (!manager) return NextResponse.json({ error: "Потребна е најава како менаџер." }, { status: 403 });
     // A venue whose plan excludes Reports must not get real numbers from
-    // this route either — the page already hides it behind SAMPLE_REPORT,
+    // this route either — the page already renders nothing for it,
     // but the route itself must independently refuse, the same way every
     // other locked-feature check in this codebase does (lib/api/handler.ts).
     if (!(await getVenueFeatures(venueId)).reports.enabled) {

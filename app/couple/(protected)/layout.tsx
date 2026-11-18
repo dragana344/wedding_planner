@@ -7,6 +7,7 @@ import { FEATURE_KEYS } from "@/lib/entitlements/features";
 import { CoupleShell } from "@/components/couple/shell/CoupleShell";
 import { dotsFor, loadCoupleMarks } from "@/lib/couple/change-marks";
 import { getEventBranding } from "@/lib/venue/branding";
+import { COUPLE_ACCESS_PHASE_HEADER } from "@/lib/couple/access";
 import "@/app/venue/panel.css";
 import "@/app/couple/mobile-couple.css";
 
@@ -14,8 +15,11 @@ import "@/app/couple/mobile-couple.css";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function CoupleLayout({ children }: { children: React.ReactNode }) {
-  const eventId = (await headers()).get("x-couple-event-id");
+  const requestHeaders = await headers();
+  const eventId = requestHeaders.get("x-couple-event-id");
   if (!eventId) redirect("/couple/login");
+  // Set by proxy.ts from the validated session; closed events never get here.
+  const phase = requestHeaders.get(COUPLE_ACCESS_PHASE_HEADER) === "memories" ? "memories" : "active";
 
   const [summary, features, brand, dots] = await Promise.all([
     getEventSummary(eventId),
@@ -40,6 +44,7 @@ export default async function CoupleLayout({ children }: { children: React.React
       lockedFeatures={lockedFeatures}
       dots={dots}
       brand={brand}
+      access={{ phase, end: summary.access_end, cancelled: summary.status === "cancelled", isWedding: summary.event_type === "wedding" }}
     >
       {children}
     </CoupleShell>

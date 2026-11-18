@@ -14,7 +14,7 @@ export function SupportTicketPanel({ endpoint, initialTickets }: { endpoint: str
 
   return (
     <>
-      <AddPanel title="Пријавете проблем" defaultOpen={initialTickets.length === 0}>
+      <AddPanel title="Пријавете проблем" defaultOpen={initialTickets.length === 0} ignoreReadOnly>
         <SupportTicketForm endpoint={endpoint} onSubmitted={(ticket) => setTickets((t) => [ticket, ...t])} />
       </AddPanel>
 

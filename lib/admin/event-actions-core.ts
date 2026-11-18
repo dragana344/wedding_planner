@@ -5,6 +5,8 @@ import type { AdminContext } from "@/lib/admin/guard";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { FEATURES, featureDef, type FeatureKey } from "@/lib/entitlements/features";
 import { regenerateEventPassword, generateRandomPassword } from "@/lib/venue/credentials";
+import { coupleAccessEnd, coupleAccessUntil } from "@/lib/couple/access";
+import { todayIn } from "@/lib/date";
 
 // Core logic for every event Server Action (task 3.5). Kept apart from
 // app/admin/(panel)/events/actions.ts so it can be exercised directly from a
@@ -19,6 +21,12 @@ import { regenerateEventPassword, generateRandomPassword } from "@/lib/venue/cre
 // regenerate_event_password) rather than querying the couple credentials
 // table directly (tests/security/admin-static.test.ts bans that table name
 // anywhere under lib/admin).
+
+/** "2027-02-31" passes the YYYY-MM-DD pattern but is no day (Postgres would refuse it). */
+function isCalendarDate(value: string): boolean {
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
 
 const db = () => createServiceRoleClient();
 // revalidatePath throws outside a request (e.g. this module's own DB test
@@ -67,6 +75,16 @@ export const eventSchemas = {
     note: z.string().max(1000, "Белешката е предолга.").nullable(),
   }),
   id: z.object({ eventId: uuid }),
+  // null removes the extension (back to 6 months after the event, or the
+  // cancellation date).
+  extendAccess: z.object({
+    eventId: uuid,
+    until: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Неважечки датум.")
+      .refine(isCalendarDate, "Неважечки датум: таков ден не постои во календарот.")
+      .nullable(),
+  }),
 };
 
 /**
@@ -142,6 +160,33 @@ export const eventActionCore = {
         venueId,
         details: { feature: i.featureKey, enabled: i.enabled, limit_override: limitOverride, limit: limitValue },
       },
+    };
+  },
+
+  // 0170: only the platform admin moves the couple's access end (and with it
+  // the day the retention cron erases the event's personal data).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async extendCoupleAccess(i: z.infer<typeof eventSchemas.extendAccess>, _ctx: AdminContext) {
+    if (i.until !== null && i.until < todayIn()) throw new Error("Датумот не може да биде во минатото.");
+    if (i.until !== null && !isCalendarDate(i.until)) throw new Error("Неважечки датум: таков ден не постои во календарот.");
+    const { data: event, error } = await db()
+      .from("events")
+      .select("venue_id, event_date, couple_access_until, couple_access_extended_until, personal_data_erased_at")
+      .eq("id", i.eventId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!event) throw new Error(NOT_FOUND);
+    if (event.personal_data_erased_at) throw new Error("Податоците на настанот се веќе избришани.");
+    // The access end is never before the event itself (the couple keeps full
+    // access until the event day).
+    if (i.until !== null && i.until < event.event_date) throw new Error("Датумот не може да биде пред датумот на настанот.");
+    const oldEnd = coupleAccessEnd(event.event_date, coupleAccessUntil(event));
+    await check(db().from("events").update({ couple_access_extended_until: i.until }).eq("id", i.eventId));
+    const newEnd = coupleAccessEnd(event.event_date, i.until ?? event.couple_access_until);
+    revalidatePathSafe(`/admin/events/${i.eventId}`);
+    return {
+      data: { accessEnd: newEnd },
+      audit: { action: "couple_access_extended", eventId: i.eventId, venueId: event.venue_id, details: { old_end: oldEnd, new_end: newEnd } },
     };
   },
 

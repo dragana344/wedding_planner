@@ -250,7 +250,7 @@ describe("couple guest list tools (A6, A7, A20)", () => {
     expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
     expect(res.headers.get("content-disposition")).toContain('attachment; filename="gosti.csv"');
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toContain("Име и презиме,Телефон");
+    expect(await res.text()).toContain("Име и презиме;Телефон");
   });
 
   it("imports a clean CSV and reports how many were added", async () => {

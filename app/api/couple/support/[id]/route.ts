@@ -20,5 +20,5 @@ export const POST = withCoupleEvent(
     if (!result) return NextResponse.json({ error: NOT_FOUND }, { status: 404 });
     return NextResponse.json({ ok: true, ...result });
   },
-  { params: idParams, body: supportReplyBody, fallbackError: "Пораката не се испрати. Обидете се повторно." },
+  { params: idParams, body: supportReplyBody, allowAfterEvent: true, fallbackError: "Пораката не се испрати. Обидете се повторно." },
 );

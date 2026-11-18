@@ -6,8 +6,16 @@ import type { EventRow, OverrideRow } from "@/lib/admin/queries";
 import type { FeatureMap } from "@/lib/entitlements/features";
 import { FeatureOverridesEditor } from "@/components/admin/FeatureOverridesEditor";
 import { ActionButton } from "@/components/admin/ActionButton";
-import { updateEvent, saveEventOverride, unlockCoupleLogin, regenerateCouplePassword } from "@/app/admin/(panel)/events/actions";
+import { updateEvent, saveEventOverride, unlockCoupleLogin, regenerateCouplePassword, extendCoupleAccess } from "@/app/admin/(panel)/events/actions";
 import { TimeInput } from "@/components/shared/TimeInput";
+import { addMonths, coupleAccessEnd, coupleAccessPhase, type CoupleAccessPhase } from "@/lib/couple/access";
+import { formatMkDate, todayIn } from "@/lib/date";
+
+const PHASE_LABELS: Record<CoupleAccessPhase, string> = {
+  active: "Активен",
+  memories: "Само преглед (по настанот)",
+  closed: "Затворен",
+};
 
 const STATUSES: { value: string; label: string }[] = [
   { value: "preparation", label: "Подготовка" },
@@ -45,6 +53,7 @@ export function EventAdminPanels({ event, overrides, features }: { event: EventR
         <div className="panel-h">
           <h2 className="panel-t">Пристап на парот</h2>
         </div>
+        <AccessEndPanel event={event} />
         <CoupleAccessPanel eventId={event.id} />
       </section>
     </>
@@ -118,6 +127,60 @@ function EditForm({ event }: { event: EventRow }) {
       {saveMessage ? <span className="muted"> {saveMessage}</span> : null}
       {error ? <p className="auth-error" style={{ width: "100%" }}>{error}</p> : null}
     </form>
+  );
+}
+
+// 0170: when the couple's access ends and the event's personal data is
+// erased. Only the admin can move it; the date is audited.
+function AccessEndPanel({ event }: { event: EventRow }) {
+  const today = todayIn();
+  const [extendedUntil, setExtendedUntil] = useState(event.accessExtendedUntil);
+  const accessUntil = extendedUntil ?? event.accessUntil;
+  const end = coupleAccessEnd(event.date, accessUntil);
+  const [date, setDate] = useState("");
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  if (event.personalDataErasedAt) {
+    return <p style={{ padding: "0 20px 12px" }} className="muted">Личните податоци на настанот се избришани.</p>;
+  }
+
+  async function save(until: string | null) {
+    setPending(true);
+    setMessage(null);
+    const result = await extendCoupleAccess({ eventId: event.id, until });
+    setPending(false);
+    if (result.ok) {
+      setExtendedUntil(until);
+      setDate("");
+      setMessage("Зачувано.");
+    } else {
+      setMessage(result.error);
+    }
+  }
+
+  return (
+    <div style={{ padding: "0 20px 12px", display: "flex", flexDirection: "column", gap: 8, alignItems: "start" }}>
+      <p>
+        Пристап до: <strong>{formatMkDate(end)}</strong> · {PHASE_LABELS[coupleAccessPhase(event.date, accessUntil, today)]}
+      </p>
+      <p className="muted">По овој датум пристапот се затвора и личните податоци се бришат автоматски.</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+        <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => save(addMonths(end < today ? today : end, 3))}>
+          Продолжи пристап +3 месеци
+        </button>
+        <input aria-label="Нов краен датум" className="fld" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
+        <button type="button" className="btn btn-ghost" disabled={pending || !date} onClick={() => save(date)}>
+          Постави датум
+        </button>
+        {extendedUntil ? (
+          <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => save(null)}>
+            Врати стандарден рок
+          </button>
+        ) : null}
+      </div>
+      {message ? <span className="muted">{message}</span> : null}
+    </div>
   );
 }
 

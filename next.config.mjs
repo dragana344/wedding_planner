@@ -53,6 +53,11 @@ const noindexHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 /** @type {import('next').NextConfig} */
 export const nextConfig = {
   poweredByHeader: false,
+  // The wedding book reads its embedded fonts from disk at runtime (group A
+  // task 7); the file tracer cannot see a path built with path.join.
+  outputFileTracingIncludes: {
+    "/api/couple/download/book": ["./assets/fonts/*.ttf"],
+  },
   // PERF-001: pages may use next/image for photos served from Supabase Storage.
   images: supabaseOrigin
     ? {

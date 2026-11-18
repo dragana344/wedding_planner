@@ -2,12 +2,12 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { listAgendaItems } from "./agenda";
-import { listLocations } from "./locations";
 import { getGuestStats, type GuestStats } from "./guests";
 import { getInvitation } from "./invitations";
 import { getBudgetSummary } from "./budget";
 import { getEventMenus } from "./menu";
 import { getChecklistStats, type ChecklistStats } from "./checklist";
+import { coupleAccessEnd, coupleAccessUntil } from "./access";
 
 export interface CoupleEventSummary {
   id: string;
@@ -18,9 +18,11 @@ export interface CoupleEventSummary {
   event_type: string;
   guest_count_estimate: number | null;
   venue_name: string;
+  /** The venue's street address (0156: pre-fills an agenda item held at the restaurant). */
+  venue_address: string | null;
   /** Project B §1: 'mini' never gets a seating editor — see lib/couple/mini-event.ts. */
   seating_mode: "full" | "mini";
-  rooms: { id: string; name: string }[];
+  rooms: { id: string; name: string; address?: string | null; map_url?: string | null }[];
   seatedCount: number;
   /** Titles of the menus set for the event, in the order of getEventMenus. */
   menus: string[];
@@ -28,12 +30,15 @@ export interface CoupleEventSummary {
   contact_email_2: string | null;
   contact_phone: string | null;
   agendaCount: number;
-  locationCount: number;
   guestStats: GuestStats;
   hasInvitation: boolean;
   budgetRemaining: number;
   budgetTotalEstimated: number;
   checklistStats: ChecklistStats;
+  /** events.status, e.g. "cancelled". */
+  status: string;
+  /** Last day ("YYYY-MM-DD") the couple can open the event (lib/couple/access.ts). */
+  access_end: string;
 }
 
 export async function getEventSummary(eventId: string): Promise<CoupleEventSummary> {
@@ -42,17 +47,18 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   const { data: event, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, seating_mode, event_rooms(rooms(id, name)), event_layout_elements(element_type, table_types(seats))"
+      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, seating_mode, status, couple_access_until, couple_access_extended_until, event_rooms(rooms(id, name, address, map_url)), event_layout_elements(element_type, table_types(seats))"
     )
     .eq("id", eventId)
     .single();
   if (error) throw error;
 
-  const { data: venue } = await client.from("venues").select("name").eq("id", event.venue_id).single();
+  const { data: venue } = await client.from("venues").select("name, address").eq("id", event.venue_id).single();
 
-  const rooms = ((event.event_rooms ?? []) as { rooms: { id: string; name: string } | { id: string; name: string }[] | null }[])
+  type SummaryRoom = { id: string; name: string; address: string | null; map_url: string | null };
+  const rooms = ((event.event_rooms ?? []) as { rooms: SummaryRoom | SummaryRoom[] | null }[])
     .map((r) => (Array.isArray(r.rooms) ? r.rooms[0] : r.rooms))
-    .filter((r): r is { id: string; name: string } => Boolean(r));
+    .filter((r): r is SummaryRoom => Boolean(r));
 
   const layoutElements = (event.event_layout_elements ?? []) as unknown as {
     element_type: string;
@@ -65,9 +71,8 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
       return sum + (tableType?.seats ?? 0);
     }, 0);
 
-  const [agendaItems, locations, guestStats, invitation, budgetSummary, checklistStats, eventMenus] = await Promise.all([
+  const [agendaItems, guestStats, invitation, budgetSummary, checklistStats, eventMenus] = await Promise.all([
     listAgendaItems(eventId),
-    listLocations(eventId),
     getGuestStats(eventId),
     getInvitation(eventId),
     getBudgetSummary(eventId),
@@ -84,6 +89,7 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     event_type: event.event_type,
     guest_count_estimate: event.guest_count_estimate,
     venue_name: venue?.name ?? "Непознат локал",
+    venue_address: venue?.address ?? null,
     seating_mode: event.seating_mode as "full" | "mini",
     rooms,
     seatedCount,
@@ -92,11 +98,12 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     contact_email_2: event.contact_email_2,
     contact_phone: event.contact_phone,
     agendaCount: agendaItems.length,
-    locationCount: locations.length,
     guestStats,
     hasInvitation: invitation !== null,
     budgetRemaining: budgetSummary.remaining,
     budgetTotalEstimated: budgetSummary.totalEstimated,
     checklistStats,
+    status: event.status,
+    access_end: coupleAccessEnd(event.event_date, coupleAccessUntil(event)),
   };
 }

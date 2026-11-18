@@ -14,5 +14,6 @@ export const POST = withCoupleEvent(
     const ticket = await submitCoupleSupportTicket(eventId, body);
     return NextResponse.json({ ok: true, ticket });
   },
-  { body: supportTicketBody, fallbackError: "Барањето не се испрати. Обидете се повторно." },
+  // Reporting a problem must keep working after the event (read-only period).
+  { body: supportTicketBody, allowAfterEvent: true, fallbackError: "Барањето не се испрати. Обидете се повторно." },
 );

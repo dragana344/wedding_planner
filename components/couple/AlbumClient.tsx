@@ -7,6 +7,7 @@ import type { EventPhoto } from "@/lib/media/photos";
 import type { StorageUsage } from "@/lib/media/limits";
 import { StorageMeter } from "@/components/couple/StorageMeter";
 import { formatDay as dayOf, formatTime as timeOf } from "@/lib/media/format";
+import { partHref } from "@/lib/media/download-pin";
 
 const ALL = "";
 
@@ -58,12 +59,15 @@ export function AlbumClient({
   hasMore: initialHasMore,
   usage,
   zipParts,
+  zipBefore,
   guestPath,
 }: {
   initialPhotos: EventPhoto[];
   hasMore: boolean;
   usage: StorageUsage;
   zipParts: number;
+  /** When the page rendered: the ZIP parts are planned from the photos added before it (lib/media/download-pin.ts). */
+  zipBefore: string;
   /** "/e/<token>"; the origin is added in the browser, like the invitation link. */
   guestPath: string;
 }) {
@@ -180,13 +184,13 @@ export function AlbumClient({
         </label>
         <div className="s4-downloads">
           {zipParts === 1 && (
-            <a className="btn btn-gold" href="/api/couple/album/zip?part=1">
+            <a className="btn btn-gold" href={partHref("/api/couple/album/zip", 1, zipBefore)}>
               Преземи ги сите
             </a>
           )}
           {zipParts > 1 &&
             Array.from({ length: zipParts }, (_, i) => (
-              <a key={i} className="btn btn-gold" href={`/api/couple/album/zip?part=${i + 1}`}>
+              <a key={i} className="btn btn-gold" href={partHref("/api/couple/album/zip", i + 1, zipBefore)}>
                 Преземи ги сите (дел {i + 1} од {zipParts})
               </a>
             ))}

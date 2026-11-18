@@ -1,14 +1,17 @@
 // app/couple/login/page.tsx
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { GENERIC_ERROR } from "@/lib/auth-messages";
+import { ACCESS_CLOSED_MESSAGE, ACCESS_CLOSED_REASON } from "@/lib/couple/access";
 
-export default function CoupleLoginPage() {
+export default function CoupleLoginPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  // proxy.ts sends a closed event's session here with ?reason=closed.
+  const { reason } = use(searchParams);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(reason === ACCESS_CLOSED_REASON ? ACCESS_CLOSED_MESSAGE : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {

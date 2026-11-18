@@ -14,6 +14,9 @@ import { buildCoupleNavItems, matchCoupleNavItem, COUPLE_NAV_GROUP_LABELS, type 
 import { formatMkDate } from "@/lib/date";
 import { BrandMark } from "@/components/venue/shell/BrandMark";
 import type { BrandVars } from "@/lib/venue/brand-palette";
+import { ReadOnlyProvider } from "@/components/shared/ReadOnlyContext";
+import { CoupleAccessBanner } from "./CoupleAccessBanner";
+import type { CoupleAccessPhase } from "@/lib/couple/access";
 
 export function CoupleShell({
   coupleNames,
@@ -22,6 +25,7 @@ export function CoupleShell({
   lockedFeatures = [],
   dots,
   brand,
+  access,
   children,
 }: {
   /** The hosting venue's logo and accent colour (0087), when its plan includes branding. */
@@ -35,6 +39,9 @@ export function CoupleShell({
   lockedFeatures?: FeatureKey[];
   /** Sections with something new for the couple. */
   dots?: CoupleNavDots;
+  /** The access life cycle (group A task 2): "memories" makes the panel
+   * read-only and shows the banner. Defaults to active, nothing shown. */
+  access?: { phase: Exclude<CoupleAccessPhase, "closed">; end: string; cancelled: boolean; isWedding: boolean };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -154,7 +161,14 @@ export function CoupleShell({
           </div>
         </header>
 
-        {isLocked(active?.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
+        {access && (access.phase === "memories" || access.cancelled) ? (
+          <div className="shell-notices">
+            <CoupleAccessBanner phase={access.phase} accessEnd={access.end} cancelled={access.cancelled} isWedding={access.isWedding} />
+          </div>
+        ) : null}
+        <ReadOnlyProvider value={access?.phase === "memories"}>
+          {isLocked(active?.feature) ? <LockedContent audience="couple">{children}</LockedContent> : children}
+        </ReadOnlyProvider>
       </div>
 
       <BottomTabBar

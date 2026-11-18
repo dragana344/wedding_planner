@@ -425,3 +425,31 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* Above every page: the read-only period after the event / a cancelled
+   event's access end (CoupleAccessBanner). Same gold box as the venue's
+   change notices. */
+.vp .shell-notices {
+  padding: 18px 22px 0;
+}
+.vp .access-banner {
+  border: 2px solid var(--gold);
+  background: var(--gold-tint);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.vp .access-banner b {
+  color: var(--gold-text);
+}
+.vp .access-banner a {
+  color: var(--gold-text);
+  font-weight: 700;
+  text-decoration: underline;
+}
+@media (max-width: 900px) {
+  .vp .shell-notices {
+    padding: 14px 14px 0;
+  }
+}

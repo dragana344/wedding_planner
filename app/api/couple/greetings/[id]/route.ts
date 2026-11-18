@@ -19,5 +19,6 @@ export const DELETE = withCoupleEvent(
     await deleteGreeting(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { feature: "guest_greetings", params: idParams, fallbackError: "Не успеа бришењето на честитката." },
+  // Removing a guest's greeting stays possible in the read-only period.
+  { feature: "guest_greetings", allowAfterEvent: true, params: idParams, fallbackError: "Не успеа бришењето на честитката." },
 );

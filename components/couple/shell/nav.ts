@@ -44,8 +44,7 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots:
       group: index === 0 ? ("planning" as const) : undefined,
     })),
     { href: "/couple/menu", icon: "menu", label: "Мени", title: "МЕНИ", subtitle: "Изберете го вашето мени", ready: true, group: "planning" as const, dot: dots.menu },
-    { href: "/couple/agenda", icon: "cal-dot", label: "Агенда", title: "АГЕНДА", subtitle: "Вашиот ден, испланиран", ready: true, feature: "agenda" as const, group: "planning" as const },
-    { href: "/couple/locations", icon: "pin", label: "Локации", title: "ЛОКАЦИИ", subtitle: "Каде се случува сè", ready: true, feature: "locations" as const, group: "planning" as const },
+    { href: "/couple/agenda", icon: "cal-dot", label: "Агенда", title: "АГЕНДА", subtitle: "Вашиот ден и каде се случува", ready: true, feature: "agenda" as const, group: "planning" as const },
     { href: "/couple/guests", icon: "users", label: "Гости", title: "ГОСТИ", subtitle: "Список на гости и потврди", ready: true, group: "planning" as const, dot: dots.guests },
     { href: "/couple/budget", icon: "chart", label: "Буџет", title: "БУЏЕТ", subtitle: "Следете ги трошоците", ready: true, feature: "budget" as const, group: "planning" as const, dot: dots.budget },
     { href: "/couple/checklist", icon: "check", label: "Чеклиста", title: "ЧЕКЛИСТА", subtitle: "Задачи за планирање на свадбата", ready: true, feature: "checklist" as const, group: "planning" as const },
@@ -53,6 +52,8 @@ export function buildCoupleNavItems(rooms: { id: string; name: string }[], dots:
     { href: "/couple/invitation", icon: "heart", label: "Покана", title: "ПОКАНА", subtitle: "Создадете и споделете ја вашата покана", ready: true, feature: "invitation" as const, group: "guests" as const },
     { href: "/couple/album", icon: "photo", label: "Албум", title: "АЛБУМ", subtitle: "Фотографии од вашите гости", ready: true, feature: "photo_album" as const, group: "guests" as const },
     { href: "/couple/greetings", icon: "gift", label: "Честитки", title: "ЧЕСТИТКИ", subtitle: "Честитки од вашите гости", ready: true, feature: "guest_greetings" as const, group: "guests" as const },
+    // Group A task 7: never locked — downloads outlive a downgrade.
+    { href: "/couple/download", icon: "book", label: "Преземи сè", title: "ПРЕЗЕМИ СÈ", subtitle: "Книга, табели и фотографии за вашиот компјутер", ready: true },
     { href: "/couple/support", icon: "life", label: "Поддршка", title: "ПОДДРШКА", subtitle: "Пријавете проблем или прашање", ready: true },
   ];
 }

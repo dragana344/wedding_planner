@@ -5,13 +5,20 @@ import { idParams } from "@/lib/api/schemas";
 import { deletePhoto, setPhotoHidden } from "@/lib/media/photos";
 
 // C10: the couple moderates their guests' photos. Ids from another event
-// match no row, so they change nothing.
+// match no row, so they change nothing. Guests upload most photos on and
+// after the event day, so moderation stays open in the read-only period.
 export const PATCH = withCoupleEvent(
   async ({ eventId, params, body }) => {
     await setPhotoHidden(eventId, params.id, body.hidden);
     return NextResponse.json({ ok: true });
   },
-  { feature: "photo_album", params: idParams, body: z.object({ hidden: z.boolean() }), fallbackError: "Не успеа промената на фотографијата." },
+  {
+    feature: "photo_album",
+    allowAfterEvent: true,
+    params: idParams,
+    body: z.object({ hidden: z.boolean() }),
+    fallbackError: "Не успеа промената на фотографијата.",
+  },
 );
 
 export const DELETE = withCoupleEvent(
@@ -19,5 +26,5 @@ export const DELETE = withCoupleEvent(
     await deletePhoto(eventId, params.id);
     return NextResponse.json({ ok: true });
   },
-  { feature: "photo_album", params: idParams, fallbackError: "Не успеа бришењето на фотографијата." },
+  { feature: "photo_album", allowAfterEvent: true, params: idParams, fallbackError: "Не успеа бришењето на фотографијата." },
 );

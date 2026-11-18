@@ -17,10 +17,12 @@ const PHOTOS = [
   photo("p1", "Тетка Роса", "2027-06-12T20:00:00Z"),
 ];
 const USAGE = { limitBytes: 5 * 1024 ** 3, photoBytes: 3000, videoBytes: 0 };
+// The ZIP part links carry the moment the page rendered (lib/media/download-pin.ts).
+const PIN = "2027-07-01T10:00:00.000Z";
 
 function renderAlbum(props: Partial<Parameters<typeof AlbumClient>[0]> = {}) {
   return render(
-    <AlbumClient initialPhotos={PHOTOS} hasMore={false} usage={USAGE} zipParts={1} guestPath="/e/abc" {...props} />,
+    <AlbumClient initialPhotos={PHOTOS} hasMore={false} usage={USAGE} zipParts={1} zipBefore={PIN} guestPath="/e/abc" {...props} />,
   );
 }
 
@@ -71,13 +73,13 @@ describe("AlbumClient", () => {
 
   it("offers the download in parts when the album is large", () => {
     renderAlbum({ zipParts: 2 });
-    expect(screen.getByRole("link", { name: "Преземи ги сите (дел 1 од 2)" })).toHaveAttribute("href", "/api/couple/album/zip?part=1");
-    expect(screen.getByRole("link", { name: "Преземи ги сите (дел 2 од 2)" })).toHaveAttribute("href", "/api/couple/album/zip?part=2");
+    expect(screen.getByRole("link", { name: "Преземи ги сите (дел 1 од 2)" })).toHaveAttribute("href", `/api/couple/album/zip?part=1&before=${encodeURIComponent(PIN)}`);
+    expect(screen.getByRole("link", { name: "Преземи ги сите (дел 2 од 2)" })).toHaveAttribute("href", `/api/couple/album/zip?part=2&before=${encodeURIComponent(PIN)}`);
   });
 
   it("offers a single download for a small album and none for an empty one", () => {
     const { unmount } = renderAlbum();
-    expect(screen.getByRole("link", { name: "Преземи ги сите" })).toHaveAttribute("href", "/api/couple/album/zip?part=1");
+    expect(screen.getByRole("link", { name: "Преземи ги сите" })).toHaveAttribute("href", `/api/couple/album/zip?part=1&before=${encodeURIComponent(PIN)}`);
     unmount();
     renderAlbum({ initialPhotos: [], zipParts: 0 });
     expect(screen.queryByRole("link", { name: /Преземи ги сите/ })).not.toBeInTheDocument();
