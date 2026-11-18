@@ -10,7 +10,8 @@ import { LOCKED_MESSAGE } from "@/lib/entitlements/features";
 
 const MANAGER_TOKEN_HEADER = "x-venue-manager-token";
 
-async function post<T>(url: string, method: string, body: unknown, managerToken: string | null): Promise<T> {
+/** Also used by lib/venue/reservations-client.ts. */
+export async function post<T>(url: string, method: string, body: unknown, managerToken: string | null): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (managerToken) headers[MANAGER_TOKEN_HEADER] = managerToken;
   const response = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });

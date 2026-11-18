@@ -30,11 +30,14 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, created_by: N, assigned_to: N, title: N, description: N, status: N, created_at: N, updated_at: N, completed_at: N,
     created_by_unread: N, assigned_to_unread: N, attachment_paths: N,
   },
+  // 0178: staff Auth users still to delete after their venue was deleted. Only ids (the Auth row holds the email, and is
+  // what the retry removes); service role only.
+  auth_user_deletion_retries: { user_id: N, venue_id: N, attempts: N, last_error: N, created_at: N, last_attempt_at: N },
   audit_log: { id: N, occurred_at: N, actor_type: N, actor_id: C, action: N, venue_id: N, event_id: N, target_id: N, request_id: N, details: N, manager_name: P },
-  contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N },
+  contact_submissions: { id: N, name: P, email: P, message: P, created_at: C, status: N, handled_at: N, kind: N },
   couple_sessions: { token: S, event_id: N, created_at: N, expires_at: N, organizer_id: N },
   event_albums: { event_id: N, public_token: S, retention_notice_sent_at: N, created_at: N },
-  event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, location: P, sort_order: N, created_at: N },
+  event_agenda_items: { id: N, event_id: N, time: C, title: P, notes: P, location: P, address: P, map_url: P, sort_order: N, created_at: N },
   event_budget_items: {
     id: N, event_id: N, category: C, custom_label: P, name: P, estimated_amount: C, paid_amount: C, created_at: N,
     paid_by: P, payment_date: C, notes: P,
@@ -100,7 +103,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, created_at: N,
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
-    deposit_paid: C, checklist_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
+    deposit_paid: C, checklist_seeded_at: N, agenda_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
     // Project A (0136/0137): seating_mode/self_edit are plain venue config; seating_baseline is a frozen
     // copy of the room's own standard layout at creation, same N classification as room_layout_elements.label.
     seating_mode: N, seating_baseline: N, seating_self_edit_enabled: N,
@@ -108,6 +111,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     couple_first_login_at: N,
     // 0148: the free-text label shown in place of "Друго", same class as event_type.
     event_type_label: C,
+    // 0170: couple-access end dates (cancellation / admin extension) — dates only.
+    couple_access_until: N, couple_access_extended_until: N,
   },
   menu_items: {
     id: N, course: N, name: N, allergen_tags: N, is_vegetarian: N, is_vegan: N, created_at: N, price: N, photo_path: N,
@@ -141,7 +146,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   },
   // snapshot holds the same shape as room_fixed_elements/room_layout_elements, both N — no guest data, room presets are venue-owned.
   room_layout_presets: { id: N, room_id: N, name: N, snapshot: N, created_at: N, updated_at: N },
-  rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N, layout_history: N },
+  rooms: { id: N, venue_id: N, name: N, layout_scale_px_per_meter: N, layout_zones: N, created_at: N, width_cm: N, height_cm: N, layout_history: N, address: N, map_url: N },
   storage_cleanup_queue: { id: N, bucket: N, path: N, queued_at: N },
   support_tickets: {
     id: N, venue_id: N, event_id: N, submitted_by: N, name: P, problem: P, description: P, status: N,
@@ -172,5 +177,7 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     address: P, phone: P, logo_path: N, brand_color: N,
     plan_id: N, blocked_at: N, blocked_reason: C,
     couple_seating_self_edit_enabled: N,
+    // 0172: admin-scheduled deletion date and the scheduling admin's user id (platform staff, not a venue/couple subject).
+    deletion_scheduled_for: N, deletion_scheduled_by: N,
   },
 };

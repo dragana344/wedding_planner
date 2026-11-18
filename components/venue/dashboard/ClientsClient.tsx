@@ -292,8 +292,9 @@ export function ClientsClient() {
         <div className="do cl-do" onClick={(e) => e.stopPropagation()}>
           {confirming ? (
             <span className="cl-confirm" role="group" aria-label={`Бришење на ${event.couple_names}`}>
+              <span className="cl-del-q">Засекогаш, со сите податоци?</span>
               <button type="button" className="cl-del-yes" onClick={() => handleDelete(event.id)} disabled={busy}>
-                {busy ? "Се брише..." : "Избриши"}
+                {busy ? "Се брише..." : "Избриши засекогаш"}
               </button>
               <button type="button" className="cl-del-no" onClick={() => setConfirmDeleteId(null)} disabled={busy}>
                 Откажи

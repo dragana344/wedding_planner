@@ -64,7 +64,14 @@ export const RESERVATION_STATUS_META: Record<
 };
 
 /** Reservations in these statuses no longer occupy a table. */
-const INACTIVE_STATUSES: ReservationStatus[] = ["cancelled", "completed"];
+export const INACTIVE_STATUSES: ReservationStatus[] = ["cancelled", "completed"];
+
+/** Still holding its tables: not cancelled, not finished. Cancelled and
+ * completed rows are kept as the venue's history (0174), so lists and
+ * counts filter with this instead of assuming every row is live. */
+export function isActiveReservation(r: Pick<Reservation, "status">): boolean {
+  return !INACTIVE_STATUSES.includes(r.status);
+}
 
 const RESERVATION_COLUMNS =
   "id, venue_id, room_id, guest_name, phone, email, date, start_time, end_time, party_size, status, event_type, note, server_name, event_id, reservation_tables(layout_element_id)";
@@ -386,9 +393,10 @@ export async function createReservation(
       .insert(input.table_ids.map((layout_element_id) => ({ reservation_id: reservation.id, layout_element_id })));
     if (tablesError) {
       // The reservations row already committed but has no tables attached —
-      // delete it so a failed createReservation call never leaves an
-      // orphaned row behind.
-      await client.from("reservations").delete().eq("id", reservation.id);
+      // remove it so a failed createReservation call never leaves an
+      // orphaned row behind. Staff have no DELETE on reservations (0178);
+      // this function removes only a just-made booking with no tables.
+      await client.rpc("discard_unbooked_reservation", { p_reservation_id: reservation.id });
       // The database's no-overlap constraint (migration 0035) caught a
       // booking that raced ours past the check above: 23P01, or 40P01 when
       // both inserts were in flight at once and each waited on the other.
@@ -454,9 +462,10 @@ export async function updateReservationStatus(
 
 /**
  * Permanently removes a reservation (and its table assignments, via
- * cascade) — used when a reservation is cancelled or the table is freed up
- * after guests leave. There is no "completed"/"cancelled" resting state:
- * once resolved, the record is gone rather than kept around as history.
+ * cascade). Low-level and unaudited, service role only (staff have no
+ * DELETE on reservations since 0178): the venue UI never calls it — staff
+ * cancel (status 'cancelled', the row stays) and only hard-delete an
+ * already cancelled/completed booking through deleteInactiveReservation.
  */
 export async function deleteReservation(
   reservationId: string,
@@ -464,4 +473,78 @@ export async function deleteReservation(
 ): Promise<void> {
   const { error } = await client.from("reservations").delete().eq("id", reservationId);
   if (error) throw error;
+}
+
+export class ReservationNotFoundError extends Error {
+  constructor() {
+    super("Резервацијата не е пронајдена.");
+  }
+}
+
+/** Who did it, for the audit row (0174): the staff user and, when elevated, the manager. */
+export type ReservationActor = { actorId: string | null; managerName: string | null };
+
+/**
+ * Sets a reservation's status through set_reservation_status (0174), which
+ * audits cancel/complete/restore. For a mini event's reservation,
+ * 'cancelled' cancels the event itself (its reservation follows). The venue
+ * route calls this with the service-role client, so venueId scopes it.
+ */
+export async function setReservationStatus(
+  reservationId: string,
+  venueId: string,
+  status: ReservationStatus,
+  actor: ReservationActor,
+  client: SupabaseClient
+): Promise<void> {
+  const { data, error } = await client.rpc("set_reservation_status", {
+    p_reservation_id: reservationId,
+    p_venue_id: venueId,
+    p_status: status,
+    p_actor_id: actor.actorId,
+    p_manager_name: actor.managerName,
+  });
+  if (error) {
+    // Restoring a booking whose tables were taken since (0035).
+    if (error.code === "23P01" || error.code === "40P01") throw new Error(TABLE_CONFLICT_MESSAGE);
+    throw error;
+  }
+  if (!data) throw new ReservationNotFoundError();
+}
+
+/**
+ * "Избриши засекогаш": removes an ordinary reservation that is already
+ * cancelled or completed, with an audit row naming it (0174). A mini
+ * event's reservation is removed only with its event.
+ */
+export async function deleteInactiveReservation(
+  reservationId: string,
+  venueId: string,
+  actor: ReservationActor,
+  client: SupabaseClient
+): Promise<void> {
+  const { data, error } = await client.rpc("delete_reservation_as_staff", {
+    p_reservation_id: reservationId,
+    p_venue_id: venueId,
+    p_actor_id: actor.actorId,
+    p_manager_name: actor.managerName,
+  });
+  if (error) throw error;
+  if (!data) throw new ReservationNotFoundError();
+}
+
+/** One reservation of this venue (the route reads it with the service-role client), or null. */
+export async function getVenueReservation(
+  reservationId: string,
+  venueId: string,
+  client: SupabaseClient
+): Promise<Reservation | null> {
+  const { data, error } = await client
+    .from("reservations")
+    .select(RESERVATION_COLUMNS)
+    .eq("id", reservationId)
+    .eq("venue_id", venueId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapRow(data) : null;
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
+import { MIN_PASSWORD_LENGTH, PASSWORD_LENGTH_HINT } from "@/lib/security/password";
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
@@ -26,6 +27,26 @@ export default function ResetPasswordPage() {
   async function savePassword() {
     setError(null);
     const supabase = createBrowserSupabaseClient();
+    // A venue the admin just opened ("Нов локал") whose owner followed the
+    // emailed link instead of signing in with the generated password: save
+    // through the first-login route, so the "set your own password" flag is
+    // cleared as well and the panel doesn't ask a second time.
+    const { data: before } = await supabase.auth.getUser();
+    if (before.user?.app_metadata?.must_change_password === true) {
+      const response = await fetch("/api/venue/first-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? GENERIC_ERROR);
+        return;
+      }
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/venue";
+      return;
+    }
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     if (updateError) {
       setError(authErrorMessage(updateError));
@@ -63,12 +84,12 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            minLength={10}
+            minLength={MIN_PASSWORD_LENGTH}
             aria-describedby="reset-password-hint"
             required
           />
           <p id="reset-password-hint" className="ev-hint" style={{ margin: "4px 0 0" }}>
-            Најмалку 10 знаци.
+            {PASSWORD_LENGTH_HINT}
           </p>
         </div>
         {error ? <p className="auth-error">{error}</p> : null}

@@ -8,6 +8,7 @@ import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/ha
 import { INVALID_JSON_ERROR, changeManagerPasswordBody } from "@/lib/api/schemas";
 import { logSecurityEvent } from "@/lib/log";
 import { recordAudit } from "@/lib/audit";
+import { PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 const CURRENT_PASSWORD_WRONG_ERROR = "Тековната лозинка не е точна.";
 
@@ -36,5 +37,5 @@ export const POST = withPublic(
       return errorResponse(err, "Лозинката не можеше да се смени.", request);
     }
   },
-  { invalidJsonError: INVALID_JSON_ERROR, body: changeManagerPasswordBody, invalidBodyError: "Лозинката мора да има најмалку 8 знаци." },
+  { invalidJsonError: INVALID_JSON_ERROR, body: changeManagerPasswordBody, invalidBodyError: PASSWORD_LENGTH_ERROR },
 );

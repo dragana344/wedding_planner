@@ -3,7 +3,7 @@
 // facts, and those facts match the running system (migrations, code and
 // docs/production). If a period or processor changes, this test fails until
 // the privacy policy, terms and DPA are updated in both languages.
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync } from "fs";
 import path from "path";
 import { describe, it, expect } from "vitest";
 import { LEGAL_LAST_UPDATED, LEGAL_VERSION, PLACEHOLDERS, PROCESSORS, RETENTION_FACTS, SECURITY_FACTS } from "@/lib/legal/facts";
@@ -11,6 +11,7 @@ import { privacy } from "@/lib/legal/privacy";
 import { terms } from "@/lib/legal/terms";
 import { dpa } from "@/lib/legal/dpa";
 import { sectionText, type LegalDocument } from "@/lib/legal/types";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 const root = path.resolve(__dirname, "../../..");
 const read = (p: string) => readFileSync(path.join(root, p), "utf8");
@@ -46,7 +47,7 @@ describe.each(Object.entries(docs))("%s: MK and EN parity", (_name, doc) => {
 
   it("carries the version and date", () => {
     for (const d of [doc.mk, doc.en]) {
-      expect(d.lastUpdated).toBe("2026-10-06");
+      expect(d.lastUpdated).toBe("2026-11-18");
       expect(d.lastUpdated).toBe(LEGAL_LAST_UPDATED);
       expect(d.version).toBe(LEGAL_VERSION);
     }
@@ -123,20 +124,71 @@ describe("stated facts match the system", () => {
     expect(read("supabase/migrations/0034_couple_credentials_policy.sql")).toContain(`< ${SECURITY_FACTS.minPasswordLength} then`);
   });
 
-  it("the retention sweep, once scheduled, uses the periods the policy states", () => {
-    // Until DATA-007 schedules it, the 12/24-month periods are only proposals
-    // and the policy must not be published (docs/production/LEGAL-REVIEW.md).
+  it("one minimum password length everywhere: app constant, manager SQL (0176), Supabase Auth and every schema", () => {
+    expect(SECURITY_FACTS.minPasswordLength).toBe(MIN_PASSWORD_LENGTH);
+    const managers = read("supabase/migrations/0176_password_min_and_ticket_retention.sql");
+    expect(managers.match(new RegExp(`< ${MIN_PASSWORD_LENGTH} then`, "g"))).toHaveLength(2);
+    expect(read("supabase/config.toml")).toContain(`minimum_password_length = ${MIN_PASSWORD_LENGTH}`);
+    for (const file of [
+      "lib/api/schemas.ts",
+      "lib/admin/venue-actions-core.ts",
+      "app/api/venue/settings/route.ts",
+      "app/api/venue/managers/route.ts",
+      "app/api/venue/managers/change-password/route.ts",
+      "app/api/venue/first-login/route.ts",
+      "app/reset-password/page.tsx",
+      "components/admin/VenueAdminPanels.tsx",
+      "components/venue/shell/AccountMenu.tsx",
+      "components/venue/dashboard/ManagersSection.tsx",
+      "components/venue/dashboard/SettingsClient.tsx",
+      "components/venue/onboarding/FirstLoginPassword.tsx",
+      "components/couple/guests/CoOrganizersPanel.tsx",
+    ]) {
+      const src = read(file);
+      // (Settings' minLength={4} is the layout-lock PIN, not a password.)
+      expect(src, file).not.toMatch(/најмалку \d+ знаци|minLength=\{(6|8|10)\}|\.min\((6|8|10)\b/);
+    }
+  });
+
+  it("the scheduled retention sweep uses the periods the policy states (0170, 0178)", () => {
     const retentionDoc = read("docs/production/RETENTION.md");
     expect(retentionDoc).toContain(`**${RETENTION_FACTS.guestDataMonthsAfterEvent} months after \`event_date\`**`);
     expect(retentionDoc).toContain(`**${RETENTION_FACTS.contactMessagesMonths} months after receipt**`);
-    const dir = path.join(root, "supabase/migrations");
-    for (const file of readdirSync(dir)) {
-      const sql = readFileSync(path.join(dir, file), "utf8");
-      const scheduled = sql.match(/cron\.schedule\(\s*'purge-expired-personal-data'[\s\S]*?purge_expired_personal_data\((\d+),\s*(\d+)\)/);
-      if (scheduled) {
-        expect([Number(scheduled[1]), Number(scheduled[2])]).toEqual([RETENTION_FACTS.guestDataMonthsAfterEvent, RETENTION_FACTS.contactMessagesMonths]);
-      }
-    }
+    // 0178: the sweep's current functions (one erasure per call).
+    const sql = read("supabase/migrations/0178_retention_per_event_and_review_fixes.sql");
+    const due = sql.slice(sql.indexOf("create or replace function public.due_retention_event_ids"));
+    expect(due).toContain(`(event_date + interval '${RETENTION_FACTS.guestDataMonthsAfterEvent} months')`);
+    const contacts = sql.slice(sql.indexOf("create or replace function public.purge_old_contact_submissions"));
+    expect(contacts).toContain(`created_at < now() - interval '${RETENTION_FACTS.contactMessagesMonths} months'`);
+    expect(read("lib/privacy/retention.ts")).toContain('rpc("due_retention_event_ids")');
+    expect(read("lib/couple/access.ts")).toContain(`COUPLE_ACCESS_MONTHS = ${RETENTION_FACTS.guestDataMonthsAfterEvent};`);
+    expect(read("vercel.json")).toContain('"/api/cron/retention"');
+  });
+
+  it("a cancelled event's access ends after the period the texts state (0170 trigger)", () => {
+    const sql = read("supabase/migrations/0170_couple_access_lifecycle.sql");
+    expect(sql).toContain(`(now() at time zone 'Europe/Skopje')::date + ${RETENTION_FACTS.cancelledEventAccessDays}\n`);
+  });
+
+  it("closed support tickets are deleted after the period the privacy policy states (0176, 0178)", () => {
+    const sql = read("supabase/migrations/0178_retention_per_event_and_review_fixes.sql");
+    const sweep = sql.slice(sql.indexOf("create or replace function public.purge_closed_support_tickets"));
+    expect(sweep).toContain(`status = 'done' and resolved_at < now() - interval '${RETENTION_FACTS.supportTicketMonthsAfterClose} months'`);
+    expect(read("docs/production/RETENTION.md")).toContain(`**${RETENTION_FACTS.supportTicketMonthsAfterClose} months after closing**`);
+  });
+
+  it("files whose record was deleted are gone within the stated hours (daily storage-cleanup cron)", () => {
+    expect(RETENTION_FACTS.deletedFileHours).toBe(24);
+    const crons = JSON.parse(read("vercel.json")).crons as { path: string; schedule: string }[];
+    const cleanup = crons.find((c) => c.path === "/api/cron/storage-cleanup");
+    // A fixed minute and hour, every day: at most 24 hours between runs.
+    expect(cleanup?.schedule).toMatch(/^\d+ \d+ \* \* \*$/);
+  });
+
+  it("an admin-closed venue is deleted after the export window the terms/DPA state (0172)", () => {
+    expect(read("docs/production/RETENTION.md")).toContain(`**${RETENTION_FACTS.exportWindowAfterEndDays} days** after the admin schedules it`);
+    expect(read("lib/admin/venue-actions-core.ts")).toContain("VENUE_DELETION_DELAY_DAYS = RETENTION_FACTS.exportWindowAfterEndDays;");
+    expect(read("app/api/cron/retention/route.ts")).toContain("runScheduledVenueDeletions()");
   });
 });
 
@@ -148,12 +200,33 @@ describe("DPA (COMP-005)", () => {
       for (const value of [
         SECURITY_FACTS.breachNotificationHours,
         RETENTION_FACTS.guestDataMonthsAfterEvent,
+        RETENTION_FACTS.cancelledEventAccessDays,
+        RETENTION_FACTS.deletedFileHours,
         RETENTION_FACTS.exportWindowAfterEndDays,
         RETENTION_FACTS.offsiteBackupDays,
         RETENTION_FACTS.databaseBackupDays,
       ]) {
         expect(n).toContain(String(value));
       }
+    }
+  });
+
+  it("the terms state the client-access period, the cancellation period and the export window", () => {
+    for (const d of [terms.mk, terms.en]) {
+      const n = numbers(fullText(d));
+      for (const value of [
+        RETENTION_FACTS.guestDataMonthsAfterEvent,
+        RETENTION_FACTS.cancelledEventAccessDays,
+        RETENTION_FACTS.exportWindowAfterEndDays,
+      ]) {
+        expect(n).toContain(String(value));
+      }
+    }
+  });
+
+  it("no text still describes self-signup or a proposed period", () => {
+    for (const d of [privacy, terms, dpa].flatMap((doc) => [doc.mk, doc.en])) {
+      expect(fullText(d)).not.toMatch(/регистрациј|регистрира сметка|регистрирал|sign-up|signing up|registers an account|предложен рок|proposed (period|retention)/i);
     }
   });
 

@@ -131,7 +131,8 @@ export async function loadRoomPreset(presetId: string, roomId: string, client: S
         currentElements.map((e) => e.id),
       )
       .gte("reservations.date", new Date().toISOString().slice(0, 10))
-      .neq("reservations.status", "cancelled");
+      // Cancelled/completed bookings are kept as history (0174) and hold no table.
+      .not("reservations.status", "in", "(cancelled,completed)");
     if (blockingError) throw blockingError;
     if (blocking && blocking.length > 0) throw new ReservationsBlockPresetLoadError();
   }

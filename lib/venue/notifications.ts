@@ -9,7 +9,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 // "Известувања" (B9): the venue's recent activity from the audit log (0042)
 // plus newly created events, read with the staff client (RLS keeps it to the
-// venue). The audit log never holds names, so couple names come from events.
+// venue). The audit log never holds names (0177), so couple names come from events.
 // The couple's changes and menu numbers live in service-role-only tables, so
 // they are read with the service-role client, scoped to this venue's events.
 
@@ -18,6 +18,9 @@ export type NotificationKind =
   | "credentials_created"
   | "password_regenerated"
   | "event_deleted"
+  | "event_cancelled"
+  | "reservation_cancelled"
+  | "reservation_deleted"
   | "event_updated"
   | "event_contact_updated"
   | "event_finance_updated"
@@ -60,6 +63,11 @@ const ACTIONS: Record<string, { kind: NotificationKind; title: string }> = {
   couple_credentials_created: { kind: "credentials_created", title: "Креирана најава за парот" },
   couple_password_regenerated: { kind: "password_regenerated", title: "Нова лозинка за парот" },
   event_deleted: { kind: "event_deleted", title: "Избришан настан" },
+  // 0174. "Guests left" (reservation_completed) and restores are audited
+  // too, but would only crowd this list.
+  event_cancelled: { kind: "event_cancelled", title: "Откажан настан" },
+  reservation_cancelled: { kind: "reservation_cancelled", title: "Откажана резервација" },
+  reservation_deleted: { kind: "reservation_deleted", title: "Избришана резервација" },
   event_updated: { kind: "event_updated", title: "Изменет настан" },
   event_contact_updated: { kind: "event_contact_updated", title: "Изменет контакт на парот" },
   event_finance_updated: { kind: "event_finance_updated", title: "Изменети финансии" },
@@ -82,10 +90,17 @@ type AuditRow = {
   manager_name: string | null;
 };
 
-/** The event date (event_deleted) and/or which manager did it, joined for display. */
+const DATED_ACTIONS = new Set(["event_deleted", "event_cancelled", "reservation_cancelled", "reservation_deleted"]);
+
+/** The event/reservation date (and a reservation's time), and/or which manager did it, joined for display. */
 function detailFor(row: AuditRow): string | null {
   const d = row.details ?? {};
-  const parts = [row.action === "event_deleted" && typeof d.event_date === "string" ? formatMkDate(d.event_date) : null, row.manager_name ? `од ${row.manager_name}` : null];
+  const date = typeof d.event_date === "string" ? d.event_date : typeof d.date === "string" ? d.date : null;
+  const parts = [
+    DATED_ACTIONS.has(row.action) && date ? formatMkDate(date) : null,
+    row.action.startsWith("reservation_") && typeof d.start_time === "string" ? d.start_time.slice(0, 5) : null,
+    row.manager_name ? `од ${row.manager_name}` : null,
+  ];
   const joined = parts.filter(Boolean).join(" · ");
   return joined || null;
 }

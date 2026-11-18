@@ -6,7 +6,7 @@ import { errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, SUPPORT_TICKET_REQUIRED_ERROR, supportTicketBody } from "@/lib/api/schemas";
 
 // Not actually public: the venue is resolved from the signed-in session
-// below (never a client-supplied id), same as /api/venue/signup — withPublic
+// below (never a client-supplied id), same as /api/venue/privacy — withPublic
 // here just means "no middleware-attached identity to read", not "no auth".
 export const POST = withPublic(
   async ({ request, body }) => {

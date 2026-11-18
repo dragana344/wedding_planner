@@ -1,6 +1,7 @@
 // Data Processing Agreement with venues (COMP-005), Macedonian and English,
-// published at /dpa and /en/dpa and accepted with the Terms at signup
-// (venues.terms_version / terms_accepted_at, migration 0046). Sub-processors
+// published at /dpa and /en/dpa and accepted with the Terms by the venue owner
+// on first login and after each new LEGAL_VERSION (venues.terms_version /
+// terms_accepted_at, POST /api/venue/terms). Sub-processors
 // and periods come from lib/legal/facts.ts; tests/lib/pure/legal-parity.test.ts
 // keeps both languages and the facts in step. Review record:
 // docs/production/LEGAL-REVIEW.md. The role allocation is still to be
@@ -36,8 +37,8 @@ const dpaDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Контролор: локалот што регистрирал сметка на платформата и ги прифатил Условите за користење, со податоците внесени во сметката („локалот“).",
-              "Controller: the venue that registered an account on the platform and accepted the Terms of Service, with the details entered in the account (\"the venue\").",
+              "Контролор: локалот за кој обработувачот отворил сметка на платформата и чиј сопственик ги прифатил Условите за користење, со податоците внесени во сметката („локалот“).",
+              "Controller: the venue for which the processor opened an account on the platform and whose owner accepted the Terms of Service, with the details entered in the account (\"the venue\").",
             ),
             bi(
               `Обработувач: ${P.company}, контакт за приватност: ${P.privacyEmail} („обработувачот“).`,
@@ -54,15 +55,15 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Обработувачот ја дава платформата Каде си? на локалот и при тоа ги обработува личните податоци што ги внесуваат локалот и неговите клиенти, преку алатките што локалот им ги нуди на клиентите како дел од својата услуга (листа на гости, покана, белешки, буџет и други алатки за планирање), како и податоците што гостите ги внесуваат преку линкот од поканата. Вработените во локалот не ги гледаат листата на гости и содржината за планирање на клиентот во панелот, но локалот може да ги извезе или избрише.",
-            "The processor provides the Каде си? platform to the venue and, in doing so, processes the personal data entered by the venue and by its clients through the tools the venue makes available to them as part of its service (guest list, invitation, notes, budget and other planning tools), and the data guests enter through the invitation link. The venue's staff do not see the guest list or the client's planning content in the panel, but the venue can export or erase it.",
+            "Обработувачот ја дава платформата Каде си? на локалот и при тоа ги обработува личните податоци што ги внесуваат локалот и неговите клиенти, преку алатките што локалот им ги нуди на клиентите како дел од својата услуга (листа на гости, покана, белешки, буџет и други алатки за планирање), податоците што гостите ги внесуваат преку линкот од поканата (одговори и честитки) и линкот на албумот (фотографии и видеа), и барањата за поддршка што клиентите ги испраќаат до обработувачот. Вработените во локалот не ги гледаат листата на гости, албумот, честитките и содржината за планирање во панелот, но локалот може да ги извезе или избрише. Барањата за поддршка на клиентот не му се прикажуваат на локалот и се бришат заедно со личните податоци на настанот.",
+            "The processor provides the Каде си? platform to the venue and, in doing so, processes the personal data entered by the venue and by its clients through the tools the venue makes available to them as part of its service (guest list, invitation, notes, budget and other planning tools), the data guests enter through the invitation link (answers and greetings) and the album link (photos and videos), and the support requests clients send to the processor. The venue's staff do not see the guest list, album, greetings or planning content in the panel, but the venue can export or erase them. The client's support requests are not shown to the venue and are erased together with the event's personal data.",
           ),
         },
         {
           type: "p",
           text: bi(
-            "Договорот важи додека обработувачот ја дава услугата на локалот; обврските за бришење (точка „Бришење и враќање на податоците“) важат и по престанокот. Податоците за сметките на вработените во локалот, пораките од формуларот за контакт и безбедносните записи не се предмет на овој договор: за нив обработувачот е контролор (види Политиката за приватност).",
-            "This agreement applies for as long as the processor provides the service to the venue; the deletion obligations (section \"Deletion and return of data\") survive termination. Data about the venue's staff accounts, contact-form messages and security records are not covered by this agreement: for those the processor is the controller (see the Privacy Policy).",
+            "Договорот важи додека обработувачот ја дава услугата на локалот; обврските за бришење (точка „Бришење и враќање на податоците“) важат и по престанокот. Податоците за сметките на вработените во локалот, пораките од формуларот за контакт и барањата за демо, барањата за поддршка на самиот локал и безбедносните записи не се предмет на овој договор: за нив обработувачот е контролор (види Политиката за приватност).",
+            "This agreement applies for as long as the processor provides the service to the venue; the deletion obligations (section \"Deletion and return of data\") survive termination. Data about the venue's staff accounts, contact-form messages and demo requests, the venue's own support requests and security records are not covered by this agreement: for those the processor is the controller (see the Privacy Policy).",
           ),
         },
       ],
@@ -79,8 +80,8 @@ const dpaDocument: BiDocument = {
               "Nature: storing, displaying, transmitting, backing up, exporting and erasing data in the platform.",
             ),
             bi(
-              "Цел: давање на функциите на платформата: настани и клиенти, резервации, распоред на маси, листи на гости, дигитални покани и одговори преку линк, алатки за планирање на клиентите (белешки, агенда, локации, буџет, листа на задачи), портфолио со фотографии.",
-              "Purpose: providing the platform's features: events and clients, reservations, table layouts, guest lists, digital invitations and answers through a link, the clients' planning tools (notes, agenda, locations, budget, to-do list), a photo portfolio.",
+              "Цел: давање на функциите на платформата: настани и клиенти, резервации, распоред на маси, листи на гости, дигитални покани и одговори преку линк, честитки од гостите (текст и видео), албум со фотографии и видеа од гостите, алатки за планирање на клиентите (белешки, агенда, локации, буџет, листа на задачи), поддршка за клиентите, портфолио со фотографии.",
+              "Purpose: providing the platform's features: events and clients, reservations, table layouts, guest lists, digital invitations and answers through a link, greetings from guests (text and video), an album of the guests' photos and videos, the clients' planning tools (notes, agenda, locations, budget, to-do list), support for clients, a photo portfolio.",
             ),
             bi(
               "Обработувачот не ги користи податоците за свои цели, не ги продава и не ги користи за рекламирање.",
@@ -101,8 +102,8 @@ const dpaDocument: BiDocument = {
             [
               bi("Клиенти на локалот (младенци, организатори)", "Venue clients (couples, organizers)"),
               bi(
-                "Имиња; датум, време и вид на настанот; е-пошта и телефон за контакт; вкупна цена и платен депозит (евиденција, без обработка на плаќања); корисничко име и лозинка (само хаш); сесија за најава (само хаш); белешки, агенда, локации (можна приватна адреса), буџет, листа на задачи; текст и фотографија на поканата; ознаки на маси.",
-                "Names; date, time and type of the event; contact email and phone; total price and deposit paid (a record, no payment processing); username and password (hash only); sign-in session (hash only); notes, agenda, locations (possibly a private address), budget, to-do list; invitation text and photo; table labels.",
+                "Имиња; датум, време и вид на настанот; е-пошта и телефон за контакт; вкупна цена и платен депозит (евиденција, без обработка на плаќања); корисничко име и лозинка (само хаш); сесија за најава (само хаш); белешки, агенда, локации (можна приватна адреса), буџет, листа на задачи; текст и фотографија на поканата; ознаки на маси; барања за поддршка и пораките во нив.",
+                "Names; date, time and type of the event; contact email and phone; total price and deposit paid (a record, no payment processing); username and password (hash only); sign-in session (hash only); notes, agenda, locations (possibly a private address), budget, to-do list; invitation text and photo; table labels; support requests and the messages in them.",
               ),
             ],
             [
@@ -113,13 +114,23 @@ const dpaDocument: BiDocument = {
               ),
             ],
             [
+              bi("Гости што испраќаат честитка или споделуваат фотографии", "Guests who send a greeting or share photos"),
+              bi(
+                "Честитка: име и презиме, текст, видео (по избор). Албум: фотографии и видеа, име на испраќачот (по избор), време на согласноста.",
+                "Greeting: full name, text, video (optional). Album: photos and videos, the sender's name (optional), time of consent.",
+              ),
+            ],
+            [
               bi("Гости со резервација", "Reservation customers"),
               bi(
                 "Име; телефон; е-пошта (по избор); датум и време; број на лица; вид на настан; белешка.",
                 "Name; phone; email (optional); date and time; party size; event type; note.",
               ),
             ],
-            [bi("Луѓе на фотографии од настани", "People in event photos"), bi("Фотографии во портфолиото на локалот.", "Photos in the venue's portfolio.")],
+            [
+              bi("Луѓе на фотографии од настани", "People in event photos"),
+              bi("Фотографии во портфолиото на локалот и фотографии и видеа во албумот на гостите.", "Photos in the venue's portfolio and photos and videos in the guests' album."),
+            ],
             [
               bi("Трети лица наведени во слободен текст", "Third parties named in free text"),
               bi("Имиња и податоци за контакт на добавувачи, членови на семејството и сл.", "Names and contact details of vendors, family members and similar."),
@@ -203,16 +214,16 @@ const dpaDocument: BiDocument = {
               `Passwords and sessions: passwords are stored only as a bcrypt hash, at least ${S.minPasswordLength} characters. Client sessions are stored only as a SHA-256 hash and expire ${R.coupleSessionDays} days after last use. A client sign-in is locked for ${S.coupleLockoutMinutes} minutes after ${S.coupleLoginMaxAttempts} failed attempts.`,
             ),
             bi(
-              `Ограничување на барањата за најавите на клиентите, регистрација, формулар за контакт, одговори и прикачување фотографии; бројачите содржат само хаш и се бришат по ${R.rateLimitCounterDays} ден.`,
-              `Rate limiting for client sign-ins, sign-up, the contact form, answers and photo uploads; counters contain only a hash and are deleted after ${R.rateLimitCounterDays} day.`,
+              `Ограничување на барањата за најавите на клиентите, формуларот за контакт, барањата за демо, одговорите и прикачувањето фотографии; бројачите содржат само хаш и се бришат по ${R.rateLimitCounterDays} ден.`,
+              `Rate limiting for client sign-ins, the contact form, demo requests, answers and photo uploads; counters contain only a hash and are deleted after ${R.rateLimitCounterDays} day.`,
             ),
             bi(
-              "Ревизорски дневник само за додавање (append-only) за безбедносно важни дејства, без имиња и податоци за контакт.",
-              "Append-only audit log of security-relevant actions, without names or contact details.",
+              "Ревизорски дневник само за додавање (append-only) за безбедносно важни дејства, без имиња и податоци за контакт на клиентите и гостите (за дејство на менаџер на локалот се запишува неговото име).",
+              "Append-only audit log of security-relevant actions, without names or contact details of clients or guests (for an action by a venue manager, the manager's name is recorded).",
             ),
             bi(
-              "Јавни фотографии: листањето на складиштето е оневозможено; фотографија се отвора само со нејзината точна адреса. Фотографиите се бришат кога ќе се избрише нивниот запис.",
-              "Public photos: listing of the storage is disabled; a photo opens only with its exact address. Photos are deleted when their record is deleted.",
+              `Јавни фотографии (покана, портфолио): листањето на складиштето е оневозможено; фотографија се отвора само со нејзината точна адреса. Албумот и видео-честитките се во приватно складиште и се отвораат само преку серверот. Датотеките се бришат најдоцна ${R.deletedFileHours} часа откако ќе се избрише нивниот запис.`,
+              `Public photos (invitation, portfolio): listing of the storage is disabled; a photo opens only with its exact address. The album and video greetings are in private storage and open only through the server. Files are deleted at the latest ${R.deletedFileHours} hours after their record is deleted.`,
             ),
             bi(
               "Извештаи за грешки (Sentry, ако е вклучен): поставени да не содржат содржина на барања, колачиња, идентитет на корисникот и линкови од покани.",
@@ -320,8 +331,12 @@ const dpaDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Во поставките на локалот: извоз на сите податоци на локалот (JSON), бришење на личните податоци на настан (гости, белешки, агенда, локации, буџет, листа на задачи, покана и фотографии, податоци за најава на клиентот; останува запис за настанот без имиња, податоци за контакт и податоци за гостите) и бришење на сметката.",
-              "In the venue settings: export of all the venue's data (JSON), erasure of an event's personal data (guests, notes, agenda, locations, budget, to-do list, invitation and photos, the client's sign-in data; a record of the event without names, contact details or guest data remains) and account deletion.",
+              "Во поставките на локалот: извоз на сите податоци на локалот (JSON), бришење на личните податоци на настан (гости, белешки, агенда, локации, буџет, листа на задачи, покана и фотографии, албум и честитки, барања за поддршка на клиентот, податоци за најава на клиентот; останува запис за настанот без имиња, податоци за контакт и податоци за гостите) и бришење на сметката.",
+              "In the venue settings: export of all the venue's data (JSON), erasure of an event's personal data (guests, notes, agenda, locations, budget, to-do list, invitation and photos, album and greetings, the client's support requests, the client's sign-in data; a record of the event without names, contact details or guest data remains) and account deletion.",
+            ),
+            bi(
+              "Клиентот може сам да преземе целосна копија од податоците за својот настан во контролната табла, додека трае неговиот пристап.",
+              "The client can itself download a full copy of its event's data in the dashboard, while its access lasts.",
             ),
             bi(
               "На барање на локалот, обработувачот дава извоз на податоците за еден настан (за барање за пристап од клиент).",
@@ -347,20 +362,24 @@ const dpaDocument: BiDocument = {
               "Before termination, the venue can export all its data.",
             ),
             bi(
-              `Кога услугата ќе престане од која било причина (бришење на сметката, затворање од страна на обработувачот или престанок на договорот), локалот има ${R.exportWindowAfterEndDays} дена да ги извезе податоците, а потоа обработувачот ги брише сите лични податоци обработени за локалот. На барање обработувачот писмено го потврдува бришењето.`,
-              `When the service ends for any reason (account deletion, closure by the processor or end of the contract), the venue has ${R.exportWindowAfterEndDays} days to export its data, after which the processor deletes all personal data processed for the venue. On request the processor confirms the deletion in writing.`,
+              `Кога обработувачот ја затвора сметката (престанок на договорот или затворање според Условите за користење), бришењето го закажува ${R.exportWindowAfterEndDays} дена однапред. Во тој рок локалот го гледа датумот во панелот и може да ги извезе податоците, а обработувачот може да го откаже бришењето. Потоа обработувачот ги брише сите лични податоци обработени за локалот. На барање обработувачот писмено го потврдува бришењето.`,
+              `When the processor closes the account (end of the contract or closure under the Terms of Service), it schedules the deletion ${R.exportWindowAfterEndDays} days ahead. Within that time the venue sees the date in its panel and can export its data, and the processor can cancel the deletion. After that the processor deletes all personal data processed for the venue. On request the processor confirms the deletion in writing.`,
             ),
             bi(
-              "Бришењето на сметката од страна на локалот е веднаш и трајно: се бришат локалот, сите настани, клиенти, гости, резервации, фотографии и сметките на вработените. Остануваат само записите во ревизорскиот дневник, кои содржат внатрешни идентификатори без имиња и податоци за контакт.",
-              "Account deletion by the venue is immediate and permanent: the venue, all events, clients, guests, reservations, photos and staff accounts are deleted. Only the audit-log entries remain, which contain internal identifiers without names or contact details.",
+              "Бришењето на сметката од страна на локалот (во поставките) е веднаш и трајно: се бришат локалот, сите настани, клиенти, гости, резервации, фотографии, албуми, честитки, барања за поддршка и сметките на вработените. Остануваат само записите во ревизорскиот дневник, кои содржат внатрешни идентификатори без имиња и податоци за контакт на клиентите и гостите.",
+              "Account deletion by the venue (in the settings) is immediate and permanent: the venue, all events, clients, guests, reservations, photos, albums, greetings, support requests and staff accounts are deleted. Only the audit-log entries remain, which contain internal identifiers without names or contact details of clients or guests.",
             ),
             bi(
               `Избришаните податоци исчезнуваат од резервните копии најдоцна по ${R.offsiteBackupDays} дена (Supabase: ${R.databaseBackupDays} дена; Cloudflare R2: ${R.offsiteBackupDays} дена). По секое враќање од резервна копија, обработувачот повторно ги применува сите бришења запишани во ревизорскиот дневник по создавањето на копијата.`,
               `Deleted data disappears from backups after ${R.offsiteBackupDays} days at the latest (Supabase: ${R.databaseBackupDays} days; Cloudflare R2: ${R.offsiteBackupDays} days). After any restore from a backup, the processor re-applies all erasures recorded in the audit log since the backup was made.`,
             ),
             bi(
-              `Стандардно, и освен ако локалот не побара друг рок по е-пошта, локалот му наложува на обработувачот автоматски да ги брише личните податоци на клиентите и гостите на настанот ${R.guestDataMonthsAfterEvent} месеци по датумот на настанот.`,
-              `By default, and unless the venue asks for a different period by email, the venue instructs the processor to erase the personal data of an event's clients and guests automatically ${R.guestDataMonthsAfterEvent} months after the event date.`,
+              `Локалот му наложува на обработувачот автоматски, со дневна задача, да ги брише личните податоци на клиентите и гостите на настанот ${R.guestDataMonthsAfterEvent} месеци по датумот на настанот, а за откажан настан ${R.cancelledEventAccessDays} дена по откажувањето, ако тоа е порано. Тогаш завршува и пристапот на клиентот. Рокот за одреден настан може да го продолжи само обработувачот, на барање на локалот или клиентот, и тоа се запишува.`,
+              `The venue instructs the processor to erase the personal data of an event's clients and guests automatically, by a daily job, ${R.guestDataMonthsAfterEvent} months after the event date, or for a cancelled event ${R.cancelledEventAccessDays} days after the cancellation, if that is earlier. The client's access ends at the same time. Only the processor can extend the period for an event, at the request of the venue or the client, and this is recorded.`,
+            ),
+            bi(
+              "При автоматското бришење останува деловниот запис на локалот: датум и време, сала, вид на настан, имиња и контакт на организаторот, број на гости, менија и нивниот број, цена, депозит и плаќања, маси. Се бришат гостите, алергиите и белешките, честитките, албумот, поканата, буџетот, листата на задачи, белешките, агендата, локациите, имињата во распоредот на маси и барањата за поддршка на клиентот. При бришење на барање на локалот се бришат и имињата и контактот на организаторот.",
+              "The automatic erasure keeps the venue's business record: date and time, hall, event type, the organizer's names and contact, guest numbers, menus and their counts, price, deposit and payments, tables. It erases the guests, allergies and notes, greetings, album, invitation, budget, to-do list, notes, agenda, locations, the names in the seating plan and the client's support requests. An erasure at the venue's request also removes the organizer's names and contact.",
             ),
             bi(
               "Обработувачот не задржува копии освен кога тоа го бара закон.",
@@ -416,8 +435,8 @@ const dpaDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Договорот се прифаќа електронски заедно со Условите за користење при регистрација; платформата ги запишува верзијата и времето на прифаќањето.",
-            "This agreement is accepted electronically together with the Terms of Service at sign-up; the platform records the version and time of acceptance.",
+            "Договорот го прифаќа сопственикот на локалот електронски, заедно со Условите за користење, при првото најавување на локалот и повторно при секоја нова верзија; платформата ги запишува верзијата и времето на прифаќањето.",
+            "This agreement is accepted electronically by the venue's owner, together with the Terms of Service, at the venue's first sign-in and again for each new version; the platform records the version and time of acceptance.",
           ),
         },
       ],

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 import { AddPanel } from "@/components/shared/AddPanel";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 type Manager = { id: string; name: string; isOwner: boolean; createdAt: string };
 
@@ -109,7 +110,7 @@ export function ManagersSection() {
         <AddPanel title="Нов менаџер" className="addp-inset">
           <form onSubmit={handleAdd} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input className="fld" placeholder="Име" value={name} onChange={(e) => setName(e.target.value)} required aria-label="Име на нов менаџер" />
-            <input className="fld" type="password" placeholder="Лозинка" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required aria-label="Лозинка на нов менаџер" />
+            <input className="fld" type="password" placeholder="Лозинка" value={password} onChange={(e) => setPassword(e.target.value)} minLength={MIN_PASSWORD_LENGTH} required aria-label="Лозинка на нов менаџер" />
             <button type="submit" className="btn btn-gold" disabled={isSubmitting}>
               {isSubmitting ? "Се додава..." : "Додади менаџер"}
             </button>

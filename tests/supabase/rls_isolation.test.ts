@@ -617,8 +617,11 @@ describe("RLS isolation (TEST-003)", () => {
       const { error: venueError } = await staffA.from("venues").update({ name: `${RUN} Venue A renamed` }).eq("id", A.venueId);
       expect(venueError?.code).toBe("42501");
 
-      const { data: deletedRes } = await staffA.from("reservations").delete().eq("id", res!.id).select();
-      expect(deletedRes).toHaveLength(1);
+      // reservations (0178): no direct delete — hard deletes go through the
+      // audited /api/venue/reservations/[id] route. Deleting the room still
+      // takes its reservations with it (cascade).
+      const { error: deleteResError } = await staffA.from("reservations").delete().eq("id", res!.id);
+      expect(deleteResError?.code).toBe("42501");
       const { data: deletedRoom } = await staffA.from("rooms").delete().eq("id", room!.id).select();
       expect(deletedRoom).toHaveLength(1);
     });

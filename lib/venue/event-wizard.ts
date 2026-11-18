@@ -3,6 +3,7 @@ import { depositExceedsTotal, DEPOSIT_OVER_TOTAL_ERROR } from "./events";
 import { parseCoupleContacts } from "./event-contacts";
 import { transliterateToSlug } from "./transliterate";
 import type { SnapshotElement } from "./room-presets";
+import { MIN_PASSWORD_LENGTH, PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 export const WIZARD_STEP_COUNT = 10;
 
@@ -106,7 +107,7 @@ export function validateStep(step: number, state: WizardState): string | null {
       return depositExceedsTotal(state.totalPrice, state.depositPaid) ? DEPOSIT_OVER_TOTAL_ERROR : null;
     case 8:
       if (!state.username.trim()) return "Внесете корисничко име";
-      if (state.password.length < 10) return "Лозинката треба да има најмалку 10 знаци";
+      if (state.password.length < MIN_PASSWORD_LENGTH) return PASSWORD_LENGTH_ERROR;
       return null;
     case 9: {
       const result = parseCoupleContacts({

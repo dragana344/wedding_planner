@@ -7,6 +7,16 @@ export interface Room {
   name: string;
   width_cm: number;
   height_cm: number;
+  /** 0157: where the room is, when it differs from (or adds to) the venue's own address. */
+  address?: string | null;
+  map_url?: string | null;
+}
+
+const ROOM_COLUMNS = "id, venue_id, name, width_cm, height_cm, address, map_url";
+
+export interface RoomPlaceInput {
+  address?: string | null;
+  map_url?: string | null;
 }
 
 export interface TableType {
@@ -36,7 +46,7 @@ export async function listRooms(
 ): Promise<Room[]> {
   const { data, error } = await client
     .from("rooms")
-    .select("id, venue_id, name, width_cm, height_cm")
+    .select(ROOM_COLUMNS)
     .eq("venue_id", venueId)
     .order("name");
   if (error) throw error;
@@ -52,11 +62,21 @@ function cleanRoomName(name: string): string {
   return trimmed;
 }
 
-export async function createRoom(venueId: string, name: string): Promise<Room> {
+export const ROOM_MAP_URL_ERROR = "Линкот до мапата мора да почнува со http:// или https://.";
+
+/** Empty address/link become null; a link must be a web link. */
+function cleanRoomPlace(place: RoomPlaceInput): { address: string | null; map_url: string | null } {
+  const address = place.address?.trim() || null;
+  const mapUrl = place.map_url?.trim() || null;
+  if (mapUrl && !/^https?:\/\//i.test(mapUrl)) throw new Error(ROOM_MAP_URL_ERROR);
+  return { address, map_url: mapUrl };
+}
+
+export async function createRoom(venueId: string, name: string, place: RoomPlaceInput = {}): Promise<Room> {
   const { data, error } = await resolveSupabaseClient()
     .from("rooms")
-    .insert({ venue_id: venueId, name: cleanRoomName(name) })
-    .select("id, venue_id, name, width_cm, height_cm")
+    .insert({ venue_id: venueId, name: cleanRoomName(name), ...cleanRoomPlace(place) })
+    .select(ROOM_COLUMNS)
     .single();
   if (error) throw error;
   return data;
@@ -67,7 +87,19 @@ export async function updateRoomName(roomId: string, name: string): Promise<Room
     .from("rooms")
     .update({ name: cleanRoomName(name) })
     .eq("id", roomId)
-    .select("id, venue_id, name, width_cm, height_cm")
+    .select(ROOM_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Name, address and map link of a room, saved together from the room's edit form. */
+export async function updateRoomDetails(roomId: string, name: string, place: RoomPlaceInput): Promise<Room> {
+  const { data, error } = await resolveSupabaseClient()
+    .from("rooms")
+    .update({ name: cleanRoomName(name), ...cleanRoomPlace(place) })
+    .eq("id", roomId)
+    .select(ROOM_COLUMNS)
     .single();
   if (error) throw error;
   return data;
@@ -97,7 +129,7 @@ export async function listRoomsWithSeatTotals(
 ): Promise<RoomWithSeatTotal[]> {
   const { data, error } = await client
     .from("rooms")
-    .select("id, venue_id, name, width_cm, height_cm, table_types(seats, quantity)")
+    .select(`${ROOM_COLUMNS}, table_types(seats, quantity)`)
     .eq("venue_id", venueId)
     .order("name");
   if (error) throw error;
@@ -110,6 +142,8 @@ export async function listRoomsWithSeatTotals(
       name: room.name,
       width_cm: room.width_cm,
       height_cm: room.height_cm,
+      address: room.address,
+      map_url: room.map_url,
       tableTypeCount: tableTypes.length,
       seatTotal: tableTypes.reduce((sum, t) => sum + t.seats * t.quantity, 0),
     };
@@ -122,7 +156,7 @@ export async function getRoomById(
 ): Promise<Room | null> {
   const { data, error } = await client
     .from("rooms")
-    .select("id, venue_id, name, width_cm, height_cm")
+    .select(ROOM_COLUMNS)
     .eq("id", roomId)
     .maybeSingle();
   if (error) throw error;
@@ -164,7 +198,13 @@ export async function roomUsage(roomId: string, today: string): Promise<{ events
   const client = resolveSupabaseClient();
   const [events, reservations] = await Promise.all([
     client.from("event_rooms").select("event_id", { count: "exact", head: true }).eq("room_id", roomId),
-    client.from("reservations").select("id", { count: "exact", head: true }).eq("room_id", roomId).gte("date", today),
+    // Only live bookings: cancelled/completed ones are kept as history (0174).
+    client
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", roomId)
+      .gte("date", today)
+      .not("status", "in", "(cancelled,completed)"),
   ]);
   if (events.error) throw events.error;
   if (reservations.error) throw reservations.error;

@@ -6,6 +6,7 @@ import * as rooms from "@/lib/venue/rooms";
 import * as reservations from "@/lib/venue/reservations";
 import * as events from "@/lib/venue/events";
 import * as eventsClient from "@/lib/venue/events-client";
+import * as reservationsClient from "@/lib/venue/reservations-client";
 import type { Reservation } from "@/lib/venue/reservations";
 
 vi.mock("@/components/venue/shell/ManagerElevationContext", () => ({
@@ -81,69 +82,150 @@ describe("ReservationsClient", () => {
     expect(screen.getAllByRole("link", { name: "Viber" })[0]).toHaveAttribute("href", "viber://forward");
   });
 
-  it("cancelling a day-list reservation permanently deletes it and removes it from the list", async () => {
+  it("cancelling keeps the reservation: status 'cancelled' through the API, moved into the collapsed history group", async () => {
     mockFloorPlan();
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
-    const deleteSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
-
+    const statusSpy = vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockResolvedValue();
+    const deleteSpy = vi.spyOn(reservationsClient, "deleteReservationViaApi").mockResolvedValue();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
     await screen.findByText("Ana Ivanova");
     fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
-    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("res1"));
-    expect(confirmSpy).toHaveBeenCalledWith("Да се откаже резервацијата на Ana Ivanova? Ова не може да се врати.");
-    expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument();
+    await waitFor(() => expect(statusSpy).toHaveBeenCalledWith("res1", "cancelled", "test-token"));
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Да се откаже резервацијата на Ana Ivanova? Масите се ослободуваат, а резервацијата останува во списокот како откажана.",
+    );
+    expect(deleteSpy).not.toHaveBeenCalled();
+    // Out of the live list (and its count), into "Откажани / завршени".
+    await waitFor(() => expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument());
+    expect(screen.getByText("0 резервации")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Откажани / завршени (1)" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByText("Ana Ivanova")).toBeInTheDocument();
+    expect(screen.getByText("Откажана")).toBeInTheDocument();
   });
 
-  it("tags a mini-event's row, and cancelling it deletes the event instead of just the reservation (Project B §6)", async () => {
+  it("tags a mini-event's row; cancelling it cancels the event (no delete) and offers no hard delete (Project B §6)", async () => {
     mockFloorPlan();
     const miniRow = { ...base, id: "mini1", event_id: "e1", guest_name: "Iva's Birthday" };
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([miniRow]);
-    const deleteReservationSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
+    const statusSpy = vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockResolvedValue();
     const deleteEventSpy = vi.spyOn(eventsClient, "deleteEventViaApi").mockResolvedValue();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<ReservationsClient venueId="v1" initialReservations={[miniRow]} rooms={[room]} />);
     await screen.findByText("Iva's Birthday");
     expect(screen.getByText("Мини настан")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
-    await waitFor(() => expect(deleteEventSpy).toHaveBeenCalledWith("e1", "test-token"));
-    expect(deleteReservationSpy).not.toHaveBeenCalled();
-    expect(screen.queryByText("Iva's Birthday")).not.toBeInTheDocument();
+    await waitFor(() => expect(statusSpy).toHaveBeenCalledWith("mini1", "cancelled", "test-token"));
+    expect(confirmSpy.mock.calls[0][0]).toContain("ќе биде означен како откажан");
+    expect(confirmSpy.mock.calls[0][0]).not.toContain("брише");
+    expect(deleteEventSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Откажани / завршени (1)" }));
+    expect(screen.getByText("Iva's Birthday")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Избриши засекогаш" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Врати" })).not.toBeInTheDocument();
   });
 
   it("keeps the reservation when the cancel question is declined", async () => {
     mockFloorPlan();
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
-    const deleteSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
+    const statusSpy = vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockResolvedValue();
     vi.spyOn(window, "confirm").mockReturnValue(false);
 
     render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
     await screen.findByText("Ana Ivanova");
     fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
-    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(statusSpy).not.toHaveBeenCalled();
     expect(screen.getByText("Ana Ivanova")).toBeInTheDocument();
   });
 
-  it("moves reserved -> seated as a status update, then freeing the table deletes the reservation entirely", async () => {
+  it("moves reserved -> seated, then 'guests left' marks it completed (kept, not deleted)", async () => {
     mockFloorPlan();
     vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
-    const updateSpy = vi.spyOn(reservations, "updateReservationStatus").mockResolvedValue();
-    const deleteSpy = vi.spyOn(reservations, "deleteReservation").mockResolvedValue();
+    const statusSpy = vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockResolvedValue();
+    const deleteSpy = vi.spyOn(reservationsClient, "deleteReservationViaApi").mockResolvedValue();
 
     render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
     await screen.findByText("Ana Ivanova");
 
     fireEvent.click(screen.getByRole("button", { name: /^зафатена$/i }));
-    await waitFor(() => expect(updateSpy).toHaveBeenCalledWith("res1", "seated"));
-    expect(deleteSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(statusSpy).toHaveBeenCalledWith("res1", "seated", "test-token"));
     expect(await screen.findByText("Слободна", { selector: "button" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^слободна$/i }));
-    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("res1"));
-    expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument();
+    await waitFor(() => expect(statusSpy).toHaveBeenCalledWith("res1", "completed", "test-token"));
+    expect(deleteSpy).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Откажани / завршени (1)" }));
+    expect(screen.getByText("Завршена")).toBeInTheDocument();
+  });
+
+  it("doesn't count cancelled or completed bookings in the stat tiles", () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([]);
+    render(
+      <ReservationsClient
+        venueId="v1"
+        initialReservations={[base, { ...base, id: "c", status: "cancelled" }, { ...base, id: "d", status: "completed" }]}
+        rooms={[room]}
+      />
+    );
+    const tile = screen.getByText("Вкупно").closest(".tile")!;
+    expect(tile).toHaveTextContent("1");
+  });
+
+  it("hard-deletes a cancelled reservation only after a confirm that names it", async () => {
+    mockFloorPlan();
+    const cancelled = { ...base, status: "cancelled" as const };
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([cancelled]);
+    const deleteSpy = vi.spyOn(reservationsClient, "deleteReservationViaApi").mockResolvedValue();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[cancelled]} rooms={[room]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Откажани / завршени (1)" }));
+    // A past cancelled booking can't be restored, only removed.
+    expect(screen.queryByRole("button", { name: "Врати" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Избриши засекогаш" }));
+    expect(confirmSpy).toHaveBeenLastCalledWith(
+      "Да се избрише засекогаш резервацијата на Ana Ivanova (01.11.2026, 19:00, 4 гости)? Ова не може да се врати.",
+    );
+    expect(deleteSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Избриши засекогаш" }));
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith("res1", "test-token"));
+    await waitFor(() => expect(screen.queryByText("Ana Ivanova")).not.toBeInTheDocument());
+  });
+
+  it("restores an upcoming cancelled reservation with 'Врати'", async () => {
+    mockFloorPlan();
+    const upcoming = { ...base, date: "2099-01-01", status: "cancelled" as const };
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([upcoming]);
+    const statusSpy = vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockResolvedValue();
+
+    render(<ReservationsClient venueId="v1" initialReservations={[upcoming]} rooms={[room]} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Откажани / завршени (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Врати" }));
+    await waitFor(() => expect(statusSpy).toHaveBeenCalledWith("res1", "reserved", "test-token"));
+    expect(await screen.findByText("1 резервации")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Откажани \/ завршени/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the server's message when a status change is refused", async () => {
+    mockFloorPlan();
+    vi.spyOn(reservations, "listReservationsForDate").mockResolvedValue([base]);
+    vi.spyOn(reservationsClient, "setReservationStatusViaApi").mockRejectedValue(new Error("Потребна е најава како менаџер."));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<ReservationsClient venueId="v1" initialReservations={[base]} rooms={[room]} />);
+    await screen.findByText("Ana Ivanova");
+    fireEvent.click(screen.getByRole("button", { name: /откажи/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Потребна е најава како менаџер.");
+    expect(screen.getByText("Ana Ivanova")).toBeInTheDocument();
   });
 
   it("filters the day list by room", async () => {

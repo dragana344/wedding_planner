@@ -11,6 +11,7 @@ import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
 import { errorMessage } from "@/lib/venue/user-error";
 import { useManagerElevation, reportElevationRejected } from "@/components/venue/shell/ManagerElevationContext";
 import { ManagersSection } from "./ManagersSection";
+import { MIN_PASSWORD_LENGTH, PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 type SettingsData = {
   venueName: string;
@@ -90,6 +91,12 @@ export function SettingsClient() {
     return () => controller.abort();
   }, [isOwner, managerToken]);
 
+  // The deletion banner links to #podatoci, but the section only renders once
+  // the settings load, after the browser's own jump to the hash.
+  useEffect(() => {
+    if (data && window.location.hash === "#podatoci") document.getElementById("podatoci")?.scrollIntoView();
+  }, [data]);
+
   async function handleSaveVenueName(e: React.FormEvent) {
     e.preventDefault();
     setVenueNameStatus(null);
@@ -124,6 +131,10 @@ export function SettingsClient() {
   async function handleSavePassword(e: React.FormEvent) {
     e.preventDefault();
     setPasswordStatus(null);
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPasswordStatus(PASSWORD_LENGTH_ERROR);
+      return;
+    }
     setIsSavingPassword(true);
     try {
       await saveAccountPassword(newPassword, managerToken);
@@ -343,7 +354,7 @@ export function SettingsClient() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              minLength={6}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
           </div>
@@ -406,7 +417,7 @@ export function SettingsClient() {
         </form>
       </section>
 
-      <section className="panel">
+      <section className="panel" id="podatoci">
         <div className="panel-h">
           <h2 className="panel-t">Податоци и приватност</h2>
         </div>

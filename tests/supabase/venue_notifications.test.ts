@@ -83,6 +83,20 @@ describe("venue notifications", () => {
     expect(list.find((n) => n.kind === "data_exported")!.detail).toBeNull();
   });
 
+  it("lists a removed reservation with its date and time (no name: 0177), but not completed ones", async () => {
+    const goneId = "00000000-0000-4000-8000-000000000174";
+    await must(
+      admin.from("audit_log").insert([
+        { actor_type: "staff", action: "reservation_deleted", venue_id: venueA, target_id: goneId, details: { date: "2027-09-03", start_time: "19:30:00", party_size: 4 } },
+        // Audited, but deliberately not listed (would only crowd the list).
+        { actor_type: "staff", action: "reservation_completed", venue_id: venueA, target_id: goneId, details: { date: "2027-09-03" } },
+      ]),
+    );
+    const list = await listVenueNotifications(staff, venueA);
+    expect(list.find((n) => n.kind === "reservation_deleted")).toMatchObject({ title: "Избришана резервација", detail: "3 септември 2027 · 19:30", color: "blue" });
+    expect(JSON.stringify(list)).not.toContain("reservation_completed");
+  });
+
   it("an explicit range narrows results to just that window", async () => {
     const old = await must(
       admin
