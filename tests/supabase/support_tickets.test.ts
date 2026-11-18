@@ -8,7 +8,7 @@ import { getRequesterThread, replyAsRequester } from "@/lib/support/tickets";
 const requireAdmin = vi.fn(async () => ({ adminUserId: "a", requestId: null }));
 vi.mock("@/lib/admin/guard", () => ({ requireAdmin }));
 
-const { listInbox, getInboxTicket, getAdminBadgeCounts } = await import("@/lib/admin/queries");
+const { listInbox, getInboxTicket, getAdminBadgeCounts, getContactMessage } = await import("@/lib/admin/queries");
 const { supportTicketActionCore } = await import("@/lib/admin/support-actions-core");
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
@@ -131,6 +131,18 @@ describe("support tickets: the admin inbox", () => {
     expect((await listInbox({ source: "bogus", status: "bogus" })).length).toBe(all.length);
 
     await admin.from("contact_submissions").delete().eq("name", `Inbox Sender ${stamp}`);
+  });
+
+  it("marks a demo request (0173) in the inbox subject and on the message", async () => {
+    const { data } = await admin
+      .from("contact_submissions")
+      .insert({ name: `Demo Sender ${stamp}`, email: "demo@test.local", message: "Локал: Езеро\nГрад: Охрид\nТелефон: 070", kind: "demo" })
+      .select("id")
+      .single();
+    const row = (await listInbox({ source: "public" })).find((r) => r.id === data!.id);
+    expect(row?.subject).toBe("Барање за демо · Локал: Езеро · Град: Охрид · Телефон: 070");
+    expect((await getContactMessage(data!.id))?.kind).toBe("demo");
+    await admin.from("contact_submissions").delete().eq("id", data!.id);
   });
 
   it("the inbox badge counts new public messages plus tickets waiting for an answer", async () => {

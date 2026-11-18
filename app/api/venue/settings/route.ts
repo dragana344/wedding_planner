@@ -15,7 +15,7 @@ import {
 import { setLayoutLockPassword } from "@/lib/venue/floorplan";
 import { getVenueFeatures } from "@/lib/entitlements/server";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic, withRequestLog } from "@/lib/api/handler";
-import { INVALID_JSON_ERROR, NAME_MAX } from "@/lib/api/schemas";
+import { INVALID_JSON_ERROR, NAME_MAX, newPassword } from "@/lib/api/schemas";
 import { authErrorMessage } from "@/lib/auth-messages";
 import { recordAudit } from "@/lib/audit";
 
@@ -95,7 +95,7 @@ const settingsBody = z.discriminatedUnion("field", [
   // fields from them. Routed through here so the owner-elevation check
   // above is the real gate, not just the page.
   z.object({ field: z.literal("account_email"), email: z.string().trim().email().max(320) }),
-  z.object({ field: z.literal("account_password"), password: z.string().min(6).max(200) }),
+  z.object({ field: z.literal("account_password"), password: newPassword }),
   // Project A §4: the owner-level self-editing switch.
   z.object({ field: z.literal("couple_seating_self_edit_enabled"), enabled: z.boolean() }),
 ]);

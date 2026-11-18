@@ -1,5 +1,25 @@
 # Legal review record (COMP-001, COMP-005)
 
+## Version 1.3 (2026-11-18): what changed, for the lawyer
+
+Version 1.3 of all three documents (`LEGAL_VERSION`, `LEGAL_LAST_UPDATED` in `lib/legal/facts.ts`) makes the texts state what the app now does. Every venue owner sees the terms screen again and must accept 1.3 before the venue panel opens (`lib/venue/onboarding.ts` compares `venues.terms_version` with `LEGAL_VERSION`). Please review these points in both languages:
+
+1. **Client (couple) access life cycle** (privacy: new section `client-access`, `guests`, `retention`; terms: `clients-guests`; DPA: `deletion`). Full access until the event day, then read-only (view and download), then access ends and the event's personal data is **erased automatically 6 months after the event date** by a daily job; a cancelled event ends **30 days after cancellation** (or at the normal end, if earlier). Only the platform team can extend, on request (recorded). The old "12/24 months, proposed" and "unless the venue asks for a different period by email" are gone; the DPA now states the 6 months / 30 days as the venue's instruction.
+2. **What the venue keeps after the automatic erasure**: date and time, hall, event type, organizer names and contact, guest numbers, menus and counts, its own price/deposit/payments, tables. Erased: guests (with notes/allergies), greetings, album, invitation, budget, checklist, notes, agenda, locations, names on the seating plan, the couple's support tickets, sign-in data. An erasure **on request** also removes the organizer's names and contact. Question: is keeping the organizer's names and contact as a "business record" for as long as the venue account exists acceptable (purpose: the venue's bookkeeping/calendar), and under which basis?
+3. **Couple self-service download** ("Преземи сè") in the dashboard until access ends (privacy, DPA `rights`, terms).
+4. **New data categories**, each with purpose, basis and retention (privacy `data`, `purposes`, new section `album`; DPA `subject`, `nature`, `data`, `security`):
+   - guests' **photo/video album** — uploader name optional, consent checkbox required before upload, private storage, only the couple sees it; basis: uploader's consent + legitimate interest for other people pictured (venue = controller);
+   - **written and video greetings** sent through the invitation — basis: sender's consent;
+   - **support tickets** — venue tickets: platform = controller, contract basis; couple tickets: treated as processor data within the venue's service although the venue never sees them (please confirm this allocation); closed tickets deleted **6 months after closing** (new, migration 0176), couple tickets earlier with the event;
+   - **demo requests** (replaces self-signup) — same table, basis and **6-month** deletion as contact-form messages.
+5. **Files whose record was deleted** are removed **within 24 hours** (was "within an hour"; the cleanup job runs daily).
+6. **Venue account deletion by us** is now **scheduled 15 days ahead**: the venue sees the date and can export; we can cancel within that time (privacy `retention`, terms `termination`, DPA `deletion`). Deletion by the venue itself in the settings stays immediate and permanent; the texts no longer promise a 15-day window for that case.
+7. **No self-signup.** "Регистрацијата е бесплатна" / "accepted at sign-up" removed. The team opens the account; the venue owner accepts the Terms + DPA on the first sign-in and again for each new version, with version and time recorded (terms intro, `accounts`, `fees`, `changes`; DPA `parties`, `acceptance`). Question: is a click-through by the owner (verified with the owner's password) enough for the Art. 28 contract, or should a signed DPA be offered by default?
+8. **Audit log**: the texts now say it holds no names or contact details **of clients, guests or reservation customers**, and that the **venue manager's name** is recorded for actions a manager performs (this was already true since migration 0133; the old text said "no names").
+9. **Password minimum** is 10 characters for every password (managers were 8), which the texts already stated.
+
+Not yet reflected, by design: the per-package album retention (`MEDIA_RETENTION_ENABLED`, RETENTION.md) is off; if it is switched on, the album would go earlier than the event's other data and the texts must change first.
+
 Documents under review:
 
 | Document | Where | Languages |
@@ -8,7 +28,7 @@ Documents under review:
 | Terms of service | `lib/legal/terms.ts` → `/terms`, `/en/terms` | MK, EN |
 | Data processing agreement (venues) | `lib/legal/dpa.ts` → `/dpa`, `/en/dpa` (`docs/legal/DPA*.md` now only point there) | MK, EN |
 
-Current version: **1.1**, dated **2026-09-29** (`lib/legal/facts.ts`; v1.0 was reviewed in Review 1, v1.1 is the revision that resolves it). Sources of truth: `DATA-MAP.md`, `RETENTION.md`, `COOKIES.md`, `HOSTING.md`, `BACKUPS.md`, `AUTH.md`, `SECRETS.md`. `tests/lib/pure/legal-parity.test.ts` checks that MK and EN of all three documents have the same sections, block shapes, numbers and placeholders, that the processor tables match `PROCESSORS` and DATA-MAP §7, and that the stated periods match the migrations and docs. Acceptance of the Terms + DPA is recorded per venue at signup (`venues.terms_version`, `venues.terms_accepted_at`, migration 0046, `tests/supabase/terms_acceptance.test.ts`).
+Current version: **1.3**, dated **2026-11-18** (`lib/legal/facts.ts`; v1.0 was reviewed in Review 1, v1.1 is the revision that resolves it, 1.2 changed the operator, 1.3 is described at the top of this file). Sources of truth: `DATA-MAP.md`, `RETENTION.md`, `COOKIES.md`, `HOSTING.md`, `BACKUPS.md`, `AUTH.md`, `SECRETS.md`. `tests/lib/pure/legal-parity.test.ts` checks that MK and EN of all three documents have the same sections, block shapes, numbers and placeholders, that the processor tables match `PROCESSORS` and DATA-MAP §7, and that the stated periods match the migrations and docs. Acceptance of the Terms + DPA is recorded per venue when the owner accepts on first sign-in and after each new version (`venues.terms_version`, `venues.terms_accepted_at`, migration 0046, `POST /api/venue/terms`, `tests/supabase/terms_acceptance.test.ts`).
 
 Decided 27 Sep 2026: a dedicated AI legal reviewer reviews both languages before publishing. A review by a human lawyer is still recommended (see checklist).
 
@@ -19,12 +39,12 @@ One row per review. Record every finding and how it was resolved (text changed, 
 | Date | Reviewer / model | Documents and version | Findings | Resolution |
 |---|---|---|---|---|
 | 2026-09-29 | AI legal reviewer (Claude, independent session) | Privacy MK+EN, Terms MK+EN, DPA MK+EN, v1.0 (`lib/legal/*.ts`, `docs/legal/DPA*.md`) | 34 findings: 8 Blocker, 11 Major, 11 Minor, 4 Note (see "Review 1 findings" below). MK/EN parity: same facts, two wording mismatches (R1-26, R1-27). | Revision v1.1 (29 Sep 2026): 24 fixed in text/code (R1-05, R1-13, R1-16, R1-17 partly), the rest left to the owner or a lawyer. See "Resolution of Review 1". |
-| *pending* | *(next review, of v1.1)* | Privacy, Terms, DPA MK+EN, v1.1 | | |
+| *pending* | *(next review, of v1.3)* | Privacy, Terms, DPA MK+EN, v1.3 | | |
 
 ## Points the reviewer must look at
 
 1. **Controller / processor roles (to confirm by legal review).** v1.1 follows Review 1's proposed model (R1-04): the venue is the controller for its clients', guests' and reservation customers' data (including showcase photos); the venue offers the planning tools to its clients as part of its service; the couple's own guest list is a personal (household) activity of the couple; the platform is the processor for that data. The texts say accurately that venue staff do not see couple-entered data in the panel but the venue can export/erase it. The platform is controller for venue staff accounts, contact-form messages and security records (logs, rate-limit counters, audit log).
-2. **Retention periods are proposals.** The texts state 12 months after the event (guest and couple data, as a default the venue may change) and 24 months (contact messages). `purge_expired_personal_data` exists but is **not scheduled** (RETENTION.md section 3). The DPA also states the 12 months as the venue's default instruction.
+2. **Retention periods are live** (since 1.3): 6 months after the event (30 days after a cancellation) for event data, 6 months for contact messages and demo requests, 6 months after closing for support tickets, run daily by `/api/cron/retention` (RETENTION.md section 3). The DPA states the 6 months / 30 days as the venue's instruction; only the platform can extend per event.
 3. **Lawful bases** (v1.1 table: clients = contract; guests and people named = legitimate interest; health/diet notes = explicit consent Art. 9(2)(a); portfolio photos = venue decides).
 4. **International transfers** (R1-09): mechanism per provider and the LPDP export question are for a lawyer.
 5. **Liability clause** in the terms, the DPA's audit and sub-processor clauses, and whether click-through acceptance (now recorded with version and time) is enough for an Art. 28 contract.
@@ -34,7 +54,7 @@ One row per review. Record every finding and how it was resolved (text changed, 
 Owner / lawyer items from Review 1 are marked with their finding ID.
 
 - [ ] **R1-01** Every placeholder is filled with real values, identical in both languages (list below). No `[` … `/` … `]` left in `lib/legal/*`.
-- [ ] **R1-02 Retention scheduled:** DATA-007's `purge-expired-personal-data` job is scheduled in a migration with `purge_expired_personal_data(12, 24)`, **or** the numbers in `lib/legal/facts.ts` are changed to the approved values (the texts take them from there). The policy must not be published while it promises deletion that does not run. The parity test checks the numbers once a schedule exists.
+- [x] **R1-02 Retention scheduled:** done in group A (0170, 0176): the retention sweep (`runRetentionPurge`, one erasure per call since 0178) runs daily via `/api/cron/retention`; the texts take 6 months / 30 days / 6 months from `lib/legal/facts.ts` and the parity test checks them against the SQL.
 - [ ] Controller/processor roles (point 1) confirmed by a lawyer.
 - [ ] **R1-08** Production confirmations, each with a date: Supabase Pro (7-day daily backups, leaked-password protection), TOTP MFA enabled in the production project (AUTH.md), R2 bucket + encrypted backup workflow live (then change R2 and GitHub status to "Active" in `PROCESSORS`, the texts and DATA-MAP §7), Resend and Sentry status. Sign each provider's DPA (Supabase, Vercel, Resend, Sentry, Cloudflare, GitHub).
 - [ ] **R1-09** Transfer mechanisms per provider (DPF / SCCs), whether EU SCCs suffice under the LPDP or AZLP clauses/approval are needed, whether North Macedonia treats the EU as adequate, and the GitHub runner location — lawyer.
@@ -170,7 +190,7 @@ Revision **v1.1**, 29 Sep 2026. "Fixed" = changed in the texts (both languages, 
 | R1-07 | Fixed: GitHub (Actions backup runners) added as sub-processor (planned, location placeholder); team inbox provider named as recipient (placeholder) | `PROCESSORS`; privacy `processors`; dpa `subprocessors`; DATA-MAP §7 |
 | R1-08 | Owner: production confirmations. Text already says R2 "(once enabled)" and "planned" | checklist |
 | R1-09 | Lawyer: transfer mechanisms. Text now also covers the backup job running outside the EU and says "the data is stored in the EU" instead of "all data" | checklist; privacy `transfers`, dpa `subprocessors` |
-| R1-10 | Fixed: 30-day export window after the service ends for any reason, then deletion, written confirmation on request; backups expire within 35 days | dpa `deletion`, terms `termination`, privacy `retention`; `RETENTION_FACTS.exportWindowAfterEndDays` |
+| R1-10 | Fixed: 30-day (since group A / 0172: **15-day**) export window after the service ends for any reason, then deletion, written confirmation on request; backups expire within 35 days | dpa `deletion`, terms `termination`, privacy `retention`; `RETENTION_FACTS.exportWindowAfterEndDays` |
 | R1-11 | Fixed: "without names, contact details or guest data … for the venue's accounting and calendar" | privacy `retention`; dpa `rights` |
 | R1-12 | Fixed with placeholders for reservation retention and former-staff accounts; venue can delete reservations at any time | privacy `retention`; checklist |
 | R1-13 | Fixed (text): Terms scoped to the venue (business); new "Clients and guests" section with acceptable use and consumer/data-protection rights. Not done: a one-line reference on the couple login page (another agent owns login pages) | terms intro, `clients-guests` |

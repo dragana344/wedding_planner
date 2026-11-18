@@ -104,7 +104,7 @@ describe("validateStep", () => {
   it("step 8 requires a username and a password of at least 10 characters", () => {
     expect(validateStep(8, state())).toBe("Внесете корисничко име");
     expect(validateStep(8, state({ username: "ana-petar", password: "short" }))).toBe(
-      "Лозинката треба да има најмалку 10 знаци",
+      "Лозинката мора да има најмалку 10 знаци.",
     );
     expect(validateStep(8, state({ username: "ana-petar", password: "a-strong-password" }))).toBeNull();
   });

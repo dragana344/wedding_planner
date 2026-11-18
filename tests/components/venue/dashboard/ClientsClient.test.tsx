@@ -66,7 +66,8 @@ describe("ClientsClient — finished events", () => {
     const finished = await screen.findByRole("region", { name: "Завршени настани" });
     await userEvent.click(within(finished).getByRole("button", { name: "Избриши го настанот Стара Свадба" }));
     expect(eventsClient.deleteEventViaApi).not.toHaveBeenCalled();
-    await userEvent.click(within(finished).getByRole("button", { name: "Избриши" }));
+    expect(within(finished).getByText("Засекогаш, со сите податоци?")).toBeInTheDocument();
+    await userEvent.click(within(finished).getByRole("button", { name: "Избриши засекогаш" }));
     await waitFor(() => expect(eventsClient.deleteEventViaApi).toHaveBeenCalledWith("past", "tok"));
     await waitFor(() => expect(screen.queryByText("Стара Свадба")).not.toBeInTheDocument());
   });

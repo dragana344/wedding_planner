@@ -104,7 +104,9 @@ export function DashboardClient({
     !roomFilter || (item.room_ids ? item.room_ids.includes(roomFilter) : item.room_id === roomFilter);
   const shownTodayEvents = todayEvents.filter(inRoom);
   const shownUpcomingEvents = upcomingEvents.filter(inRoom);
-  const shownReservations = todayReservations.filter(inRoom);
+  // Cancelled bookings are kept as history (0174) but aren't part of today;
+  // completed ones did happen, so they stay listed and counted.
+  const shownReservations = todayReservations.filter((r) => r.status !== "cancelled").filter(inRoom);
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
   const selectedLayout = roomLayouts[selectedRoomId];
 
@@ -211,8 +213,7 @@ export function DashboardClient({
   const nextMonthCells = buildMonthCells(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
 
   // Phone summary (dm-sum): today's counts in one card, shown under 900px only.
-  const activeReservations = shownReservations.filter((r) => r.status !== "cancelled");
-  const reservationGuests = activeReservations.reduce((n, r) => n + r.party_size, 0);
+  const reservationGuests = shownReservations.reduce((n, r) => n + r.party_size, 0);
   const eventGuests = shownTodayEvents.reduce((n, e) => n + (e.guest_count_estimate ?? 0), 0);
   const nothingToday = shownTodayEvents.length === 0 && (!TABLE_RESERVATIONS_ENABLED || shownReservations.length === 0);
   const wrapClass = [
@@ -235,8 +236,8 @@ export function DashboardClient({
           </div>
           {TABLE_RESERVATIONS_ENABLED ? (
             <div>
-              <b>{activeReservations.length}</b>
-              <span>{activeReservations.length === 1 ? "резервација" : "резервации"}</span>
+              <b>{shownReservations.length}</b>
+              <span>{shownReservations.length === 1 ? "резервација" : "резервации"}</span>
             </div>
           ) : null}
           <div>

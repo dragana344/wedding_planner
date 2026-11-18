@@ -86,6 +86,7 @@ cd ~/Desktop/wedding_planner
 - [ ] Emails → **Templates**: Confirm signup, Reset password, Change email — HTML од `supabase/templates/`, subject од `supabase/config.toml`
 - [ ] Rate Limits → emails per hour: **100**
 - [ ] Sign In / Providers → Email: Confirm email **On**, Secure password change **On**, Min length **10**, Leaked password protection **On** (Pro)
+- [ ] Sign In / Providers: **Allow new users to sign up — Off** (јавната регистрација е затворена; локалите ги отвора тимот во админ панелот (Локали → Нов локал), ADMIN.md)
 - [ ] Multi-Factor → **TOTP** enroll + verify: **enabled** (задолжително за админ)
 
 ## 4. Vercel

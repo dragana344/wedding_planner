@@ -7,6 +7,7 @@ import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/ha
 import { INVALID_JSON_ERROR, addManagerBody } from "@/lib/api/schemas";
 import { logSecurityEvent } from "@/lib/log";
 import { recordAudit } from "@/lib/audit";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 const OWNER_REQUIRED_ERROR = "Потребна е најава како сопственик.";
 
@@ -36,5 +37,5 @@ export const POST = withPublic(
       return errorResponse(err, "Менаџерот не можеше да се додаде.", request);
     }
   },
-  { invalidJsonError: INVALID_JSON_ERROR, body: addManagerBody, invalidBodyError: "Внесете име и лозинка (најмалку 8 знаци)." },
+  { invalidJsonError: INVALID_JSON_ERROR, body: addManagerBody, invalidBodyError: `Внесете име и лозинка (најмалку ${MIN_PASSWORD_LENGTH} знаци).` },
 );

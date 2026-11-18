@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { adminClient, elevateAsOwner, loginCouple, pickFutureCalendarDate, signUpVenue, uniqueId } from "./helpers";
+import { adminClient, elevateAsOwner, loginCouple, pickFutureCalendarDate, createVenueAndSignIn, uniqueId } from "./helpers";
 
 // Project B: a mini-event claims part of a room's capacity instead of the
 // whole room — created via the wizard's Mini choice, its tables assigned by
@@ -7,7 +7,7 @@ import { adminClient, elevateAsOwner, loginCouple, pickFutureCalendarDate, signU
 // a plain read-only line, with no seating editor nav item at all.
 test("a mini-event is created, staff assigns its tables, and the couple sees them read-only", async ({ page, anonPage }) => {
   const admin = adminClient();
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const { data: venueRow } = await admin.from("venues").select("id").eq("name", account.venueName).single();
   const { data: roomRow } = await admin.from("rooms").insert({ venue_id: venueRow!.id, name: "Градина" }).select("id").single();
   const { data: tableType } = await admin

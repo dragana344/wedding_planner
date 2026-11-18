@@ -90,6 +90,7 @@ Settings → **API Keys**. Supabase сега има два сета:
   - `https://*-<vercel-team>.vercel.app/**` (preview deployments)
   - `https://admin.<tvojdomen>/**` и `https://admin.<tvojdomen>/reset-password` (админ поддомен, чекор 3.2.1 — `docs/production/ADMIN.md`)
 - [ ] **Email → Confirm email**: одлука ⚑ (SEC-012). Локално е исклучено. Препорака за прод: **вклучено**, за да не се регистрира сала со туѓ мејл
+- [ ] **Allow new users to sign up: Off** (задолжително). Јавната регистрација е затворена, локалите ги отвора тимот (админ панел → Локали → Нов локал, ADMIN.md)
 - [ ] **Minimum password length**: 10+; **Leaked password protection**: ON (Pro)
 - [ ] **Rate limits**: провери ги default вредностите за sign-up, reset и OTP
 - [ ] **Multi-Factor → TOTP**: enabled (задолжително за админ, опционално за персонал на сала)

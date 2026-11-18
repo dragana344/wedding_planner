@@ -50,6 +50,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "contact_submissions",
   "rate_limits",
   "storage_cleanup_queue",
+  "auth_user_deletion_retries",
   "plans",
   "plan_features",
   "venue_feature_overrides",
