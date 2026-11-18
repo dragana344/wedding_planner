@@ -36,13 +36,13 @@ afterAll(async () => {
 });
 
 describe("0080 event media", () => {
-  it("has a private bucket with the media allow-list and a 100 MB cap", async () => {
+  it("has a private bucket with the media allow-list and a 500 MB cap", async () => {
     const { rows } = await db.query(
       "select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'event-media'",
     );
     expect(rows[0]).toEqual({
       public: false,
-      file_size_limit: "104857600",
+      file_size_limit: "524288000",
       allowed_mime_types: ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"],
     });
   });

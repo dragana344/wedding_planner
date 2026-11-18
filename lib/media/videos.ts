@@ -13,7 +13,7 @@ import { INVALID_MEDIA_UPLOAD_ERROR } from "@/lib/media/photos";
 // length limit (the package's max_video_seconds) is checked in the browser:
 // the server can't read a video's duration from its first bytes.
 
-export const VIDEO_TOO_LARGE_ERROR = "Видеото е преголемо (најмногу 100 MB).";
+export const VIDEO_TOO_LARGE_ERROR = "Видеото е преголемо (најмногу 500 MB).";
 export const UNSUPPORTED_VIDEO_ERROR = "Видеото не е поддржано. Снимете MP4, MOV или WebM.";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";

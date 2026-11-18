@@ -102,7 +102,7 @@ describe("video greetings", () => {
     await expect(createGreeting(eventId, { firstName: "А", lastName: "Б", message: "x", videoPath: path })).rejects.toThrow("Неважечко прикачување.");
   });
 
-  it("refuses videos over 100 MB and over the album's space", async () => {
+  it("refuses videos over 500 MB and over the album's space", async () => {
     await expect(createVideoUpload(eventId, MAX_VIDEO_BYTES + 1)).rejects.toThrow(VIDEO_TOO_LARGE_ERROR);
     await expect(createVideoUpload(fullEventId, 100)).rejects.toThrow(QUOTA_FULL_ERROR);
   });

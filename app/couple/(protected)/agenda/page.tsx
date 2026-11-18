@@ -10,7 +10,18 @@ export default async function AgendaPage() {
   const [items, summary] = await Promise.all([listAgendaItems(eventId), getEventSummary(eventId)]);
   return (
     <main style={{ padding: "18px 22px 28px" }}>
-      <AgendaClient initialItems={items} coupleNames={summary.couple_names} eventDate={summary.event_date} />
+      <AgendaClient
+        initialItems={items}
+        coupleNames={summary.couple_names}
+        eventDate={summary.event_date}
+        venue={{
+          name: summary.venue_name,
+          address: summary.venue_address,
+          rooms: summary.rooms.map((r) => r.name),
+          roomAddress: summary.rooms.find((r) => r.address?.trim())?.address ?? null,
+          roomMapUrl: summary.rooms.find((r) => r.map_url?.trim())?.map_url ?? null,
+        }}
+      />
     </main>
   );
 }

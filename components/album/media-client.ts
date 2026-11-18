@@ -76,15 +76,28 @@ export function videoDuration(file: File): Promise<number> {
  */
 export async function putSignedUpload(bucket: string, path: string, token: string, blob: Blob): Promise<void> {
   const url = `${supabaseUrl()}/storage/v1/object/upload/sign/${bucket}/${path}?token=${encodeURIComponent(token)}`;
-  const response = await fetch(url, {
-    method: "PUT",
-    headers: { apikey: supabaseAnonKey(), "content-type": blob.type || "application/octet-stream", "x-upsert": "false" },
-    body: blob,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "PUT",
+      headers: { apikey: supabaseAnonKey(), "content-type": blob.type || "application/octet-stream", "x-upsert": "false" },
+      body: blob,
+    });
+  } catch {
+    // The request never got an answer: offline, a dropped connection or a
+    // phone that went to sleep mid-upload.
+    throw new Error(UPLOAD_CONNECTION_LOST);
+  }
+  if (response.status === 413) throw new Error(UPLOAD_REFUSED_TOO_BIG);
+  if (response.status === 401 || response.status === 403) throw new Error(UPLOAD_EXPIRED);
   if (!response.ok) throw new Error("upload failed");
 }
 
 export const UPLOAD_FAILED = "Не успеа прикачувањето. Обидете се повторно.";
+export const UPLOAD_CONNECTION_LOST = "Врската се прекина додека се прикачуваше. Проверете го интернетот и обидете се повторно.";
+export const UPLOAD_REFUSED_TOO_BIG = "Серверот го одби фајлот затоа што е преголем. Обидете се со пократко или помало видео.";
+export const UPLOAD_EXPIRED = "Времето за прикачување истече. Обидете се повторно.";
+const UPLOAD_MESSAGES = new Set([UPLOAD_CONNECTION_LOST, UPLOAD_REFUSED_TOO_BIG, UPLOAD_EXPIRED]);
 
 /** POST JSON; returns the body or throws the server's message. */
 export async function postJson<T>(url: string, body: unknown, fallback = UPLOAD_FAILED): Promise<T> {
@@ -102,8 +115,8 @@ export async function signedUpload(startUrl: string, blob: Blob, extra: Record<s
   const { path, token, bucket } = await postJson<{ path: string; token: string; bucket: string }>(startUrl, { ...extra, bytes: blob.size });
   try {
     await putSignedUpload(bucket, path, token, blob);
-  } catch {
-    throw new Error(UPLOAD_FAILED);
+  } catch (err) {
+    throw new Error(err instanceof Error && UPLOAD_MESSAGES.has(err.message) ? err.message : UPLOAD_FAILED);
   }
   return path;
 }

@@ -7,7 +7,7 @@ import { ALBUM_RATE_LIMITS, ALBUM_UPLOAD_ERROR, invitationGreetingVideoBody, loc
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
 // 0151: a signed upload for the video of a greeting sent from the invitation
-// (≤ 100 MB; the package's max_video_seconds, as measured by the browser). The
+// (≤ 500 MB; the package's max_video_seconds, as measured by the browser). The
 // greeting itself is posted to ../ with the returned path.
 export const POST = withPublic(
   async ({ request, params, body }) => {

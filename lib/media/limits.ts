@@ -2,7 +2,7 @@
 // Pure: used by the API, the couple's album and the guests' upload page.
 
 export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
-export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
 /** Photos are resized in the browser so their longer edge is at most this. */
 export const PHOTO_MAX_EDGE = 2560;
 const GB = 1024 ** 3;

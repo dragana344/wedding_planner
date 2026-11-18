@@ -29,7 +29,7 @@ const roomsLib = vi.hoisted(() => ({
   upsertTableType: vi.fn(),
   updateTableType: vi.fn(),
   seatsAffectedByTableType: vi.fn(),
-  updateRoomName: vi.fn(),
+  updateRoomDetails: vi.fn(),
   deleteRoom: vi.fn(),
   deleteTableType: vi.fn(),
   roomUsage: vi.fn(),
@@ -70,7 +70,7 @@ beforeEach(() => {
   lib.verifyLayoutLockPassword.mockResolvedValue(true);
   roomsLib.upsertTableType.mockResolvedValue({ id: "tt3", room_id: "r1", name: "Нова-6", shape: "round", seats: 6, width_cm: 120, length_cm: 120, quantity: 2 });
   roomsLib.listTableTypes.mockResolvedValue([round, rect]);
-  roomsLib.updateRoomName.mockResolvedValue({ ...room, name: "Нова сала" });
+  roomsLib.updateRoomDetails.mockResolvedValue({ ...room, name: "Нова сала" });
   roomsLib.deleteRoom.mockResolvedValue(undefined);
   roomsLib.deleteTableType.mockResolvedValue(undefined);
   roomsLib.seatsAffectedByTableType.mockResolvedValue(0);
@@ -358,8 +358,19 @@ describe("RoomFloorPlanPage palette (B4)", () => {
       const input = screen.getByLabelText("Име на просторијата");
       fireEvent.change(input, { target: { value: "Нова сала" } });
       fireEvent.submit(screen.getByRole("button", { name: "Зачувај" }).closest("form")!);
-      await waitFor(() => expect(roomsLib.updateRoomName).toHaveBeenCalledWith("r1", "Нова сала"));
+      await waitFor(() => expect(roomsLib.updateRoomDetails).toHaveBeenCalledWith("r1", "Нова сала", { address: "", map_url: "" }));
       await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    });
+
+    it("saves the room's address and map link with its name (0157)", async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Преименувај просторија" }));
+      fireEvent.change(screen.getByLabelText("Адреса (опционално)"), { target: { value: "Водно бб, Скопје" } });
+      fireEvent.change(screen.getByLabelText("Линк до мапа (опционално)"), { target: { value: "https://maps.example/hall" } });
+      fireEvent.submit(screen.getByRole("button", { name: "Зачувај" }).closest("form")!);
+      await waitFor(() =>
+        expect(roomsLib.updateRoomDetails).toHaveBeenCalledWith("r1", room.name, { address: "Водно бб, Скопје", map_url: "https://maps.example/hall" }),
+      );
     });
 
     it("deletes the room and navigates back to the room list", async () => {

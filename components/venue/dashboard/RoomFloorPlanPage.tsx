@@ -37,7 +37,7 @@ import {
 } from "@/lib/venue/floorplan";
 import {
   listTableTypes,
-  updateRoomName,
+  updateRoomDetails,
   deleteRoom,
   deleteTableType,
   seatsAffectedByTableType,
@@ -174,6 +174,8 @@ export function RoomFloorPlanPage({
   const [presetBusy, setPresetBusy] = useState(false);
   const [isEditingRoomName, setIsEditingRoomName] = useState(false);
   const [roomNameInput, setRoomNameInput] = useState(room.name);
+  const [roomAddressInput, setRoomAddressInput] = useState(room.address ?? "");
+  const [roomMapUrlInput, setRoomMapUrlInput] = useState(room.map_url ?? "");
   const [isSavingRoomName, setIsSavingRoomName] = useState(false);
   const [roomNameError, setRoomNameError] = useState<string | null>(null);
   const [confirmingDeleteRoom, setConfirmingDeleteRoom] = useState(false);
@@ -600,11 +602,11 @@ export function RoomFloorPlanPage({
     setRoomNameError(null);
     setIsSavingRoomName(true);
     try {
-      await updateRoomName(room.id, roomNameInput);
+      await updateRoomDetails(room.id, roomNameInput, { address: roomAddressInput, map_url: roomMapUrlInput });
       setIsEditingRoomName(false);
       router.refresh();
     } catch (err) {
-      setRoomNameError(errorMessage(err, "Не успеа преименувањето. Обидете се повторно."));
+      setRoomNameError(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingRoomName(false);
     }
@@ -769,6 +771,8 @@ export function RoomFloorPlanPage({
               onClick={() => {
                 setRoomNameError(null);
                 setRoomNameInput(room.name);
+                setRoomAddressInput(room.address ?? "");
+                setRoomMapUrlInput(room.map_url ?? "");
                 setIsEditingRoomName(true);
               }}
               aria-label="Преименувај просторија"
@@ -811,6 +815,18 @@ export function RoomFloorPlanPage({
                   onChange={(e) => setRoomNameInput(e.target.value)}
                   required
                 />
+              </div>
+              <div className="ev-field" style={{ flex: "1 1 260px" }}>
+                <label className="lab-s" htmlFor="room-address">
+                  Адреса (опционално)
+                </label>
+                <input id="room-address" className="fld" value={roomAddressInput} onChange={(e) => setRoomAddressInput(e.target.value)} maxLength={1000} />
+              </div>
+              <div className="ev-field" style={{ flex: "1 1 260px" }}>
+                <label className="lab-s" htmlFor="room-map-url">
+                  Линк до мапа (опционално)
+                </label>
+                <input id="room-map-url" className="fld" placeholder="https://..." value={roomMapUrlInput} onChange={(e) => setRoomMapUrlInput(e.target.value)} maxLength={2000} />
               </div>
               <button type="submit" className="btn btn-gold" disabled={isSavingRoomName}>
                 {isSavingRoomName ? "Се зачувува..." : "Зачувај"}

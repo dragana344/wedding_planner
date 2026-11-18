@@ -5,12 +5,37 @@ import { todayIn } from "@/lib/date";
 export interface ProgramItem {
   time: string | null;
   title: string;
+  /** 0156: the place (name, address, map link) the item takes place at. */
+  location: string | null;
+  address: string | null;
+  map_url: string | null;
 }
 
 export interface ProgramLocation {
   label: string;
   address: string | null;
   map_url: string | null;
+}
+
+/**
+ * The "Локации" list guests see (0156): the distinct places of the agenda
+ * items that have an address or a map link, in agenda order. A place that is
+ * only a name stays under its item and isn't listed twice.
+ */
+export function placesOf(items: { location: string | null; address: string | null; map_url: string | null }[]): ProgramLocation[] {
+  const seen = new Set<string>();
+  const places: ProgramLocation[] = [];
+  for (const item of items) {
+    const address = item.address?.trim() || null;
+    const mapUrl = item.map_url?.trim() || null;
+    const label = item.location?.trim() || address;
+    if (!label || (!address && !mapUrl)) continue;
+    const key = `${label.toLowerCase()}|${(address ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    places.push({ label, address, map_url: mapUrl });
+  }
+  return places;
 }
 
 export interface ProgramDish {

@@ -46,7 +46,7 @@ describe("lib/couple/dashboard: getEventSummary", () => {
     const summary = await getEventSummary(event!.id);
     expect(summary.couple_names).toBe("Dashboard & Test");
     expect(summary.venue_name).toBe("Dashboard Lib Venue");
-    expect(summary.rooms).toEqual([{ id: room!.id, name: "Hall" }]);
+    expect(summary.rooms).toEqual([{ id: room!.id, name: "Hall", address: null, map_url: null }]);
     expect(summary.seatedCount).toBe(8);
         expect(summary.contact_email).toBe("couple@example.com");
     expect(summary.start_time).toBe("18:00:00");

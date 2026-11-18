@@ -374,7 +374,22 @@ export function FullInvitation({
                   <span style={{ fontFamily: theme.numeralFont, fontStyle: "italic", fontSize: 19, textAlign: "right", color: theme.textColor }}>
                     {item.time ?? ""}
                   </span>
-                  <span style={{ fontSize: 18, borderLeft: `1px solid ${theme.lineColor}`, paddingLeft: 14, lineHeight: 1.4 }}>{item.title}</span>
+                  <span style={{ fontSize: 18, borderLeft: `1px solid ${theme.lineColor}`, paddingLeft: 14, lineHeight: 1.4 }}>
+                    {item.title}
+                    {item.location || item.address ? (
+                      <span style={{ display: "block", fontSize: 15, color: theme.mutedColor, lineHeight: 1.35 }}>
+                        {[item.location, item.address].filter(Boolean).join(", ")}
+                        {mapsHref(item) ? (
+                          <>
+                            {" · "}
+                            <a href={mapsHref(item)!} target="_blank" rel="noopener noreferrer" style={{ color: theme.textColor, textDecoration: "underline" }}>
+                              Мапа
+                            </a>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </span>
                 </li>
               ))}
             </ol>

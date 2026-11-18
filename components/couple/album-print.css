@@ -113,3 +113,76 @@
     border: 0;
   }
 }
+
+/* Designed cards: the artwork fills the card behind the text, and sizes use
+   the card's own width/height (container units, read by the children) so the
+   A6 card and the A4 poster look the same. Each design sets its colours and
+   spacing through --pd-* variables (lib/media/print-designs.ts). Colours must
+   print, so backgrounds are forced on. */
+.s4-designed {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  container-type: size;
+  padding: 0;
+  background: var(--pd-bg);
+  color: var(--pd-text);
+  border: 1px dashed #c9bfae;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.s4-designed > .s4-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+}
+.s4-body {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pd-top) 9cqw var(--pd-bottom);
+}
+.s4-designed .s4-card-qr {
+  width: 44cqw;
+  padding: 2.4cqw;
+  border-radius: 3cqw;
+  box-sizing: content-box;
+  background: #fff;
+  border: 0.4cqw solid var(--pd-line);
+}
+.s4-designed .s4-card-heading {
+  margin: 0 0 2cqh;
+  line-height: 1.15;
+  font-weight: 400;
+  text-align: center;
+  font-size: var(--pd-hsize);
+  color: var(--pd-accent);
+}
+.s4-designed .s4-card-kicker {
+  display: none;
+}
+.s4-designed .s4-card-table {
+  margin: 0 0 1.5cqh;
+  font-size: 4.6cqw;
+  color: var(--pd-accent);
+}
+.s4-designed .s4-card-cta,
+.s4-poster.s4-designed .s4-card-cta {
+  margin-top: 2.2cqh;
+  max-width: 64cqw;
+  font-size: 3.7cqw;
+  line-height: 1.3;
+  color: var(--pd-text);
+}
+@media print {
+  .s4-designed {
+    border: 0;
+  }
+}

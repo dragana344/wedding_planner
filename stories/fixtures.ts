@@ -19,11 +19,11 @@ export const invitation: PublicInvitation = {
   message: "Со голема радост ве покануваме да бидете дел од нашиот најубав ден.",
   photo_path: null,
   agenda: [
-    { time: "17:00", title: "Венчавка во црква" },
-    { time: "18:00", title: "Пречек на гости" },
-    { time: "19:30", title: "Прв танц" },
-    { time: "20:00", title: "Вечера" },
-    { time: null, title: "Торта" },
+    { time: "17:00", title: "Венчавка во црква", location: "Црква Св. Климент", address: "бул. Партизански Одреди, Скопје", map_url: null },
+    { time: "18:00", title: "Пречек на гости", location: "Ресторан Панорама", address: "Водно бб, Скопје", map_url: "https://maps.google.com/?q=Skopje" },
+    { time: "19:30", title: "Прв танц", location: null, address: null, map_url: null },
+    { time: "20:00", title: "Вечера", location: null, address: null, map_url: null },
+    { time: null, title: "Торта", location: null, address: null, map_url: null },
   ],
   locations: [
     { label: "Црква Св. Климент", address: "бул. Партизански Одреди, Скопје", map_url: null },

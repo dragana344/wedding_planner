@@ -17,6 +17,8 @@ import {
   deleteTableType,
   getRoomById,
   updateRoomName,
+  updateRoomDetails,
+  ROOM_MAP_URL_ERROR,
   deleteRoom,
 } from "@/lib/venue/rooms";
 
@@ -76,6 +78,22 @@ describe("rooms data layer", () => {
 
     const found = await getRoomById(room.id);
     expect(found?.name).toBe("New Name");
+  });
+
+  it("keeps a room's address and map link, and rejects a map link that isn't a web link (0157)", async () => {
+    const room = await createRoom(venueId, "Terrace", { address: "  Водно бб, Скопје ", map_url: "https://maps.example/t" });
+    expect(room.address).toBe("Водно бб, Скопје");
+    expect(room.map_url).toBe("https://maps.example/t");
+
+    const plain = await createRoom(venueId, "Plain");
+    expect(plain.address).toBeNull();
+    expect(plain.map_url).toBeNull();
+
+    const updated = await updateRoomDetails(room.id, "Terrace 2", { address: "", map_url: "" });
+    expect(updated).toMatchObject({ name: "Terrace 2", address: null, map_url: null });
+
+    await expect(createRoom(venueId, "Bad", { map_url: "javascript:alert(1)" })).rejects.toThrow(ROOM_MAP_URL_ERROR);
+    await expect(updateRoomDetails(room.id, "Terrace 2", { map_url: "data:text/html,x" })).rejects.toThrow(ROOM_MAP_URL_ERROR);
   });
 
   it("updates and deletes a table type", async () => {

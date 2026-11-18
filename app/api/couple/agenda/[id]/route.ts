@@ -12,6 +12,8 @@ export const PATCH = withCoupleEvent(
       time: body.time || null,
       title: body.title,
       location: body.location || null,
+      address: body.address || null,
+      map_url: body.map_url?.trim() || null,
       notes: body.notes || null,
     });
     return NextResponse.json(updated);

@@ -5,7 +5,7 @@ import { createVideoUpload } from "@/lib/media/videos";
 import { fitsVideoLength, videoSecondsLimit, videoTooLongError } from "@/lib/media/limits";
 import { checkRateLimit, clientIp, rateLimitedResponse } from "@/lib/security/rate-limit";
 
-// 0151: a signed upload for a guest's video in the shared album (≤ 100 MB, and
+// 0151: a signed upload for a guest's video in the shared album (≤ 500 MB, and
 // no longer than the package's max_video_seconds as the browser measured it).
 // Confirmed through ./confirm.
 export const POST = withGuestAlbum(

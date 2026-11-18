@@ -5,7 +5,7 @@ import { withPublic, type PublicHandlerContext, type RouteHandler } from "@/lib/
 import { getAlbumByToken, type PublicAlbum } from "@/lib/media/album";
 import { eventHasFeature } from "@/lib/entitlements/server";
 import { LOCKED_MESSAGE, type FeatureKey } from "@/lib/entitlements/features";
-import { MAX_PHOTO_BYTES, MAX_VIDEO_BYTES } from "@/lib/media/limits";
+import { MAX_PHOTO_BYTES } from "@/lib/media/limits";
 import type { RateLimitRule } from "@/lib/security/rate-limit";
 
 // Shared plumbing for the guests' album routes (/api/e/<token>/…). Kept here,
@@ -25,7 +25,7 @@ export const ALBUM_RATE_LIMITS = {
   uploadPerEvent: { bucket: "album-upload-event", limit: 3000, windowSeconds: 3600, failClosed: false },
   /**
    * Videos (album videos on the QR page, greeting videos on the invitation)
-   * wait unconfirmed in a 100 MB-per-file bucket, so their
+   * wait unconfirmed in a 500 MB-per-file bucket, so their
    * starts are budgeted tighter than photos' (15 MB, own bucket); the
    * per-event cap below is what bounds the storage, the per-IP one only has
    * to survive a hall full of guests behind one Wi-Fi address.
@@ -43,7 +43,7 @@ type AlbumParams = z.infer<typeof albumParams>;
 
 export const photoUploadBody = z.object({ bytes: z.number().int().min(1).max(MAX_PHOTO_BYTES + 1) });
 export const videoUploadBody = z.object({
-  bytes: z.number().int().min(1).max(MAX_VIDEO_BYTES + 1),
+  bytes: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
   /** The length the guest's browser measured; null when it couldn't tell. */
   seconds: z.number().min(0).max(86400).nullish(),
 });
@@ -74,7 +74,7 @@ export const invitationGreetingBody = z
   .refine(hasSender);
 
 export const invitationGreetingVideoBody = z
-  .object({ ...greetingSender, bytes: z.number().int().min(1).max(MAX_VIDEO_BYTES + 1), seconds: z.number().min(0).max(86400).nullish() })
+  .object({ ...greetingSender, bytes: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), seconds: z.number().min(0).max(86400).nullish() })
   .refine(hasSender);
 
 /** Shared link, before answering (0152): just a name, to get a greeting ticket. */

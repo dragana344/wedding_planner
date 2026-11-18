@@ -48,10 +48,18 @@ describe("lib/couple/invitations", () => {
       .select()
       .single();
     await admin.from("event_agenda_items").insert([
-      { event_id: event!.id, time: "18:00", title: "Венчавка", notes: "приватна белешка", sort_order: 1 },
+      {
+        event_id: event!.id,
+        time: "18:00",
+        title: "Венчавка",
+        notes: "приватна белешка",
+        location: "Црква",
+        address: "Радовиш",
+        map_url: "https://maps.app.goo.gl/x",
+        sort_order: 1,
+      },
       { event_id: event!.id, time: "16:00", title: "Собирање", sort_order: 0 },
     ]);
-    await admin.from("event_locations").insert({ event_id: event!.id, label: "Црква", address: "Радовиш", map_url: "https://maps.app.goo.gl/x", sort_order: 0 });
     const { data: items } = await admin
       .from("menu_items")
       .insert([
@@ -67,8 +75,8 @@ describe("lib/couple/invitations", () => {
     const invitation = await getInvitationBySlug(public_slug);
     expect(invitation?.event_type).toBe("wedding");
     expect(invitation?.agenda).toEqual([
-      { time: "16:00", title: "Собирање" },
-      { time: "18:00", title: "Венчавка" },
+      { time: "16:00", title: "Собирање", location: null, address: null, map_url: null },
+      { time: "18:00", title: "Венчавка", location: "Црква", address: "Радовиш", map_url: "https://maps.app.goo.gl/x" },
     ]);
     expect(JSON.stringify(invitation)).not.toContain("приватна белешка");
     expect(invitation?.locations).toEqual([{ label: "Црква", address: "Радовиш", map_url: "https://maps.app.goo.gl/x" }]);

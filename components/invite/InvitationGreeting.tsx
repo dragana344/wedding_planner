@@ -7,7 +7,7 @@ import { MAX_VIDEO_BYTES, formatVideoLength, videoTooLongError } from "@/lib/med
 const MESSAGE_MAX = 1000;
 const SEND_FAILED = "Не успеа испраќањето на честитката. Обидете се повторно.";
 const MESSAGE_REQUIRED = "Напишете порака.";
-const VIDEO_TOO_LARGE = "Видеото е преголемо (најмногу 100 MB).";
+const VIDEO_TOO_LARGE = "Видеото е преголемо (најмногу 500 MB).";
 const ALREADY_SENT = "Веќе испративте честитка. Ви благодариме!";
 
 const inputClass = "w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-[16px]";
@@ -108,7 +108,7 @@ export function InvitationGreeting({
           <label className={labelClass} htmlFor="greeting-video">
             Видео честитка ({videoSeconds === null ? "не е задолжително" : `до ${formatVideoLength(videoSeconds)}, не е задолжително`})
           </label>
-          <input id="greeting-video" className={inputClass} type="file" accept="video/*" capture="user" onChange={(e) => void pickVideo(e.target.files?.[0])} />
+          <input id="greeting-video" className={inputClass} type="file" accept="video/*" onChange={(e) => void pickVideo(e.target.files?.[0])} />
           {video ? <p className="mt-1 text-sm text-neutral-600">Избрано видео: {video.file.name}</p> : null}
         </div>
       ) : null}

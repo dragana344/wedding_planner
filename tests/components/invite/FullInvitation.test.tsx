@@ -31,8 +31,8 @@ const invitation = {
 const withProgramme = {
   ...invitation,
   agenda: [
-    { time: "16:00", title: "Собирање на гостите" },
-    { time: "18:00", title: "Венчавка" },
+    { time: "16:00", title: "Собирање на гостите", location: null, address: null, map_url: null },
+    { time: "18:00", title: "Венчавка", location: "Црква Св. Никола", address: "Радовиш", map_url: "https://maps.app.goo.gl/abc" },
   ],
   locations: [
     { label: "Црква Св. Никола", address: "Радовиш", map_url: "https://maps.app.goo.gl/abc" },
@@ -78,7 +78,9 @@ describe("FullInvitation", () => {
   it("shows the day's programme in order, with times (A14)", () => {
     render(<FullInvitation slug="abc123" invitation={withProgramme} photoUrl={null} />);
     const programme = screen.getByRole("list", { name: "Програма" });
-    expect(within(programme).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["16:00Собирање на гостите", "18:00Венчавка"]);
+    expect(within(programme).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["16:00Собирање на гостите", "18:00ВенчавкаЦрква Св. Никола, Радовиш · Мапа"]);
+    // 0156: an item's place sits under its title, with a map link.
+    expect(within(programme).getByRole("link", { name: "Мапа" })).toHaveAttribute("href", "https://maps.app.goo.gl/abc");
   });
 
   it("links each location to a map, never through an unsafe link (A14)", () => {

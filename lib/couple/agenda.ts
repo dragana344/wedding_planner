@@ -8,6 +8,9 @@ export interface AgendaItem {
   time: string | null;
   title: string;
   location: string | null;
+  /** 0156: where it takes place — street address and a map link. */
+  address: string | null;
+  map_url: string | null;
   notes: string | null;
   sort_order: number;
 }
@@ -16,10 +19,12 @@ export interface AgendaItemInput {
   time: string | null;
   title: string;
   location: string | null;
+  address: string | null;
+  map_url: string | null;
   notes: string | null;
 }
 
-const COLUMNS = "id, event_id, time, title, location, notes, sort_order";
+const COLUMNS = "id, event_id, time, title, location, address, map_url, notes, sort_order";
 
 export async function listAgendaItems(eventId: string): Promise<AgendaItem[]> {
   const client = createServiceRoleClient();

@@ -8,16 +8,33 @@ import { formatMkDate } from "@/lib/date";
 import { Icon } from "@/components/venue/shell/Icon";
 import { AddPanel } from "@/components/shared/AddPanel";
 import { TimeInput } from "@/components/shared/TimeInput";
+import { AgendaPlaceFields } from "@/components/couple/AgendaPlaceFields";
+import { NO_PLACE, type AgendaPlace, type VenueInfo } from "@/lib/couple/agenda-place";
+import { mapsHref } from "@/lib/couple/invitation-program";
 import "@/components/couple/InvitationCard.css";
 import "./AgendaClient.css";
 
 const cormorant = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: "400" });
 
-export function AgendaClient({ initialItems, coupleNames, eventDate }: { initialItems: AgendaItem[]; coupleNames: string; eventDate: string }) {
+const placeOf = (item: AgendaItem): AgendaPlace => ({ location: item.location ?? "", address: item.address ?? "", mapUrl: item.map_url ?? "" });
+const placeBody = (place: AgendaPlace) => ({ location: place.location || null, address: place.address || null, map_url: place.mapUrl || null });
+
+export function AgendaClient({
+  initialItems,
+  coupleNames,
+  eventDate,
+  venue,
+}: {
+  initialItems: AgendaItem[];
+  coupleNames: string;
+  eventDate: string;
+  venue: VenueInfo;
+}) {
   const [items, setItems] = useState(initialItems);
   const [time, setTime] = useState("");
   const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
+  const [place, setPlace] = useState<AgendaPlace>(NO_PLACE);
+  const [placeKey, setPlaceKey] = useState(0);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +42,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTime, setEditTime] = useState("");
   const [editTitle, setEditTitle] = useState("");
-  const [editLocation, setEditLocation] = useState("");
+  const [editPlace, setEditPlace] = useState<AgendaPlace>(NO_PLACE);
   const [editNotes, setEditNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
@@ -39,7 +56,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
         await fetch("/api/couple/agenda", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ time: time || null, title, location: location || null, notes: notes || null }),
+          body: JSON.stringify({ time: time || null, title, ...placeBody(place), notes: notes || null }),
         })
       );
       // Same place the server gave it: in front of the first item that starts later.
@@ -49,7 +66,8 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
       });
       setTime("");
       setTitle("");
-      setLocation("");
+      setPlace(NO_PLACE);
+      setPlaceKey((k) => k + 1);
       setNotes("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не успеа додавањето на ставката.");
@@ -102,7 +120,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
     setEditingId(item.id);
     setEditTime(item.time ?? "");
     setEditTitle(item.title);
-    setEditLocation(item.location ?? "");
+    setEditPlace(placeOf(item));
     setEditNotes(item.notes ?? "");
   }
 
@@ -118,7 +136,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
         await fetch(`/api/couple/agenda/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ time: editTime || null, title: editTitle, location: editLocation || null, notes: editNotes || null }),
+          body: JSON.stringify({ time: editTime || null, title: editTitle, ...placeBody(editPlace), notes: editNotes || null }),
         })
       );
       setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
@@ -146,18 +164,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
             </label>
             <input id="agenda-title" className="fld" placeholder="пр. Прв танц" value={title} onChange={(e) => setTitle(e.target.value)} required />
           </div>
-          <div>
-            <label className="lab-s" htmlFor="agenda-location">
-              Локација (опционално)
-            </label>
-            <input
-              id="agenda-location"
-              className="fld"
-              placeholder="пр. Црква Св. Климент Охридски"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </div>
+          <AgendaPlaceFields key={placeKey} idPrefix="agenda" venue={venue} value={place} onChange={setPlace} />
           <div>
             <label className="lab-s" htmlFor="agenda-notes">
               Белешки (опционално)
@@ -181,6 +188,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
             <span className="invite-diamond" />
           </div>
 
+
           {items.length === 0 ? <p className="agenda-empty">Сè уште нема испланирано ништо.</p> : null}
 
           {items.map((item, idx) =>
@@ -188,7 +196,7 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
               <div key={item.id} className="agenda-edit-row">
                 <TimeInput className="fld" value={editTime} onChange={setEditTime} aria-label="Измени време" />
                 <input className="fld" placeholder="Наслов" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required aria-label="Измени наслов" />
-                <input className="fld" placeholder="Локација (опционално)" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} aria-label="Измени локација" />
+                <AgendaPlaceFields idPrefix={`agenda-edit-${item.id}`} venue={venue} value={editPlace} onChange={setEditPlace} />
                 <input className="fld" placeholder="Белешки (опционално)" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} aria-label="Измени белешки" />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button type="button" onClick={() => handleSaveEdit(item.id)} disabled={isSaving} className="btn btn-gold">
@@ -205,10 +213,20 @@ export function AgendaClient({ initialItems, coupleNames, eventDate }: { initial
                 <span className="agenda-dot" />
                 <div className="agenda-content">
                   <p className="agenda-title">{item.title}</p>
-                  {item.location ? (
+                  {item.location || item.address ? (
                     <p className="agenda-location">
                       <Icon name="pin" size="sm" />
-                      {item.location}
+                      <span>
+                        {[item.location, item.address].filter(Boolean).join(" · ")}
+                        {mapsHref({ address: item.address, map_url: item.map_url }) ? (
+                          <>
+                            {" · "}
+                            <a href={mapsHref({ address: item.address, map_url: item.map_url })!} target="_blank" rel="noreferrer" className="agenda-map-link">
+                              Мапа
+                            </a>
+                          </>
+                        ) : null}
+                      </span>
                     </p>
                   ) : null}
                   {item.notes ? <p className="agenda-notes">{item.notes}</p> : null}

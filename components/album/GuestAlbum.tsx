@@ -7,7 +7,7 @@ import { PhotoProcessError, UPLOAD_FAILED, compressImage, postJson as post, sign
 const PARALLEL_UPLOADS = 3;
 const NAME_KEY = "album-uploader-name";
 
-const VIDEO_TOO_LARGE = "Видеото е преголемо (најмногу 100 MB).";
+const VIDEO_TOO_LARGE = "Видеото е преголемо (најмногу 500 MB).";
 const VIDEOS_OFF = "Видеа не може да се прикачат за овој настан. Изберете фотографии.";
 
 /** A file the guest's browser refused before upload: only that file is skipped. */

@@ -17,11 +17,14 @@ describe("lib/couple/agenda", () => {
       .select()
       .single();
 
-    const first = await addAgendaItem(event!.id, { time: "16:00", title: "Собирање гости", location: null, notes: null });
-    const second = await addAgendaItem(event!.id, { time: "17:00", title: "Церемонија", location: "Црква Св. Климент Охридски", notes: null });
+    const first = await addAgendaItem(event!.id, { time: "16:00", title: "Собирање гости", location: null, address: null, map_url: null, notes: null });
+    const second = await addAgendaItem(event!.id, { time: "17:00", title: "Церемонија", location: "Црква Св. Климент Охридски", address: "Охрид 1", map_url: "https://maps.example/x", notes: null });
     expect(first.sort_order).toBe(0);
     expect(second.sort_order).toBe(1);
     expect(second.location).toBe("Црква Св. Климент Охридски");
+    // 0156: the place's address and map link are stored on the item.
+    expect(second.address).toBe("Охрид 1");
+    expect(second.map_url).toBe("https://maps.example/x");
 
     const listed = await listAgendaItems(event!.id);
     expect(listed.map((i) => i.title)).toEqual(["Собирање гости", "Церемонија"]);
@@ -30,6 +33,8 @@ describe("lib/couple/agenda", () => {
       time: "16:30",
       title: "Собирање гости (ажурирано)",
       location: "Хотел Панорама",
+      address: null,
+      map_url: null,
       notes: "донеси стол",
     });
     expect(updated.title).toBe("Собирање гости (ажурирано)");
@@ -53,9 +58,9 @@ describe("lib/couple/agenda", () => {
       .insert({ venue_id: venue!.id, couple_names: "Agenda Dup Couple", event_date: "2027-02-01" })
       .select()
       .single();
-    const a = await addAgendaItem(event!.id, { time: null, title: "А", location: null, notes: null });
-    const b = await addAgendaItem(event!.id, { time: null, title: "Б", location: null, notes: null });
-    const c = await addAgendaItem(event!.id, { time: null, title: "В", location: null, notes: null });
+    const a = await addAgendaItem(event!.id, { time: null, title: "А", location: null, address: null, map_url: null, notes: null });
+    const b = await addAgendaItem(event!.id, { time: null, title: "Б", location: null, address: null, map_url: null, notes: null });
+    const c = await addAgendaItem(event!.id, { time: null, title: "В", location: null, address: null, map_url: null, notes: null });
     // The state that used to make ↑/↓ a no-op: Б and В both at position 1.
     await admin.from("event_agenda_items").update({ sort_order: 1 }).eq("id", c.id);
 
@@ -83,9 +88,9 @@ describe("lib/couple/agenda", () => {
       .select()
       .single();
 
-    const item = await addAgendaItem(eventA!.id, { time: null, title: "A's item", location: null, notes: null });
+    const item = await addAgendaItem(eventA!.id, { time: null, title: "A's item", location: null, address: null, map_url: null, notes: null });
 
-    await expect(updateAgendaItem(eventB!.id, item.id, { time: null, title: "hijacked", location: null, notes: null })).rejects.toThrow();
+    await expect(updateAgendaItem(eventB!.id, item.id, { time: null, title: "hijacked", location: null, address: null, map_url: null, notes: null })).rejects.toThrow();
     await deleteAgendaItem(eventB!.id, item.id);
     const stillThere = await listAgendaItems(eventA!.id);
     expect(stillThere).toHaveLength(1);
