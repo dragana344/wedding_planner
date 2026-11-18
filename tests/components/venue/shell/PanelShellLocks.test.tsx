@@ -48,10 +48,11 @@ describe("venue lock UI (spec §4.4)", () => {
     // still say "locked" via a visually-hidden suffix (review ruling).
     expect(screen.getByRole("link", { name: /Извештаи.*заклучено/ })).toHaveAttribute("data-locked", "true");
     expect(screen.getByText(/Оваа функција не е вклучена во вашиот пакет/)).toBeInTheDocument();
-    // The page stays mounted but blurred, inert and hidden from assistive tech.
-    const veil = screen.getByText("content").closest(".locked-blur");
-    expect(veil).toHaveAttribute("aria-hidden", "true");
-    expect(veil).toHaveAttribute("inert");
+    // Group A task 2: the page stays readable — not blurred, inert or hidden from assistive tech.
+    const content = screen.getByText("content");
+    expect(content.closest("[aria-hidden]")).toBeNull();
+    expect(content.closest("[inert]")).toBeNull();
+    expect(document.querySelector(".locked-blur")).toBeNull();
   });
 
   it("shows no banner when nothing is locked", async () => {

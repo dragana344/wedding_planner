@@ -6,7 +6,8 @@ import type { CurrentVenue } from "@/lib/venue/current-venue";
 
 export type VenueAccess =
   | { status: "none" }
-  | { status: "blocked"; reason: string | null }
+  /** deletionScheduledFor: an admin-scheduled deletion (0172) — BlockedScreen still shows it and offers the owner the export. */
+  | { status: "blocked"; reason: string | null; venueId: string; deletionScheduledFor: string | null }
   | { status: "ok"; venue: CurrentVenue };
 
 type StaffRow = { venue_id: string; venues: { name: string } | { name: string }[] | null };
@@ -51,15 +52,20 @@ export const getVenueAccess = cache(
 
     const { data: venueRow, error } = await createServiceRoleClient()
       .from("venues")
-      .select("blocked_at, blocked_reason")
+      .select("blocked_at, blocked_reason, deletion_scheduled_for")
       .eq("id", staffRow.venue_id)
-      .maybeSingle<{ blocked_at: string | null; blocked_reason: string | null }>();
+      .maybeSingle<{ blocked_at: string | null; blocked_reason: string | null; deletion_scheduled_for: string | null }>();
     // Defensive: the embed above was only ever null because RLS hid a
     // blocked venue (see the doc comment). If the service-role read
     // disagrees — a race with an unblock, or an unexpected error — fail to
     // "none" (redirect to /login) rather than invent a venue name we don't
     // have or grant the panel on an unverified state.
     if (error || !venueRow?.blocked_at) return { status: "none" };
-    return { status: "blocked", reason: venueRow.blocked_reason ?? null };
+    return {
+      status: "blocked",
+      reason: venueRow.blocked_reason ?? null,
+      venueId: staffRow.venue_id,
+      deletionScheduledFor: venueRow.deletion_scheduled_for ?? null,
+    };
   }
 );

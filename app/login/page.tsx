@@ -1,44 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 import { authErrorMessage, GENERIC_ERROR } from "@/lib/auth-messages";
-import { finishPendingSignup } from "@/lib/venue/pending-signup";
 
 const EYEBROW = "Панел за управување";
 const TAGLINE = "Управувајте со вашиот локал и настаните — сè на едно место.";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [venueJustOpened, setVenueJustOpened] = useState(false);
-
-  // A new owner coming back from the "confirm your email" link lands here
-  // already signed in but with no venue yet: open it and continue to the panel.
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createBrowserSupabaseClient();
-    supabase.auth
-      .getUser()
-      .then(async ({ data }) => {
-        if ((await finishPendingSignup(supabase, data.user)) && !cancelled) setVenueJustOpened(true);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (venueJustOpened) router.push("/venue?tour=1");
-  }, [venueJustOpened, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,17 +22,17 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const supabase = createBrowserSupabaseClient();
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setError(authErrorMessage(signInError));
         return;
       }
-      const venueOpened = await finishPendingSignup(supabase, signInData?.user);
       // A hard navigation, not router.push: the venue layout's server-side
       // check reads the session from cookies, and a client-side transition
       // right after an auth-state change can race ahead of the auth SDK's
       // cookie write, landing back on /login instead of /venue.
-      window.location.href = venueOpened ? "/venue?tour=1" : "/venue";
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/venue";
     } catch {
       setError(GENERIC_ERROR);
     } finally {

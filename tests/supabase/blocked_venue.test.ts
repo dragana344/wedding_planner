@@ -14,7 +14,7 @@ import { getCurrentVenue } from "@/lib/venue/current-venue";
 const session = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: async () => session.client }));
 
-import { GET as exportRoute } from "@/app/api/venue/privacy/export/route";
+import { GET as exportRoute, POST as exportPostRoute } from "@/app/api/venue/privacy/export/route";
 import { POST as eraseRoute } from "@/app/api/venue/privacy/erase-event/route";
 import { POST as deleteRoute } from "@/app/api/venue/privacy/delete-account/route";
 
@@ -62,7 +62,7 @@ describe("blocked venue (spec D8)", () => {
   it("getVenueAccess reports blocked staff as blocked, with the reason, not as no-staff", async () => {
     const c = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
     await c.auth.signInWithPassword({ email: `blk-${stamp}@test.local`, password: "staff-password-9" });
-    expect(await getVenueAccess(c)).toEqual({ status: "blocked", reason: "неплатено" });
+    expect(await getVenueAccess(c)).toEqual({ status: "blocked", reason: "неплатено", venueId, deletionScheduledFor: null });
   });
 
   it("couple sessions are refused and login answers the blocked message", async () => {
@@ -113,6 +113,37 @@ describe("blocked venue (spec D8)", () => {
 
     expect((await admin.from("events").select("couple_names").eq("id", eventId).single()).data!.couple_names).toBe("Blk & Test");
     expect((await admin.from("venues").select("id").eq("id", venueId)).data).toHaveLength(1);
+  });
+
+  // The one exception (0172): a blocked venue whose deletion is scheduled was
+  // told to download its data, so the owner can still export it from
+  // BlockedScreen, with the owner password.
+  it("lets the owner export a blocked venue only while its deletion is scheduled", async () => {
+    const c = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+    await c.auth.signInWithPassword({ email: `blk-${stamp}@test.local`, password: "staff-password-9" });
+    session.client = c;
+    await admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Сопственик Блк", p_password: "owner-pass-blk1", p_is_owner: true });
+    const exportPost = (password: string) =>
+      exportPostRoute(
+        new NextRequest("http://localhost/api/venue/privacy/export", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-real-ip": `blk-export-${stamp}` },
+          body: JSON.stringify({ password }),
+        }),
+        { params: Promise.resolve({}) } as never,
+      );
+
+    expect((await exportPost("owner-pass-blk1")).status).toBe(401); // nothing scheduled
+    await admin.from("venues").update({ deletion_scheduled_for: new Date(Date.now() + 5 * 86_400_000).toISOString() }).eq("id", venueId);
+    try {
+      expect((await exportPost("wrong-password")).status).toBe(401);
+      const res = await exportPost("owner-pass-blk1");
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="podatoci-/);
+      expect(JSON.stringify(await res.json())).toContain("Blk & Test");
+    } finally {
+      await admin.from("venues").update({ deletion_scheduled_for: null }).eq("id", venueId);
+    }
   });
 
   it("staff cannot unblock or change the plan themselves", async () => {

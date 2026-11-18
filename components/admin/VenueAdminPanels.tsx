@@ -17,7 +17,14 @@ import {
   blockVenue,
   unblockVenue,
   deleteVenue,
+  scheduleVenueDeletion,
+  cancelVenueDeletion,
 } from "@/app/admin/(panel)/venues/actions";
+import { formatVenueDatePadded } from "@/lib/date";
+import { RETENTION_FACTS } from "@/lib/legal/facts";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
+
+const VENUE_DELETION_DAYS = RETENTION_FACTS.exportWindowAfterEndDays;
 
 // Full venue detail panels (task 3.3): rename, plan, feature overrides,
 // staff support actions, block/unblock, and account deletion. Task 3.2 left
@@ -129,7 +136,7 @@ export function VenueAdminPanels({
         <div className="panel-h">
           <h2 className="panel-t">Бришење</h2>
         </div>
-        <DeleteVenuePanel venueId={venue.id} venueName={venue.name} />
+        <DeleteVenuePanel venueId={venue.id} venueName={venue.name} scheduledFor={venue.deletionScheduledFor} />
       </section>
     </>
   );
@@ -182,7 +189,7 @@ function ManagerRow({ venueId, manager }: { venueId: string; manager: { id: stri
             aria-label={`Нова лозинка за ${manager.name}`}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            minLength={8}
+            minLength={MIN_PASSWORD_LENGTH}
             required
             disabled={pending}
           />
@@ -196,30 +203,68 @@ function ManagerRow({ venueId, manager }: { venueId: string; manager: { id: stri
   );
 }
 
-function DeleteVenuePanel({ venueId, venueName }: { venueId: string; venueName: string }) {
+// 0172: deletion is scheduled 15 days ahead (the venue sees the date and is
+// told to download its data); the daily retention cron does the deleting.
+// "Избриши веднаш" exists only once a deletion is scheduled, behind the same
+// typed-name confirmation plus a browser confirm.
+function DeleteVenuePanel({ venueId, venueName, scheduledFor }: { venueId: string; venueName: string; scheduledFor: string | null }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function confirm(typed: string) {
-    // Guards against a double submit: ConfirmTyped disables its own input
-    // and button while `pending`, so a second click can't fire this again
-    // before the first request resolves.
+  // Guards against a double submit: ConfirmTyped disables its own input and
+  // button while `pending`, so a second click can't fire again before the
+  // first request resolves.
+  async function run(action: () => Promise<{ ok: boolean; error?: string }>, onDone: () => void) {
     setPending(true);
     setError(null);
-    const result = await deleteVenue({ venueId, confirmName: typed });
-    if (result.ok) {
-      router.push("/admin/venues");
-      return;
+    try {
+      const result = await action();
+      if (result.ok) {
+        onDone();
+        return;
+      }
+      setError(result.error ?? "Акцијата не успеа.");
+    } catch {
+      setError("Акцијата не успеа. Обидете се повторно.");
     }
     setPending(false);
-    setError(result.error);
   }
+
+  const refresh = () => {
+    setPending(false);
+    router.refresh();
+  };
+  const schedule = (typed: string) => void run(() => scheduleVenueDeletion({ venueId, confirmName: typed }), refresh);
+  const cancel = () => void run(() => cancelVenueDeletion({ venueId }), refresh);
+  const removeNow = (typed: string) => {
+    if (!window.confirm("Локалот ќе биде избришан веднаш и трајно. Продолжи?")) return;
+    void run(() => deleteVenue({ venueId, confirmName: typed }), () => router.push("/admin/venues"));
+  };
 
   return (
     <div style={{ padding: "0 20px 16px" }}>
-      <p className="muted">Ова трајно ги брише локалот, неговите простории, настани и сметките на вработените што не работат во друг локал.</p>
-      <ConfirmTyped expected={venueName} label="Избриши сметка" onConfirm={confirm} pending={pending} />
+      {scheduledFor ? (
+        <>
+          <p>
+            Бришењето е закажано за <b>{formatVenueDatePadded(scheduledFor)}</b>. Дотогаш локалот работи нормално и гледа
+            известување да ги преземе своите податоци.
+          </p>
+          <button type="button" className="btn btn-ghost" onClick={cancel} disabled={pending} style={{ marginBottom: 16 }}>
+            Откажи бришење
+          </button>
+          <p className="muted">Избриши веднаш, без да се чека закажаниот датум. Ова не може да се врати.</p>
+          <ConfirmTyped expected={venueName} label="Избриши веднаш" onConfirm={removeNow} pending={pending} />
+        </>
+      ) : (
+        <>
+          <p className="muted">
+            Локалот ќе биде избришан за {VENUE_DELETION_DAYS} дена, со неговите простории, настани и сметките на вработените.
+            Дотогаш бришењето може да се откаже.
+          </p>
+          <ConfirmTyped expected={venueName} label="Избриши локал" onConfirm={schedule} pending={pending} />
+        </>
+      )}
       {error ? <p className="auth-error">{error}</p> : null}
     </div>
   );

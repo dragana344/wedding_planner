@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, elevateAsOwner, futureDate, loginCouple, signUpVenue, uniqueId } from "./helpers";
+import { adminClient, createEventWithCouple, elevateAsOwner, futureDate, loginCouple, createVenueAndSignIn, uniqueId } from "./helpers";
 
 // The cron route is called with the secret playwright.config.ts gives both the
 // app and the test workers.
@@ -15,7 +15,7 @@ function skopjeDate(offsetDays: number): string {
 // cron's automatic send of the final menu numbers.
 test("change marks both ways, Видено, and the automatic menu send", async ({ page, anonPage, request }) => {
   const admin = adminClient();
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const couple = await createEventWithCouple(page, account);
   const { data: event } = await admin.from("events").select("id").eq("couple_names", couple.coupleNames).single();
 

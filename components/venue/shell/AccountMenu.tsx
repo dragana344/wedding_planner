@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useManagerElevation, reportElevationRejected } from "./ManagerElevationContext";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 export function AccountMenu({ venueName }: { venueName: string }) {
   const [open, setOpen] = useState(false);
@@ -195,7 +196,7 @@ export function AccountMenu({ venueName }: { venueName: string }) {
                       type="password"
                       value={newManagerPassword}
                       onChange={(e) => setNewManagerPassword(e.target.value)}
-                      minLength={8}
+                      minLength={MIN_PASSWORD_LENGTH}
                       required
                       disabled={isChangingPassword}
                     />

@@ -53,7 +53,7 @@ export function MarketingNav() {
             Најави се
           </Link>
           <Link href="/signup" className="btn btn-red btn-sm">
-            Регистрирај се
+            Побарај демо
           </Link>
         </div>
         <button

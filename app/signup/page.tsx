@@ -1,17 +1,18 @@
 import { AuthScreen } from "@/components/auth/AuthScreen";
-import { SignupForm } from "@/components/auth/SignupForm";
+import { DemoRequestForm } from "@/components/auth/DemoRequestForm";
 
+// Public self-signup is closed: the team sets each venue up after a demo.
 export default function SignupPage() {
   return (
     <AuthScreen
       theme="landing"
-      eyebrow="Започни бесплатно"
+      eyebrow="Побарај демо"
       tagline="Организирајте настани, резервации и гости — сè на едно место."
-      title="Создади сметка"
-      subtitle="Бесплатна сметка за вашиот локал, без картичка."
+      title="Побарај демо"
+      subtitle="Оставете ни контакт. Ќе ви го покажеме Каде си?, а потоа ние ќе го поставиме вашиот локал."
       switchTo={{ prompt: "Веќе имате сметка?", label: "Најави се", href: "/login" }}
     >
-      <SignupForm />
+      <DemoRequestForm />
     </AuthScreen>
   );
 }

@@ -5,6 +5,7 @@ import {
   assertUuids,
   budgetItemBody,
   contactMessageBody,
+  demoRequestBody,
   guestCountBody,
   guestCreateBody,
   guestUpdateBody,
@@ -18,9 +19,13 @@ import {
   seatingElementUpdateBody,
   slugParams,
   supportTicketBody,
-  venueSignupBody,
   INVALID_INPUT_ERROR,
+  addManagerBody,
+  changeManagerPasswordBody,
+  coOrganizerCreateBody,
+  regenerateEventPasswordBody,
 } from "@/lib/api/schemas";
+import { MIN_PASSWORD_LENGTH, PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 const ID = "3f2b8c1e-9a4d-4c2e-8f1a-2b3c4d5e6f70";
 const ID2 = "00000000-0000-0000-0000-000000000001";
@@ -29,6 +34,22 @@ const INJECTION = "x),menu_item_id.not.is.null";
 function msg(result: ReturnType<typeof parseInput>) {
   return result.success ? null : result.error;
 }
+
+describe("one minimum password length (group A task 6)", () => {
+  const short = "x".repeat(MIN_PASSWORD_LENGTH - 1);
+  const ok = "x".repeat(MIN_PASSWORD_LENGTH);
+  it.each([
+    ["add manager", addManagerBody, (password: string) => ({ name: "Ана", password })],
+    ["change manager password", changeManagerPasswordBody, (newPassword: string) => ({ currentPassword: "old", newPassword })],
+    ["co-organizer", coOrganizerCreateBody, (password: string) => ({ side: "bride", username: "mama", password })],
+    ["couple password", regenerateEventPasswordBody, (password: string) => ({ password })],
+  ] as const)("%s: refuses one character short of the minimum with the shared message, accepts the minimum", (_name, schema, body) => {
+    const bad = schema.safeParse(body(short));
+    expect(bad.success).toBe(false);
+    expect(bad.error!.issues[0].message).toBe(PASSWORD_LENGTH_ERROR);
+    expect(schema.safeParse(body(ok)).success).toBe(true);
+  });
+});
 
 describe("uuid helpers", () => {
   it("accepts any 8-4-4-4-12 hex id and rejects everything else", () => {
@@ -180,18 +201,24 @@ describe("public schemas", () => {
     );
   });
 
-  it("signup: keeps the required message and caps the venue name", () => {
-    const ownerFields = { owner_name: "Марко", owner_password: "owner-pass-123" };
-    expect(venueSignupBody.safeParse({ venue_name: "Ресторан", ...ownerFields }).success).toBe(true);
-    expect(msg(parseInput(venueSignupBody, { venue_name: "  ", ...ownerFields }, "D"))).toBe("Внесете име на локалот.");
-    expect(venueSignupBody.safeParse({ venue_name: "x".repeat(201), ...ownerFields }).success).toBe(false);
+  it("demo request: requires name, venue, city, phone and email; the message is optional", () => {
+    const base = { name: "Ана", venue_name: "Ресторан Езеро", city: "Охрид", phone: "070 123 456", email: "ana@example.com" };
+    expect(demoRequestBody.safeParse(base).success).toBe(true);
+    expect(demoRequestBody.safeParse({ ...base, message: "Имаме две сали." }).success).toBe(true);
+    expect(msg(parseInput(demoRequestBody, { ...base, city: " " }, "D"))).toBe("Внесете име, локал, град, телефон и е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, phone: undefined }, "D"))).toBe("Внесете име, локал, град, телефон и е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, message: "x".repeat(5001) }, "D"))).toBe("Името, е-поштата или пораката се предолги.");
+    expect(demoRequestBody.safeParse({ ...base, phone: "1".repeat(51) }).success).toBe(false);
   });
 
-  it("signup: requires the owner's name and a manager password of at least 8 characters", () => {
-    const base = { venue_name: "Ресторан" };
-    expect(venueSignupBody.safeParse({ ...base, owner_name: "", owner_password: "owner-pass-123" }).success).toBe(false);
-    expect(venueSignupBody.safeParse({ ...base, owner_name: "Марко", owner_password: "short" }).success).toBe(false);
-    expect(venueSignupBody.safeParse({ ...base, owner_name: "Марко", owner_password: "owner-pass-123" }).success).toBe(true);
+  it("demo request: the email must be a real address, trimmed, at most 254 characters", () => {
+    const base = { name: "Ана", venue_name: "Ресторан Езеро", city: "Охрид", phone: "070 123 456", email: "ana@example.com" };
+    expect(demoRequestBody.parse({ ...base, email: "  ana@example.com " }).email).toBe("ana@example.com");
+    expect(msg(parseInput(demoRequestBody, { ...base, email: "не-е-пошта" }, "D"))).toBe("Внесете важечка е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, email: "ana@" }, "D"))).toBe("Внесете важечка е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, email: "  " }, "D"))).toBe("Внесете име, локал, град, телефон и е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, email: undefined }, "D"))).toBe("Внесете име, локал, град, телефон и е-пошта.");
+    expect(msg(parseInput(demoRequestBody, { ...base, email: `${"a".repeat(250)}@b.mk` }, "D"))).toBe("Името, е-поштата или пораката се предолги.");
   });
 
   it("support ticket: requires name, problem and description, and caps lengths", () => {

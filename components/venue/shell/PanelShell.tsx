@@ -18,6 +18,8 @@ import { TABLE_RESERVATIONS_ENABLED } from "@/lib/venue/demo-scope";
 import { AccountMenu } from "./AccountMenu";
 import { ManagerElevationProvider } from "./ManagerElevationContext";
 import { PasswordResetNotice } from "./PasswordResetNotice";
+import { VenueDeletionBanner } from "./VenueDeletionBanner";
+import { TermsUpdateBanner, VENUE_TERMS_HREF } from "./TermsUpdateBanner";
 
 const MK_MONTHS = [
   "Јануари", "Февруари", "Март", "Април", "Мај", "Јуни",
@@ -54,8 +56,14 @@ export function PanelShell({
   badges,
   dots,
   brand,
+  deletionScheduledFor,
+  termsUpdatePending,
   children,
 }: {
+  /** A newer Terms version than the venue accepted: a banner for the owner, never blocking. */
+  termsUpdatePending?: boolean;
+  /** 0172: when the admin-scheduled deletion of this venue runs; shows VenueDeletionBanner. */
+  deletionScheduledFor?: string | null;
   /** The venue's own logo and accent colour (0087), when its plan includes branding. */
   brand?: { logoUrl: string | null; vars: BrandVars | null };
   venueName: string;
@@ -177,6 +185,8 @@ export function PanelShell({
           </div>
         </header>
 
+        <VenueDeletionBanner scheduledFor={deletionScheduledFor} />
+        <TermsUpdateBanner pending={termsUpdatePending} onTermsPage={pathname === VENUE_TERMS_HREF} />
         <PasswordResetNotice />
         {isLocked(active.feature) ? <LockedContent audience="venue">{children}</LockedContent> : children}
       </div>

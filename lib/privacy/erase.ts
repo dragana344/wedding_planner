@@ -64,13 +64,40 @@ export async function deleteVenueAccount(venueId: string, actor: ErasureActor = 
   });
   if (error) throw error;
   if (!data) return false;
+  await finishVenueDeletion(venueId, data, actor);
+  return true;
+}
 
+/**
+ * The daily cron's half of an admin-scheduled deletion (0172): deletes the
+ * venue only if its deletion_scheduled_for is still set and due, in the same
+ * way as {@link deleteVenueAccount}. Returns false when nothing was deleted
+ * (cancelled in the meantime, not due yet, or already gone).
+ */
+export async function deleteScheduledVenue(venueId: string): Promise<boolean> {
+  const { data, error } = await createServiceRoleClient().rpc("delete_scheduled_venue", { p_venue_id: venueId });
+  if (error) throw error;
+  if (!data) return false;
+  await finishVenueDeletion(venueId, data, {});
+  return true;
+}
+
+// The parts SQL cannot do: the staff Auth users and the stored photos. An
+// Auth user that can't be deleted now (the venue row is already gone) is
+// queued in auth_user_deletion_retries (0178); the daily retention cron
+// retries it (runAuthUserDeletionRetries).
+async function finishVenueDeletion(venueId: string, data: unknown, actor: ErasureActor): Promise<void> {
+  const client = createServiceRoleClient();
   const userIds = ((data as { user_ids?: string[] }).user_ids ?? []).filter(Boolean);
   for (const userId of userIds) {
     const { error: userError } = await client.auth.admin.deleteUser(userId);
-    if (userError) log("error", "privacy_staff_user_delete_failed", { user_id: userId, ...errorFields(userError) });
+    if (!userError || userError.status === 404) continue;
+    log("error", "privacy_staff_user_delete_failed", { user_id: userId, venue_id: venueId, ...errorFields(userError) });
+    const { error: queueError } = await client
+      .from("auth_user_deletion_retries")
+      .upsert({ user_id: userId, venue_id: venueId, last_error: userError.message.slice(0, 500) }, { onConflict: "user_id" });
+    if (queueError) log("error", "auth_user_delete_retry_queue_failed", { user_id: userId, ...errorFields(queueError) });
   }
   logSecurityEvent("venue_account_deleted", { venue_id: venueId, user_id: actor.actorId ?? undefined });
   await drainStorage("venue_deletion");
-  return true;
 }

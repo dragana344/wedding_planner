@@ -9,11 +9,14 @@
 import { adminAction } from "@/lib/admin/actions";
 import { venueActionCore as core, venueSchemas as schemas } from "@/lib/admin/venue-actions-core";
 
-export const renameVenue = adminAction(schemas.rename, core.rename);
+export const createVenue = adminAction(schemas.create, core.create);
+export const renameVenue =adminAction(schemas.rename, core.rename);
 export const setVenuePlan = adminAction(schemas.setPlan, core.setPlan);
 export const saveVenueOverride = adminAction(schemas.saveOverride, core.saveOverride);
 export const blockVenue = adminAction(schemas.block, core.block);
 export const unblockVenue = adminAction(schemas.unblock, core.unblock);
+export const scheduleVenueDeletion = adminAction(schemas.scheduleRemoval, core.scheduleRemoval);
+export const cancelVenueDeletion = adminAction(schemas.cancelRemoval, core.cancelRemoval);
 export const deleteVenue = adminAction(schemas.remove, core.remove);
 export const sendStaffPasswordReset = adminAction(schemas.staff, core.staffPasswordReset);
 export const signOutStaff = adminAction(schemas.staff, core.staffSignOut);

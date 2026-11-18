@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Page } from "@playwright/test";
+import { LEGAL_VERSION } from "../lib/legal/facts";
 
 // Shared steps for the smoke tests. Every test creates its own uniquely named
 // venue/event/guest data, so tests are independent and the suite can be re-run
@@ -42,8 +43,32 @@ export type VenueAccount = {
   ownerPassword: string;
 };
 
-/** Flow 1: sign a new venue up at /signup; resolves once the venue dashboard has loaded. */
-export async function signUpVenue(page: Page): Promise<VenueAccount> {
+/**
+ * Flow 1: a venue the team opened (public signup is closed; production uses
+ * the admin's "Нов локал", same service-role calls), then its owner signs in
+ * at /login. The first-login steps (own password, Terms) are skipped here —
+ * the password is the test's own and the Terms are recorded as accepted;
+ * e2e/venue-onboarding.spec.ts walks through them. Resolves once the venue
+ * dashboard has loaded.
+ */
+export async function createVenueAndSignIn(page: Page): Promise<VenueAccount> {
+  const account = await createVenueAccount({ termsAccepted: true });
+  await signInVenue(page, account);
+  await page.waitForURL((url) => url.pathname === "/venue", { timeout: 30_000 });
+  // The page title, not a dashboard card: some cards are hidden on phones.
+  await expect(page.getByRole("heading", { level: 1, name: "КОНТРОЛНА ТАБЛА" })).toBeVisible();
+  return account;
+}
+
+export async function signInVenue(page: Page, account: { email: string; password: string }): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel("Е-пошта").fill(account.email);
+  await page.getByLabel("Лозинка").fill(account.password);
+  await page.getByRole("button", { name: "Најави се" }).click();
+}
+
+/** The Auth user + venue + owner, as venueActionCore.create makes them. */
+export async function createVenueAccount(opts: { termsAccepted: boolean; mustChangePassword?: boolean }): Promise<VenueAccount> {
   const id = uniqueId();
   const account = {
     venueName: `E2E Локал ${id}`,
@@ -52,19 +77,30 @@ export async function signUpVenue(page: Page): Promise<VenueAccount> {
     ownerName: `Сопственик ${id}`,
     ownerPassword: `Owner-pass-${id}`,
   };
-  await page.goto("/signup");
-  await page.getByLabel("Име на локалот").fill(account.venueName);
-  await page.getByLabel("Име (за менаџерска најава)").fill(account.ownerName);
-  await page.getByLabel("Менаџерска лозинка").fill(account.ownerPassword);
-  await page.getByLabel("Е-пошта").fill(account.email);
-  // Exact match: "Лозинка" is also a substring of "Менаџерска лозинка" above,
-  // which would otherwise make this locator ambiguous (final review finding).
-  await page.getByLabel("Лозинка", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: "Регистрирај се" }).click();
-
-  await page.waitForURL((url) => url.pathname === "/venue", { timeout: 30_000 });
-  // The page title, not a dashboard card: some cards are hidden on phones.
-  await expect(page.getByRole("heading", { level: 1, name: "КОНТРОЛНА ТАБЛА" })).toBeVisible();
+  const db = adminClient();
+  const { data: created, error: createError } = await db.auth.admin.createUser({
+    email: account.email,
+    password: account.password,
+    email_confirm: true,
+    app_metadata: opts.mustChangePassword ? { must_change_password: true } : undefined,
+  });
+  if (createError || !created.user) throw createError ?? new Error("Failed to create the E2E venue user.");
+  const { data: venueId, error: venueError } = await db.rpc("provision_venue", {
+    p_user_id: created.user.id,
+    p_venue_name: account.venueName,
+    p_owner_name: account.ownerName,
+    p_owner_password: account.ownerPassword,
+    p_address: null,
+    p_room_names: [],
+  });
+  if (venueError) throw venueError;
+  if (opts.termsAccepted) {
+    const { error } = await db
+      .from("venues")
+      .update({ terms_version: LEGAL_VERSION, terms_accepted_at: new Date().toISOString() })
+      .eq("id", venueId as string);
+    if (error) throw error;
+  }
   return account;
 }
 
@@ -181,7 +217,7 @@ export async function loginCouple(page: Page, couple: CoupleAccount): Promise<vo
 
 /** A signed-in couple with a fresh venue and event behind it. */
 export async function setUpCouple(page: Page): Promise<CoupleAccount> {
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const couple = await createEventWithCouple(page, account);
   // The couple signs in from its own browser, not the venue's; drop the
   // venue's cookies so the couple session is the only one in play.

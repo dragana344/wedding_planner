@@ -1,9 +1,9 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, elevateAsOwner, pickFutureCalendarDate, signUpVenue } from "./helpers";
+import { adminClient, createEventWithCouple, elevateAsOwner, pickFutureCalendarDate, createVenueAndSignIn } from "./helpers";
 
 // Flow 2: the venue creates an event together with the couple's login.
 test("venue creates an event with couple credentials", async ({ page }) => {
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const couple = await createEventWithCouple(page, account);
 
   // The event and its credentials exist server-side, under the new venue.
@@ -29,7 +29,7 @@ test("venue creates an event with couple credentials", async ({ page }) => {
 // the venue has — a hall is picked later, on its own rooms/menu step, where
 // a two-hall venue sees both as cards (2026-10-20 redesign).
 test("new event in a two-hall venue offers both halls on the rooms step", async ({ page }) => {
-  const venue = await signUpVenue(page);
+  const venue = await createVenueAndSignIn(page);
   const admin = adminClient();
   const { data: row, error } = await admin.from("venues").select("id").eq("name", venue.venueName).single();
   expect(error).toBeNull();

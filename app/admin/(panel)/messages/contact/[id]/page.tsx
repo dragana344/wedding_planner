@@ -23,7 +23,7 @@ export default async function ContactMessagePage({ params }: { params: Promise<{
       <BackButton label="Назад кон пораки" />
       <section className="panel">
         <div className="panel-h">
-          <h2 className="panel-t">Порака од јавната форма</h2>
+          <h2 className="panel-t">{message.kind === "demo" ? "Барање за демо" : "Порака од јавната форма"}</h2>
           <span className={`pill ${SUPPORT_STATUS_PILL[message.status]}`}>{SUPPORT_STATUS_LABEL[message.status]}</span>
         </div>
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>

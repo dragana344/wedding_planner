@@ -20,6 +20,7 @@
 
 import { z } from "zod";
 import { DEPOSIT_OVER_TOTAL_ERROR } from "@/lib/venue/events";
+import { MIN_PASSWORD_LENGTH, PASSWORD_LENGTH_ERROR } from "@/lib/security/password";
 
 // ---------------------------------------------------------------------------
 // Messages
@@ -64,6 +65,12 @@ export function assertUuids(values: readonly unknown[], message = "Invalid id.")
 
 export const uuid = z.string().regex(UUID_RE);
 
+/** Any password being set (venue, manager, couple, co-organizer): lib/security/password.ts. */
+export const newPassword = z
+  .string({ error: PASSWORD_LENGTH_ERROR })
+  .min(MIN_PASSWORD_LENGTH, { error: PASSWORD_LENGTH_ERROR })
+  .max(200, { error: "Лозинката е предолга." });
+
 /**
  * Public invitation slugs are base64url of 9 random bytes (12 chars); the
  * format is checked loosely so a slug-shaped value is the only thing that
@@ -107,11 +114,22 @@ export const roomIdQuery = z
 // ---------------------------------------------------------------------------
 // Couple: agenda
 
+// SEC-025 SR-11: only web links (or empty), never javascript:/data: URLs.
+const mapUrl = z
+  .string()
+  .max(2000)
+  .refine((v) => v.trim() === "" || /^https?:\/\//i.test(v.trim()), "Линкот мора да почнува со http:// или https://.")
+  .nullable()
+  .optional();
+
 const agendaFields = z.object({
   ...noType,
   time: timeOfDay.nullable().optional(),
   title: name,
   location: optionalText(NAME_MAX),
+  // 0156: the place's address and map link live on the agenda item.
+  address: optionalText(500),
+  map_url: mapUrl,
   notes: optionalText(TEXT_MAX),
 });
 export const agendaCreateBody = agendaFields;
@@ -226,19 +244,15 @@ export const guestsSentBody = z.object({
 export const guestsEmailBody = z.object({ guest_ids: z.array(uuid).min(1).max(200) });
 
 /** A12: a co-organizer login. Usernames: letters, digits, dot, dash, underscore. */
-const coPassword = z
-  .string()
-  .min(10, { error: "Лозинката мора да има најмалку 10 знаци." })
-  .max(200, { error: "Лозинката е предолга." });
 export const coOrganizerCreateBody = z.object({
   side: z.enum(GUEST_SIDES),
   username: z
     .string()
     .trim()
     .regex(/^[\p{L}\p{N}._-]{3,60}$/u, { error: "Корисничкото име: 3–60 букви, бројки, точка, цртичка." }),
-  password: coPassword,
+  password: newPassword,
 });
-export const coOrganizerPasswordBody = z.object({ password: coPassword });
+export const coOrganizerPasswordBody = z.object({ password: newPassword });
 
 /** A10: when the guests' reminder goes out (ISO time), or switched off. */
 export const reminderBody = z.object({
@@ -272,13 +286,7 @@ export const invitationBody = z.object({
 export const locationBody = z.object({
   label: name,
   address: optionalText(500),
-  // SEC-025 SR-11: only web links (or empty), never javascript:/data: URLs.
-  map_url: z
-    .string()
-    .max(2000)
-    .refine((v) => v.trim() === "" || /^https?:\/\//i.test(v.trim()), "Линкот мора да почнува со http:// или https://.")
-    .nullable()
-    .optional(),
+  map_url: mapUrl,
 });
 
 // ---------------------------------------------------------------------------
@@ -405,7 +413,7 @@ const eventContactsShape = {
 // shape has to travel in the same request body as the rest of the event.
 const eventCredentialsShape = {
   username: z.string({ error: EVENT_INPUT_REQUIRED_ERROR }).min(1).max(NAME_MAX),
-  password: z.string({ error: "Лозинката мора да има најмалку 10 знаци." }).min(10).max(200),
+  password: newPassword,
 };
 
 export const EVENT_DATE_INVALID_ERROR = "Внесете важечки датум (ГГГГ-ММ-ДД).";
@@ -564,7 +572,7 @@ export const seatLookupBody = z.object(
 );
 
 // ---------------------------------------------------------------------------
-// Public: venue contact form and signup
+// Public: venue contact form and demo request
 
 export const CONTACT_REQUIRED_ERROR = "Внесете име, е-пошта и порака.";
 export const CONTACT_TOO_LONG_ERROR = "Името, е-поштата или пораката се предолги.";
@@ -582,26 +590,30 @@ export const contactMessageBody = z.object(
   { error: CONTACT_REQUIRED_ERROR },
 );
 
-export const VENUE_NAME_REQUIRED_ERROR = "Внесете име на локалот.";
-export const venueSignupBody = z.object(
+// /signup's "request a demo" form (self-signup is closed: the team sets each
+// venue up). Same checks as the contact form; the message is optional.
+export const DEMO_REQUIRED_ERROR = "Внесете име, локал, град, телефон и е-пошта.";
+export const DEMO_EMAIL_ERROR = "Внесете важечка е-пошта.";
+const requiredDemoText = (max: number) =>
+  z
+    .string({ error: DEMO_REQUIRED_ERROR })
+    .refine((v) => v.trim().length > 0, { error: DEMO_REQUIRED_ERROR })
+    .refine((v) => v.length <= max, { error: CONTACT_TOO_LONG_ERROR });
+export const demoRequestBody = z.object(
   {
-    venue_name: z
-      .string({ error: VENUE_NAME_REQUIRED_ERROR })
-      .refine((v) => v.trim().length > 0, { error: VENUE_NAME_REQUIRED_ERROR })
-      .refine((v) => v.trim().length <= NAME_MAX, { error: "Името на локалот е предолго." }),
-    owner_name: z
-      .string({ error: "Внесете име на сопственикот." })
-      .refine((v) => v.trim().length > 0, { error: "Внесете име на сопственикот." })
-      .refine((v) => v.trim().length <= NAME_MAX, { error: "Името на сопственикот е предолго." }),
-    owner_password: z
-      .string({ error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
-      .min(8, { error: "Лозинката за менаџер мора да има најмалку 8 знаци." })
-      .max(200),
-    // Both optional: a venue can skip them at signup and add everything later from Settings.
-    address: optionalText(300),
-    room_names: z.array(z.string().trim().min(1).max(NAME_MAX)).max(20).optional(),
+    name: requiredDemoText(NAME_MAX),
+    venue_name: requiredDemoText(NAME_MAX),
+    city: requiredDemoText(100),
+    phone: requiredDemoText(50),
+    email: z
+      .string({ error: DEMO_REQUIRED_ERROR })
+      .trim()
+      .min(1, { error: DEMO_REQUIRED_ERROR })
+      .max(254, { error: CONTACT_TOO_LONG_ERROR })
+      .email({ error: DEMO_EMAIL_ERROR }),
+    message: z.string().max(TEXT_MAX, { error: CONTACT_TOO_LONG_ERROR }).optional(),
   },
-  { error: VENUE_NAME_REQUIRED_ERROR },
+  { error: DEMO_REQUIRED_ERROR },
 );
 
 // ---------------------------------------------------------------------------
@@ -651,7 +663,7 @@ export const ADD_MANAGER_REQUIRED_ERROR = "Внесете име и лозинк
 export const addManagerBody = z.object(
   {
     name: z.string({ error: ADD_MANAGER_REQUIRED_ERROR }).min(1).max(NAME_MAX),
-    password: z.string({ error: "Лозинката мора да има најмалку 8 знаци." }).min(8).max(200),
+    password: newPassword,
   },
   { error: ADD_MANAGER_REQUIRED_ERROR },
 );
@@ -664,15 +676,20 @@ export const CURRENT_PASSWORD_REQUIRED_ERROR = "Внесете ја тековн
 export const changeManagerPasswordBody = z.object(
   {
     currentPassword: z.string({ error: CURRENT_PASSWORD_REQUIRED_ERROR }).min(1, { error: CURRENT_PASSWORD_REQUIRED_ERROR }),
-    newPassword: z.string({ error: "Лозинката мора да има најмалку 8 знаци." }).min(8).max(200),
+    newPassword,
   },
-  { error: "Лозинката мора да има најмалку 8 знаци." },
+  { error: PASSWORD_LENGTH_ERROR },
 );
 
 export const regenerateEventPasswordBody = z.object(
-  { password: z.string({ error: "Лозинката мора да има најмалку 10 знаци." }).min(10).max(200) },
-  { error: "Лозинката мора да има најмалку 10 знаци." },
+  { password: newPassword },
+  { error: PASSWORD_LENGTH_ERROR },
 );
+
+// ---------------------------------------------------------------------------
+// Venue reservations (0174: cancel keeps the record, hard delete is separate)
+
+export const reservationStatusBody = z.object({ status: z.enum(["reserved", "seated", "completed", "cancelled"]) });
 
 // ---------------------------------------------------------------------------
 // Parsing helper

@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { adminClient, createEventWithCouple, createEventWithMenus, elevateAsOwner, loginCouple, signUpVenue, uniqueId } from "./helpers";
+import { adminClient, createEventWithCouple, createEventWithMenus, elevateAsOwner, loginCouple, createVenueAndSignIn, uniqueId } from "./helpers";
 
 // Two packages on an event → a guest answers with 1 + 1 → the couple declines
 // a second guest and sends the numbers → the venue sees them and presses Видено.
@@ -15,7 +15,7 @@ test("two menus → guest RSVP → couple sends numbers → venue sees them and 
   const menuB = `Посно ${id}`;
 
   // The venue (this `page`) with two packages.
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const { data: venue } = await admin.from("venues").select("id").eq("name", account.venueName).single();
   for (const name of [menuA, menuB]) {
     const { data: tpl, error } = await admin.from("menu_templates").insert({ venue_id: venue!.id, name }).select("id").single();
@@ -112,7 +112,7 @@ test("custom menu built while creating the event", async ({ page, anonPage }) =>
   const menuName = `Мени на парот ${id}`;
   const dishName = `Сарма ${id}`;
 
-  const account = await signUpVenue(page);
+  const account = await createVenueAndSignIn(page);
   const { data: venue } = await admin.from("venues").select("id").eq("name", account.venueName).single();
   // Whatever the default plan says, this venue gets the custom menu.
   const { error: overrideError } = await admin

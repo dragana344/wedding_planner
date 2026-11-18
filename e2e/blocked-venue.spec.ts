@@ -1,11 +1,11 @@
 import { test, expect } from "./fixtures";
-import { adminClient, signUpVenue } from "./helpers";
+import { adminClient, createVenueAndSignIn } from "./helpers";
 
 // Admin spec D8: a blocked venue's staff see BlockedScreen on every panel page.
 // The pages render nothing without a venue and leave the decision to the
 // layout, so they never redirect a blocked user to /login.
 test("a blocked venue's staff see the blocked screen on the panel pages", async ({ page }) => {
-  const venue = await signUpVenue(page);
+  const venue = await createVenueAndSignIn(page);
   const admin = adminClient();
   const { data, error } = await admin.from("venues").select("id").eq("name", venue.venueName).single();
   expect(error).toBeNull();

@@ -19,7 +19,7 @@ const COLUMNS = [
     title: "Сметка",
     links: [
       { href: "/login", label: "Најави се" },
-      { href: "/signup", label: "Регистрирај се" },
+      { href: "/signup", label: "Побарај демо" },
       { href: "/#contact", label: "Контакт" },
     ],
   },

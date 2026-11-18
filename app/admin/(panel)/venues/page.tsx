@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Icon } from "@/components/venue/shell/Icon";
 import { listPlans, listVenues } from "@/lib/admin/queries";
 import { formatMkDate } from "@/lib/date";
+import { AddPanel } from "@/components/shared/AddPanel";
+import { CreateVenueForm } from "@/components/admin/CreateVenueForm";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,10 @@ export default async function VenuesPage({ searchParams }: { searchParams: Promi
   const [venues, plans] = await Promise.all([listVenues({ q, planId: plan }), listPlans()]);
   return (
     <div className="wrap">
+      <AddPanel title="Нов локал">
+        <CreateVenueForm plans={plans.map((p) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))} />
+      </AddPanel>
+
       <form className="bar" aria-label="Филтер на локали">
         <div className="search">
           <Icon name="search" size="sm" />
