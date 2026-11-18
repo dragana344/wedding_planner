@@ -16,8 +16,8 @@ const termsDocument: BiDocument = {
   ),
   intro: [
     bi(
-      `Овие услови важат меѓу ${P.company}, кој ја управува платформата („ние“), и локалот (правно лице или трговец) што регистрира сметка на платформата Каде си? на ${P.domain}. Со регистрација на локал ги прифаќате овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
-      `These terms apply between ${P.company}, which operates the platform ("we"), and the venue (a company or trader) that registers an account on the Каде си? platform at ${P.domain}. By registering a venue you accept these terms, including the Data Processing Agreement, on the venue's behalf. For the venue's clients and guests only the section "Clients and guests" applies.`,
+      `Овие услови важат меѓу ${P.company}, кој ја управува платформата („ние“), и локалот (правно лице или трговец) за кој нашиот тим отвора сметка на платформата Каде си? на ${P.domain}. Сопственикот на локалот ги прифаќа овие услови, вклучително Договорот за обработка на лични податоци, во име на локалот при првото најавување, а потоа при секоја нова верзија; платформата ги запишува верзијата и времето на прифаќањето. За клиентите и гостите на локалот важи само делот „Клиенти и гости“.`,
+      `These terms apply between ${P.company}, which operates the platform ("we"), and the venue (a company or trader) for which our team opens an account on the Каде си? platform at ${P.domain}. The venue's owner accepts these terms, including the Data Processing Agreement, on the venue's behalf at the first sign-in, and again for each new version; the platform records the version and time of acceptance. For the venue's clients and guests only the section "Clients and guests" applies.`,
     ),
     bi(
       `Овој документ е објавен на македонски и англиски јазик. Во случај на разлика, преовладува македонската верзија.`,
@@ -50,8 +50,8 @@ const termsDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Платформата им овозможува на локалите да управуваат со настани, резервации, простории, распоред на маси и менија, на клиентите да планираат настан (гости, покани, буџет, агенда, белешки), а на гостите да одговорат на покана. Функциите може да се менуваат и подобруваат со текот на времето.",
-            "The platform lets venues manage events, reservations, rooms, table layouts and menus, lets clients plan an event (guests, invitations, budget, agenda, notes), and lets guests answer an invitation. Features may change and improve over time.",
+            "Платформата им овозможува на локалите да управуваат со настани, резервации, простории, распоред на маси и менија, на клиентите да планираат настан (гости, покани, буџет, агенда, белешки), а на гостите да одговорат на покана, да испратат честитка и да споделат фотографии и видеа во албумот на настанот. Функциите може да се менуваат и подобруваат со текот на времето.",
+            "The platform lets venues manage events, reservations, rooms, table layouts and menus, lets clients plan an event (guests, invitations, budget, agenda, notes), and lets guests answer an invitation, send a greeting and share photos and videos in the event's album. Features may change and improve over time.",
           ),
         },
       ],
@@ -64,8 +64,8 @@ const termsDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Локалот е одговорен за точноста на податоците при регистрација и за тоа кој има пристап до неговата сметка.",
-              "The venue is responsible for accurate sign-up details and for who has access to its account.",
+              "Сметката на локалот ја отвора нашиот тим со податоците што ги дава локалот. Локалот е одговорен за нивната точност, за промена на привремената лозинка при првото најавување и за тоа кој има пристап до неговата сметка.",
+              "Our team opens the venue's account with the details the venue provides. The venue is responsible for their accuracy, for changing the temporary password at the first sign-in and for who has access to its account.",
             ),
             bi(
               "Локалот ги издава корисничкото име и лозинката на клиентот и треба да ги предаде на безбеден начин. Клиентот ги чува во тајност.",
@@ -90,8 +90,8 @@ const termsDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Регистрацијата е бесплатна. Платените планови и нивната цена се договараат посебно со локалот, а плаќањето се врши надвор од платформата. Платформата не обработува плаќања и не чува податоци за платежни картички.",
-            "Signing up is free. Paid plans and their price are agreed separately with the venue, and payment is made outside the platform. The platform processes no payments and stores no payment card data.",
+            "Планот и неговата цена се договараат посебно со локалот, а плаќањето се врши надвор од платформата. Платформата не обработува плаќања и не чува податоци за платежни картички.",
+            "The plan and its price are agreed separately with the venue, and payment is made outside the platform. The platform processes no payments and stores no payment card data.",
           ),
         },
       ],
@@ -200,12 +200,12 @@ const termsDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Локалот може во секое време да ги извези сите свои податоци и да ја избрише сметката во поставките. Бришењето е трајно: се бришат локалот, сите настани, клиенти, гости, резервации, фотографии и сметките на вработените.",
-              "The venue can export all its data and delete its account in the settings at any time. Deletion is permanent: the venue, all events, clients, guests, reservations, photos and staff accounts are deleted.",
+              "Локалот може во секое време да ги извези сите свои податоци и да ја избрише сметката во поставките. Тоа бришење е веднаш и трајно: се бришат локалот, сите настани, клиенти, гости, резервации, фотографии и сметките на вработените.",
+              "The venue can export all its data and delete its account in the settings at any time. That deletion is immediate and permanent: the venue, all events, clients, guests, reservations, photos and staff accounts are deleted.",
             ),
             bi(
-              `Кога услугата ќе престане од која било причина (бришење, затворање од наша страна или престанок на договорот), локалот има ${R.exportWindowAfterEndDays} дена да ги извезе податоците, а потоа ги бришеме сите лични податоци обработени за локалот. На барање писмено го потврдуваме бришењето.`,
-              `When the service ends for any reason (deletion, closure by us or end of the contract), the venue has ${R.exportWindowAfterEndDays} days to export its data, after which we delete all personal data processed for the venue. On request we confirm the deletion in writing.`,
+              `Кога ние ја затвораме сметката (престанок на договорот или затворање според точката подолу), бришењето го закажуваме ${R.exportWindowAfterEndDays} дена однапред. Во тој рок локалот го гледа датумот во панелот и може да ги извезе податоците, а ние може да го откажеме бришењето. Потоа ги бришеме сите лични податоци обработени за локалот. На барање писмено го потврдуваме бришењето.`,
+              `When we close the account (end of the contract or closure under the point below), we schedule the deletion ${R.exportWindowAfterEndDays} days ahead. Within that time the venue sees the date in its panel and can export its data, and we can cancel the deletion. After that we delete all personal data processed for the venue. On request we confirm the deletion in writing.`,
             ),
             bi(
               `Избришаните податоци исчезнуваат од резервните копии најдоцна по ${R.offsiteBackupDays} дена.`,
@@ -235,6 +235,14 @@ const termsDocument: BiDocument = {
               "The client is responsible for what it enters about other people (for example about guests).",
             ),
             bi(
+              `Клиентот има целосен пристап до денот на настанот, а потоа само за преглед и преземање. ${R.guestDataMonthsAfterEvent} месеци по настанот (за откажан настан ${R.cancelledEventAccessDays} дена по откажувањето, ако тоа е порано) пристапот завршува и личните податоци на настанот се бришат автоматски. Рокот може да го продолжи само нашиот тим, на барање. Пред тоа клиентот може да преземе копија од сите свои податоци во контролната табла.`,
+              `The client has full access until the day of the event, and after that for viewing and downloading only. ${R.guestDataMonthsAfterEvent} months after the event (for a cancelled event ${R.cancelledEventAccessDays} days after the cancellation, if that is earlier) the access ends and the event's personal data is erased automatically. Only our team can extend the period, on request. Before that the client can download a copy of all its data in the dashboard.`,
+            ),
+            bi(
+              "Гостинот што споделува фотографии или видеа во албумот се согласува тие да бидат прикажани во албумот на младенците или организаторот. Не споделувајте снимки на луѓе што не сакаат да бидат во албумот.",
+              "A guest who shares photos or videos in the album agrees to them being shown in the album of the couple or organizer. Do not share recordings of people who do not want to be in the album.",
+            ),
+            bi(
               "Ништо во овие услови не ги ограничува вашите права како потрошувач или според прописите за заштита на личните податоци.",
               "Nothing in these terms limits your rights as a consumer or under data protection law.",
             ),
@@ -262,8 +270,8 @@ const termsDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `За суштински измени ги известуваме локалите по е-пошта пред да стапат во сила. Ако продолжите да ја користите платформата по тој датум, ги прифаќате изменетите услови; во спротивно може да ја избришете сметката.`,
-            `We notify venues of material changes by email before they take effect. If you keep using the platform after that date, you accept the changed terms; otherwise you can delete your account.`,
+            `За суштински измени ги известуваме локалите по е-пошта пред да стапат во сила. Секоја нова верзија сопственикот на локалот ја прифаќа кога следниот пат ќе се отвори панелот на локалот; дотогаш панелот не може да се користи. Ако не ги прифаќате изменетите услови, побарајте од нас да ја затвориме сметката.`,
+            `We notify venues of material changes by email before they take effect. The venue's owner accepts each new version the next time the venue panel is opened; until then the panel cannot be used. If you do not accept the changed terms, ask us to close your account.`,
           ),
         },
       ],

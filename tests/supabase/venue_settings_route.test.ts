@@ -130,7 +130,7 @@ describe("PATCH /api/venue/settings", () => {
     // still refused before letting the owner actually change anything.
     for (const token of [managerToken, undefined, "0".repeat(64)]) {
       expect((await patch({ field: "account_email", email: "upad@test.local" }, token)).status).toBe(403);
-      expect((await patch({ field: "account_password", password: "upad12345" }, token)).status).toBe(403);
+      expect((await patch({ field: "account_password", password: "upad123456" }, token)).status).toBe(403);
     }
 
     const newPassword = "owner-new-pass-1";

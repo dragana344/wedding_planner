@@ -15,6 +15,17 @@
   min-height: 46px;
   padding: 0 22px;
 }
+/* Cancelled / finished bookings (kept as history, 0174): a collapsed, muted group under the day list. */
+.vp .qb-past-h {
+  padding: 12px 24px;
+  border-top: 1px solid var(--line-soft);
+}
+.vp .qb-slot-row.is-inactive {
+  color: var(--muted);
+}
+.vp .qb-slot-row.is-inactive b {
+  font-weight: 600;
+}
 .vp .qb-notice {
   display: flex;
   align-items: center;
@@ -32,6 +43,9 @@
   .vp .qb-new-btn {
     flex: 1;
     justify-content: center;
+  }
+  .vp .qb-past-h {
+    padding: 12px 16px;
   }
   /* Day bar: "‹ Денес ›" + count on one line, room chips, full-width search. */
   .vp .qb-day > .panel-h {

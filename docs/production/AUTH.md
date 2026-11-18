@@ -10,6 +10,7 @@ Set these in the production project (Supabase → Authentication). Local develop
 |---|---|---|---|
 | Site URL | URL Configuration | `https://<domain>` (canonical, INFRA-002) | `http://127.0.0.1:3000` |
 | Redirect URLs | URL Configuration | `https://<domain>/reset-password`, `https://admin.<domain>/**` ([ADMIN.md](ADMIN.md)) | `http://127.0.0.1:3000/reset-password`, `http://admin.localhost:<port>/**` |
+| Allow new users to sign up | Sign In / Providers (User Signups) | **Off** — public venue signup is closed; venues are created by the team (admin panel → Локали → Нов локал, [ADMIN.md](ADMIN.md)), which uses the service-role admin API and is not affected | Off (`enable_signup = false` in `[auth]` only; `[auth.email] enable_signup` stays `true` — it is the email provider switch, and off means nobody can sign in) |
 | Confirm email | Sign In / Providers → Email | **On** | Off (dev convenience; flows still work without a mail round-trip) |
 | Secure email change | Sign In / Providers → Email | On | On |
 | Secure password change | Sign In / Providers → Email | **On** | On |
@@ -20,11 +21,11 @@ Set these in the production project (Supabase → Authentication). Local develop
 | Rate limits | Rate Limits | Emails sent/hour: 100 (after custom SMTP); sign-ups & sign-ins: defaults; token refresh: default | defaults |
 | MFA | Multi-Factor | TOTP enabled (SEC-016, when built) | — |
 
-The app enforces the same password minimum in the forms (`minLength={10}` on signup and reset) and for couple passwords in the database (migration 0034).
+The app enforces the same password minimum in the forms (`minLength={10}` on password reset) and for couple passwords in the database (migration 0034).
 
-## What changes for users when "Confirm email" is on
+## Venue accounts are created by the team
 
-`/signup` creates the account, keeps the venue name in the user's metadata (`venue_name`) and shows "Ви испративме email на …" instead of the form (`components/auth/SignupForm.tsx`). The venue is provisioned on first sign-in after confirming: `/login` calls `finishPendingSignup` (`lib/venue/pending-signup.ts`) both after a password sign-in and when the confirmation link lands there already signed in, then continues to `/venue?tour=1`. The confirmation link asks to return to `<origin>/login`, so that URL must be in the project's Redirect URLs; otherwise Supabase falls back to the Site URL and the owner finishes by opening `/login` themselves.
+There is no public signup. `/signup` is a "request a demo" form that lands in the admin inbox (Пораки, `kind = 'demo'`). After the demo, the platform owner opens the venue in the admin panel, Локали → Нов локал ([ADMIN.md](ADMIN.md) "Opening a venue"): it creates the Auth user (email already confirmed) and the venue, shows the generated passwords once and emails the owner a link to set their password. On the first sign-in the owner must pick their own password (`app_metadata.must_change_password`) and accept the Terms. "Confirm email" therefore only matters for email changes.
 
 ## Password reset flow (AUTH-002)
 
@@ -40,7 +41,7 @@ The app enforces the same password minimum in the forms (`minLength={10}` on sig
 - [ ] Link opens `/reset-password`; new password works; old one doesn't.
 - [ ] Opening the same link again fails.
 - [ ] A second browser that was signed in is signed out after the change.
-- [ ] New signup with confirmation on: no access to `/venue` before clicking the email link.
+- [ ] Public signups are disabled: a `signUp` call from the browser with the anon key fails ("Signups not allowed").
 
 Record the date and result here:
 

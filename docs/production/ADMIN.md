@@ -23,6 +23,21 @@ node --env-file=<prod env> scripts/make-admin.mjs <email>
 
 After running it, sign in at `https://admin.<domain>/login` and enrol TOTP — the panel refuses entry until you do (below).
 
+## Opening a venue
+
+Public signup is closed. `/signup` is a "request a demo" form; each request shows up in **Пораки и барања** as "Барање за демо" (source Јавна форма, `contact_submissions.kind = 'demo'`). After the demo, open the venue in the admin panel:
+
+1. **Локали → + Нов локал.** Fill in the venue name, the owner's name, the owner's email (this becomes the venue's sign-in email), an optional phone, and the plan (the default plan is preselected). **Отвори локал.**
+2. The panel shows two generated passwords **once**, each with a copy button: the **sign-in password** (email + password at `/login`) and the **owner's password** (the owner's manager login, used for Поставки and to accept the terms). Send both to the owner. They are not shown again; if lost, use "Ресетирај лозинка" on the venue's page (sign-in password by email, owner password typed in).
+3. An email with a "set your password" link also goes to the owner. If email isn't set up yet this simply doesn't arrive; creating the venue still works and the panel says whether it was sent.
+4. **First sign-in** (the owner): the panel first asks for a new sign-in password of their own (at least 10 characters) — the generated one is only for that first sign-in. If the owner uses the emailed link instead, the password they set there counts as the new one.
+5. **Terms:** next, the screen "Услови за користење" links to `/terms`, `/privacy` and `/dpa`. The owner enters the owner's password, ticks the box and clicks **Прифаќам**. This records `venues.terms_version` (= `LEGAL_VERSION`) and `terms_accepted_at`, plus an audit row `venue_terms_accepted`. Anyone else signed in on the venue's shared login sees the same screen and is told the owner has to accept. The same screen comes back for every venue whenever `LEGAL_VERSION` changes.
+6. The dashboard then opens with the **onboarding tour** (only after the venue's first-ever acceptance).
+
+Under the hood (`venueActionCore.create`, `lib/admin/venue-actions-core.ts`): the service-role admin API creates the Auth user (email already confirmed, `app_metadata.must_change_password = true`), then `provision_venue` (0175) creates the venue on the chosen plan, its staff row and the owner manager login in one transaction. If provisioning fails the Auth user is deleted again. An email that already has an account is refused with "Веќе постои сметка со оваа е-пошта.". Audited as `venue_created_by_admin` (details: plan id, whether the email was sent — never the email or names). The venue side lives in `lib/venue/onboarding.ts`, `app/venue/layout.tsx`, `POST /api/venue/first-login` and `POST /api/venue/terms`. It all uses the service-role admin API, so it works with public signups off.
+
+**Production Supabase must have public signups disabled:** Authentication → Sign In / Providers → **Allow new users to sign up: Off**. Leave the **Email provider enabled**: switching it off stops every email + password login, venue staff and admins included. Otherwise anyone with the public anon key could still create an Auth user directly against Supabase, bypassing the closed `/signup` page. Locally this is `enable_signup = false` under `[auth]` in `supabase/config.toml`; `[auth.email] enable_signup` must stay `true`.
+
 ## Mandatory TOTP and recovery
 
 Every admin session must be `aal2` (TOTP-verified), not just password-verified (`aal1`). `lib/admin/guard.ts`'s `checkAdmin`/`requireAdmin` check both `claims.aal === "aal2"` (from the verified JWT) **and** re-confirm `app_metadata.role === "platform_admin"` against the Auth server on every call — never trusted from a cached cookie.
@@ -85,7 +100,7 @@ This is actually **two independent chains**, not one — `enabled` and `limit` e
 
 **Deletes are never gated (D7).** The enforcement triggers (`0049_entitlement_enforcement.sql`) attach only to `INSERT`/relevant `UPDATE`, never `DELETE` — a venue whose plan changed to lock a feature it already used keeps that existing data fully readable and removable; only *new* writes are refused. Likewise, an `UPDATE` whose only effect is nulling out already-set columns (erasure sweeps, `ON DELETE SET NULL` cascades) always passes, even on a locked feature — otherwise a locked plan could permanently wedge the privacy retention sweep or a routine FK cascade.
 
-**Where the capacity limits take effect** (S1 follow-ups): `storage_gb` is the guests' album quota per event (GB × 1024³, null = unlimited, shown as „Неограничено“ on the couple's storage meter; uploads fail closed if the entitlements can't be read). `photo_retention_days` is how long the album is kept after the event (purged only when enabled with a positive limit; disabled, null or 0 = forever); the sweep runs only once the owner sets `MEDIA_RETENTION_ENABLED=true` (`RETENTION.md`). `co_organizers` caps the event's co-organizer logins (trigger 0083, „Достигнат е лимитот од {n} дополнителни организатори.“). `max_video_seconds` (0151, limit-kind, every seeded plan 30, new plans 30) is the longest video a guest may send — in the shared album and in a greeting alike: null = no length limit, disabled or 0 = no videos (the album then takes photos only). The length is measured in the guest's browser; the server still caps every video at 100 MB. `reminders`, `personal_invite_links`, `photo_album`, `guest_greetings` and `video_greetings` also gate the reminders cron, the guests' public album routes (`/api/e/<token>/…`: photos and videos) and the invitation's greeting routes (`/api/invite/<slug>/greetings…`), with 403 and the locked message, not only the couple's pages. Staff password-reset emails (Venues — staff support) link to `/reset-password` on `NEXT_PUBLIC_SITE_URL` (else the request's Host via `lib/origin.ts`, with a leading `admin.` removed so the link never lands on the admin host), so that URL must be in Supabase's Redirect URLs.
+**Where the capacity limits take effect** (S1 follow-ups): `storage_gb` is the guests' album quota per event (GB × 1024³, null = unlimited, shown as „Неограничено“ on the couple's storage meter; uploads fail closed if the entitlements can't be read). `photo_retention_days` is how long the album is kept after the event (purged only when enabled with a positive limit; disabled, null or 0 = forever); the sweep runs only once the owner sets `MEDIA_RETENTION_ENABLED=true` (`RETENTION.md`). `co_organizers` caps the event's co-organizer logins (trigger 0083, „Достигнат е лимитот од {n} дополнителни организатори.“). `max_video_seconds` (0151, limit-kind, every seeded plan 30, new plans 30) is the longest video a guest may send — in the shared album and in a greeting alike: null = no length limit, disabled or 0 = no videos (the album then takes photos only). The length is measured in the guest's browser; the server still caps every video at 500 MB (0155). `reminders`, `personal_invite_links`, `photo_album`, `guest_greetings` and `video_greetings` also gate the reminders cron, the guests' public album routes (`/api/e/<token>/…`: photos and videos) and the invitation's greeting routes (`/api/invite/<slug>/greetings…`), with 403 and the locked message, not only the couple's pages. Staff password-reset emails (Venues — staff support) link to `/reset-password` on `NEXT_PUBLIC_SITE_URL` (else the request's Host via `lib/origin.ts`, with a leading `admin.` removed so the link never lands on the admin host), so that URL must be in Supabase's Redirect URLs.
 
 **On the couple API** (`lib/api/handler.ts`'s `withCoupleEvent`, `HandlerOptions.feature`): only `POST`/`PUT`/`PATCH` on a gated route check the feature; `GET` and `DELETE` always pass. A locked mutation answers `403 { error: "Оваа функција не е вклучена во вашиот пакет." }` — checked **after** the request body passes its own Zod schema, so a malformed body still 400s first.
 
@@ -123,6 +138,7 @@ Every `admin_*` action currently recorded (from `lib/admin/*-actions-core.ts`):
 
 | Action | From |
 |---|---|
+| `venue_created_by_admin` | Venues — Нов локал (details `{plan_id, email_sent}`; targetId = the new Auth user) |
 | `admin_venue_renamed` | Venues — rename |
 | `admin_venue_plan_changed` | Venues — change plan |
 | `admin_venue_override_saved` | Venues — feature override |
@@ -131,7 +147,9 @@ Every `admin_*` action currently recorded (from `lib/admin/*-actions-core.ts`):
 | `admin_staff_signed_out` | Venues — staff support |
 | `admin_venue_blocked` | Venues — block |
 | `admin_venue_unblocked` | Venues — unblock |
-| `admin_venue_deleted` | Venues — delete account |
+| `venue_deletion_scheduled` | Venues — schedule deletion (15 days later, 0172) |
+| `venue_deletion_cancelled` | Venues — cancel a scheduled deletion |
+| `admin_venue_deleted` | Venues — delete now (only once a deletion is scheduled; details `{venue_id, immediate: true}`) |
 | `admin_event_updated` | Events — edit date/times/status |
 | `admin_event_override_saved` | Events — feature override |
 | `admin_couple_login_unlocked` | Events — unlock couple login (the couple's and every co-organizer login of the event) |

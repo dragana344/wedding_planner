@@ -456,8 +456,9 @@ export function EventEditForm({
           )}
 
           {confirmingDelete ? (
-            <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5 }}>
-              Да се избрише?
+            <span role="group" aria-label="Бришење на настанот" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, fontSize: 13.5 }}>
+              {/* Group A task 4: deleting is for good; cancelling (status) keeps the record. */}
+              {`Да се избрише засекогаш „${event.couple_names}“, со гостите, менијата и сите податоци? Ова не може да се врати. За да остане запис, наместо тоа сменете го статусот во „Откажан“.`}
               <button
                 type="button"
                 onClick={handleDelete}
@@ -465,7 +466,7 @@ export function EventEditForm({
                 className="btn btn-ghost"
                 style={{ color: "var(--bad)" }}
               >
-                {isDeleting ? "Се брише..." : "Да, избриши"}
+                {isDeleting ? "Се брише..." : "Да, избриши засекогаш"}
               </button>
               <button
                 type="button"

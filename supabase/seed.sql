@@ -3,7 +3,7 @@
 -- replace this with a copy of production data.
 --
 --   Venue staff login:  demo@example.com / demo-password-123   (/login)
---   Owner elevation:    owner / owner123                       (AccountMenu, after staff login)
+--   Owner elevation:    owner / owner12345                     (AccountMenu, after staff login)
 --   Couple login:       demo-couple / demo-couple-123          (/couple/login)
 --   Floor-plan lock:    1234
 
@@ -39,7 +39,7 @@ values ('d0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-0000000
 -- Owner-elevation login (spec D4, migration 0091): without this row the demo
 -- staff login can see the dashboard but can't elevate as owner, so Settings,
 -- creating/editing events, reports and managing managers all 403.
-select public.create_venue_manager('d0000000-0000-4000-8000-0000000000a1', 'owner', 'owner123', true);
+select public.create_venue_manager('d0000000-0000-4000-8000-0000000000a1', 'owner', 'owner12345', true);
 
 insert into public.rooms (id, venue_id, name, width_cm, height_cm) values
   ('d0000000-0000-4000-8000-0000000000b1', 'd0000000-0000-4000-8000-0000000000a1', 'Голема сала', 2400, 1600),

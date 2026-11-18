@@ -16,12 +16,14 @@ Legend used below:
 
 | Subject | Who | How they reach the system |
 |---|---|---|
-| **Venue staff** | Owner/employees of a venue (restaurant, hall) | Supabase Auth email + password, `/signup`, `/login`, `/venue/*` |
-| **Venue (as a business)** | The venue itself. Personal data only if it trades under a person's name (sole trader) | Created at signup (`lib/venue/provisioning.ts`) |
+| **Venue staff** | Owner/employees of a venue (restaurant, hall) | Supabase Auth email + password, `/login`, `/venue/*`. Accounts are created by the team (admin panel → Нов локал); `/signup` only takes demo requests |
+| **Venue (as a business)** | The venue itself. Personal data only if it trades under a person's name (sole trader) | Created by the team after a demo (admin panel → Нов локал → `provision_venue`; optional phone) |
 | **Couple** (event organizer) | The client of the venue: bride/groom, or the organizer of a birthday, graduation etc. | One shared username/password per event, created by venue staff (`event_credentials`), `/couple/*` |
-| **Guest** | Invited people on the couple's guest list, plus anyone who RSVPs via the link | No account. The invitation slug is the only credential, `/invite/[slug]` |
+| **Guest** | Invited people on the couple's guest list, plus anyone who RSVPs via the link | No account. The invitation slug is the only credential, `/invite/[slug]`; greetings (text, optional video) are sent from the invitation |
+| **Album uploader** | Any guest with the album link/QR code (`/e/[token]`) | No account. Uploads photos/videos after ticking the consent box; name optional (§2.12a) |
+| **Support requester** | Venue staff (Панел → Поддршка) or a couple (`/couple` → Поддршка) | Their own session; tickets go to the platform admin inbox (§2.12b) |
 | **Reservation customer** | Someone who books a table directly with the venue (not an event) | Never touches the app. Entered by venue staff |
-| **Contact-form sender** | A prospective venue customer writing through the marketing page | Public form on `/`, `POST /api/venue/contact` |
+| **Contact-form / demo-request sender** | A prospective venue customer writing through the marketing page or asking for a demo | Public forms on `/` (`POST /api/venue/contact`) and `/signup` (`POST /api/venue/demo`) |
 | **Third parties named in free text** | Vendors (photographer, band), family members, and anyone else named in notes, budget lines, agenda, table labels | Typed in by couples or staff |
 
 ---
@@ -35,6 +37,7 @@ Created in `0001_venues_rooms_tables.sql`. Column added in `0012_floor_plan_laye
 |---|---|---|
 | `name` | Only for a sole trader | Business name, shown on public invitations (`getInvitationBySlug`) |
 | `layout_lock_password_hash` | Credential (bcrypt) | Shared venue "layout lock" PIN. Default is `crypt('0000')`. Never selected by clients. Set/checked only via `set_venue_layout_password` / `verify_venue_layout_password` (SECURITY DEFINER, gated by `is_venue_staff_for`) |
+| `deletion_scheduled_for`, `deletion_scheduled_by` | No. When the platform admin's scheduled deletion of the venue runs (now + 15 days), and that admin's user id. The daily retention cron deletes the venue once the date passes (`delete_scheduled_venue`); the venue panel shows the date and links to the data export | 0172 |
 
 - **Subject:** venue as a business (staff for the PIN).
 - **Purpose:** tenant identity, floor-plan edit lock.
@@ -71,6 +74,7 @@ Created in `0003_events_couples.sql`, then changed by `0010` (dropped `couple_us
 | `seating_draft`, `seating_draft_undo`, `seating_confirmed_at`, `layout_undo_snapshot` | Incidental. JSON copies of layout elements including free-text `label` (may hold guest names) | 0020, 0012 |
 | `checklist_seeded_at` | No | 0024 |
 | `personal_data_erased_at` | No. Set by the event erasure (DATA-005) | 0043 |
+| `couple_access_until`, `couple_access_extended_until` | No. Couple-access end dates: set by cancelling the event (status trigger) / by the platform admin. The retention sweep erases the event after `coalesce(extended, until, event_date + 6 months)` | 0170 |
 
 - **Subject:** couple (and, through labels, possibly guests).
 - **Purpose:** managing the booking and event (contract with the couple), contacting the couple, keeping payment records.
@@ -216,7 +220,7 @@ Created in `0125_event_change_marks.sql` (`mark_change_seen` in 0126, `insert_au
 |---|---|---|---|
 | `event_notes` | `0028_event_notes.sql` | `title`, `content` | Unbounded free text: vendor contacts, family matters |
 | `event_locations` | `0022_organizer_tools.sql` | `label`, `address`, `map_url` | May be a **private home address** (e.g. the family house before the ceremony) |
-| `event_agenda_items` | `0022_organizer_tools.sql` | `title`, `notes`, `time` | Names of people and a timeline of the day |
+| `event_agenda_items` | `0022_organizer_tools.sql`, `0156_agenda_places.sql` | `title`, `notes`, `time`, `location`, `address`, `map_url` | Names of people, a timeline of the day, and where each item takes place (may be a **private home address**, like `event_locations` below; since 0156 the couple's locations live here and `event_locations` is no longer written by the app) |
 | `event_budget_items` | `0023_budget_checklist.sql` | `name`, `custom_label`, `estimated_amount`, `paid_amount` | Couple's spending, and vendor names (possibly sole traders) |
 | `event_checklist_items` | `0023_budget_checklist.sql` (+ `0024` marker on events) | `title`, `due_date` | Low. Free text |
 | `event_checklist_subtasks` | `0027_checklist_subtasks.sql` | `title` | Low. Free text (e.g. candidate photographers) |
@@ -270,22 +274,52 @@ Created in `0016_reservations.sql`. Policies replaced in `0017_reservations_room
 - **Subject:** reservation customer.
 - **Purpose:** table bookings at the venue.
 - **Lawful basis:** pre-contract / contract between venue and customer. The venue is controller, the platform is processor (*to confirm in COMP-001*).
-- **Access:** staff via RLS `"venue staff manage own reservations"` / `"venue staff manage own reservation tables"` (0017), through `lib/venue/reservations.ts` (browser client).
-- **Retention:** none defined, see DATA-007.
-
+- **Access:** staff via RLS `"venue staff manage own reservations"` / `"venue staff manage own reservation tables"` (0017), through `lib/venue/reservations.ts` (browser client: read, create, edit tables). Status changes and hard deletes go through `/api/venue/reservations/[id]` (0174 functions, service role); since 0178 staff have no DELETE grant on `reservations` (the booking form's clean-up after a failed table claim uses `discard_unbooked_reservation`), and a trigger keeps a mini event's reservation status in step with its event.
+- **Erasure:** an event erasure (`erase_event_personal_data`) clears a mini event's reservation `email` and, since 0178, `note` on every reason; `guest_name`/`phone` only on request.
+- **Retention:** none defined, see DATA-007. Since 0174 "Откажи" / "Гостите заминаа" keep the row (status `cancelled` / `completed`) instead of deleting it; only "Избриши засекогаш" removes it.
 ### 2.12 `contact_submissions`
-Created in `0029_contact_submissions.sql`. Columns `status` (`new`/`read`/`answered`) and `handled_at` added in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1) — triage state, not personal data.
+Created in `0029_contact_submissions.sql`. Columns `status` (`new`/`read`/`answered`) and `handled_at` added in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1) — triage state, not personal data. Column `kind` (`contact`/`demo`) added in `0173_contact_submission_kind.sql`: `demo` rows come from the "request a demo" form at `/signup` (public self-signup is closed) and carry the venue name, city and phone inside `message`.
 
 | Field | Personal? |
 |---|---|
-| `name`, `email`, `message`, `created_at` | **Yes** |
-| `status`, `handled_at` | No — the admin's own triage state for the row |
+| `name`, `email`, `message`, `created_at` | **Yes** (a demo request's `message` holds the sender's phone) |
+| `status`, `handled_at`, `kind` | No — the admin's own triage state / the row's type |
 
-- **Subject:** contact-form sender.
+- **Subject:** contact-form or demo-request sender.
 - **Purpose:** answering sales enquiries about the platform.
 - **Lawful basis:** legitimate interest / pre-contract steps at the sender's request (*to confirm in COMP-001*).
 - **Access:** insert via the public, unauthenticated `POST /api/venue/contact` (`submitContactMessage`, `lib/venue/contact.ts`, service role; no anon grant or RLS policy — anonymous visitors write only through that server route). Read and `status`/`handled_at` updates via the admin **Контакт пораки** page (`lib/admin/message-actions-core.ts`, also service role only).
-- **Retention:** none defined, see DATA-007. Nothing ever deletes these rows.
+- **Retention:** **6 months after receipt** (contact and demo rows alike), deleted by `purge_old_contact_submissions()` via the daily `/api/cron/retention` (0170, 0178). Audited as `contact_submissions_purged` (count only).
+
+### 2.12a Guests' album and greetings: `event_photos`, `event_greetings`, `event_albums`
+Created in `0080` (album, greetings, public token), `0081` (unconfirmed uploads bucket), `0151` (greetings from the invitation with `guest_id`; videos in the album).
+
+| Field | Personal? |
+|---|---|
+| `event_photos.storage_path` (photo or video file), `uploader_name` (optional), `consent_at` | **Yes** — files likely show identifiable people |
+| `event_greetings.first_name`, `last_name`, `message`, `video_path`, `guest_id` | **Yes** |
+| `event_albums.public_token` | Credential (the album link/QR) |
+| sizes, mime, dimensions, `hidden_at`, timestamps | No / low |
+
+- **Subject:** guests who upload or send a greeting; anyone pictured.
+- **Purpose:** the couple's album of the event and greetings from guests.
+- **Lawful basis:** the uploader's consent (checkbox, `consent_at`; required by `lib/media/guest-api.ts`) for showing the files in the album; the sender's consent for a greeting; for other people pictured, the couple's/venue's legitimate interest. The venue is controller, the platform is processor (*to confirm in COMP-001*; privacy policy 1.3 states it).
+- **Access:** service role only. Guests upload through `/api/e/[token]/…` (upload only, they never see other uploads) and send greetings through `/api/invite/[slug]/greetings…`; couples read, hide, delete and download through `/api/couple/album/…` and `/api/couple/greetings/…`. Files live in the **private** `event-media` bucket. Venue staff have no panel view; the venue's data export includes the rows.
+- **Retention:** erased with the event's personal data (6 months after the event, or 30 days after a cancellation, 0170): a trigger on `events.personal_data_erased_at` deletes the rows and the token and queues the files. A per-package shorter album period exists (`runMediaRetention()`) but is **off** (`MEDIA_RETENTION_ENABLED` unset); see RETENTION.md.
+
+### 2.12b `support_tickets` (+ `support_ticket_messages`)
+Created in `0089_support_tickets.sql`; threads and statuses in `0150_support_inbox_and_admin_tasks.sql`.
+
+| Field | Personal? |
+|---|---|
+| `name`, `problem`, `description`, `support_ticket_messages.body` | **Yes** (free text) |
+| `venue_id`, `event_id`, `submitted_by`, `status`, flags, timestamps, `admin_user_id` | No / low |
+
+- **Subject:** venue staff or a couple asking the platform for help.
+- **Purpose:** support.
+- **Lawful basis:** venue tickets — contract with the venue (platform = controller); couple tickets — part of the venue's service to the couple (platform = processor; the venue never sees them) (*to confirm in COMP-001*).
+- **Access:** service role only (`lib/support/tickets.ts`, admin inbox). A venue sees only its own tickets, a couple only its event's.
+- **Retention:** closed tickets (`status = 'done'`) are deleted **6 months after `resolved_at`** with their threads (`purge_closed_support_tickets()`, 0176/0178; audited `support_tickets_purged`). A couple's tickets also go with the event's erasure (0171). Deleted with the venue by cascade. Not in the venue's data export.
 
 ### 2.13 Tables with no personal data (checked)
 `rooms`, `table_types` (0001), `menu_templates`, `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_menu_templates` (0115; which menus an event offers; `menu_templates.event_id` (0119) marks an event's own custom menu), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
@@ -320,6 +354,7 @@ Only **venue staff** have Auth accounts. Couples and guests do not (since 0013).
 - **Lawful basis:** contract; legitimate interest (security) for IP/audit data (*to confirm in COMP-001*).
 - **Access:** Supabase (GoTrue) itself; the platform operator via the dashboard or the service role. Staff see only their own session.
 - **Retention:** none defined by us, see DATA-007. Audit-log and platform-log retention follows Supabase plan defaults. Record them in DATA-007.
+- **`public.auth_user_deletion_retries`** (0178): `user_id` (+ the deleted venue's id, attempt count, last error) of a staff Auth user whose deletion failed after the venue was deleted. Service role only. The daily `/api/cron/retention` retries it and removes the row once the Auth user is gone; it holds no email or name.
 - Auth emails (confirm, reset password) are sent today by **Supabase's built-in SMTP**. They move to Resend in INFRA-006.
 
 ---
@@ -333,6 +368,7 @@ All three buckets are created `public = true`. That means any object can be down
 | `menu-item-photos` | `0007_menu_item_price_photo.sql` | Dish photos (not personal) | `{venue_id}/...` | staff, via storage policies `"venue staff upload/update/delete own menu item photos"` (`is_venue_staff_for(foldername[1])`) | public: `"public read menu item photos"` |
 | `event-showcase-photos` | `0008_event_showcase_photos.sql` | **Photos of events, likely showing people** | `{venue_id}/{event_id}-{timestamp}.{ext}` (`lib/venue/showcase.ts`) | staff: none since 0109 (uploads go through a manager-gated signed URL) | public: `"public read event showcase photos"` |
 | `invitation-photos` | `0022_organizer_tools.sql` | **Couples' personal photos** (engagement/portrait) | `{event_id}-{timestamp}.{ext}` at bucket root (`uploadInvitationPhoto` in `lib/couple/invitations.ts`) | service role only (couple route) | public: `"public read invitation photos"` |
+| `event-media` (+ `event-media-uploads`) | `0080`, `0081` | **Guests' album photos/videos and video greetings** | under the event's id | service role only (signed upload URLs) | **private**: the couple's routes only (§2.12a) |
 
 Observations for SEC/DATA tasks:
 
@@ -376,10 +412,13 @@ Couple browser
 Guest browser
   ├─ GET /invite/[slug] → Vercel → service role → event_invitations + events + venues (read only)
   ├─ GET photo → Supabase Storage public URL (direct, no Vercel)
-  └─ POST /api/invite/[slug]/rsvp → Vercel → service role → event_guests (insert/update)
+  ├─ POST /api/invite/[slug]/rsvp → Vercel → service role → event_guests (insert/update)
+  ├─ POST /api/invite/[slug]/greetings(/video) → Vercel → service role → event_greetings (+ event-media file)
+  └─ POST /api/e/[token]/photos|videos(/confirm) → Vercel → service role → event_photos (+ event-media file, consent required)
 
 Anonymous visitor (marketing page)
-  └─ POST /api/venue/contact → Vercel → service role → contact_submissions (insert)
+  ├─ POST /api/venue/contact → Vercel → service role → contact_submissions (insert)
+  └─ POST /api/venue/demo (/signup demo request) → Vercel → service role → contact_submissions (insert, kind demo)
 
 Operations
   ├─ Vercel function / request logs: IP, URL (including /invite/<slug> and a personal link's ?g=<invite_token>), user agent
@@ -409,7 +448,7 @@ There are no other integrations (no analytics, payments, CRM or maps API; `map_u
 
 ## 8. Retention: current state (input for DATA-007)
 
-Since migration 0043, export, event erasure, venue account deletion and a (not yet scheduled) retention sweep exist. See `docs/production/RETENTION.md`. The table below is the state before that.
+Since migration 0043, export, event erasure and venue account deletion exist; since 0170 the retention sweep runs daily (event personal data 6 months after the event, contact messages after 6 months); since 0172 the same cron deletes venues whose admin-scheduled deletion (15 days after the admin's request) is due; since 0176 it also deletes support tickets closed more than 6 months ago. See `docs/production/RETENTION.md`. The table below is the state before that.
 
 | Data | Current behaviour |
 |---|---|
@@ -441,3 +480,6 @@ Since migration 0043, export, event erasure, venue account deletion and a (not y
 ## 10. Verification
 
 Cross-checked against migrations `0001` to `0030`. Every `create table`, `alter table … add/drop column`, `drop table`, and every `storage.buckets` insert was reviewed in file order. Personal-data tables in the final schema: `venues` (business/PIN), `venue_staff`, `events`, `event_credentials`, `couple_sessions`, `event_guests`, `event_invitations`, `event_notes`, `event_locations`, `event_agenda_items`, `event_budget_items`, `event_checklist_items`, `event_checklist_subtasks`, `event_layout_elements` (labels), `event_showcase_photos`, `reservations`, `contact_submissions`. Plus `auth.*` and the buckets `event-showcase-photos` and `invitation-photos`. Dropped: `event_organizers`, `events.couple_user_id`.
+
+**0157:** `rooms.address` and `rooms.map_url` (a hall's address and map link, entered by staff) are classified *none*: they describe a business premises that is printed on guests' invitations anyway, unlike `venues.address` (personal only for a sole trader).
+**0158:** `events.agenda_seeded_at` (classified *none*) marks that the new event's first agenda item, the restaurant, was added once.

@@ -16,6 +16,17 @@ afterAll(async () => {
   await admin.from("venues").delete().eq("id", venueId);
 });
 
+describe("manager password minimum (0176)", () => {
+  it("refuses 9 characters on create and change, accepts 10", async () => {
+    const create = await admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Краток", p_password: "123456789", p_is_owner: false });
+    expect(create.error?.message).toBe("Лозинката мора да има најмалку 10 знаци.");
+    const change = await admin.rpc("change_venue_manager_password", { p_manager_id: managerId, p_new_password: "123456789" });
+    expect(change.error?.message).toBe("Лозинката мора да има најмалку 10 знаци.");
+    const ok = await admin.rpc("create_venue_manager", { p_venue_id: venueId, p_name: "Доволен", p_password: "1234567890", p_is_owner: false });
+    expect(ok.error).toBeNull();
+  });
+});
+
 describe("changeManagerPassword", () => {
   it("changes the password so the old one no longer verifies and the new one does", async () => {
     await changeManagerPassword(managerId, "brand-new-password-1");

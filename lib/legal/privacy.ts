@@ -3,7 +3,8 @@
 // BACKUPS.md. Do not add a processor, data category or period here that the
 // system does not have; tests/lib/pure/legal-parity.test.ts keeps the facts
 // in step. Review record: docs/production/LEGAL-REVIEW.md (v1.1 resolves
-// review 1; the role allocation is still to be confirmed by legal review).
+// review 1; v1.3 lists what changed since; the role allocation is still to be
+// confirmed by legal review).
 
 import { LEGAL_LAST_UPDATED, LEGAL_VERSION, PLACEHOLDERS as P, RETENTION_FACTS as R, SECURITY_FACTS as S } from "./facts";
 import { localize, type Bi, type BiDocument, type Lang, type LegalDocument } from "./types";
@@ -78,8 +79,8 @@ const privacyDocument: BiDocument = {
               "We process the data in the first point only on the venue's behalf and on its instructions, as a processor, under the Data Processing Agreement with the venue.",
             ),
             bi(
-              "Ние сме контролор за податоците за сметките на вработените во локалите, за пораките испратени преку формуларот за контакт и за безбедносните записи (технички дневници, бројачи за ограничување на барањата и ревизорски дневник).",
-              "We are the controller of the data about venue staff accounts, messages sent through the contact form, and security records (technical logs, rate-limit counters and the audit log).",
+              "Ние сме контролор за податоците за сметките на вработените во локалите, за пораките испратени преку формуларот за контакт и барањата за демо, за барањата за поддршка што ги испраќа локалот и за безбедносните записи (технички дневници, бројачи за ограничување на барањата и ревизорски дневник).",
+              "We are the controller of the data about venue staff accounts, messages sent through the contact form and demo requests, support requests the venue sends, and security records (technical logs, rate-limit counters and the audit log).",
             ),
           ],
         },
@@ -103,19 +104,19 @@ const privacyDocument: BiDocument = {
             [
               bi("Вработени во локалот", "Venue staff"),
               bi(
-                "Е-пошта, лозинка (зачувана само како хаш), време на регистрација и последна најава, сесии за најава, IP-адреса и прелистувач во безбедносните записи на најавите, име на локалот, верзија и време на прифаќање на Условите за користење.",
-                "Email, password (stored only as a hash), sign-up and last sign-in time, sign-in sessions, IP address and browser in the sign-in security records, venue name, version and time of acceptance of the Terms of Service.",
+                "Е-пошта, лозинка (зачувана само како хаш), време на отворање на сметката и последна најава, сесии за најава, IP-адреса и прелистувач во безбедносните записи на најавите, име и телефон на локалот, имиња на сопственикот и менаџерите и нивните лозинки (само хаш), верзија и време на прифаќање на Условите за користење.",
+                "Email, password (stored only as a hash), account creation and last sign-in time, sign-in sessions, IP address and browser in the sign-in security records, venue name and phone, names of the owner and managers and their passwords (hash only), version and time of acceptance of the Terms of Service.",
               ),
               bi(
-                "Самите вие, при регистрација и користење. Е-поштата и лозинката се задолжителни за да се отвори сметка.",
-                "You, when signing up and using the service. The email and password are required to open an account.",
+                "Локалот, кога нашиот тим ја отвора сметката, и самите вие при користење. Е-поштата е задолжителна за да се отвори сметка.",
+                "The venue, when our team opens the account, and you when using the service. The email is required to open an account.",
               ),
             ],
             [
               bi("Клиенти на локалот (младенци, организатори)", "Venue clients (couples, organizers)"),
               bi(
-                "Имиња, датум, време и вид на настанот, е-пошта и телефон за контакт, вкупна цена и платен депозит (евиденција што ја води локалот; платформата не обработува плаќања), корисничко име и лозинка (зачувана само како хаш), сесија за најава, содржина што ја внесувате за планирање (белешки, агенда, локации кои може да вклучуваат приватна адреса, буџет, листа на задачи), текст и фотографија на поканата, ознаки на маси.",
-                "Names, date, time and type of the event, contact email and phone, total price and deposit paid (a record kept by the venue; the platform processes no payments), username and password (stored only as a hash), sign-in session, content you enter for planning (notes, agenda, locations that may include a private address, budget, to-do list), invitation text and photo, table labels.",
+                "Имиња, датум, време и вид на настанот, е-пошта и телефон за контакт, вкупна цена и платен депозит (евиденција што ја води локалот; платформата не обработува плаќања), корисничко име и лозинка (зачувана само како хаш), сесија за најава, содржина што ја внесувате за планирање (белешки, агенда, локации кои може да вклучуваат приватна адреса, буџет, листа на задачи), текст и фотографија на поканата, ознаки на маси, барања за поддршка до нашиот тим и пораките во нив.",
+                "Names, date, time and type of the event, contact email and phone, total price and deposit paid (a record kept by the venue; the platform processes no payments), username and password (stored only as a hash), sign-in session, content you enter for planning (notes, agenda, locations that may include a private address, budget, to-do list), invitation text and photo, table labels, support requests to our team and the messages in them.",
               ),
               bi("Локалот и самите вие.", "The venue and you."),
             ],
@@ -126,6 +127,17 @@ const privacyDocument: BiDocument = {
                 "Full name, phone (optional), party size, invitation answer, side (bride's or groom's), notes, time of the last change of the answer through the link and the previous answer.",
               ),
               bi("Младенците или организаторот, или самиот гостин преку линкот од поканата.", "The couple or organizer, or the guest through the invitation link."),
+            ],
+            [
+              bi("Гости што испраќаат честитка или споделуваат фотографии", "Guests who send a greeting or share photos"),
+              bi(
+                "Честитка: име и презиме, текст и, по избор, видео. Албум: фотографии и видеа од настанот (на нив може да се препознаат луѓе), име на испраќачот (по избор) и време на согласноста за прикажување во албумот.",
+                "Greeting: full name, text and, optionally, a video. Album: photos and videos of the event (people may be recognisable in them), the sender's name (optional) and the time of consent to showing them in the album.",
+              ),
+              bi(
+                "Самиот гостин, преку поканата (честитка) или преку линкот или QR-кодот на албумот.",
+                "The guest, through the invitation (greeting) or through the album's link or QR code.",
+              ),
             ],
             [
               bi("Гости со резервација", "Reservation customers"),
@@ -144,8 +156,19 @@ const privacyDocument: BiDocument = {
               bi("Локалот.", "The venue."),
             ],
             [
-              bi("Испраќачи на формуларот за контакт", "Contact-form senders"),
-              bi("Име, е-пошта, порака и време на испраќање.", "Name, email, message and time sent."),
+              bi("Вработени во локалот што бараат поддршка", "Venue staff asking for support"),
+              bi(
+                "Име, наслов и опис на проблемот, пораките со нашиот тим, статус и време.",
+                "Name, subject and description of the problem, the messages with our team, status and time.",
+              ),
+              bi("Самите вие, преку панелот на локалот.", "You, through the venue panel."),
+            ],
+            [
+              bi("Испраќачи на формуларот за контакт или барање за демо", "Contact-form and demo-request senders"),
+              bi(
+                "Име, е-пошта, порака и време на испраќање; кај барањето за демо и име на локалот, град и телефон.",
+                "Name, email, message and time sent; for a demo request also the venue name, city and phone.",
+              ),
               bi("Самите вие.", "You."),
             ],
             [
@@ -161,8 +184,8 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Ревизорскиот дневник на безбедносно важните дејства (на пример промена на одговор преку линк, извоз или бришење на податоци) содржи внатрешни идентификатори, вид на дејството, време, а за одговорите преку линк и претходниот и новиот одговор и скратен еднонасочен хаш од IP-адресата. Не содржи имиња ни податоци за контакт.",
-            "The audit log of security-relevant actions (for example an answer changed through a link, a data export or erasure) contains internal identifiers, the type of action, the time and, for answers through a link, the previous and new answer and a shortened one-way hash of the IP address. It contains no names or contact details.",
+            "Ревизорскиот дневник на безбедносно важните дејства (на пример промена на одговор преку линк, извоз или бришење на податоци) содржи внатрешни идентификатори, вид на дејството, време, а за одговорите преку линк и претходниот и новиот одговор и скратен еднонасочен хаш од IP-адресата. Кога дејството го прави менаџер на локалот, се запишува и неговото име. Не содржи имиња ни податоци за контакт на клиентите, гостите и гостите со резервација.",
+            "The audit log of security-relevant actions (for example an answer changed through a link, a data export or erasure) contains internal identifiers, the type of action, the time and, for answers through a link, the previous and new answer and a shortened one-way hash of the IP address. When a venue manager performs the action, the manager's name is recorded too. It contains no names or contact details of clients, guests or reservation customers.",
           ),
         },
       ],
@@ -225,7 +248,28 @@ const privacyDocument: BiDocument = {
               ),
             ],
             [
-              bi("Одговор на пораки од формуларот за контакт", "Answering contact-form messages"),
+              bi("Албум со фотографии и видеа од гостите", "Album of the guests' photos and videos"),
+              bi(
+                "Согласност на гостинот што ги прикачува (член 6(1)(а)), дадена со полето за согласност пред прикачувањето; за другите лица на фотографиите, легитимен интерес на клиентот и локалот да ги зачуваат спомените од настанот (член 6(1)(ѓ)). Го потврдува локалот како контролор.",
+                "Consent of the guest who uploads them (Art. 6(1)(a)), given with the consent box before uploading; for other people in the photos, the legitimate interest of the client and the venue in keeping memories of the event (Art. 6(1)(f)). Confirmed by the venue as controller.",
+              ),
+            ],
+            [
+              bi("Честитки од гостите (текст и видео)", "Greetings from guests (text and video)"),
+              bi(
+                "Согласност на гостинот што ја испраќа (член 6(1)(а)). Ја потврдува локалот како контролор.",
+                "Consent of the guest who sends it (Art. 6(1)(a)). Confirmed by the venue as controller.",
+              ),
+            ],
+            [
+              bi("Барања за поддршка", "Support requests"),
+              bi(
+                "Од локалот: извршување на договорот со локалот (член 6(1)(б)). Од клиентот: дел од услугата што локалот му ја дава на клиентот; ги обработуваме како обработувач, а вработените во локалот не ги гледаат.",
+                "From the venue: performance of the contract with the venue (Art. 6(1)(b)). From a client: part of the service the venue provides to the client; we process them as a processor, and the venue's staff do not see them.",
+              ),
+            ],
+            [
+              bi("Одговор на пораки од формуларот за контакт и на барања за демо", "Answering contact-form messages and demo requests"),
               bi(
                 "Преземање чекори на ваше барање пред склучување договор или наш легитимен интерес да одговориме на прашањата.",
                 "Taking steps at your request before entering into a contract, or our legitimate interest in answering enquiries.",
@@ -284,6 +328,68 @@ const privacyDocument: BiDocument = {
       ],
     },
     {
+      id: "album",
+      heading: bi("Албум и честитки од гостите", "Guests' album and greetings"),
+      blocks: [
+        {
+          type: "ul",
+          items: [
+            bi(
+              "Гостите можат преку линкот или QR-кодот на албумот да прикачат фотографии и видеа од настанот. Името не е задолжително. Пред прикачување гостинот мора да се согласи датотеките да бидат прикажани во албумот.",
+              "Guests can upload photos and videos of the event through the album's link or QR code. The name is optional. Before uploading, the guest must agree that the files are shown in the album.",
+            ),
+            bi(
+              "Гостите можат преку поканата да испратат честитка: име и презиме, текст и, по избор, видео.",
+              "Guests can send a greeting through the invitation: full name, text and, optionally, a video.",
+            ),
+            bi(
+              "Албумот и честитките ги гледаат само младенците или организаторот во својата контролна табла; тие можат да ги сокријат, избришат или преземат. Гостите не ги гледаат туѓите фотографии. Вработените во локалот не ги гледаат во својот панел, но локалот може да ги извезе или избрише. Датотеките се чуваат во приватно складиште и се отвораат само преку платформата.",
+              "The album and greetings are seen only by the couple or organizer in their dashboard; they can hide, delete or download them. Guests do not see other people's photos. The venue's staff do not see them in their panel, but the venue can export or erase them. The files are kept in private storage and open only through the platform.",
+            ),
+            bi(
+              "Албумот и честитките се бришат заедно со другите лични податоци на настанот (види „Колку долго ги чуваме податоците“). Ако сакате да се отстрани ваша фотографија или честитка порано, обратете се до младенците или до локалот.",
+              "The album and greetings are erased together with the event's other personal data (see \"How long we keep data\"). If you want a photo or greeting of yours removed earlier, contact the couple or the venue.",
+            ),
+          ],
+        },
+      ],
+    },
+    {
+      id: "client-access",
+      heading: bi("Пристап на клиентите по настанот", "Client access after the event"),
+      blocks: [
+        {
+          type: "ul",
+          items: [
+            bi(
+              "До денот на настанот (вклучително) клиентот има целосен пристап до својата контролна табла. По настанот пристапот е само за преглед и преземање: нови внесувања и измени не се можни.",
+              "Until the day of the event (inclusive) the client has full access to its dashboard. After the event the access is for viewing and downloading only: no new entries or changes are possible.",
+            ),
+            bi(
+              `${R.guestDataMonthsAfterEvent} месеци по датумот на настанот пристапот завршува и личните податоци на настанот се бришат автоматски, со дневна задача. Ако настанот е откажан, пристапот завршува ${R.cancelledEventAccessDays} дена по откажувањето (или порано, ако тогаш завршува редовниот рок), а податоците потоа се бришат на ист начин.`,
+              `${R.guestDataMonthsAfterEvent} months after the event date the access ends and the event's personal data is erased automatically, by a daily job. If the event is cancelled, the access ends ${R.cancelledEventAccessDays} days after the cancellation (or earlier, if the normal period ends then), and the data is then erased the same way.`,
+            ),
+            bi(
+              "Рокот може да го продолжи само нашиот тим, на барање на локалот или на клиентот. Секое продолжување се запишува.",
+              "Only our team can extend the period, at the request of the venue or the client. Every extension is recorded.",
+            ),
+            bi(
+              "Додека трае пристапот, клиентот може во својата контролна табла да преземе целосна копија од податоците за својот настан („Преземи сè“), вклучително албумот и честитките.",
+              "While the access lasts, the client can download a full copy of its event's data in the dashboard (\"Преземи сè\", \"Download everything\"), including the album and the greetings.",
+            ),
+            bi(
+              "Се бришат: гостите (со белешките и алергиите), честитките, албумот, поканата, буџетот, листата на задачи, белешките, агендата, локациите, имињата во распоредот на маси, барањата за поддршка на клиентот и податоците за најава.",
+              "Erased: the guests (with notes and allergies), greetings, album, invitation, budget, to-do list, notes, agenda, locations, the names in the seating plan, the client's support requests and the sign-in data.",
+            ),
+            bi(
+              "Локалот го задржува својот деловен запис за настанот: датум и време, сала, вид на настан, имиња и контакт (е-пошта, телефон) на организаторот, број на гости, менија и нивниот број, својата цена, депозит и плаќања, и масите. Ако бришењето е по барање (не автоматско), се бришат и имињата и контактот на организаторот.",
+              "The venue keeps its business record of the event: date and time, hall, event type, the organizer's names and contact (email, phone), guest numbers, menus and their counts, its own price, deposit and payments, and the tables. If the erasure is on request (not automatic), the organizer's names and contact are erased too.",
+            ),
+          ],
+        },
+      ],
+    },
+    {
       id: "guests",
       heading: bi("Ако сте гостин", "If you are a guest"),
       blocks: [
@@ -299,8 +405,8 @@ const privacyDocument: BiDocument = {
               "Your data is seen by the couple or organizer. The venue can export or erase it. Other guests do not see it.",
             ),
             bi(
-              `Податоците се чуваат до ${R.guestDataMonthsAfterEvent} месеци по настанот (види „Колку долго ги чуваме податоците“).`,
-              `The data is kept for up to ${R.guestDataMonthsAfterEvent} months after the event (see "How long we keep data").`,
+              `Податоците, вклучително честитките и фотографиите што сте ги испратиле, се бришат автоматски ${R.guestDataMonthsAfterEvent} месеци по настанот, или ${R.cancelledEventAccessDays} дена по откажување на настанот (види „Колку долго ги чуваме податоците“).`,
+              `The data, including the greetings and photos you sent, is erased automatically ${R.guestDataMonthsAfterEvent} months after the event, or ${R.cancelledEventAccessDays} days after the event is cancelled (see "How long we keep data").`,
             ),
             bi(
               "За пристап, исправка или бришење обратете се до локалот чие име е на поканата, или до младенците. Можете да ни пишете и нам, а ние ќе го проследиме барањето до локалот.",
@@ -345,7 +451,10 @@ const privacyDocument: BiDocument = {
             ],
             [
               bi("Resend", "Resend"),
-              bi("Испраќање е-пошта (потврда на сметка, промена на лозинка, известувања од формуларот за контакт)", "Sending email (account confirmation, password reset, contact-form notifications)"),
+              bi(
+                "Испраќање е-пошта (линк за поставување или промена на лозинка, известувања од формуларот за контакт и барањата за демо)",
+                "Sending email (link to set or reset a password, notifications of contact-form messages and demo requests)",
+              ),
               bi("Е-пошта на примачот и содржина на пораката", "Recipient email and message content"),
               bi("ЕУ", "EU"),
               bi("Планиран", "Planned"),
@@ -385,8 +494,8 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `Е-поштата за потврда на сметка и за нова лозинка ја испраќа Supabase. Известувањата за пораките од формуларот за контакт стигнуваат и во е-поштенското сандаче на нашиот тим. Податоци можеме да дадеме и на надлежни органи кога тоа го бара закон.`,
-            `Account confirmation and password emails are sent by Supabase. Notifications of contact-form messages also arrive in our team's email inbox. We may also disclose data to competent authorities when the law requires it.`,
+            `Е-поштата за поставување и промена на лозинка ја испраќа Supabase. Известувањата за пораките од формуларот за контакт и барањата за демо стигнуваат и во е-поштенското сандаче на нашиот тим. Податоци можеме да дадеме и на надлежни органи кога тоа го бара закон.`,
+            `Emails to set or reset a password are sent by Supabase. Notifications of contact-form messages and demo requests also arrive in our team's email inbox. We may also disclose data to competent authorities when the law requires it.`,
           ),
         },
       ],
@@ -413,31 +522,41 @@ const privacyDocument: BiDocument = {
           head: [bi("Податоци", "Data"), bi("Рок", "Period")],
           rows: [
             [
-              bi("Лични податоци на клиентите и гостите за настанот", "Personal data of clients and guests of an event"),
               bi(
-                `Стандардно се бришат автоматски ${R.guestDataMonthsAfterEvent} месеци по датумот на настанот, освен ако локалот не побара друг рок, или порано ако локалот ги избрише. Потоа останува запис за настанот без имиња, податоци за контакт и податоци за гостите (датум, време, вид, сала, проценет број на гости, цена и депозит), за сметководството и календарот на локалот, додека постои сметката на локалот.`,
-                `By default erased automatically ${R.guestDataMonthsAfterEvent} months after the event date, unless the venue asks for a different period, or earlier if the venue erases them. After that a record of the event without names, contact details or guest data remains (date, time, type, hall, estimated guest count, price and deposit), for the venue's accounting and calendar, for as long as the venue account exists.`,
+                "Лични податоци на клиентите и гостите за настанот, вклучително албумот и честитките",
+                "Personal data of clients and guests of an event, including the album and greetings",
+              ),
+              bi(
+                `Се бришат автоматски, со дневна задача, ${R.guestDataMonthsAfterEvent} месеци по датумот на настанот; за откажан настан ${R.cancelledEventAccessDays} дена по откажувањето, ако тоа е порано. Рокот може да го продолжи само нашиот тим, на барање. Локалот може да ги избрише и порано. Останува деловниот запис на локалот (датум и време, сала, вид на настан, имиња и контакт на организаторот, број на гости, менија и нивниот број, цена, депозит и плаќања, маси), додека постои сметката на локалот; види „Пристап на клиентите по настанот“.`,
+                `Erased automatically, by a daily job, ${R.guestDataMonthsAfterEvent} months after the event date; for a cancelled event ${R.cancelledEventAccessDays} days after the cancellation, if that is earlier. Only our team can extend the period, on request. The venue can erase them earlier. The venue's business record remains (date and time, hall, event type, the organizer's names and contact, guest numbers, menus and their counts, price, deposit and payments, tables) for as long as the venue account exists; see "Client access after the event".`,
               ),
             ],
             [
-              bi("Пораки од формуларот за контакт", "Contact-form messages"),
+              bi("Пораки од формуларот за контакт и барања за демо", "Contact-form messages and demo requests"),
               bi(
                 `${R.contactMessagesMonths} месеци од приемот во нашиот систем; копиите во е-поштенското сандаче на тимот се бришат во истиот рок.`,
                 `${R.contactMessagesMonths} months after receipt in our system; copies in our team's email inbox are deleted within the same period.`,
               ),
             ],
             [
+              bi("Барања за поддршка", "Support requests"),
+              bi(
+                `Затворените барања се бришат ${R.supportTicketMonthsAfterClose} месеци по затворањето. Барањата на клиентот се бришат и порано, заедно со личните податоци на настанот.`,
+                `Closed requests are deleted ${R.supportTicketMonthsAfterClose} months after they are closed. A client's requests are deleted earlier if the event's personal data is erased first.`,
+              ),
+            ],
+            [
               bi("Резервации", "Reservations"),
               bi(
-                "Додека локалот не ги избрише. Локалот може во секое време да избрише резервација.",
-                "Until the venue deletes them. The venue can delete a reservation at any time.",
+                "Додека локалот не ги избрише. Откажаната резервација останува запишана како откажана; локалот може во секое време трајно да избрише откажана или завршена резервација.",
+                "Until the venue deletes them. A cancelled reservation stays recorded as cancelled; the venue can permanently delete a cancelled or completed reservation at any time.",
               ),
             ],
             [
               bi("Сметка на локалот и вработени", "Venue account and staff"),
               bi(
-                `Додека локалот не ја избрише сметката или додека не престане услугата. По престанокот локалот има ${R.exportWindowAfterEndDays} дена да ги извезе податоците, а потоа се бришат.`,
-                `Until the venue deletes its account or the service ends. After the service ends the venue has ${R.exportWindowAfterEndDays} days to export its data, after which it is deleted.`,
+                `Додека локалот не ја избрише сметката во поставките (бришењето е веднаш и трајно). Кога ние ја затвораме сметката, бришењето го закажуваме ${R.exportWindowAfterEndDays} дена однапред: локалот го гледа датумот во панелот и може да ги преземе податоците, а ние може да го откажеме бришењето во тој рок.`,
+                `Until the venue deletes its account in the settings (the deletion is immediate and permanent). When we close the account, we schedule the deletion ${R.exportWindowAfterEndDays} days ahead: the venue sees the date in its panel and can download its data, and we can cancel the deletion within that time.`,
               ),
             ],
             [
@@ -453,7 +572,7 @@ const privacyDocument: BiDocument = {
             ],
             [
               bi("Фотографии чиј запис е избришан или заменет", "Photos whose record was deleted or replaced"),
-              bi("Се бришат во рок од еден час.", "Deleted within an hour."),
+              bi(`Се бришат во рок од ${R.deletedFileHours} часа.`, `Deleted within ${R.deletedFileHours} hours.`),
             ],
             [
               bi("Резервни копии", "Backups"),
@@ -463,7 +582,10 @@ const privacyDocument: BiDocument = {
               ),
             ],
             [
-              bi("Ревизорски дневник (без имиња и податоци за контакт)", "Audit log (no names or contact details)"),
+              bi(
+                "Ревизорски дневник (без имиња и податоци за контакт на клиентите и гостите)",
+                "Audit log (no names or contact details of clients or guests)",
+              ),
               bi("Додека трае сметката на локалот; потребен е за безбедност и за решавање спорови", "For as long as the venue's account exists; needed for security and for resolving disputes"),
             ],
             [
@@ -569,15 +691,15 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            `За сметките на вработените и за пораките од формуларот за контакт пишете ни на ${P.privacyEmail}. За податоците за настан, гости или резервации обратете се до локалот; ако ни пишете нам, ќе го проследиме барањето. Одговараме во рок од еден месец, а во сложени случаи рокот може да се продолжи уште два месеци, за што ќе ве известиме.`,
-            `For staff accounts and contact-form messages write to us at ${P.privacyEmail}. For data about an event, guests or reservations contact the venue; if you write to us, we forward the request. We answer within one month; in complex cases the period can be extended by two more months, and we will tell you.`,
+            `За сметките на вработените, пораките од формуларот за контакт, барањата за демо и барањата за поддршка на локалот пишете ни на ${P.privacyEmail}. За податоците за настан, гости или резервации обратете се до локалот; ако ни пишете нам, ќе го проследиме барањето. Одговараме во рок од еден месец, а во сложени случаи рокот може да се продолжи уште два месеци, за што ќе ве известиме.`,
+            `For staff accounts, contact-form messages, demo requests and the venue's support requests write to us at ${P.privacyEmail}. For data about an event, guests or reservations contact the venue; if you write to us, we forward the request. We answer within one month; in complex cases the period can be extended by two more months, and we will tell you.`,
           ),
         },
         {
           type: "p",
           text: bi(
-            "Во поставките на локалот постојат алатки за овие барања: извоз на сите податоци на локалот, бришење на личните податоци на еден настан и бришење на целата сметка со сите податоци.",
-            "The venue settings have tools for these requests: export of all the venue's data, erasure of the personal data of a single event, and deletion of the whole account with all its data.",
+            "Во поставките на локалот постојат алатки за овие барања: извоз на сите податоци на локалот, бришење на личните податоци на еден настан и бришење на целата сметка со сите податоци. Клиентот може сам да преземе копија од податоците за својот настан во контролната табла, додека трае пристапот.",
+            "The venue settings have tools for these requests: export of all the venue's data, erasure of the personal data of a single event, and deletion of the whole account with all its data. The client can download a copy of its event's data in the dashboard itself, while the access lasts.",
           ),
         },
         {

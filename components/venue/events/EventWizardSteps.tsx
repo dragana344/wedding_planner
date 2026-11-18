@@ -15,6 +15,7 @@ import { EventTypeIllustration, SeatingModeIllustration } from "./EventTypeIllus
 import { PriceCalculator } from "./PriceCalculator";
 import { formatMkDateWithWeekday } from "@/lib/date";
 import { TimeInput } from "@/components/shared/TimeInput";
+import { MIN_PASSWORD_LENGTH } from "@/lib/security/password";
 
 const SEATING_MODE_META: Record<SeatingMode, { label: string; description: string }> = {
   full: { label: "Цел простор", description: "Настанот го зафаќа целиот простор (свадба, голема прослава)." },
@@ -587,12 +588,12 @@ export function CredentialsStep({
         </button>
       </div>
       <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "6px 0 0" }}>
-        {passwordLength >= 10 ? (
+        {passwordLength >= MIN_PASSWORD_LENGTH ? (
           <span style={{ color: "var(--gold-text)" }}>
             <Icon name="check" size="sm" /> Доволно долга
           </span>
         ) : (
-          `Најмалку 10 знаци${passwordLength ? ` (уште ${10 - passwordLength})` : ""}`
+          `Најмалку ${MIN_PASSWORD_LENGTH} знаци${passwordLength ? ` (уште ${MIN_PASSWORD_LENGTH - passwordLength})` : ""}`
         )}
       </p>
     </div>
