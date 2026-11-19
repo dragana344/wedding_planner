@@ -1,5 +1,15 @@
 # Legal review record (COMP-001, COMP-005)
 
+## Added within 1.3 (2026-11-19, guest answers): please review
+
+The texts below were added without a new `LEGAL_VERSION` (venues are not asked to accept again; say if they should — bumping the version shows every venue the terms screen once more). They describe what the guest-answer changes (migrations 0179–0182) collect:
+
+- **RSVP answer history** (privacy `data`, `guests`; DPA `data`): every answer a guest gives is kept separately (who, when, through which link, the state before and after), and an answer that can't be matched to a listed guest waits for the couple to check it.
+- **Optional phone on the shared invitation form**, used only to match the answer to the right guest.
+- **Companions' names**: a guest may list the names of the people coming with them (optional).
+- **Invited-for count**: the couple can note how many people a guest is invited for; a bigger answer is accepted and flagged to the couple.
+- **Browser "remember me" token**: after a confirmed answer on the shared link, the guest's browser keeps a signed token for **180 days** (`localStorage`, not a cookie; `RETENTION_FACTS.rsvpRememberDays`, checked against the code by `tests/lib/pure/legal-parity.test.ts`) so a later visit updates the same answer; "Не сте вие?" deletes it. The cookies section no longer says nothing else is stored in the browser. Question: is this strictly necessary (no consent needed), as `docs/production/COOKIES.md` argues?
+
 ## Version 1.3 (2026-11-18): what changed, for the lawyer
 
 Version 1.3 of all three documents (`LEGAL_VERSION`, `LEGAL_LAST_UPDATED` in `lib/legal/facts.ts`) makes the texts state what the app now does. Every venue owner sees the terms screen again and must accept 1.3 before the venue panel opens (`lib/venue/onboarding.ts` compares `venues.terms_version` with `LEGAL_VERSION`). Please review these points in both languages:

@@ -30,6 +30,8 @@ export interface WizardState {
   /** The event's own menu, built here and created together with the event. */
   customMenu: { name: string; itemIds: string[] } | null;
   totalPrice: string;
+  /** 0182: set by the per-guest calculator; dropped on save when the total no longer matches it. */
+  perGuest?: { price: number; guests: number } | null;
   depositPaid: string;
   username: string;
   /** Once the venue edits the username by hand, typing in the name field stops overwriting it. */

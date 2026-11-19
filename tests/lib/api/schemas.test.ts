@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   agendaUpdateBody,
+  answerResolveBody,
   assertUuids,
   budgetItemBody,
   contactMessageBody,
@@ -126,6 +127,16 @@ describe("seating schemas", () => {
   });
 });
 
+describe("answer resolve (0184)", () => {
+  it("takes an optional apply/link mode for a guest, nothing else", () => {
+    const id = "123e4567-e89b-42d3-a456-426614174000";
+    expect(answerResolveBody.safeParse({ action: "guest", guest_id: id }).success).toBe(true);
+    expect(answerResolveBody.safeParse({ action: "guest", guest_id: id, mode: "link" }).success).toBe(true);
+    expect(answerResolveBody.safeParse({ action: "guest", guest_id: id, mode: "apply" }).success).toBe(true);
+    expect(answerResolveBody.safeParse({ action: "guest", guest_id: id, mode: "merge" }).success).toBe(false);
+  });
+});
+
 describe("guest schemas", () => {
   const guest = { full_name: "Ана Петровска", phone: null, party_size: 2, notes: null, side: "bride" };
 
@@ -134,8 +145,8 @@ describe("guest schemas", () => {
     expect(guestCreateBody.safeParse({ ...guest, side: null }).success).toBe(true);
   });
 
-  it("rejects party_size outside 1..50 or not an integer", () => {
-    for (const party_size of [0, -2, 51, 2.5, "2"]) {
+  it("rejects party_size outside 1..100 or not an integer", () => {
+    for (const party_size of [0, -2, 101, 2.5, "2"]) {
       expect(guestCreateBody.safeParse({ ...guest, party_size }).success).toBe(false);
     }
   });
@@ -182,12 +193,12 @@ describe("other couple schemas", () => {
 });
 
 describe("public schemas", () => {
-  it("rsvp: accepts the form body and enforces party_size 1..50", () => {
+  it("rsvp: accepts the form body and enforces party_size 1..100", () => {
     expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 3 }).success).toBe(true);
     expect(rsvpBody.safeParse({ full_name: "Ана", status: "later" }).success).toBe(true);
     expect(rsvpBody.safeParse({ full_name: "Ана", attending: false, party_size: 1 }).success).toBe(true);
     expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 0 }).success).toBe(false);
-    expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 51 }).success).toBe(false);
+    expect(rsvpBody.safeParse({ full_name: "Ана", status: "confirmed", party_size: 101 }).success).toBe(false);
     expect(msg(parseInput(rsvpBody, { full_name: "Ана" }, "D"))).toBe("Внесете име и одговор.");
   });
 

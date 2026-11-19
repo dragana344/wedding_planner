@@ -1,0 +1,81 @@
+/* The venue's kitchen sheet (0182): A4 portrait, plain and legible, on the
+   S3 print shell (.s3-print-root / toolbar / page from print.css). */
+.s3-print-page.is-kitchen {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 14mm 12mm;
+  background: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  page: s3-kitchen;
+}
+.kitchen-title {
+  font-family: var(--s3-serif, "Cormorant Garamond", Georgia, serif);
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 500;
+  margin: 0;
+}
+.kitchen-sub {
+  margin: 2px 0 0;
+  letter-spacing: 0.02em;
+}
+.kitchen-headcount {
+  margin: 8mm 0 4mm;
+  font-size: 18px;
+}
+.kitchen-headcount b {
+  font-size: 30px;
+}
+.kitchen-section {
+  margin-top: 6mm;
+  break-inside: avoid;
+}
+.kitchen-section h2 {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #b8913a;
+  padding-bottom: 2px;
+  margin: 0 0 3mm;
+}
+.kitchen-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.kitchen-table th,
+.kitchen-table td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid #e6dfd2;
+  vertical-align: top;
+}
+.kitchen-table td.num,
+.kitchen-table th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.kitchen-estimate {
+  font-style: italic;
+  color: #7a5a1e;
+}
+.kitchen-changes {
+  border: 2px solid #b13a3a;
+  border-radius: 6px;
+  padding: 3mm 4mm;
+  color: #7d1f1f;
+}
+.kitchen-changes ul {
+  margin: 0;
+  padding-left: 5mm;
+}
+.kitchen-foot {
+  margin-top: 8mm;
+  font-size: 11px;
+  opacity: 0.75;
+}
+@page s3-kitchen {
+  size: A4 portrait;
+  margin: 0;
+}

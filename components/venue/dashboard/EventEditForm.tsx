@@ -11,7 +11,9 @@ import { MenuNumbersSection } from "./MenuNumbersSection";
 import { ChangeBox } from "./ChangeBox";
 import { EventSeatingOverlay } from "./EventSeatingOverlay";
 import { MiniEventTablesTab } from "./MiniEventTablesTab";
-import { PriceCalculator } from "@/components/venue/events/PriceCalculator";
+import { PriceCalculator, type PerGuestPrice } from "@/components/venue/events/PriceCalculator";
+import { priceComparison, totalMatchesPerGuest } from "@/lib/venue/price";
+import { estimateNote, sentMeals } from "@/lib/menu-numbers";
 import { internationalPhone } from "@/lib/couple/invite-share";
 import {
   type EventDetail,
@@ -51,6 +53,7 @@ import { groupBySection, unseenChanges } from "@/lib/changes/rules";
 import { todayIn } from "@/lib/date";
 import { DEPOSIT_OVER_TOTAL_ERROR, depositExceedsTotal } from "@/lib/venue/events";
 import { TimeInput } from "@/components/shared/TimeInput";
+import { DEFAULT_RSVP_DEADLINE_DAYS, effectiveRsvpDeadline, formatDeadline, rsvpDeadlineResets } from "@/lib/rsvp-deadline";
 
 function PrivateLoading({ failed, onRetry }: { failed: boolean; onRetry?: () => void }) {
   if (!failed) return <p className="ev-hint">Се вчитува...</p>;
@@ -109,6 +112,19 @@ export function EventEditForm({
   const [eventTypeLabel, setEventTypeLabel] = useState(event.event_type_label ?? "");
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(event.room_ids);
   const [seatingSelfEditEnabled, setSeatingSelfEditEnabled] = useState<boolean | null>(event.seating_self_edit_enabled);
+  // 0180: empty follows the venue's "N days before the event".
+  const [rsvpDeadline, setRsvpDeadline] = useState(event.rsvp_deadline ?? "");
+  const deadlineDays = event.rsvp_deadline_days ?? DEFAULT_RSVP_DEADLINE_DAYS;
+  // 0184: the event moved later and its own deadline (left as it was) now
+  // falls before the new date's default — it goes back to the default.
+  const deadlineReset = rsvpDeadlineResets({
+    oldDate: event.event_date,
+    newDate: eventDate,
+    oldDeadline: event.rsvp_deadline ?? null,
+    newDeadline: rsvpDeadline || null,
+    defaultDays: deadlineDays,
+  });
+  const shownDeadline = deadlineReset ? "" : rsvpDeadline;
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -148,6 +164,7 @@ export function EventEditForm({
     : {};
   const guestCountChanges = unseen.guest_count ?? [];
   const contactChanges = unseen.contact ?? [];
+  const numbersChanges = unseen.numbers ?? [];
   // After Видено: reload this window, the events list and the server-rendered
   // shell (the Настани badge counts what is unseen).
   function handleChangesSeen() {
@@ -167,6 +184,10 @@ export function EventEditForm({
   const [contactError, setContactError] = useState<string | null>(null);
   const [totalPrice, setTotalPrice] = useState(event.total_price !== null ? String(event.total_price) : "");
   const [depositPaid, setDepositPaid] = useState(event.deposit_paid !== null ? String(event.deposit_paid) : "");
+  // 0182: the calculator's per-guest price behind the total, if it was priced that way.
+  const [perGuest, setPerGuest] = useState<PerGuestPrice | null>(
+    event.price_per_guest != null && event.contracted_guests != null ? { price: Number(event.price_per_guest), guests: event.contracted_guests } : null,
+  );
   const [isSavingFinance, setIsSavingFinance] = useState(false);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [seatingRoom, setSeatingRoom] = useState<Room | null>(null);
@@ -309,6 +330,21 @@ export function EventEditForm({
     }
   }
 
+  // 0182: contracted vs final, from what is saved; final = the latest numbers' meals (estimate included,
+  // marked), else the confirmed guests' meals. Children eating no meal are shown apart, not priced.
+  const latestNumbers = event.menuNumbers.latest;
+  const priceLine = priceComparison({
+    perGuest: event.price_per_guest,
+    contractedGuests: event.contracted_guests,
+    finalMeals: latestNumbers
+      ? sentMeals(latestNumbers)
+      : event.confirmed_people != null
+        ? event.confirmed_people - (event.confirmed_no_meal ?? 0)
+        : null,
+    estimated: latestNumbers?.estimate?.total ?? 0,
+    noMeal: latestNumbers ? (latestNumbers.numbers.noMeal ?? 0) : (event.confirmed_no_meal ?? 0),
+  });
+
   async function handleSaveFinance(e: React.FormEvent) {
     e.preventDefault();
     setFinanceError(null);
@@ -318,9 +354,14 @@ export function EventEditForm({
     }
     setIsSavingFinance(true);
     try {
+      const total = totalPrice === "" ? null : Number(totalPrice);
+      // A total typed over the calculator's no longer is price × guests: no per-guest comparison then.
+      const keep = perGuest !== null && totalMatchesPerGuest(total, perGuest.price, perGuest.guests);
       await updateEventFinanceViaApi(event.id, {
-        total_price: totalPrice === "" ? null : Number(totalPrice),
+        total_price: total,
         deposit_paid: depositPaid === "" ? null : Number(depositPaid),
+        price_per_guest: keep ? perGuest.price : null,
+        contracted_guests: keep ? perGuest.guests : null,
       }, managerToken);
       onChanged();
     } catch (err) {
@@ -377,6 +418,7 @@ export function EventEditForm({
         guest_count_estimate: guestCount === "" ? null : Number(guestCount),
         room_ids: selectedRoomIds,
         seating_self_edit_enabled: seatingSelfEditEnabled,
+        rsvp_deadline: shownDeadline || null,
         ...diffMenus(),
       };
       await updateEventViaApi(event.id, input, managerToken);
@@ -500,7 +542,10 @@ export function EventEditForm({
         ) : null}
         {glanceRoomNames ? <span className="pill p-info">{glanceRoomNames}</span> : null}
         {event.menuNumbers.latest ? (
-          <span className="pill p-info">{`${event.menuNumbers.latest.numbers.total} порции мени`}</span>
+          <span className="pill p-info">
+            {`${sentMeals(event.menuNumbers.latest)} порции мени`}
+            {event.menuNumbers.latest.estimate ? ` (${estimateNote(event.menuNumbers.latest.estimate.total)})` : ""}
+          </span>
         ) : null}
         {event.menuNumbers.latest?.allergySummary ? (
           <span className="pill p-warn ev-glance-note" title={event.menuNumbers.latest.allergySummary}>
@@ -604,6 +649,32 @@ export function EventEditForm({
           </div>
 
           <div className="ev-field">
+            <label className="lab-s" htmlFor="edit-rsvp-deadline">
+              Рок за одговор на гостите
+            </label>
+            <input
+              id="edit-rsvp-deadline"
+              className="fld"
+              type="date"
+              max={eventDate || undefined}
+              value={shownDeadline}
+              onChange={(e) => setRsvpDeadline(e.target.value)}
+            />
+            {deadlineReset ? (
+              <p className="ev-hint" data-testid="rsvp-deadline-reset" style={{ margin: "4px 0 0", color: "var(--gold-text)" }}>
+                Рокот за одговор е вратен на стандардниот — датумот на настанот е подоцна.
+              </p>
+            ) : null}
+            <p className="ev-hint" style={{ margin: "4px 0 0" }}>
+              {shownDeadline
+                ? `Гостите можат да одговорат до ${formatDeadline(shownDeadline)}.`
+                : eventDate
+                  ? `Празно: ${deadlineDays} дена пред настанот (${formatDeadline(effectiveRsvpDeadline(eventDate, null, deadlineDays))}), според Поставки.`
+                  : `Празно: ${deadlineDays} дена пред настанот, според Поставки.`}
+            </p>
+          </div>
+
+          <div className="ev-field">
             <label className="lab-s" htmlFor="edit-status">
               Статус
             </label>
@@ -680,6 +751,12 @@ export function EventEditForm({
                   {menuName(id) ?? "Мени"}: {menuUsage?.[id]} гости го избрале ова мени — нивниот избор ќе се избрише
                 </p>
               ))}
+            {/* 0181: going from one menu to two, nobody's choice is guessed — the couple is told who has to choose. */}
+            {event.menus.length === 1 && menuIds.length >= 2 ? (
+              <p role="status" className="ev-warn" style={{ margin: "6px 0 0" }}>
+                Гостите што веќе потврдиле ќе треба да изберат мени — парот ќе биде известен.
+              </p>
+            ) : null}
           </div>
         </fieldset>
 
@@ -767,9 +844,12 @@ export function EventEditForm({
         eventDate={event.event_date}
         createdAt={event.created_at}
         menus={event.menus}
+        menuChoicePending={event.menuChoicePending ?? 0}
         lastReminderAt={changesData?.lastReminderAt ?? null}
         // Contacts are manager-only: plain staff never get the phone.
         couplePhone={canEdit && privateLoaded ? event.contact_phone : null}
+        numbersChanges={numbersChanges}
+        onChangesSeen={handleChangesSeen}
         canConfirm={canEdit} token={managerToken} onChanged={handleNumbersChanged} />
 
       {!canEdit ? null : (
@@ -795,8 +875,19 @@ export function EventEditForm({
                     onChange={(e) => setTotalPrice(e.target.value)}
                   />
                   <div style={{ marginTop: 6 }}>
-                    <PriceCalculator guestCount={Number(guestCount) || 0} onApply={(value) => setTotalPrice(String(value))} />
+                    <PriceCalculator
+                      guestCount={Number(guestCount) || 0}
+                      onApply={(value, calc) => {
+                        setTotalPrice(String(value));
+                        setPerGuest(calc ?? null);
+                      }}
+                    />
                   </div>
+                  {priceLine ? (
+                    <p className="ev-hint" data-testid="price-comparison" style={{ marginTop: 6 }}>
+                      {priceLine}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="ev-field">
                   <label className="lab-s" htmlFor="edit-deposit-paid">

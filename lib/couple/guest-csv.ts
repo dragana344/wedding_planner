@@ -2,9 +2,12 @@
 // database and runs on either side.
 import type { Guest, GuestSide } from "@/lib/couple/guests";
 import { SIDE_LABELS, STATUS_LABELS } from "@/lib/couple/guest-labels";
+import { guestMenuMeals } from "@/lib/couple/guest-menus";
+import { CHILDREN_OVER_PARTY_ERROR } from "@/lib/couple/rsvp-answer-view";
 
 export const GUEST_IMPORT_MAX_ROWS = 1000;
-const PARTY_SIZE_MAX = 50;
+// The database's own limit (0033); guests have no smaller cap (group B decision 3).
+const PARTY_SIZE_MAX = 100;
 
 export interface GuestImportRow {
   full_name: string;
@@ -12,6 +15,8 @@ export interface GuestImportRow {
   email: string | null;
   side: GuestSide | null;
   party_size: number;
+  /** 0181: optional "Деца" column (an exported list carries it); never more than the party. */
+  children_count?: number;
 }
 
 export interface GuestImportError {
@@ -23,8 +28,8 @@ export interface GuestImportError {
 // ---------------------------------------------------------------------------
 // Export
 
-const HEADER_BEFORE_MENUS = ["Име и презиме", "Телефон", "Email", "Страна", "Лица", "Деца", "Статус"];
-const HEADER_AFTER_MENUS = ["Алергии", "Коментар", "Покана испратена"];
+const HEADER_BEFORE_MENUS = ["Име и презиме", "Телефон", "Email", "Страна", "Лица", "Деца", "Деца без оброк", "Статус"];
+const HEADER_AFTER_MENUS = ["Алергии", "Коментар", "Покана испратена", "Доаѓаат со"];
 
 /** A spreadsheet runs a cell starting with one of these as a formula. */
 const FORMULA_START = /^[=+\-@\t\r]/;
@@ -40,12 +45,14 @@ function cell(value: string | number | null): string {
  * CSV for Excel/Sheets: UTF-8 with BOM (Cyrillic), CRLF, ";" between columns
  * (what Excel expects with a Macedonian locale). Never includes the
  * invite token. One column per event menu (header = its name) holds how many
- * of the guest's party eat it, blank for none; with a single menu a confirmed
- * guest's whole party eats it.
+ * of a confirmed guest's party eat it, blank for none; with a single menu a
+ * confirmed guest's whole party eats it, but the children without a meal
+ * (0181, a column of their own). A choice kept from before a "no" is left out.
  */
 export function guestsToCsv(guests: readonly Guest[], menus: readonly { id: string; name: string }[] = []): string {
+  const menuIds = menus.map((m) => m.id);
   const menuCount = (g: Guest, id: string): number | null => {
-    const count = menus.length === 1 ? (g.rsvp_status === "confirmed" ? g.party_size : 0) : (g.menu_counts[id] ?? 0);
+    const count = guestMenuMeals(g, id, menuIds);
     return count > 0 ? count : null;
   };
   const lines = guests.map((g) =>
@@ -56,11 +63,14 @@ export function guestsToCsv(guests: readonly Guest[], menus: readonly { id: stri
       g.side ? SIDE_LABELS[g.side] : null,
       g.party_size,
       g.children_count,
+      g.no_meal_count ?? 0,
       STATUS_LABELS[g.rsvp_status] ?? g.rsvp_status,
       ...menus.map((m) => menuCount(g, m.id)),
       g.allergies,
       g.rsvp_comment,
       g.invitation_sent_at ? `Да${g.invitation_channel ? ` (${g.invitation_channel})` : ""}` : "Не",
+      // 0179: names of the people coming with the guest.
+      (g.household_names ?? []).join(", ") || null,
     ]
       .map(cell)
       .join(";"),
@@ -131,6 +141,9 @@ const HEADER_ALIASES: Record<string, Column> = {
   party_size: "party_size",
   "party size": "party_size",
   guests: "party_size",
+  "деца": "children_count",
+  children: "children_count",
+  children_count: "children_count",
 };
 
 const SIDE_VALUES: Record<string, GuestSide> = {
@@ -190,6 +203,11 @@ export function parseGuestCsv(input: string): { rows: GuestImportRow[]; errors: 
       return void errors.push({ line, message: `Бројот на лица мора да е од 1 до ${PARTY_SIZE_MAX}.` });
     }
 
+    const childrenText = get("children_count");
+    const children = childrenText === "" ? 0 : Number(childrenText);
+    if (!Number.isInteger(children) || children < 0) return void errors.push({ line, message: "Бројот на деца мора да е цел број." });
+    if (children > partySize) return void errors.push({ line, message: CHILDREN_OVER_PARTY_ERROR });
+
     const email = get("email");
     if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       return void errors.push({ line, message: "Неважечки email." });
@@ -202,7 +220,7 @@ export function parseGuestCsv(input: string): { rows: GuestImportRow[]; errors: 
     const phone = get("phone");
     if (phone.length > 50) return void errors.push({ line, message: "Телефонот е предолг." });
 
-    rows.push({ full_name: fullName, phone: phone || null, email: email || null, side, party_size: partySize });
+    rows.push({ full_name: fullName, phone: phone || null, email: email || null, side, party_size: partySize, ...(children > 0 ? { children_count: children } : {}) });
   });
   return { rows, errors };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { totalMatchesPerGuest } from "@/lib/venue/price";
 import { countEventsByDate, findSameDayRoomEvents, listFullyBookedDatesByRoom } from "@/lib/venue/events";
 import { monthRange } from "@/lib/venue/calendar-grid";
 import { createEventViaApi, fetchNewEventCustomMenuEnabled } from "@/lib/venue/events-client";
@@ -323,6 +324,10 @@ export function NewEventWizard({
           credentials: { username: wizard.username, password: wizard.password },
           total_price: wizard.totalPrice === "" ? null : Number(wizard.totalPrice),
           deposit_paid: wizard.depositPaid === "" ? null : Number(wizard.depositPaid),
+          // 0182: only while the total is still the calculator's price × guests.
+          ...(wizard.perGuest && totalMatchesPerGuest(wizard.totalPrice === "" ? null : Number(wizard.totalPrice), wizard.perGuest.price, wizard.perGuest.guests)
+            ? { price_per_guest: wizard.perGuest.price, contracted_guests: wizard.perGuest.guests }
+            : {}),
         },
         managerToken,
       );
@@ -440,7 +445,7 @@ export function NewEventWizard({
               totalPrice={wizard.totalPrice}
               depositPaid={wizard.depositPaid}
               guestCount={wizard.guestCount}
-              onTotalChange={(totalPrice) => update({ totalPrice })}
+              onTotalChange={(totalPrice, perGuest) => update(perGuest ? { totalPrice, perGuest } : { totalPrice })}
               onDepositChange={(depositPaid) => update({ depositPaid })}
             />
           ) : null}

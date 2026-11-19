@@ -6,6 +6,7 @@ import { getEventMenuNames, getGuestStats, listGuests } from "@/lib/couple/guest
 import { getInvitation, getInvitationPhotoUrl } from "@/lib/couple/invitations";
 import { getEventMenus } from "@/lib/couple/menu";
 import { listMenuSubmissions } from "@/lib/couple/menu-submissions";
+import { sentHeadcount } from "@/lib/menu-numbers";
 import { getBudgetSummary } from "@/lib/couple/budget";
 import { listChecklistItems } from "@/lib/couple/checklist";
 import { listNotes, deriveNoteDisplay } from "@/lib/couple/notes";
@@ -111,10 +112,13 @@ export async function loadKeepsake(eventId: string): Promise<KeepsakeData> {
         menuText: guestMenuText(g, menuNames),
         allergies: g.allergies,
         comment: g.rsvp_comment,
+        householdNames: g.household_names ?? [],
       })),
     menus: menus.map((m) => ({ name: m.name, count: counts.get(m.id) ?? 0, dishes: m.dishes })),
     attending: { people: stats.totalAttending, children: stats.childrenAttending, parties: confirmed.length },
     numbersSentAt: latest?.sentAt ?? null,
+    noMeal: stats.noMeal,
+    numbersSent: latest ? { people: sentHeadcount(latest), estimated: latest.estimate?.total ?? 0 } : null,
     tables,
     greetings: greetings
       .map((g) => ({ name: `${g.firstName} ${g.lastName}`.trim(), message: g.message, hasVideo: g.videoUrl !== null, createdAt: g.createdAt }))

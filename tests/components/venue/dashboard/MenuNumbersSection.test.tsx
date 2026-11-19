@@ -49,6 +49,20 @@ describe("MenuNumbersSection", () => {
     expect(screen.getByText(/12 гости без одговор/)).toBeInTheDocument();
   });
 
+  it("0181: shows the children without a meal on their own line, and how many guests still have to choose", () => {
+    renderSection({
+      menuNumbers: { latest: submission({ numbers: { menus: [{ id: "m1", name: "Класично", count: 80 }], total: 80, noMeal: 4 } }), previous: null },
+      menuChoicePending: 3,
+    });
+    expect(screen.getByText("Деца без оброк — 4")).toBeInTheDocument();
+    expect(screen.getByText("3 гости уште треба да изберат мени.")).toBeInTheDocument();
+  });
+
+  it("0181: no pending line with a single menu or nobody pending", () => {
+    renderSection({ menus: [menus[0]], menuChoicePending: 2 });
+    expect(screen.queryByText(/треба да избер/)).not.toBeInTheDocument();
+  });
+
   it("labels numbers entered by the venue", () => {
     renderSection({ menuNumbers: { latest: submission({ source: "venue" }), previous: null } });
     expect(screen.getByText("Внесено од салата")).toBeInTheDocument();
@@ -146,5 +160,44 @@ describe("MenuNumbersSection", () => {
   it("hides Внеси бројки without menus", () => {
     renderSection({ menus: [] });
     expect(screen.queryByRole("button", { name: "Внеси бројки" })).not.toBeInTheDocument();
+  });
+  it("0182: the estimated part is marked per menu and in the total; the kitchen sheet is linked", () => {
+    renderSection({
+      menuNumbers: {
+        latest: submission({
+          numbers: { menus: [{ id: "m1", name: "Класично", count: 80 }, { id: "m2", name: "Вегетаријанско", count: 10 }], total: 90, noMeal: 4 },
+          estimate: { menus: [{ id: "m1", name: "Класично", count: 20 }, { id: "m2", name: "Вегетаријанско", count: 4 }], total: 24 },
+          unanswered: 9,
+        }),
+        previous: null,
+      },
+    });
+    expect(screen.getByText(/Класично — 100/)).toHaveTextContent("Класично — 100 (од кои проценка: 20)");
+    expect(screen.getByText(/Вкупно оброци — 114/)).toBeInTheDocument();
+    expect(screen.getByText(/од кои проценка: 24/)).toBeInTheDocument();
+    expect(screen.getByText(/Вкупно лица — 118/)).toBeInTheDocument();
+    expect(screen.getByText(/9 гости без одговор, со проценка/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Лист за кујна" })).toHaveAttribute("href", "/venue/events/e1/print/kitchen");
+  });
+
+  it("0182: changes after sending show with Видено", async () => {
+    const seen = vi.spyOn(changesClient, "markChangesSeenViaApi").mockResolvedValue({ newer: false });
+    const onChangesSeen = vi.fn();
+    renderSection({
+      menuNumbers: { latest: submission({}), previous: null },
+      numbersChanges: [
+        {
+          id: "c1", eventId: "e1", section: "numbers", side: "couple", changedBy: "Гостин", field: "after_sent",
+          oldValue: { submissionId: "s1" }, newValue: { changes: [{ name: "Класично", from: 80, to: 82 }], allergies: false },
+          changedAt: "2026-10-25T10:00:00Z",
+        },
+      ],
+      onChangesSeen,
+    });
+    expect(screen.getByText("Промена по испратените бројки")).toBeInTheDocument();
+    expect(screen.getByText(/\+2 Класично/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Видено" }));
+    await waitFor(() => expect(onChangesSeen).toHaveBeenCalled());
+    expect(seen).toHaveBeenCalledWith("e1", "numbers", "2026-10-25T10:00:00Z", "tok");
   });
 });

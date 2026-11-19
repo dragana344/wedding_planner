@@ -107,7 +107,7 @@ describe("loadCoupleMarks / dotsFor", () => {
     await numbers(e, "venue", ago(DAY));
     await reply(e, null, ago(DAY));
     const marks = await loadCoupleMarks(e);
-    expect(marks).toEqual({ unseen: {}, venueNumbersUnseen: null, newReplies: [] });
+    expect(marks).toEqual({ unseen: {}, venueNumbersUnseen: null, newReplies: [], pendingAnswers: 0 });
     expect(dotsFor(marks)).toEqual({ menu: false, guests: false, budget: false, notifications: false });
   });
 
@@ -126,6 +126,23 @@ describe("loadCoupleMarks / dotsFor", () => {
     if (error) throw error;
     marks = await loadCoupleMarks(e);
     expect(marks.newReplies).toEqual([]);
+    expect(dotsFor(marks).guests).toBe(false);
+  });
+
+  it("0179: an answer waiting in 'Да се провери' keeps the guests and notifications dots on until resolved", async () => {
+    const e = await newEvent("Провери");
+    const { data: row, error } = await admin
+      .from("event_rsvp_answers")
+      .insert({ event_id: e, source: "shared", full_name: "Ана", status: "confirmed", party_size: 2, match: "review", review_state: "pending" })
+      .select("id")
+      .single();
+    if (error) throw error;
+    let marks = await loadCoupleMarks(e);
+    expect(marks.pendingAnswers).toBe(1);
+    expect(dotsFor(marks)).toMatchObject({ guests: true, notifications: true });
+    await admin.from("event_rsvp_answers").update({ review_state: "ignored" }).eq("id", row!.id);
+    marks = await loadCoupleMarks(e);
+    expect(marks.pendingAnswers).toBe(0);
     expect(dotsFor(marks).guests).toBe(false);
   });
 });

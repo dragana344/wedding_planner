@@ -97,10 +97,40 @@ describe("/api/couple/seating/seats", () => {
     ]);
     expect(res.json.guests).toEqual(
       expect.arrayContaining([
-        { id: guestId, fullName: "Ана Петровска", partySize: 1, seatsTaken: 0, side: null },
-        { id: familyId, fullName: "Семејство Стојанови", partySize: 3, seatsTaken: 1, side: null },
+        expect.objectContaining({ id: guestId, fullName: "Ана Петровска", partySize: 1, seatsTaken: 0, side: null }),
+        expect.objectContaining({ id: familyId, fullName: "Семејство Стојанови", partySize: 3, seatsTaken: 1, side: null }),
       ]),
     );
+    expect(res.json.flags).toEqual([]);
+  });
+
+  it("0181: flags a seated guest who declined and a party now smaller than its seats", async () => {
+    await must(admin.from("event_seat_assignments").delete().eq("event_id", eventId).select("seat_number"));
+    await must(admin.from("event_seat_assignments").insert([
+      { event_id: eventId, room_id: roomId, layout_element_id: tableIds[0], seat_number: 1, guest_id: guestId },
+      { event_id: eventId, room_id: roomId, layout_element_id: tableIds[1], seat_number: 1, guest_id: familyId },
+      { event_id: eventId, room_id: roomId, layout_element_id: tableIds[1], seat_number: 2, guest_id: familyId },
+      { event_id: eventId, room_id: roomId, layout_element_id: tableIds[1], seat_number: 3, guest_id: familyId },
+    ]).select("seat_number"));
+    await must(admin.from("event_guests").update({ rsvp_status: "declined" }).eq("id", guestId).select("id"));
+    await must(admin.from("event_guests").update({ party_size: 1 }).eq("id", familyId).select("id"));
+    const res = await call("GET", { query: { room_id: roomId } });
+    expect(res.json.flags).toEqual([
+      { guestId, fullName: "Ана Петровска", kind: "declined", extra: 1, text: "Одбил — ослободете ги местата на маса 1" },
+      { guestId: familyId, fullName: "Семејство Стојанови", kind: "over", extra: 2, text: "2 места повеќе на Кумови" },
+    ]);
+
+    // The venue's staff get the same facts through their own read (they can't read the guest list).
+    const { data: rows, error } = await admin.rpc("event_seat_guest_flags", { p_event_id: eventId });
+    expect(error).toBeNull();
+    const facts = (rows as { guest_id: string; rsvp_status: string; party_size: number; seats_taken: number }[])
+      .map((r) => `${r.guest_id}:${r.rsvp_status}:${r.party_size}:${r.seats_taken}`)
+      .sort();
+    expect(facts).toEqual([`${guestId}:declined:1:1`, `${familyId}:pending:1:3`].sort());
+
+    await must(admin.from("event_seat_assignments").delete().eq("event_id", eventId).select("seat_number"));
+    await must(admin.from("event_guests").update({ rsvp_status: "pending" }).eq("id", guestId).select("id"));
+    await must(admin.from("event_guests").update({ party_size: 3 }).eq("id", familyId).select("id"));
   });
 
   it("PUT replaces one table's list", async () => {

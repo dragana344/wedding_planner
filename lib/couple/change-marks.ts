@@ -9,6 +9,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { MenuSubmission } from "@/lib/menu-numbers";
 import { listGuestReplies, type GuestReply } from "./guest-replies";
 import { listMenuSubmissions } from "./menu-submissions";
+import { countPendingAnswers } from "./rsvp-answers";
 
 export type CoupleMarks = {
   /** The venue's changes the couple has not pressed Видено on, by section. */
@@ -17,9 +18,11 @@ export type CoupleMarks = {
   venueNumbersUnseen: MenuSubmission | null;
   /** Guests' replies newer than what the couple has seen, newest first. */
   newReplies: GuestReply[];
+  /** 0179: shared-link answers waiting in "Да се провери" (until resolved, not cleared by Видено). */
+  pendingAnswers: number;
 };
 
-export const NO_MARKS: CoupleMarks = { unseen: {}, venueNumbersUnseen: null, newReplies: [] };
+export const NO_MARKS: CoupleMarks = { unseen: {}, venueNumbersUnseen: null, newReplies: [], pendingAnswers: 0 };
 
 /** Everything the couple screens mark as new. Nothing counts on a past event. */
 export const loadCoupleMarks = cache(async (eventId: string): Promise<CoupleMarks> => {
@@ -29,18 +32,20 @@ export const loadCoupleMarks = cache(async (eventId: string): Promise<CoupleMark
   const eventDate = event.event_date as string;
   const today = todayIn();
   if (eventDate < today) return NO_MARKS;
-  const [changes, seen, coupleFirstLoginAt, submissions, replies] = await Promise.all([
+  const [changes, seen, coupleFirstLoginAt, submissions, replies, pendingAnswers] = await Promise.all([
     listEventChanges(eventId),
     getSeen(eventId, "couple"),
     getCoupleFirstLogin(eventId),
     listMenuSubmissions(eventId, 1),
     listGuestReplies(eventId),
+    countPendingAnswers(eventId),
   ]);
   const latest = submissions[0];
   return {
     unseen: groupBySection(unseenChanges(changes, "couple", seen, { eventDate, today, coupleFirstLoginAt })),
     venueNumbersUnseen: latest && venueNumbersUnseen(latest, true, coupleFirstLoginAt, seen.menu_numbers) ? latest : null,
     newReplies: newGuestReplies(replies, seen.guest_replies, eventDate, today),
+    pendingAnswers,
   };
 });
 
@@ -65,9 +70,13 @@ export type CoupleDots = { menu: boolean; guests: boolean; budget: boolean; noti
 export function dotsFor(marks: CoupleMarks): CoupleDots {
   return {
     menu: Boolean(marks.unseen.menus?.length) || marks.venueNumbersUnseen !== null,
-    guests: marks.newReplies.length > 0,
+    guests: marks.newReplies.length > 0 || marks.pendingAnswers > 0,
     budget: Boolean(marks.unseen.finance?.length),
-    // Anything the notifications page would badge: venue changes, the venue's numbers, new guest replies.
-    notifications: Object.values(marks.unseen).some((list) => (list?.length ?? 0) > 0) || marks.venueNumbersUnseen !== null || marks.newReplies.length > 0,
+    // Anything the notifications page would badge: venue changes, the venue's numbers, new guest replies, answers to check.
+    notifications:
+      Object.values(marks.unseen).some((list) => (list?.length ?? 0) > 0) ||
+      marks.venueNumbersUnseen !== null ||
+      marks.newReplies.length > 0 ||
+      marks.pendingAnswers > 0,
   };
 }

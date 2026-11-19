@@ -149,26 +149,52 @@ describe("greetings from the invitation", () => {
   });
 
   describe("sending one before answering (0152)", () => {
-    it("shared link: typing a name gets a ticket, no RSVP answer recorded, and the real answer later lands on the same guest", async () => {
+    it("0179: shared link, a name nobody has creates nothing and asks to answer first; after answering, the greeting is tied to that guest", async () => {
       const name = `Пред одговор ${stamp}`;
       const res = await call(identify, slug, { full_name: name });
-      expect(res.status).toBe(200);
-      const { ticket, sent } = await res.json();
-      expect(sent).toBe(false);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("Не ве најдовме со сигурност на листата. Прво одговорете на поканата погоре — потоа можете да испратите честитка.");
+      const { count: none } = await admin.from("event_guests").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("full_name", name);
+      expect(none).toBe(0);
 
-      const { data: created } = await admin.from("event_guests").select("id, rsvp_status").eq("event_id", eventId).eq("full_name", name).single();
-      expect(created!.rsvp_status).toBe("pending");
-
-      const greetRes = await call(greet, slug, { ticket, message: "Однапред честитки!" });
+      // Answering creates the guest; identify then finds them (exact name), and the remember token works too.
+      const answered = await call(rsvp, slug, { full_name: name, status: "confirmed", party_size: 1 });
+      const { remember } = await answered.json();
+      const { data: created } = await admin.from("event_guests").select("id").eq("event_id", eventId).eq("full_name", name).single();
+      const byName = await (await call(identify, slug, { full_name: name })).json();
+      const greetRes = await call(greet, slug, { ticket: byName.ticket, message: "Однапред честитки!" });
       expect(greetRes.status).toBe(200);
       const { data: row } = await admin.from("event_greetings").select("guest_id").eq("id", (await greetRes.json()).id).single();
       expect(row!.guest_id).toBe(created!.id);
+      const byToken = await (await call(identify, slug, { full_name: "Друго Име", remember })).json();
+      expect(readGreetingTicket(eventId, byToken.ticket)).toBe(created!.id);
+      expect(byToken.sent).toBe(true);
+    });
 
-      // Answering for real afterwards matches the same guest (not a new one) and already shows it sent.
-      const afterAnswer = await answer(name, "confirmed");
-      expect(afterAnswer.sent).toBe(true);
-      const { count } = await admin.from("event_guests").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("full_name", name);
-      expect(count).toBe(1);
+    it("0179: shared link, an unsure name (namesakes or only across scripts) does not unlock a greeting", async () => {
+      const name = `Двојник ${stamp}`;
+      await admin.from("event_guests").insert([{ event_id: eventId, full_name: name }, { event_id: eventId, full_name: name }]);
+      expect((await call(identify, slug, { full_name: name })).status).toBe(400);
+      expect((await call(identify, slug, { full_name: "Ana Petrova" })).status).toBe(400);
+    });
+
+    it("0184: unknown, unsure and a phone with a name that doesn't fit all get the very same answer; a phone with a fitting name unlocks", async () => {
+      const listed = `Со телефон ${stamp}`;
+      await admin.from("event_guests").insert({ event_id: eventId, full_name: listed, phone: "070 987 654" });
+      const twin = `Близнак ${stamp}`;
+      await admin.from("event_guests").insert([{ event_id: eventId, full_name: twin }, { event_id: eventId, full_name: twin }]);
+      const reply = async (body: Record<string, unknown>) => {
+        const res = await call(identify, slug, body);
+        return { status: res.status, body: await res.json() };
+      };
+      const unknown = await reply({ full_name: `Никој Таков ${stamp}` });
+      expect(unknown.status).toBe(400);
+      for (const body of [{ full_name: twin }, { full_name: "Ana Petrova" }, { full_name: `Никој Таков ${stamp}`, phone: "070 987 654" }]) {
+        expect(await reply(body), JSON.stringify(body)).toEqual(unknown);
+      }
+      const fits = await reply({ full_name: listed.split(" ")[0], phone: "+389 70 987 654" });
+      expect(fits.status).toBe(200);
+      expect(fits.body.ticket).toEqual(expect.any(String));
     });
 
     it("shared link: typing a name the couple already listed reuses that guest instead of creating a duplicate", async () => {

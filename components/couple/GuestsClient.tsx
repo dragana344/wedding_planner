@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Guest, GuestSide, GuestStats, InvitationChannel, RsvpStatus } from "@/lib/couple/guests";
 import { STATUS_LABELS } from "@/lib/couple/guest-labels";
-import { isGuestDone } from "@/lib/couple/guest-menus";
+import { isGuestDone, menusChangedText } from "@/lib/couple/guest-menus";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
 import { GuestDetail } from "@/components/couple/guests/GuestDetail";
 import { GuestsSummary } from "@/components/couple/guests/GuestsSummary";
@@ -12,6 +12,8 @@ import { BulkSendDialog, type SendActions, type ShareContext } from "@/component
 import { formatVenueDateTime } from "@/lib/date";
 import { Icon } from "@/components/venue/shell/Icon";
 import { AddPanel } from "@/components/shared/AddPanel";
+import { AnswersInbox } from "@/components/couple/guests/AnswersInbox";
+import { overInvited, overInvitedLabel } from "@/lib/couple/rsvp-answer-view";
 
 const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as RsvpStatus[]).map((value) => ({ value, label: STATUS_LABELS[value] }));
 
@@ -29,15 +31,16 @@ const SIDE_OPTIONS: { value: GuestSide; label: string }[] = [
 function menuSummary(guest: Guest, menus: { id: string; name: string }[]): string {
   if (menus.length < 2 || guest.rsvp_status !== "confirmed") return "";
   if (!isGuestDone(guest, menus.map((m) => m.id))) return "Нема избрано мени";
-  return menus
-    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
-    .map((m) => `${m.name} ${guest.menu_counts[m.id]}`)
-    .join(" · ");
+  const parts = menus.filter((m) => (guest.menu_counts[m.id] ?? 0) > 0).map((m) => `${m.name} ${guest.menu_counts[m.id]}`);
+  if ((guest.no_meal_count ?? 0) > 0) parts.push(`Деца без оброк ${guest.no_meal_count}`);
+  return parts.join(" · ");
 }
 
 function matchesMenuFilter(guest: Guest, filter: string, menuIds: string[]): boolean {
-  if (filter === "none") return guest.rsvp_status === "confirmed" && !isGuestDone(guest, menuIds);
-  if (menuIds.length === 1) return guest.rsvp_status === "confirmed";
+  // A choice kept from before a "no" or "later" (0181) is not on any menu's list.
+  if (guest.rsvp_status !== "confirmed") return false;
+  if (filter === "none") return !isGuestDone(guest, menuIds);
+  if (menuIds.length === 1) return true;
   return (guest.menu_counts[filter] ?? 0) > 0;
 }
 
@@ -104,6 +107,9 @@ export function GuestsClient({
   greetingsEnabled = false,
   newGuestIds = [],
   newestReplyAt = null,
+  pendingAnswers = 0,
+  deadlineText = null,
+  initialMenuFilter = "",
 }: {
   initialGuests: Guest[];
   initialStats: GuestStats;
@@ -120,6 +126,12 @@ export function GuestsClient({
   newGuestIds?: string[];
   /** The newest of those replies' time, unchanged; Видено clears up to it. */
   newestReplyAt?: string | null;
+  /** 0179: shared-link answers waiting in "Да се провери". */
+  pendingAnswers?: number;
+  /** 0180: the venue's deadline for the guests' answers, as a sentence (null once the event is past). */
+  deadlineText?: string | null;
+  /** 0181: "none" opens the list on the guests who still have to choose a menu (from the home page's warning). */
+  initialMenuFilter?: string;
 }) {
   const isWedding = eventType === "wedding";
 
@@ -129,6 +141,9 @@ export function GuestsClient({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [partySize, setPartySize] = useState("1");
+  const [invited, setInvited] = useState("");
+  const [view, setView] = useState<"list" | "answers">("list");
+  const [pending, setPending] = useState(pendingAnswers);
   const [notes, setNotes] = useState("");
   const [side, setSide] = useState<GuestSide>("bride");
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +151,7 @@ export function GuestsClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<RsvpStatus | "">("");
-  const [menuFilter, setMenuFilter] = useState<string>("");
+  const [menuFilter, setMenuFilter] = useState<string>(initialMenuFilter);
   const [sentFilter, setSentFilter] = useState<SentFilter>("");
   const [onlyNew, setOnlyNew] = useState(false);
   const [sideView, setSideView] = useState<"all" | GuestSide>("all");
@@ -219,6 +234,7 @@ export function GuestsClient({
             phone: phone || null,
             email: email || null,
             party_size: Number(partySize),
+            ...(invited.trim() ? { invited_party_size: Number(invited) } : {}),
             notes: notes || null,
             side: isWedding ? side : null,
           }),
@@ -229,6 +245,7 @@ export function GuestsClient({
       setPhone("");
       setEmail("");
       setPartySize("1");
+      setInvited("");
       setNotes("");
       await refreshStats();
     } catch (err) {
@@ -313,6 +330,13 @@ export function GuestsClient({
   const menus = stats.menus;
   const menuIds = useMemo(() => menus.map((m) => m.id), [menus]);
 
+  // 0180: guests who said yes but whose menus no longer add up — e.g. a
+  // second menu was added after they answered. Their invitation asks them.
+  const needMenuCount = useMemo(
+    () => (menuIds.length > 1 ? guests.filter((g) => matchesMenuFilter(g, "none", menuIds)).length : 0),
+    [guests, menuIds],
+  );
+
   const newIds = useMemo(() => new Set(newGuestIds), [newGuestIds]);
   const hasNew = newIds.size > 0;
 
@@ -337,6 +361,7 @@ export function GuestsClient({
     const unsent = guest.invitation_sent_at === null;
     const menuText = menuSummary(guest, menus);
     const actionsOpen = openActionsId === guest.id;
+    const over = overInvited(guest.rsvp_status, guest.party_size, guest.invited_party_size);
     return (
       <div key={guest.id} className={`cg-row${actionsOpen ? " is-open" : ""}`} data-unsent={unsent ? "true" : "false"}>
         <div className="cg-main">
@@ -344,20 +369,17 @@ export function GuestsClient({
             {guest.full_name}
           </button>
           {newIds.has(guest.id) ? <span className="change-mark">Ново</span> : null}
+          {over > 0 ? <span className="cg-over">{overInvitedLabel(over)}</span> : null}
           <p className="cg-meta">
             {guest.party_size} {guest.party_size === 1 ? "гостин" : "гости"}
             {guest.phone ? ` · ${guest.phone}` : ""}
             {menuText ? ` · ${menuText}` : ""}
           </p>
+          {(guest.household_names ?? []).length > 0 ? <p className="cg-meta cg-small">Со: {guest.household_names!.join(", ")}</p> : null}
           {unsent ? <p className="cg-unsent">Неиспратена покана</p> : null}
           {guest.notes ? <p className="cg-meta">{guest.notes}</p> : null}
           {guest.rsvp_changed_via_link_at ? (
-            <p className="cg-meta cg-small">
-              Одговор преку поканата: {formatLinkChange(guest.rsvp_changed_via_link_at)}
-              {guest.rsvp_previous_status
-                ? ` (претходно: ${STATUS_LABELS[guest.rsvp_previous_status] ?? guest.rsvp_previous_status})`
-                : ""}
-            </p>
+            <p className="cg-meta cg-small">Одговор преку поканата: {formatLinkChange(guest.rsvp_changed_via_link_at)}</p>
           ) : null}
         </div>
         <span className={`cg-status cg-st-${guest.rsvp_status}`} aria-hidden="true">
@@ -424,177 +446,240 @@ export function GuestsClient({
         </p>
       ) : null}
       <GuestsSummary stats={stats} canSendNumbers={!organizerSide} />
+      {stats.menuRechoose > 0 ? (
+        <div role="status" className="change-box">
+          <b>{menusChangedText(stats.menuRechoose)}</b>{" "}
+          {view === "list" && menuFilter !== "none" ? (
+            <button type="button" className="btn btn-ghost" onClick={() => setMenuFilter("none")}>
+              Прикажи ги
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {deadlineText ? (
+        <p className="ev-hint" style={{ margin: 0 }}>
+          {deadlineText}
+        </p>
+      ) : null}
 
-      <AddPanel title="Нов гостин" defaultOpen={guests.length === 0}>
-        <form onSubmit={handleAdd} className="cg-add">
-          <input className="fld cg-span2" aria-label="Име и презиме" placeholder="Име и презиме" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          <input className="fld" aria-label="Телефон (по желба)" placeholder="Телефон (по желба)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <input
-            className="fld"
-            type="email"
-            aria-label="Email (по желба)"
-            placeholder="Email (по желба)"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <label className="cg-field">
-            <span className="lab-s">Број на лица</span>
-            <input className="fld" type="number" aria-label="Број на лица" min={1} value={partySize} onChange={(e) => setPartySize(e.target.value)} />
-          </label>
-          {isWedding ? (
+      <div className="seg gold" role="group" aria-label="Прикажи">
+        <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>
+          Гости
+        </button>
+        <button type="button" aria-pressed={view === "answers"} onClick={() => setView("answers")}>
+          Одговори
+          {pending > 0 ? <span className="change-mark" aria-label={`${pending} за проверка`}>{pending}</span> : null}
+        </button>
+      </div>
+      {pending > 0 && view === "list" ? (
+        <button type="button" className="btn btn-gold" style={{ alignSelf: "flex-start" }} onClick={() => setView("answers")}>
+          Да се провери ({pending})
+        </button>
+      ) : null}
+
+      {view === "answers" ? (
+        <AnswersInbox
+          guests={guests}
+          menus={menus}
+          onPendingChange={setPending}
+          onGuestChanged={(changed) => {
+            setGuests((prev) => (prev.some((g) => g.id === changed.id) ? prev.map((g) => (g.id === changed.id ? changed : g)) : [...prev, changed]));
+            void refreshStats().catch(() => undefined);
+          }}
+        />
+      ) : (
+        <>
+        <AddPanel title="Нов гостин" defaultOpen={guests.length === 0}>
+          <form onSubmit={handleAdd} className="cg-add">
+            <input className="fld cg-span2" aria-label="Име и презиме" placeholder="Име и презиме" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <input className="fld" aria-label="Телефон (по желба)" placeholder="Телефон (по желба)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input
+              className="fld"
+              type="email"
+              aria-label="Email (по желба)"
+              placeholder="Email (по желба)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
             <label className="cg-field">
-              <span className="lab-s">Страна</span>
-              <select aria-label="Страна" className="fld" value={side} onChange={(e) => setSide(e.target.value as GuestSide)}>
-                {SIDE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <span className="lab-s">Број на лица</span>
+              <input className="fld" type="number" aria-label="Број на лица" min={1} value={partySize} onChange={(e) => setPartySize(e.target.value)} />
+            </label>
+            <label className="cg-field">
+              <span className="lab-s">Поканети лица (по желба)</span>
+              <input
+                className="fld"
+                type="number"
+                aria-label="Поканети лица"
+                min={1}
+                max={100}
+                placeholder="—"
+                value={invited}
+                onChange={(e) => setInvited(e.target.value)}
+              />
+            </label>
+            {isWedding ? (
+              <label className="cg-field">
+                <span className="lab-s">Страна</span>
+                <select aria-label="Страна" className="fld" value={side} onChange={(e) => setSide(e.target.value as GuestSide)}>
+                  {SIDE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <input className="fld cg-span2" aria-label="Белешки (по желба)" placeholder="Белешки (по желба)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            {error ? (
+              <p role="alert" className="cg-span2" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" disabled={isSubmitting} className="btn btn-gold cg-span2 cg-submit">
+              {isSubmitting ? "Се додава..." : "Додади гостин"}
+            </button>
+          </form>
+        </AddPanel>
+
+        <div className="cg-filters">
+          <input
+            type="search"
+            aria-label="Пребарај гости"
+            placeholder="Пребарај гости…"
+            className="fld cg-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select aria-label="Филтер по статус" className="fld" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RsvpStatus | "")}>
+            <option value="">Статус</option>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Филтер по мени" className="fld" value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}>
+            <option value="">Мени</option>
+            {menus.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+            {menus.length > 1 ? <option value="none">Треба да изберат мени{needMenuCount > 0 ? ` (${needMenuCount})` : ""}</option> : null}
+          </select>
+          <select aria-label="Филтер по покана" className="fld" value={sentFilter} onChange={(e) => setSentFilter(e.target.value as SentFilter)}>
+            <option value="">Покана</option>
+            <option value="sent">Испратени</option>
+            <option value="unsent">Неиспратени</option>
+          </select>
+        </div>
+        <div className="cg-tools">
+          {needMenuCount > 0 && menuFilter !== "none" ? (
+            <button type="button" className="btn btn-ghost" onClick={() => setMenuFilter("none")}>
+              Треба да изберат мени: {needMenuCount}
+            </button>
+          ) : null}
+          {hasNew ? (
+            <label className="cg-only-new">
+              <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
+              Само нови
             </label>
           ) : null}
-          <input className="fld cg-span2" aria-label="Белешки (по желба)" placeholder="Белешки (по желба)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          {error ? (
-            <p role="alert" className="cg-span2" style={{ color: "var(--bad)", fontSize: 13.5, margin: 0 }}>
-              {error}
-            </p>
+          {/* Also for replies no row shows (e.g. a deleted guest): the nav dot counts them, so they must be clearable. */}
+          {newestReplyAt ? <ClearNewButton upTo={newestReplyAt} /> : null}
+          {sendingEnabled ? (
+            <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
+              Масовно праќање
+            </button>
           ) : null}
-          <button type="submit" disabled={isSubmitting} className="btn btn-gold cg-span2 cg-submit">
-            {isSubmitting ? "Се додава..." : "Додади гостин"}
-          </button>
-        </form>
-      </AddPanel>
-
-      <div className="cg-filters">
-        <input
-          type="search"
-          aria-label="Пребарај гости"
-          placeholder="Пребарај гости…"
-          className="fld cg-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <select aria-label="Филтер по статус" className="fld" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RsvpStatus | "")}>
-          <option value="">Статус</option>
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Филтер по мени" className="fld" value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)}>
-          <option value="">Мени</option>
-          {menus.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-          {menus.length > 1 ? <option value="none">Нема избрано мени</option> : null}
-        </select>
-        <select aria-label="Филтер по покана" className="fld" value={sentFilter} onChange={(e) => setSentFilter(e.target.value as SentFilter)}>
-          <option value="">Покана</option>
-          <option value="sent">Испратени</option>
-          <option value="unsent">Неиспратени</option>
-        </select>
-      </div>
-      <div className="cg-tools">
-        {hasNew ? (
-          <label className="cg-only-new">
-            <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} />
-            Само нови
+          <a href="/api/couple/guests/export" className="btn btn-ghost" download>
+            Извези CSV
+          </a>
+          <a href="/couple/guests/print" className="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+            Печати листа
+          </a>
+          <label className="btn btn-ghost" style={{ cursor: "pointer", position: "relative" }}>
+            Увези CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleImport}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
+            />
           </label>
-        ) : null}
-        {/* Also for replies no row shows (e.g. a deleted guest): the nav dot counts them, so they must be clearable. */}
-        {newestReplyAt ? <ClearNewButton upTo={newestReplyAt} /> : null}
-        {sendingEnabled ? (
-          <button type="button" className="btn btn-gold" onClick={() => setBulkOpen(true)}>
-            Масовно праќање
-          </button>
-        ) : null}
-        <a href="/api/couple/guests/export" className="btn btn-ghost" download>
-          Извези CSV
-        </a>
-        <a href="/couple/guests/print" className="btn btn-ghost" target="_blank" rel="noopener noreferrer">
-          Печати листа
-        </a>
-        <label className="btn btn-ghost" style={{ cursor: "pointer", position: "relative" }}>
-          Увези CSV
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleImport}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
-          />
-        </label>
-      </div>
-      {notice ? <p style={{ color: "var(--ok)", fontSize: 13.5, margin: 0 }}>{notice}</p> : null}
-
-      {isWedding ? (
-        <>
-          <div className="seg gold cg-sides" role="group" aria-label="Прикажи страна">
-            {(
-              [
-                ["all", "Сите", visibleGuests.length],
-                ["bride", "Невеста", brideGuests.length],
-                ["groom", "Младоженец", groomGuests.length],
-              ] as const
-            ).map(([value, label, count]) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={sideView === value}
-                onClick={() => {
-                  setSideView(value);
-                  setCollapsed({});
-                  // Mid-list (switch pinned), jump back to where the chosen side starts.
-                  const list = sideListRef.current;
-                  if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start" });
-                }}
-              >
-                {label} <span className="cg-side-n">{count}</span>
-              </button>
-            ))}
-          </div>
-          {/* Not the bare `grid` class: panel.css gives `.vp .grid` a 1010px min-width (tables). */}
-          <div ref={sideListRef} className={`cg-side-list ${sideView === "all" ? "flex flex-col gap-4 sm:grid sm:grid-cols-2" : "flex flex-col gap-4"}`}>
-            {(
-              [
-                ["bride", "Страна на невестата", brideGuests],
-                ["groom", "Страна на младоженецот", groomGuests],
-                ...(sideView === "all" && unassignedGuests.length > 0 ? [["none", "Недоделени", unassignedGuests] as const] : []),
-              ] as const
-            )
-              .filter(([key]) => sideView === "all" || key === sideView)
-              .map(([key, title, list]) => {
-                const isCollapsed = Boolean(collapsed[key]);
-                return (
-                  <div key={key} className={key === "none" ? "sm:col-span-2" : undefined} style={COLUMN_STYLE}>
-                    <h2 className="panel-t cg-col-h">
-                      <button
-                        type="button"
-                        className="cg-col-toggle"
-                        aria-expanded={!isCollapsed}
-                        onClick={() => setCollapsed((c) => ({ ...c, [key]: !isCollapsed }))}
-                      >
-                        <span>{title}</span>
-                        <span className="cg-side-n">{list.length}</span>
-                        <Icon name="down" size="sm" className="cg-col-chev" />
-                      </button>
-                    </h2>
-                    {isCollapsed ? null : list.length === 0 ? (
-                      <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p>
-                    ) : (
-                      list.map(renderGuestRow)
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        </>
-      ) : (
-        <div style={COLUMN_STYLE}>
-          {visibleGuests.length === 0 ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p> : visibleGuests.map(renderGuestRow)}
         </div>
+        {notice ? <p style={{ color: "var(--ok)", fontSize: 13.5, margin: 0 }}>{notice}</p> : null}
+
+        {isWedding ? (
+          <>
+            <div className="seg gold cg-sides" role="group" aria-label="Прикажи страна">
+              {(
+                [
+                  ["all", "Сите", visibleGuests.length],
+                  ["bride", "Невеста", brideGuests.length],
+                  ["groom", "Младоженец", groomGuests.length],
+                ] as const
+              ).map(([value, label, count]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={sideView === value}
+                  onClick={() => {
+                    setSideView(value);
+                    setCollapsed({});
+                    // Mid-list (switch pinned), jump back to where the chosen side starts.
+                    const list = sideListRef.current;
+                    if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start" });
+                  }}
+                >
+                  {label} <span className="cg-side-n">{count}</span>
+                </button>
+              ))}
+            </div>
+            {/* Not the bare `grid` class: panel.css gives `.vp .grid` a 1010px min-width (tables). */}
+            <div ref={sideListRef} className={`cg-side-list ${sideView === "all" ? "flex flex-col gap-4 sm:grid sm:grid-cols-2" : "flex flex-col gap-4"}`}>
+              {(
+                [
+                  ["bride", "Страна на невестата", brideGuests],
+                  ["groom", "Страна на младоженецот", groomGuests],
+                  ...(sideView === "all" && unassignedGuests.length > 0 ? [["none", "Недоделени", unassignedGuests] as const] : []),
+                ] as const
+              )
+                .filter(([key]) => sideView === "all" || key === sideView)
+                .map(([key, title, list]) => {
+                  const isCollapsed = Boolean(collapsed[key]);
+                  return (
+                    <div key={key} className={key === "none" ? "sm:col-span-2" : undefined} style={COLUMN_STYLE}>
+                      <h2 className="panel-t cg-col-h">
+                        <button
+                          type="button"
+                          className="cg-col-toggle"
+                          aria-expanded={!isCollapsed}
+                          onClick={() => setCollapsed((c) => ({ ...c, [key]: !isCollapsed }))}
+                        >
+                          <span>{title}</span>
+                          <span className="cg-side-n">{list.length}</span>
+                          <Icon name="down" size="sm" className="cg-col-chev" />
+                        </button>
+                      </h2>
+                      {isCollapsed ? null : list.length === 0 ? (
+                        <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p>
+                      ) : (
+                        list.map(renderGuestRow)
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        ) : (
+          <div style={COLUMN_STYLE}>
+            {visibleGuests.length === 0 ? <p style={{ color: "var(--muted)", fontSize: 13.5 }}>{emptyText}</p> : visibleGuests.map(renderGuestRow)}
+          </div>
+        )}
+
+        </>
       )}
 
       {openGuest ? (

@@ -43,7 +43,7 @@ export async function fetchEventChanges(eventId: string, token: string | null): 
 /** `newer` is true when the couple changed more since `upTo`: the screen should ask for a refresh. */
 export async function markChangesSeenViaApi(
   eventId: string,
-  section: "guest_count" | "contact",
+  section: "guest_count" | "contact" | "numbers",
   upTo: string,
   token: string | null,
 ): Promise<{ newer: boolean }> {

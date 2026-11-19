@@ -54,20 +54,22 @@ describe("lib/couple/rsvp: submitRsvpBySlug", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("creates a new guest instead of guessing when the name matches more than one existing guest", async () => {
+  it("0179: a name that matches more than one guest changes nobody and waits for the couple", async () => {
     const { venueId, eventId, slug } = await makeEventWithInvitation("Duplicate Name Couple");
     await admin.from("event_guests").insert([
       { event_id: eventId, full_name: "Ana Petrovska", rsvp_status: "pending", party_size: 1 },
       { event_id: eventId, full_name: "Ana Petrovska", rsvp_status: "pending", party_size: 1 },
     ]);
 
-    await submitRsvpBySlug(slug, { fullName: "Ana Petrovska", status: "confirmed", partySize: 1 });
+    const result = await submitRsvpBySlug(slug, { fullName: "Ana Petrovska", status: "confirmed", partySize: 1 });
+    expect(result).toEqual({ eventId, guestId: null, answerId: expect.any(String), remember: null });
 
     const { data: guests } = await admin.from("event_guests").select("*").eq("event_id", eventId);
-    expect(guests).toHaveLength(3);
-    expect(guests!.every((g) => g.rsvp_status === "pending" || g.rsvp_status === "confirmed")).toBe(true);
-    // Neither of the original two ambiguous rows was silently overwritten.
-    expect(guests!.filter((g) => g.rsvp_status === "pending")).toHaveLength(2);
+    // No new guest, and neither ambiguous row was overwritten.
+    expect(guests).toHaveLength(2);
+    expect(guests!.every((g) => g.rsvp_status === "pending")).toBe(true);
+    const { data: answers } = await admin.from("event_rsvp_answers").select("guest_id, match, review_state").eq("event_id", eventId);
+    expect(answers).toEqual([{ guest_id: null, match: "review", review_state: "pending" }]);
 
     await admin.from("venues").delete().eq("id", venueId);
   });
@@ -131,7 +133,7 @@ describe("lib/couple/rsvp: personal invite links (A1)", () => {
     expect(invitee).toMatchObject({ fullName: "Петар Петровски", rsvpStatus: "invited", partySize: 3 });
     // Only what the guest's own page needs: no id, token, side or notes.
     expect(Object.keys(invitee!).sort()).toEqual(
-      ["allergies", "childrenCount", "fullName", "menuCounts", "partySize", "rsvpComment", "rsvpStatus"].sort(),
+      ["allergies", "answeredAt", "childrenCount", "fullName", "householdNames", "menuCounts", "noMealCount", "partySize", "rsvpComment", "rsvpStatus"].sort(),
     );
 
     expect(await getInviteeByToken(mine.slug, stranger.invite_token)).toBeNull();
@@ -239,7 +241,8 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
 
   it("keeps the comment but not the menu details with a no, and a new guest gets the answer too", async () => {
     const { venueId, eventId, slug } = await makeEventWithInvitation("No Answer Couple");
-    const guest = await addGuest(eventId, { children_count: 2 });
+    // 0181: never more children than people.
+    const guest = await addGuest(eventId, { party_size: 3, children_count: 2 });
 
     await submitRsvpBySlug(slug, {
       guestToken: guest.invite_token,
@@ -249,7 +252,7 @@ describe("lib/couple/rsvp: full answers (A2-A5)", () => {
       comment: "Жал ни е",
     });
     const { data } = await admin.from("event_guests").select("*").eq("id", guest.id).single();
-    expect(data).toMatchObject({ rsvp_status: "declined", rsvp_comment: "Жал ни е", children_count: 2 });
+    expect(data).toMatchObject({ rsvp_status: "declined", rsvp_comment: "Жал ни е", party_size: 3, children_count: 2 });
 
     await submitRsvpBySlug(slug, { fullName: "Нов Гостин", status: "confirmed", partySize: 2, childrenCount: 1 });
     const { data: created } = await admin.from("event_guests").select("*").eq("event_id", eventId).eq("full_name", "Нов Гостин").single();
@@ -401,16 +404,17 @@ describe("lib/couple/rsvp: menu counts", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("declined/later: counts cleared", async () => {
+  it("declined/later: the choice is kept (0181), a new yes replaces it", async () => {
     const { venueId, eventId, slug } = await makeEventWithInvitation("Menu Clear Couple");
     const [a, b] = await addMenus(venueId, eventId, ["А", "Б"]);
     const guest = await addGuest(eventId);
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2, menuCounts: { [a]: 1, [b]: 1 } });
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "declined", partySize: 1 });
-    expect(await storedCounts(guest.id)).toEqual({});
+    expect(await storedCounts(guest.id)).toEqual({ [a]: 1, [b]: 1 });
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "confirmed", partySize: 2, menuCounts: { [a]: 2 } });
+    expect(await storedCounts(guest.id)).toEqual({ [a]: 2 });
     await submitRsvpBySlug(slug, { guestToken: guest.invite_token, status: "later", partySize: 1 });
-    expect(await storedCounts(guest.id)).toEqual({});
+    expect(await storedCounts(guest.id)).toEqual({ [a]: 2 });
     await admin.from("venues").delete().eq("id", venueId);
   });
 });

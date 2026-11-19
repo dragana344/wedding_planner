@@ -154,3 +154,14 @@ export async function updateVenueCoupleSeatingSelfEdit(
   if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
 }
 
+
+/** 0180: the venue-wide guest answer deadline, in days before the event. */
+export async function updateVenueRsvpDeadlineDays(
+  venueId: string,
+  days: number,
+  client: SupabaseClient = resolveSupabaseClient()
+): Promise<void> {
+  const { data, error } = await client.from("venues").update({ rsvp_deadline_days: days }).eq("id", venueId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Локалот не е пронајден.");
+}

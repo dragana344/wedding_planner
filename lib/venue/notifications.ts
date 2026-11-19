@@ -37,7 +37,7 @@ export type NotificationKind =
 /** What "Видено" on a notification confirms (manager only). */
 export type SeenAction = {
   eventId: string;
-  section: "guest_count" | "contact" | "menu_numbers";
+  section: "guest_count" | "contact" | "numbers" | "menu_numbers";
   upTo: string;
   submissionId?: string;
 };
@@ -182,7 +182,7 @@ export async function listVenueNotifications(
 
 type EventEmbed = { venue_id: string; couple_names: string; event_date: string };
 type ChangeRow = { id: string; event_id: string; section: ChangeSection; side: "venue" | "couple"; changed_by: string | null; field: string; old_value: unknown; new_value: unknown; changed_at: string; events: EventEmbed };
-type SubmissionRow = { id: string; event_id: string; sent_at: string; total: number; seen_at: string | null; source: "couple" | "auto" | "venue"; unanswered: number | null; events: EventEmbed };
+type SubmissionRow = { id: string; event_id: string; sent_at: string; total: number; seen_at: string | null; source: "couple" | "auto" | "venue"; unanswered: number | null; estimated_total?: number | null; events: EventEmbed };
 
 /**
  * The couple's changes and menu numbers for the venue's own events
@@ -206,7 +206,7 @@ async function coupleNotifications(venueId: string, limit: number, range?: { fro
     .eq("side", "couple");
   let submissionsQuery = db
     .from("event_menu_submissions")
-    .select("id, event_id, sent_at, total, seen_at, source, unanswered, events!inner(venue_id, couple_names, event_date)")
+    .select("id, event_id, sent_at, total, seen_at, source, unanswered, estimated_total, events!inner(venue_id, couple_names, event_date)")
     .eq("events.venue_id", venueId)
     .neq("source", "venue");
   if (range) {
@@ -267,7 +267,7 @@ async function coupleNotifications(venueId: string, limit: number, range?: { fro
         { redactPrivate: true },
       ),
       unseen,
-      ...(unseen ? { seenAction: { eventId: c.event_id, section: c.section as "guest_count" | "contact", upTo: newest.get(key)! } } : {}),
+      ...(unseen ? { seenAction: { eventId: c.event_id, section: c.section as "guest_count" | "contact" | "numbers", upTo: newest.get(key)! } } : {}),
     });
   }
 
@@ -276,7 +276,8 @@ async function coupleNotifications(venueId: string, limit: number, range?: { fro
   for (const s of subs) {
     const event = s.events;
     const unseen = latest.get(s.event_id) === s.id && s.seen_at === null && event.event_date >= today;
-    const parts = [`Вкупно ${s.total}`];
+    const estimated = s.estimated_total ?? 0;
+    const parts = [estimated > 0 ? `Вкупно ${s.total + estimated} (од кои проценка: ${estimated})` : `Вкупно ${s.total}`];
     if (s.source === "auto") {
       parts.push("Испратено автоматски — непотполно");
       if (s.unanswered) parts.push(`${s.unanswered} гости без одговор`);

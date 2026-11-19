@@ -57,3 +57,17 @@ describe("describeChange", () => {
     expect(describeChange(c, redact)).toBe("Финансиите се променети");
   });
 });
+
+describe("describeChange: numbers after sending (0182)", () => {
+  it("lists the moves with a sign, plus allergies", () => {
+    const c = ch("numbers", "after_sent", { submissionId: "s" }, {
+      changes: [{ name: "Месо", from: 10, to: 12 }, { name: "Посно", from: 3, to: 2 }],
+      allergies: true,
+    });
+    expect(describeChange(c, redact)).toBe("+2 Месо, −1 Посно, алергии");
+  });
+
+  it("falls back to a plain line when the values are missing", () => {
+    expect(describeChange(ch("numbers", "after_sent", null, null), show)).toBe("Бројките се променети");
+  });
+});

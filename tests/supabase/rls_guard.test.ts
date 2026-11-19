@@ -43,6 +43,7 @@ const SERVICE_ROLE_ONLY_TABLES = [
   "event_checklist_subtasks",
   "event_locations",
   "event_guest_menu_counts",
+  "event_rsvp_answers",
   "event_changes",
   "event_change_seen",
   "event_couple_reminders",

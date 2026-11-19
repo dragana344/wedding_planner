@@ -9,12 +9,13 @@ export const SECTION_LABELS: Record<SeenSection, string> = {
   finance: "Финансии",
   menu_numbers: "Бројки за мени",
   guest_replies: "Одговори од гости",
+  numbers: "Промена по испратените бројки",
 };
 
 /** The sections each side is shown marks for (the other side's changes in them). */
 export const SECTIONS_FOR_VIEWER: Record<Side, ChangeSection[]> = {
   couple: ["date_time", "rooms", "menus", "guest_count", "contact", "finance"],
-  venue: ["guest_count", "contact"],
+  venue: ["guest_count", "contact", "numbers"],
 };
 
 /**

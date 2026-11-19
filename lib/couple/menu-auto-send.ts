@@ -1,14 +1,15 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { currentMenuNumbers } from "@/lib/couple/menu-submissions";
+import { allergyKey, currentMenuNumbers } from "@/lib/couple/menu-submissions";
 import { todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { errorFields, log } from "@/lib/log";
 import { daysUntil, timelineStage } from "@/lib/menu-timeline";
 
 /**
  * Sends the final menu numbers for events 15 days out (or less) that the
- * couple never sent: confirmed guests only, with the count of guests still
- * without an answer. Safe to run twice: the insert itself refuses an event
+ * couple never sent: confirmed guests' real counts, plus (0182) the guests
+ * still without an answer as the prefilled estimate — stored apart and
+ * shown as "проценка" — with their count. Safe to run twice: the insert itself refuses an event
  * that already has a submission. Cancelled events are skipped; one event
  * failing is logged and does not stop the rest.
  */
@@ -40,8 +41,9 @@ export async function runMenuAutoSend(now: Date): Promise<{ sent: string[] }> {
     if (stage !== "auto_send" || daysUntil(event.event_date, today) < 0) continue;
 
     try {
-      const { numbers, notDone, allergyNotes } = await currentMenuNumbers(event.id);
+      const { numbers, notDone, allergyNotes, prefill, answers } = await currentMenuNumbers(event.id);
       if (numbers.menus.length === 0) continue;
+      const estimatedTotal = notDone.length > 0 ? Object.values(prefill).reduce((a, b) => a + b, 0) : 0;
       const { data: inserted, error: insertError } = await client.rpc("insert_auto_menu_submission", {
         p_event_id: event.id,
         p_counts: Object.fromEntries(numbers.menus.map((m) => [m.id, m.count])),
@@ -52,6 +54,11 @@ export async function runMenuAutoSend(now: Date): Promise<{ sent: string[] }> {
         // summary to speak of — only ever the raw fallback, same as a manual
         // send the couple left blank.
         p_allergy_notes: allergyNotes.length > 0 ? allergyNotes : null,
+        p_no_meal: numbers.noMeal ?? 0,
+        p_estimated_counts: notDone.length > 0 ? prefill : null,
+        p_estimated_total: estimatedTotal,
+        p_allergy_key: allergyKey(event.id, allergyNotes),
+        p_estimated_people: notDone.length > 0 ? answers.unansweredPeople : null,
       });
       if (insertError) throw insertError;
       if (inserted) sent.push(event.id);

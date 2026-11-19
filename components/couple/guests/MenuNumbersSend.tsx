@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { diffMenuNumbers, type AllergyNoteGroup, type MenuNumbers, type MenuSubmission } from "@/lib/menu-numbers";
+import { diffMenuNumbers, estimateNote, NO_MEAL_LABEL, sentHeadcount, sentMenus, type AllergyNoteGroup, type MenuNumbers, type MenuSubmission } from "@/lib/menu-numbers";
 import { formatVenueDateTime } from "@/lib/date";
 import type { TimelineStage } from "@/lib/menu-timeline";
 
 type State = {
   current: MenuNumbers;
-  notDone: { id: string; full_name: string }[];
+  notDone: { id: string; full_name: string; people?: number }[];
+  /** 0182: who answered so far, and the estimate prefilled for the rest. */
+  answers?: { answeredGuests: number; answeredPeople: number; unansweredGuests: number; unansweredPeople: number };
+  prefill?: Record<string, number>;
   /** Done, confirmed guests' allergy notes by menu — reference for the summary box below. */
   allergyNotes: AllergyNoteGroup[];
   latest: MenuSubmission | null;
   changedSinceLatest: boolean;
+  /** 0184: what moved per menu, a sent estimate's remaining part counted in (older servers: left out). */
+  changesSinceLatest?: { name: string; from: number; to: number }[];
   /** Where the event stands on the final-numbers timeline. */
   stage?: TimelineStage;
   /** Whether the "send the final numbers" banner shows (late events skip it). */
@@ -26,12 +31,21 @@ function sentAtLabel(iso: string): string {
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+const guestsWord = (n: number) => (n === 1 ? "гостин" : "гости");
+const withEstimate = (n: number, estimated: number) => (estimated > 0 ? `${n} (${estimateNote(estimated)})` : String(n));
+
+/** "Одговориле: 120 гости (200 лица) · Без одговор: 12 гости" */
+export function answersLine(a: NonNullable<State["answers"]>): string {
+  return `Одговориле: ${a.answeredGuests} ${guestsWord(a.answeredGuests)} (${a.answeredPeople} лица) · Без одговор: ${a.unansweredGuests} ${guestsWord(a.unansweredGuests)}`;
+}
 
 /** The main couple login sends the menu numbers to the venue; the stats prop changing re-reads them. */
 export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
   const [state, setState] = useState<State | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [allergySummary, setAllergySummary] = useState("");
+  // The unanswered guests' part per menu, as typed (prefilled when the dialog opens).
+  const [estimate, setEstimate] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +71,10 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
       const res = await fetch("/api/couple/menu-numbers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allergy_summary: allergySummary.trim() || null }),
+        body: JSON.stringify({
+          allergy_summary: allergySummary.trim() || null,
+          ...(needsEstimate ? { estimate: Object.fromEntries(Object.entries(estimate).map(([id, v]) => [id, Math.max(0, Math.floor(Number(v) || 0))])) } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Не успеа испраќањето на бројките.");
@@ -73,39 +90,82 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
     }
   }
 
+  function openConfirm() {
+    const prefill = state?.prefill ?? {};
+    // Only prefilled while someone hasn't answered; one who stops being done
+    // while the dialog is open leaves the fields empty (the send waits for them).
+    setEstimate(state && state.notDone.length > 0 ? Object.fromEntries(state.current.menus.map((m) => [m.id, String(prefill[m.id] ?? 0)])) : {});
+    setConfirming(true);
+  }
+
+  const needsEstimate = (state?.notDone.length ?? 0) > 0;
   if (!state || state.current.menus.length === 0) return null;
-  const { current, notDone, allergyNotes, latest, changedSinceLatest } = state;
-  const blocked = notDone.length > 0;
+  const { current, notDone, allergyNotes, latest, changedSinceLatest, answers } = state;
+  const estimateBad = needsEstimate && current.menus.some((m) => !/^\d+$/.test((estimate[m.id] ?? "").trim()));
+  const estimated = (id: string) => (needsEstimate ? Number(estimate[id]) || 0 : 0);
+  // What would go out: real counts plus the typed estimate, marked.
+  const preview = { numbers: current, estimate: needsEstimate ? { menus: current.menus.map((m) => ({ id: m.id, name: m.name, count: estimated(m.id) })), total: current.menus.reduce((sum, m) => sum + estimated(m.id), 0) } : null };
+  const previewEstimate = preview.estimate?.total ?? 0;
   // 25..16 days out with nothing sent: the venue is waiting for the numbers.
   const remind = !latest && state.coupleReminder === true;
-  const changes = latest && changedSinceLatest ? diffMenuNumbers(latest.numbers, current) : [];
+  const changes = latest && changedSinceLatest ? (state.changesSinceLatest ?? diffMenuNumbers(latest.numbers, current)) : [];
 
   return (
     <div className="guests-summary-send">
       {remind ? <p role="status" className="guests-summary-menu"><b>Испратете ги конечните бројки до салата</b></p> : null}
-      {latest ? <p className="guests-summary-menu">{`Испратено на ${sentAtLabel(latest.sentAt)}`}</p> : null}
-      {changedSinceLatest ? (
+      {answers ? <p className="guests-summary-menu">{answersLine(answers)}</p> : null}
+      {latest ? (
         <p className="guests-summary-menu">
-          {changes.length > 0
-            ? `Има промени од последното испраќање: ${changes.map((c) => `${c.name} ${signed(c.to - c.from)}`).join(", ")}`
-            : "Има промени од последното испраќање."}
+          {`Испратено на ${sentAtLabel(latest.sentAt)}: ${sentHeadcount(latest)} лица`}
+          {latest.estimate ? ` (${estimateNote(latest.estimate.total)})` : ""}
         </p>
       ) : null}
-      {blocked ? (
+      {changedSinceLatest ? (
+        <p role="status" className="guests-summary-menu">
+          <b>Бројките се променети по испраќањето — испратете ги повторно</b>
+          {changes.length > 0 ? ` (${changes.map((c) => `${c.name} ${signed(c.to - c.from)}`).join(", ")})` : ""}
+        </p>
+      ) : null}
+      {needsEstimate ? (
         <details className="guests-summary-wait">
-          <summary>{`Чекаме одговор од ${notDone.length} ${notDone.length === 1 ? "гостин" : "гости"} пред да ги испратите бројките`}</summary>
-          <p className="guests-summary-menu">{`За да ги испратите бројките, чекаме одговор од: ${notDone.map((g) => g.full_name).join(", ")}`}</p>
+          <summary>{`Чекаме одговор од ${notDone.length} ${guestsWord(notDone.length)} — можете да ги испратите бројките со проценка за нив`}</summary>
+          <p className="guests-summary-menu">{`Без одговор: ${notDone.map((g) => g.full_name).join(", ")}`}</p>
         </details>
       ) : null}
 
       {confirming ? (
         <div role="group" aria-label="Потврда за испраќање">
+          {needsEstimate ? (
+            <fieldset style={{ border: 0, padding: 0, margin: "0 0 10px" }}>
+              <legend className="guests-summary-menu">
+                <b>{`Проценка за ${notDone.length} ${guestsWord(notDone.length)} без одговор (околу ${answers?.unansweredPeople ?? notDone.length} лица)`}</b>
+              </legend>
+              {current.menus.map((m) => (
+                <label key={m.id} style={{ display: "flex", gap: 8, alignItems: "center", margin: "4px 0" }}>
+                  <span style={{ flex: 1 }}>{m.name}</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    aria-label={`Проценка: ${m.name}`}
+                    value={estimate[m.id] ?? ""}
+                    onChange={(e) => setEstimate((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                    style={{ width: 80 }}
+                  />
+                </label>
+              ))}
+              <p className="guests-summary-menu">Салата ќе ја види проценката посебно означена.</p>
+            </fieldset>
+          ) : null}
           <ul>
-            {current.menus.map((m) => (
-              <li key={m.id}>{`${m.name}: ${m.count}`}</li>
+            {sentMenus(preview).map((m) => (
+              <li key={m.id}>{`${m.name}: ${withEstimate(m.count, m.estimated)}`}</li>
             ))}
+            {(current.noMeal ?? 0) > 0 ? <li>{`${NO_MEAL_LABEL}: ${current.noMeal}`}</li> : null}
           </ul>
-          <p>{`Вкупно: ${current.total}`}</p>
+          <p>{`Вкупно оброци: ${withEstimate(current.total + previewEstimate, previewEstimate)}`}</p>
+          <p>{`Вкупно лица: ${withEstimate(sentHeadcount(preview), previewEstimate)}`}</p>
           {allergyNotes.length > 0 ? (
             <div style={{ margin: "10px 0" }}>
               <p className="guests-summary-menu">
@@ -136,7 +196,7 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
               </p>
             </div>
           ) : null}
-          <button type="button" className="btn btn-primary" disabled={busy || blocked} onClick={() => void send()}>
+          <button type="button" className="btn btn-primary" disabled={busy || estimateBad} onClick={() => void send()}>
             Потврди и испрати
           </button>{" "}
           <button type="button" className="btn" disabled={busy} onClick={() => setConfirming(false)}>
@@ -144,8 +204,8 @@ export function MenuNumbersSend({ refreshKey }: { refreshKey?: unknown }) {
           </button>
         </div>
       ) : !latest || changedSinceLatest ? (
-        <button type="button" className="btn btn-primary" disabled={blocked} onClick={() => setConfirming(true)}>
-          {latest ? "Испрати ажурирани бројки" : "Испрати ги бројките до салата"}
+        <button type="button" className="btn btn-primary" onClick={openConfirm}>
+          {latest ? "Испрати повторно" : "Испрати ги бројките до салата"}
         </button>
       ) : null}
       {error ? <p role="alert">{error}</p> : null}

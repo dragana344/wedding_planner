@@ -198,4 +198,38 @@ describe("FullInvitation", () => {
     );
     expect(screen.queryByRole("region", { name: "Мојата маса" })).not.toBeInTheDocument();
   });
+
+  it("0180: a declined guest is not told seating isn't ready, and it follows a change made on the page", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    render(
+      <FullInvitation
+        slug="abc123"
+        invitation={invitation}
+        photoUrl={null}
+        invitee={{ ...invitee, rsvpStatus: "declined" }}
+        guestToken={"T".repeat(24)}
+        mySeat={{ found: true, seat: null }}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Мојата маса" });
+    expect(region).toHaveTextContent("Одговоривте дека нема да присуствувате.");
+    expect(region).not.toHaveTextContent("Распоредот на маси уште не е готов");
+
+    fireEvent.click(screen.getByRole("button", { name: "Промени го одговорот" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Мојата маса" })).toHaveTextContent("Распоредот на маси уште не е готов"));
+  });
+
+  it("0180: a cancelled event shows the notice, no form and no seat lookup", () => {
+    render(<FullInvitation slug="abc123" invitation={invitation} photoUrl={null} rsvp={{ phase: "cancelled", deadline: "2027-05-28", postponedTo: null, reconfirm: false }} />);
+    expect(screen.getByText("Настанот е откажан.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Име и презиме")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Каде седам?" })).not.toBeInTheDocument();
+  });
+
+  it("0180: the deadline is shown above the form", () => {
+    render(<FullInvitation slug="abc123" invitation={invitation} photoUrl={null} rsvp={{ phase: "open", deadline: "2027-05-28", postponedTo: null, reconfirm: false }} />);
+    expect(screen.getByText("Ве молиме одговорете до 28.05.2027")).toBeInTheDocument();
+  });
 });

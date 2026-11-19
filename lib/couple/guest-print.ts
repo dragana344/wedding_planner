@@ -25,12 +25,10 @@ export interface PrintGuestGroup {
 /** The one menu's name for a single-menu event; "Класично 2, Посно 1" for a done guest with 2+; "Нема избрано мени" while unfinished; "" otherwise. */
 function menuSummary(guest: Guest, menus: readonly { id: string; name: string }[]): string {
   if (menus.length === 0 || guest.rsvp_status !== "confirmed") return "";
-  if (menus.length === 1) return menus[0].name;
+  const noMeal = (guest.no_meal_count ?? 0) > 0 ? `без оброк ${guest.no_meal_count}` : "";
+  if (menus.length === 1) return [menus[0].name, noMeal].filter(Boolean).join(", ");
   if (!isGuestDone(guest, menus.map((m) => m.id))) return "Нема избрано мени";
-  return menus
-    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
-    .map((m) => `${m.name} ${guest.menu_counts[m.id]}`)
-    .join(", ");
+  return [...menus.filter((m) => (guest.menu_counts[m.id] ?? 0) > 0).map((m) => `${m.name} ${guest.menu_counts[m.id]}`), noMeal].filter(Boolean).join(", ");
 }
 
 function toRow(guest: Guest, menus: readonly { id: string; name: string }[]): PrintGuestRow {

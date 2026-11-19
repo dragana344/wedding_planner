@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
-import { setMenuTemplateItems, listMenuTemplateItems, countEventsUsingTemplate, deleteMenuTemplate } from "@/lib/venue/menus";
+import { setMenuTemplateItems, listMenuTemplateItems, countEventsUsingTemplate, deleteMenuTemplate, listMenuTemplates, listMenuTemplatesWithItems } from "@/lib/venue/menus";
 import { todayIn } from "@/lib/date";
 
 // 0118: replacing a package's dishes is one transaction — a failure keeps the
@@ -102,19 +102,35 @@ describe("countEventsUsingTemplate (package delete warning)", () => {
     expect(await countEventsUsingTemplate(templateId, staff)).toEqual({ upcoming: 3, past: 1 });
   });
 
-  it("deleteMenuTemplate refuses a package on an upcoming event and allows one used only by past events", async () => {
+  it("0181: deleting a package events use archives it — the events keep it and the guests' choice, new events no longer get it", async () => {
     const pkg = (await admin.from("menu_templates").insert({ venue_id: venueId, name: "За бришење" }).select("id").single()).data!.id;
+    const other = (await admin.from("menu_templates").insert({ venue_id: venueId, name: "Друго" }).select("id").single()).data!.id;
     const up = (await admin.from("events").insert({ venue_id: venueId, couple_names: "Идно", event_date: "2099-09-01" }).select("id").single()).data!.id;
     const old = (await admin.from("events").insert({ venue_id: venueId, couple_names: "Старо", event_date: "2020-09-01" }).select("id").single()).data!.id;
     await admin.from("event_menu_templates").insert([
       { event_id: up, menu_template_id: pkg },
+      { event_id: up, menu_template_id: other },
       { event_id: old, menu_template_id: pkg },
     ]);
-    await expect(deleteMenuTemplate(pkg, staff)).rejects.toThrow("Пакетот се користи во 1 претстоен настан — прво отстранете го од тој настан.");
-    expect((await admin.from("menu_templates").select("id").eq("id", pkg)).data).toHaveLength(1);
-    await admin.from("event_menu_templates").delete().eq("event_id", up);
-    await deleteMenuTemplate(pkg, staff);
+    const guest = (await admin.from("event_guests").insert({ event_id: up, full_name: "Гостин", party_size: 2, rsvp_status: "confirmed" }).select("id").single()).data!.id;
+    await admin.from("event_guest_menu_counts").insert([
+      { guest_id: guest, menu_template_id: pkg, count: 1 },
+      { guest_id: guest, menu_template_id: other, count: 1 },
+    ]);
+
+    expect(await deleteMenuTemplate(pkg, staff)).toBe("archived");
+    const row = (await admin.from("menu_templates").select("archived_at").eq("id", pkg).single()).data!;
+    expect(row.archived_at).not.toBeNull();
+    expect((await admin.from("event_menu_templates").select("event_id").eq("menu_template_id", pkg)).data).toHaveLength(2);
+    expect((await admin.from("event_guest_menu_counts").select("count").eq("guest_id", guest).eq("menu_template_id", pkg)).data).toEqual([{ count: 1 }]);
+    // Off the venue's own list and its pickers.
+    expect((await listMenuTemplates(venueId, staff)).map((t) => t.id)).not.toContain(pkg);
+    expect((await listMenuTemplatesWithItems(venueId, staff)).map((t) => t.id)).not.toContain(pkg);
+  });
+
+  it("a package nobody uses is deleted for good", async () => {
+    const pkg = (await admin.from("menu_templates").insert({ venue_id: venueId, name: "Неискористен" }).select("id").single()).data!.id;
+    expect(await deleteMenuTemplate(pkg, staff)).toBe("deleted");
     expect((await admin.from("menu_templates").select("id").eq("id", pkg)).data).toHaveLength(0);
-    expect((await admin.from("event_menu_templates").select("event_id").eq("event_id", old)).data).toHaveLength(0);
   });
 });

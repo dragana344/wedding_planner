@@ -12,6 +12,7 @@ export type { RoomSeating, Seat, SeatGuest, SeatInput, SeatTable } from "./types
 export { tableTitle } from "./types";
 export { getRoomSeatingForStaff } from "./read";
 import { readRoom } from "./read";
+import { seatFlags } from "./flags";
 import { captureCoupleSnapshot, pushCoupleHistory } from "@/lib/couple/seating";
 
 async function assertRoomBelongsToEvent(client: SupabaseClient, eventId: string, roomId: string): Promise<void> {
@@ -34,23 +35,30 @@ export async function getRoomSeating(eventId: string, roomId: string): Promise<R
     // Same order the organizer's own Guests page uses (lib/couple/guests.ts)
     // — they enter guests group by group (one family, then the next), and
     // the seating rail should read the same way, not alphabetically.
-    client.from("event_guests").select("id, full_name, party_size, side").eq("event_id", eventId).order("created_at"),
+    client.from("event_guests").select("id, full_name, party_size, side, rsvp_status").eq("event_id", eventId).order("created_at"),
     client.from("event_seat_assignments").select("guest_id").eq("event_id", eventId).not("guest_id", "is", null),
   ]);
   if (guests.error) throw guests.error;
   if (taken.error) throw taken.error;
   const counts = new Map<string, number>();
   for (const row of taken.data) counts.set(row.guest_id as string, (counts.get(row.guest_id as string) ?? 0) + 1);
+  const seatGuests: SeatGuest[] = guests.data.map((g) => ({
+    id: g.id,
+    fullName: g.full_name,
+    partySize: g.party_size,
+    seatsTaken: counts.get(g.id) ?? 0,
+    side: (g.side as SeatGuest["side"]) ?? null,
+    rsvpStatus: g.rsvp_status,
+  }));
   return {
     tables,
     seats,
-    guests: guests.data.map((g) => ({
-      id: g.id,
-      fullName: g.full_name,
-      partySize: g.party_size,
-      seatsTaken: counts.get(g.id) ?? 0,
-      side: (g.side as SeatGuest["side"]) ?? null,
-    })),
+    guests: seatGuests,
+    flags: seatFlags(
+      seatGuests.map((g) => ({ ...g, rsvpStatus: g.rsvpStatus ?? "" })),
+      seats,
+      tables,
+    ),
   };
 }
 

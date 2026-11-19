@@ -8,6 +8,8 @@ import { requireManagerElevation } from "@/lib/venue/manager-guard";
 import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic } from "@/lib/api/handler";
 import { INVALID_JSON_ERROR, updateEventBody, uuid } from "@/lib/api/schemas";
 import { recordAudit } from "@/lib/audit";
+import { flagGuestsToRechooseMenus } from "@/lib/couple/guests";
+import { errorFields, log } from "@/lib/log";
 
 const MANAGER_REQUIRED_ERROR = "Потребна е најава како менаџер.";
 const paramsSchema = z.object({ eventId: uuid });
@@ -23,9 +25,17 @@ export const PATCH = withPublic(
       // The elevation check above is the real authorization now; RLS limits
       // the signed-in staff session's own writes to a few unguarded columns
       // (migration 0096), so the actual write uses the service-role client.
-      await updateEvent(params.eventId, venueId, body, createServiceRoleClient());
+      const { rsvpDeadlineReset } = await updateEvent(params.eventId, venueId, body, createServiceRoleClient());
+      // 0181: a menu taken off, or a second one added — the couple is told
+      // which confirmed guests now have to choose (again). Only a hint.
+      if (body.added_menu_ids.length > 0 || body.removed_menu_ids.length > 0) {
+        await flagGuestsToRechooseMenus(params.eventId).catch((err) =>
+          log("error", "menu_rechoose_flag_failed", { event_id: params.eventId, ...errorFields(err) }),
+        );
+      }
       await recordAudit({ action: "event_updated", actorType: "staff", venueId, eventId: params.eventId, targetId: params.eventId, managerName: manager.managerName });
-      return NextResponse.json({ ok: true });
+      // 0184: the event moved later and its own answer deadline went back to the venue's default.
+      return NextResponse.json({ ok: true, rsvp_deadline_reset: rsvpDeadlineReset });
     } catch (err) {
       if (err instanceof EventNotFoundError) return NextResponse.json({ error: err.message }, { status: 404 });
       // Security review fix: past events are read-only, server-side.

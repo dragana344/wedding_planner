@@ -59,10 +59,12 @@ async function tableMenuNotes(service: SupabaseClient, eventId: string, roomId: 
   }
 
   const guestIds = [...new Set(rows.map((s) => s.guest_id))];
+  // Only confirmed guests eat: a choice kept from before a "no" (0181) doesn't count.
   const { data: counts, error: countsError } = await service
     .from("event_guest_menu_counts")
-    .select("guest_id, count, menu_templates(name)")
-    .in("guest_id", guestIds);
+    .select("guest_id, count, menu_templates(name), event_guests!inner(rsvp_status)")
+    .in("guest_id", guestIds)
+    .eq("event_guests.rsvp_status", "confirmed");
   if (countsError) throw countsError;
 
   const byGuest = new Map<string, { name: string; count: number }[]>();

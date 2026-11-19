@@ -8,6 +8,7 @@ import { getBudgetSummary } from "./budget";
 import { getEventMenus } from "./menu";
 import { getChecklistStats, type ChecklistStats } from "./checklist";
 import { coupleAccessEnd, coupleAccessUntil } from "./access";
+import { DEFAULT_RSVP_DEADLINE_DAYS, effectiveRsvpDeadline } from "@/lib/rsvp-deadline";
 
 export interface CoupleEventSummary {
   id: string;
@@ -39,6 +40,8 @@ export interface CoupleEventSummary {
   status: string;
   /** Last day ("YYYY-MM-DD") the couple can open the event (lib/couple/access.ts). */
   access_end: string;
+  /** 0180: the last day guests can answer the invitation, set by the venue. */
+  rsvp_deadline: string;
 }
 
 export async function getEventSummary(eventId: string): Promise<CoupleEventSummary> {
@@ -47,13 +50,13 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
   const { data: event, error } = await client
     .from("events")
     .select(
-      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, seating_mode, status, couple_access_until, couple_access_extended_until, event_rooms(rooms(id, name, address, map_url)), event_layout_elements(element_type, table_types(seats))"
+      "id, couple_names, event_date, start_time, end_time, event_type, guest_count_estimate, venue_id, contact_email, contact_email_2, contact_phone, seating_mode, status, rsvp_deadline, couple_access_until, couple_access_extended_until, event_rooms(rooms(id, name, address, map_url)), event_layout_elements(element_type, table_types(seats))"
     )
     .eq("id", eventId)
     .single();
   if (error) throw error;
 
-  const { data: venue } = await client.from("venues").select("name, address").eq("id", event.venue_id).single();
+  const { data: venue } = await client.from("venues").select("name, address, rsvp_deadline_days").eq("id", event.venue_id).single();
 
   type SummaryRoom = { id: string; name: string; address: string | null; map_url: string | null };
   const rooms = ((event.event_rooms ?? []) as { rooms: SummaryRoom | SummaryRoom[] | null }[])
@@ -105,5 +108,6 @@ export async function getEventSummary(eventId: string): Promise<CoupleEventSumma
     checklistStats,
     status: event.status,
     access_end: coupleAccessEnd(event.event_date, coupleAccessUntil(event)),
+    rsvp_deadline: effectiveRsvpDeadline(event.event_date, event.rsvp_deadline, venue?.rsvp_deadline_days ?? DEFAULT_RSVP_DEADLINE_DAYS),
   };
 }

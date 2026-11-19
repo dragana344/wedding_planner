@@ -16,33 +16,24 @@ function open() {
 }
 
 describe("PackageBuilder delete", () => {
-  it("refuses while upcoming events use the package (plural)", async () => {
+  // 0181: a package events use is archived, not deleted — they keep it with the guests' choices.
+  it("says a package used by events stays on them, and still lets the venue take it off the list (plural)", async () => {
     lib.countEventsUsingTemplate.mockResolvedValue({ upcoming: 3, past: 2 });
+    lib.deleteMenuTemplate.mockResolvedValue("archived");
     open();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Пакетот се користи во 3 претстојни настани — прво отстранете го од тие настани.");
-    expect(screen.queryByRole("button", { name: /потврди бришење/i })).not.toBeInTheDocument();
-  });
-
-  it("refuses for one upcoming event (singular)", async () => {
-    lib.countEventsUsingTemplate.mockResolvedValue({ upcoming: 1, past: 0 });
-    open();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Пакетот се користи во 1 претстоен настан — прво отстранете го од тој настан.");
-    expect(screen.queryByRole("button", { name: /потврди бришење/i })).not.toBeInTheDocument();
-  });
-
-  it("allows deleting a package used only by past events, saying how many", async () => {
-    lib.countEventsUsingTemplate.mockResolvedValue({ upcoming: 0, past: 4 });
-    lib.deleteMenuTemplate.mockResolvedValue(undefined);
-    open();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Пакетот ќе се отстрани од 4 поминати настани.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Пакетот се користи во 5 настани — таму останува (со изборот на гостите), но нема да се нуди за нови настани.",
+    );
     fireEvent.click(screen.getByRole("button", { name: /потврди бришење/i }));
     await waitFor(() => expect(lib.deleteMenuTemplate).toHaveBeenCalledWith("p1"));
   });
 
-  it("singular copy for one past event", async () => {
+  it("singular copy for one event", async () => {
     lib.countEventsUsingTemplate.mockResolvedValue({ upcoming: 0, past: 1 });
     open();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Пакетот ќе се отстрани од 1 поминат настан.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Пакетот се користи во 1 настан — таму останува (со изборот на гостите), но нема да се нуди за нови настани.",
+    );
   });
 
   it("asks plainly when no event uses it", async () => {

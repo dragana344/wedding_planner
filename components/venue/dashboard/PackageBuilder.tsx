@@ -8,8 +8,7 @@ import {
   createMenuTemplate,
   deleteMenuTemplate,
   getMenuItemPhotoUrl,
-  packageInPastEventsMessage,
-  packageInUpcomingEventsMessage,
+  packageInEventsMessage,
   setMenuTemplateItems,
   updateMenuTemplate,
   type MenuItem,
@@ -164,20 +163,15 @@ export function PackageBuilder({
           {template && allowDelete ? (
             confirmingDelete ? (
               <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, flexWrap: "wrap" }}>
-                {eventsUsing && eventsUsing.upcoming > 0 ? (
+                {/* 0181: a package events use is archived, not deleted — they keep it. */}
+                {eventsUsing && eventsUsing.upcoming + eventsUsing.past > 0 ? (
                   <span role="alert" style={{ color: "var(--bad)" }}>
-                    {packageInUpcomingEventsMessage(eventsUsing.upcoming)}
-                  </span>
-                ) : eventsUsing && eventsUsing.past > 0 ? (
-                  <span role="alert" style={{ color: "var(--bad)" }}>
-                    {packageInPastEventsMessage(eventsUsing.past)}
+                    {packageInEventsMessage(eventsUsing.upcoming + eventsUsing.past)}
                   </span>
                 ) : null}
-                {eventsUsing && eventsUsing.upcoming > 0 ? null : (
-                  <button type="button" onClick={handleDelete} disabled={isDeleting} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
-                    <Icon name="trash" size="sm" /> {isDeleting ? "Се брише..." : "Потврди бришење"}
-                  </button>
-                )}
+                <button type="button" onClick={handleDelete} disabled={isDeleting} className="btn btn-ghost" style={{ color: "var(--bad)" }}>
+                  <Icon name="trash" size="sm" /> {isDeleting ? "Се брише..." : "Потврди бришење"}
+                </button>
                 <button type="button" onClick={() => setConfirmingDelete(false)} disabled={isDeleting} className="btn btn-ghost">
                   Откажи
                 </button>

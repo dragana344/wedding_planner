@@ -123,7 +123,7 @@ function Keypad({ onApply }: { onApply: (total: number) => void }) {
 
 /** Multiplies a per-guest price by the guest count already entered earlier
  * in the wizard — the natural way venues price an event. */
-function PerGuest({ guestCount, onApply }: { guestCount: number; onApply: (total: number) => void }) {
+function PerGuest({ guestCount, onApply }: { guestCount: number; onApply: (total: number, perGuest: PerGuestPrice) => void }) {
   const [perGuest, setPerGuest] = useState("");
   const [guests, setGuests] = useState(String(guestCount));
   const total = (Number(perGuest) || 0) * (Number(guests) || 0);
@@ -149,17 +149,24 @@ function PerGuest({ guestCount, onApply }: { guestCount: number; onApply: (total
       <p className="ev-calc-total">
         Вкупно <b>{total.toLocaleString("mk-MK")} МКД</b>
       </p>
-      <button type="button" className="btn btn-primary ev-calc-apply" onClick={() => onApply(total)}>
+      <button
+        type="button"
+        className="btn btn-primary ev-calc-apply"
+        onClick={() => onApply(total, { price: Number(perGuest) || 0, guests: Math.floor(Number(guests) || 0) })}
+      >
         Примени во вкупна цена
       </button>
     </div>
   );
 }
 
+/** 0182: what a per-guest total was made of, saved so the event can show contracted vs final. */
+export type PerGuestPrice = { price: number; guests: number };
+
 /** Опционален помошник за пополнување на „Вкупна цена“ во чекорот за цена
  * на настанот — цена по гостин × број на гости, или обичен калкулатор за
  * било каква друга пресметка. Бара посебно барање на клиентот. */
-export function PriceCalculator({ guestCount, onApply }: { guestCount: number; onApply: (total: number) => void }) {
+export function PriceCalculator({ guestCount, onApply }: { guestCount: number; onApply: (total: number, perGuest?: PerGuestPrice) => void }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"per-guest" | "keypad">("per-guest");
 
@@ -191,8 +198,8 @@ export function PriceCalculator({ guestCount, onApply }: { guestCount: number; o
             {tab === "per-guest" ? (
               <PerGuest
                 guestCount={guestCount}
-                onApply={(total) => {
-                  onApply(total);
+                onApply={(total, perGuest) => {
+                  onApply(total, perGuest);
                   setOpen(false);
                 }}
               />

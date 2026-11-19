@@ -10,6 +10,7 @@ import {
   updateVenueCoupleSeatingSelfEdit,
   updateVenueName,
   updateVenueProfile,
+  updateVenueRsvpDeadlineDays,
   venueLogoUrl,
 } from "@/lib/venue/venue-profile";
 import { setLayoutLockPassword } from "@/lib/venue/floorplan";
@@ -18,6 +19,7 @@ import { NOT_AUTHENTICATED_ERROR, errorResponse, withPublic, withRequestLog } fr
 import { INVALID_JSON_ERROR, NAME_MAX, newPassword } from "@/lib/api/schemas";
 import { authErrorMessage } from "@/lib/auth-messages";
 import { recordAudit } from "@/lib/audit";
+import { RSVP_DEADLINE_DAYS_MAX } from "@/lib/rsvp-deadline";
 
 // Поставки is owner-only (spec D4), and since 0107 staff have no UPDATE on
 // venues at all — the owner-elevation check here is the write's real
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
       const branding = await readBranding(venueId);
       const { data: seatingRow, error: seatingError } = await createServiceRoleClient()
         .from("venues")
-        .select("couple_seating_self_edit_enabled")
+        .select("couple_seating_self_edit_enabled, rsvp_deadline_days")
         .eq("id", venueId)
         .single();
       if (seatingError) throw seatingError;
@@ -76,6 +78,7 @@ export async function GET(request: Request) {
         profile: { address: profile.address, phone: profile.phone, logoUrl: venueLogoUrl(supabase, profile.logo_path) },
         branding: branding ?? undefined,
         coupleSeatingSelfEditEnabled: seatingRow.couple_seating_self_edit_enabled as boolean,
+        rsvpDeadlineDays: seatingRow.rsvp_deadline_days as number,
       });
     } catch (err) {
       return errorResponse(err, "Поставките не можеа да се вчитаат.", request);
@@ -98,6 +101,8 @@ const settingsBody = z.discriminatedUnion("field", [
   z.object({ field: z.literal("account_password"), password: newPassword }),
   // Project A §4: the owner-level self-editing switch.
   z.object({ field: z.literal("couple_seating_self_edit_enabled"), enabled: z.boolean() }),
+  // 0180: guests can answer until this many days before the event (an event may set its own date).
+  z.object({ field: z.literal("rsvp_deadline_days"), days: z.number().int().min(0).max(RSVP_DEADLINE_DAYS_MAX) }),
 ]);
 
 export const PATCH = withPublic(
@@ -144,6 +149,9 @@ export const PATCH = withPublic(
     } else if (body.field === "couple_seating_self_edit_enabled") {
       await updateVenueCoupleSeatingSelfEdit(venueId, body.enabled, client);
       await audit("venue_couple_seating_self_edit_updated");
+    } else if (body.field === "rsvp_deadline_days") {
+      await updateVenueRsvpDeadlineDays(venueId, body.days, client);
+      await audit("venue_rsvp_deadline_updated");
     } else {
       await setLayoutLockPassword(venueId, body.password, client);
       await audit("venue_layout_password_updated");

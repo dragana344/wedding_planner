@@ -88,6 +88,8 @@ export async function listMenuTemplates(
     .select("id, venue_id, name, description")
     .eq("venue_id", venueId)
     .is("event_id", null)
+    // 0181: an archived package stays only on the events that use it.
+    .is("archived_at", null)
     .order("name");
   if (error) throw error;
   return data;
@@ -106,6 +108,8 @@ export async function listMenuTemplatesWithItems(
     )
     .eq("venue_id", venueId)
     .is("event_id", null)
+    // 0181: an archived package stays only on the events that use it.
+    .is("archived_at", null)
     .order("name");
   if (error) throw error;
 
@@ -155,9 +159,8 @@ export async function updateMenuTemplate(
 
 /**
  * How many events use a package (it is linked in event_menu_templates),
- * split by the event date against the venue's today. A package on an
- * upcoming event can't be deleted (guests may still be choosing it); one used
- * only by past events can, after saying how many lose it.
+ * split by the event date against the venue's today. Deleting a package any
+ * event uses archives it instead (0181), so those events keep it.
  */
 export async function countEventsUsingTemplate(
   templateId: string,
@@ -179,31 +182,53 @@ export async function countEventsUsingTemplate(
   return { upcoming: upcoming.size, past: past.size };
 }
 
-/** Why a package used by upcoming events can't be deleted. */
-export function packageInUpcomingEventsMessage(count: number): string {
+/** The delete confirmation for a package events use: it stays on them (0181). */
+export function packageInEventsMessage(count: number): string {
   return count === 1
-    ? "Пакетот се користи во 1 претстоен настан — прво отстранете го од тој настан."
-    : `Пакетот се користи во ${count} претстојни настани — прво отстранете го од тие настани.`;
+    ? "Пакетот се користи во 1 настан — таму останува (со изборот на гостите), но нема да се нуди за нови настани."
+    : `Пакетот се користи во ${count} настани — таму останува (со изборот на гостите), но нема да се нуди за нови настани.`;
 }
 
-/** The delete confirmation for a package used only by past events. */
-export function packageInPastEventsMessage(count: number): string {
-  return count === 1
-    ? "Пакетот ќе се отстрани од 1 поминат настан."
-    : `Пакетот ќе се отстрани од ${count} поминати настани.`;
-}
-
+/**
+ * Takes a package off the venue's list. One that any event uses — upcoming
+ * or past — is archived instead of deleted (0181): the event keeps the menu
+ * and the guests keep their choice of it; only changing the event's own menus
+ * takes it off an event. One nobody uses is deleted. Returns which it was.
+ */
 export async function deleteMenuTemplate(
   templateId: string,
   client: SupabaseClient = resolveSupabaseClient(),
-): Promise<void> {
-  const { upcoming } = await countEventsUsingTemplate(templateId, client);
-  if (upcoming > 0) throw new Error(packageInUpcomingEventsMessage(upcoming));
-  const { error } = await client
-    .from("menu_templates")
-    .delete()
-    .eq("id", templateId);
+): Promise<"archived" | "deleted"> {
+  const { upcoming, past } = await countEventsUsingTemplate(templateId, client);
+  const { error } =
+    upcoming + past > 0
+      ? await client.from("menu_templates").update({ archived_at: new Date().toISOString() }).eq("id", templateId)
+      : await client.from("menu_templates").delete().eq("id", templateId);
   if (error) throw error;
+  return upcoming + past > 0 ? "archived" : "deleted";
+}
+
+/** The venue's archived packages (0181), newest archived first — listed so a package can be restored. */
+export async function listArchivedMenuTemplates(
+  venueId: string,
+  client: SupabaseClient = resolveSupabaseClient(),
+): Promise<{ id: string; name: string; archived_at: string }[]> {
+  const { data, error } = await client
+    .from("menu_templates")
+    .select("id, name, archived_at")
+    .eq("venue_id", venueId)
+    .is("event_id", null)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as { id: string; name: string; archived_at: string }[];
+}
+
+/** "Врати": an archived package goes back on the venue's list (offered for new events again). */
+export async function restoreMenuTemplate(templateId: string, client: SupabaseClient = resolveSupabaseClient()): Promise<void> {
+  const { data, error } = await client.from("menu_templates").update({ archived_at: null }).eq("id", templateId).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Пакетот не е пронајден.");
 }
 
 export interface MenuTemplateWithItemCount extends MenuTemplate {
@@ -222,6 +247,8 @@ export async function listMenuTemplatesWithItemCounts(
     )
     .eq("venue_id", venueId)
     .is("event_id", null)
+    // 0181: an archived package stays only on the events that use it.
+    .is("archived_at", null)
     .order("name");
   if (error) throw error;
 

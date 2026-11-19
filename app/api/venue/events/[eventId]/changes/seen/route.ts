@@ -29,7 +29,7 @@ export const POST = withPublic(
   {
     params: z.object({ eventId: uuid }),
     invalidJsonError: INVALID_JSON_ERROR,
-    body: z.object({ section: z.enum(["guest_count", "contact"]), up_to: z.string().datetime({ offset: true }) }),
+    body: z.object({ section: z.enum(["guest_count", "contact", "numbers"]), up_to: z.string().datetime({ offset: true }) }),
     fallbackError: "Не успеа означувањето како видено.",
   },
 );

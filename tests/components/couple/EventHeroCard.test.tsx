@@ -6,7 +6,7 @@ vi.mock("next/font/google", () => ({
   Cormorant_Garamond: () => ({ className: "font" }),
 }));
 
-import { EventHeroCard } from "@/components/couple/EventHeroCard";
+import { EventHeroCard, confirmedText } from "@/components/couple/EventHeroCard";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -94,6 +94,20 @@ describe("EventHeroCard", () => {
 
   it("renders the guest count editor", () => {
     render(<EventHeroCard {...BASE_PROPS} startIso="2026-10-20T00:00:00.000Z" endIso="2026-10-20T04:00:00.000Z" />);
-    expect(screen.getByText("120 гости")).toBeInTheDocument();
+    expect(screen.getByText("Проценка: 120")).toBeInTheDocument();
+    expect(screen.queryByText(/Потврдени:/)).not.toBeInTheDocument();
+  });
+
+  it("shows the real confirmed count next to the estimate (0181)", () => {
+    render(
+      <EventHeroCard {...BASE_PROPS} startIso="2026-10-20T00:00:00.000Z" endIso="2026-10-20T04:00:00.000Z" confirmed={{ people: 182, children: 12 }} />,
+    );
+    expect(screen.getByText("Проценка: 120")).toBeInTheDocument();
+    expect(screen.getByText("Потврдени: 182 лица, од кои 12 деца")).toBeInTheDocument();
+  });
+
+  it("words the confirmed count for one person and no children", () => {
+    expect(confirmedText(1, 0)).toBe("Потврдени: 1 лице");
+    expect(confirmedText(5, 1)).toBe("Потврдени: 5 лица, од кои 1 дете");
   });
 });

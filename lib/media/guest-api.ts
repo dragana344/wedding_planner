@@ -78,7 +78,12 @@ export const invitationGreetingVideoBody = z
   .refine(hasSender);
 
 /** Shared link, before answering (0152): just a name, to get a greeting ticket. */
-export const invitationGreetingIdentifyBody = z.object({ full_name: z.string().trim().min(1).max(120) });
+export const invitationGreetingIdentifyBody = z.object({
+  full_name: z.string().trim().min(1).max(120),
+  // 0179: the same hints the shared-link RSVP uses to find the guest.
+  phone: z.string().max(50).nullable().optional(),
+  remember: z.string().max(200).nullable().optional(),
+});
 
 /** 403 with the locked-feature message (admin spec §4.4). */
 export function lockedResponse(): NextResponse {

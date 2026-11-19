@@ -101,7 +101,7 @@ describe("print data", () => {
     ]));
 
     // Table A: a party of 4, split 3 classic / 1 posno — mixed, worth flagging.
-    const partyA = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство А", party_size: 4 }).select("id").single());
+    const partyA = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство А", party_size: 4, rsvp_status: "confirmed" }).select("id").single());
     await must(admin.from("event_guest_menu_counts").insert([
       { guest_id: partyA.id, menu_template_id: classic.id, count: 3 },
       { guest_id: partyA.id, menu_template_id: posno.id, count: 1 },
@@ -109,9 +109,13 @@ describe("print data", () => {
     await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: roomId, layout_element_id: tableA.id, seat_number: 1, guest_id: partyA.id }));
 
     // Table B: a party entirely on one menu — not worth flagging.
-    const partyB = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство Б", party_size: 2 }).select("id").single());
+    const partyB = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Семејство Б", party_size: 2, rsvp_status: "confirmed" }).select("id").single());
     await must(admin.from("event_guest_menu_counts").insert({ guest_id: partyB.id, menu_template_id: classic.id, count: 2 }));
     await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: roomId, layout_element_id: tableB.id, seat_number: 1, guest_id: partyB.id }));
+    // 0181: a declined guest still seated there keeps their posno choice, but eats nothing — no note.
+    const declined = await must(admin.from("event_guests").insert({ event_id: eventId, full_name: "Одбиен", party_size: 1, rsvp_status: "declined" }).select("id").single());
+    await must(admin.from("event_guest_menu_counts").insert({ guest_id: declined.id, menu_template_id: posno.id, count: 1 }));
+    await must(admin.from("event_seat_assignments").insert({ event_id: eventId, room_id: roomId, layout_element_id: tableB.id, seat_number: 2, guest_id: declined.id }));
 
     const data = await venuePrintData(admin, eventId, "https://kadesum.mk");
     const byId = Object.fromEntries(data.rooms[0].items.map((i) => [i.id, i]));

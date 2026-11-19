@@ -69,7 +69,11 @@ vi.mock("@/lib/couple/guest-greetings", () => guestGreetings);
 const rsvp = vi.hoisted(() => ({ submitRsvpBySlug: vi.fn(async () => ({ eventId: "e1", guestId: "g1" })) }));
 vi.mock("@/lib/couple/rsvp", () => rsvp);
 // 0151: the RSVP answer carries the ticket for the greeting that follows it.
-vi.mock("@/lib/couple/invite-greetings", () => ({ hasGreeted: vi.fn(async () => false), issueGreetingTicket: vi.fn(() => "ticket-g1") }));
+vi.mock("@/lib/couple/invite-greetings", () => ({
+  hasGreeted: vi.fn(async () => false),
+  issueGreetingTicket: vi.fn(() => "ticket-g1"),
+  issueAnswerGreetingTicket: vi.fn((_eventId: string, answerId: string) => `ticket-${answerId}`),
+}));
 
 const contact = vi.hoisted(() => ({ submitContactMessage: vi.fn(async () => undefined) }));
 vi.mock("@/lib/venue/contact", () => contact);
@@ -202,7 +206,7 @@ describe("guest routes", () => {
   const guest = { full_name: "Ана", phone: null, party_size: 2, notes: null, side: "bride" };
 
   it("rejects party_size out of range", async () => {
-    for (const party_size of [0, 51, 1.5]) {
+    for (const party_size of [0, 101, 1.5]) {
       expect((await call(guestsRoute.POST, req("POST", { ...guest, party_size }))).status).toBe(400);
     }
     expect(guests.addGuest).not.toHaveBeenCalled();
@@ -222,7 +226,15 @@ describe("guest routes", () => {
       party_size: 2,
       notes: null,
       side: "bride",
+      invited_party_size: null,
     });
+  });
+
+  it("0179: passes the couple's invited number, and refuses one out of range", async () => {
+    guests.addGuest.mockClear();
+    await call(guestsRoute.POST, req("POST", { ...guest, invited_party_size: 4 }));
+    expect(guests.addGuest).toHaveBeenCalledWith(EVENT, expect.objectContaining({ invited_party_size: 4 }));
+    expect((await call(guestsRoute.POST, req("POST", { ...guest, invited_party_size: 0 }))).status).toBe(400);
   });
 
   it("rejects a bad rsvp_status enum and a non-UUID id", async () => {
@@ -268,7 +280,7 @@ describe("couple guest list tools (A6, A7, A20)", () => {
     const res = await call(guestsImportRoute.POST, req("POST", { csv: "Име и презиме,Лица\nАна,2\n,1\nМарко,0\n" }));
     expect(res).toEqual({
       status: 400,
-      body: { error: "Ред 3: Недостасува име. Ред 4: Бројот на лица мора да е од 1 до 50." },
+      body: { error: "Ред 3: Недостасува име. Ред 4: Бројот на лица мора да е од 1 до 100." },
     });
     expect((await call(guestsImportRoute.POST, req("POST", { csv: "Телефон\n070\n" }))).body).toEqual({
       error: "Ред 1: Недостасува колона „Име и презиме“.",
@@ -471,6 +483,42 @@ describe("public routes", () => {
       { guestToken: token, status: "later", partySize: 1 },
       expect.objectContaining({ ip: expect.any(String) }),
     );
+  });
+
+  it("0179 rsvp: passes household names, phone and the remember token; returns a new remember token", async () => {
+    rsvp.submitRsvpBySlug.mockResolvedValueOnce({ eventId: "e1", guestId: "g1", remember: "r-token" } as never);
+    const ok = await call(
+      rsvpRoute.POST,
+      req("POST", { full_name: "Ана", status: "confirmed", party_size: 2, household_names: ["Марко"], phone: "070 111 222", remember: "old" }, { couple: false }),
+      { slug: "abcDEF123_-x" },
+    );
+    expect(ok).toEqual({ status: 200, body: { ok: true, greeting: { ticket: "ticket-g1", sent: false }, remember: "r-token" } });
+    expect(rsvp.submitRsvpBySlug).toHaveBeenLastCalledWith(
+      "abcDEF123_-x",
+      expect.objectContaining({ householdNames: ["Марко"], phone: "070 111 222", remember: "old", partySize: 2 }),
+      expect.anything(),
+    );
+  });
+
+  it("0179 rsvp: an answer waiting for the couple gets the plain thank-you, no greeting ticket or remember token", async () => {
+    rsvp.submitRsvpBySlug.mockResolvedValueOnce({ eventId: "e1", guestId: null, remember: null } as never);
+    const res = await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "later" }, { couple: false }), { slug: "abcDEF123_-x" });
+    expect(res).toEqual({ status: 200, body: { ok: true } });
+  });
+
+  it("0180 rsvp: an answer waiting for the couple gets a greeting ticket tied to the answer, never a remember token", async () => {
+    rsvp.submitRsvpBySlug.mockResolvedValueOnce({ eventId: "e1", guestId: null, answerId: "a1", remember: null } as never);
+    const res = await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "later" }, { couple: false }), { slug: "abcDEF123_-x" });
+    expect(res).toEqual({ status: 200, body: { ok: true, greeting: { ticket: "ticket-a1", sent: false } } });
+  });
+
+  it("0179 rsvp: no cap below the database's 100, but bounded household lists", async () => {
+    rsvp.submitRsvpBySlug.mockClear();
+    const slug = { slug: "abcDEF123_-x" };
+    expect((await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "confirmed", party_size: 100 }, { couple: false }), slug)).status).toBe(200);
+    expect((await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "confirmed", party_size: 101 }, { couple: false }), slug)).status).toBe(400);
+    expect((await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "confirmed", household_names: Array(101).fill("x") }, { couple: false }), slug)).status).toBe(400);
+    expect((await call(rsvpRoute.POST, req("POST", { full_name: "Ана", status: "confirmed", household_names: ["x".repeat(201)] }, { couple: false }), slug)).status).toBe(400);
   });
 
   it("rsvp: needs a name or a well-formed token, and bounded answers", async () => {

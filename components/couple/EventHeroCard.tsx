@@ -14,6 +14,12 @@ import "./EventHeroCard.css";
 // face for those glyphs instead of erroring.
 const cormorant = Cormorant_Garamond({ subsets: ["latin", "cyrillic"], weight: "400", style: ["normal", "italic"] });
 
+/** "Потврдени: 182 лица, од кои 12 деца". */
+export function confirmedText(people: number, children: number): string {
+  const head = `Потврдени: ${people} ${people === 1 ? "лице" : "лица"}`;
+  return children > 0 ? `${head}, од кои ${children} ${children === 1 ? "дете" : "деца"}` : head;
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -27,6 +33,7 @@ export function EventHeroCard({
   endTime,
   venueName,
   guestCount,
+  confirmed = null,
 }: {
   coupleNames: string;
   eventDate: string;
@@ -37,6 +44,8 @@ export function EventHeroCard({
   endTime: string | null;
   venueName: string;
   guestCount: number | null;
+  /** 0181: the real count next to the typed estimate — confirmed people, and how many of them are children. */
+  confirmed?: { people: number; children: number } | null;
 }) {
   // Rendered only after mount, same reason as components/invite/countdown.tsx's
   // useCountdown: the server and client would otherwise disagree on "now".
@@ -116,6 +125,12 @@ export function EventHeroCard({
           <Icon name="users" size="sm" className="event-hero__icon" />
           <GuestCountInlineEdit initialValue={guestCount} />
         </li>
+        {confirmed ? (
+          <li>
+            <Icon name="check" size="sm" className="event-hero__icon" />
+            {confirmedText(confirmed.people, confirmed.children)}
+          </li>
+        ) : null}
       </ul>
     </section>
   );

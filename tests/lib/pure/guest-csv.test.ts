@@ -31,8 +31,13 @@ describe("guestsToCsv (A20)", () => {
     const csv = guestsToCsv([base], menus);
     expect(csv.startsWith("﻿")).toBe(true);
     const [header, line] = csv.slice(1).split("\r\n");
-    expect(header).toBe("Име и презиме;Телефон;Email;Страна;Лица;Деца;Статус;Класично;Посно;Алергии;Коментар;Покана испратена");
-    expect(line).toBe('Ана Петровска;070 111 222;ana@example.mk;Невеста;3;1;Потврден;2;1;ореви;"Доаѓаме, ""со радост""";Да (viber)');
+    expect(header).toBe("Име и презиме;Телефон;Email;Страна;Лица;Деца;Деца без оброк;Статус;Класично;Посно;Алергии;Коментар;Покана испратена;Доаѓаат со");
+    expect(line).toBe('Ана Петровска;070 111 222;ana@example.mk;Невеста;3;1;0;Потврден;2;1;ореви;"Доаѓаме, ""со радост""";Да (viber);');
+  });
+
+  it("0179: lists the names of the people coming with the guest in the last column", () => {
+    const line = guestsToCsv([{ ...base, household_names: ["Марко Петровски", "Ива"] }], menus).split("\r\n")[1];
+    expect(line.endsWith(';Да (viber);"Марко Петровски, Ива"')).toBe(true);
   });
 
   it("has a column per menu, blank for zero, and the party size under a single menu", () => {
@@ -62,7 +67,14 @@ describe("guestsToCsv (A20)", () => {
     const line = guestsToCsv([
       { ...base, phone: null, email: null, side: null, menu_counts: {}, allergies: null, rsvp_comment: null, invitation_sent_at: null, invitation_channel: null, rsvp_status: "later" },
     ]).split("\r\n")[1];
-    expect(line).toBe("Ана Петровска;;;;3;1;Ќе одговори подоцна;;;Не");
+    expect(line).toBe("Ана Петровска;;;;3;1;0;Ќе одговори подоцна;;;Не;");
+  });
+
+  it("0181: a kept choice of a guest who is not coming is left out; a single menu counts the party but the children without a meal", () => {
+    const declined = guestsToCsv([{ ...base, rsvp_status: "declined" }], menus).split("\r\n")[1];
+    expect(declined).toBe('Ана Петровска;070 111 222;ana@example.mk;Невеста;3;1;0;Одбиен;;;ореви;"Доаѓаме, ""со радост""";Да (viber);');
+    const single = guestsToCsv([{ ...base, menu_counts: {}, no_meal_count: 1 }], [menus[0]]).split("\r\n")[1];
+    expect(single).toBe('Ана Петровска;070 111 222;ana@example.mk;Невеста;3;1;1;Потврден;2;ореви;"Доаѓаме, ""со радост""";Да (viber);');
   });
 });
 
@@ -87,8 +99,17 @@ describe("parseGuestCsv (A20)", () => {
     const { rows, errors } = parseGuestCsv(guestsToCsv([base, { ...base, full_name: "=cmd", side: "groom" }]));
     expect(errors).toEqual([]);
     expect(rows).toEqual([
-      { full_name: "Ана Петровска", phone: "070 111 222", email: "ana@example.mk", side: "bride", party_size: 3 },
-      { full_name: "=cmd", phone: "070 111 222", email: "ana@example.mk", side: "groom", party_size: 3 },
+      { full_name: "Ана Петровска", phone: "070 111 222", email: "ana@example.mk", side: "bride", party_size: 3, children_count: 1 },
+      { full_name: "=cmd", phone: "070 111 222", email: "ana@example.mk", side: "groom", party_size: 3, children_count: 1 },
+    ]);
+  });
+
+  it("0181: reads children, never more than the party", () => {
+    const { rows, errors } = parseGuestCsv("Име и презиме;Лица;Деца\nАна;3;1\nМарко;2;3\nИва;2;x\n");
+    expect(rows).toEqual([{ full_name: "Ана", phone: null, email: null, side: null, party_size: 3, children_count: 1 }]);
+    expect(errors).toEqual([
+      { line: 3, message: "Децата не можат да бидат повеќе од бројот на лица." },
+      { line: 4, message: "Бројот на деца мора да е цел број." },
     ]);
   });
 
@@ -98,7 +119,7 @@ describe("parseGuestCsv (A20)", () => {
     expect(rows.map((r) => r.full_name)).toEqual(["Ана"]);
     expect(errors).toEqual([
       { line: 3, message: "Недостасува име." },
-      { line: 4, message: "Бројот на лица мора да е од 1 до 50." },
+      { line: 4, message: "Бројот на лица мора да е од 1 до 100." },
       { line: 5, message: "Неважечки email." },
       { line: 6, message: "Страната мора да е „невеста“ или „младоженец“." },
     ]);

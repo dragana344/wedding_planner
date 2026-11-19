@@ -77,7 +77,8 @@ describe("labels", () => {
     expect(SECTION_LABELS).toEqual({
       date_time: "Датум и време", rooms: "Простории", menus: "Мени", guest_count: "Број на гости",
       contact: "Контакт", finance: "Финансии", menu_numbers: "Бројки за мени", guest_replies: "Одговори од гости",
+      numbers: "Промена по испратените бројки",
     });
-    expect(SECTIONS_FOR_VIEWER.venue).toEqual(["guest_count", "contact"]);
+    expect(SECTIONS_FOR_VIEWER.venue).toEqual(["guest_count", "contact", "numbers"]);
   });
 });

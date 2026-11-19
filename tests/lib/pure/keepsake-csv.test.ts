@@ -63,6 +63,10 @@ describe("guestMenuText", () => {
   it("gives the whole party the only menu", () => {
     expect(guestMenuText({ rsvp_status: "confirmed", party_size: 3, menu_counts: {} }, [menus[0]])).toBe("Месо ×3");
   });
+  it("0181: names the children without a meal, and leaves them out of the only menu", () => {
+    expect(guestMenuText({ rsvp_status: "confirmed", party_size: 3, menu_counts: { m1: 2 }, no_meal_count: 1 }, menus)).toBe("Месо ×2, без оброк ×1");
+    expect(guestMenuText({ rsvp_status: "confirmed", party_size: 3, menu_counts: {}, no_meal_count: 1 }, [menus[0]])).toBe("Месо ×2, без оброк ×1");
+  });
   it("is empty for a guest who is not coming", () => {
     expect(guestMenuText({ rsvp_status: "declined", party_size: 3, menu_counts: { m1: 3 } }, menus)).toBe("");
   });

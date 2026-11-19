@@ -102,7 +102,8 @@ describe("couple menu numbers", () => {
     await counts(g, { [menuA]: 1, [menuB]: 1 });
     expect((await currentMenuNumbers(e)).notDone).toHaveLength(0);
     await admin.from("event_guests").update({ rsvp_status: "later" }).eq("id", g);
-    await expect(sendMenuNumbers(e)).rejects.toThrow("Уште 1 гостин нема конечен одговор.");
+    // 0182: not everyone answered — the send needs an estimate for them.
+    await expect(sendMenuNumbers(e)).rejects.toThrow("Внесете проценка за гостите без одговор.");
     expect(await listMenuSubmissions(e)).toHaveLength(0);
   });
 

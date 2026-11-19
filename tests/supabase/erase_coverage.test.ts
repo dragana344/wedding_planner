@@ -7,7 +7,7 @@ import { addMonths } from "@/lib/couple/access";
 import { todayIn } from "@/lib/date";
 import { COLUMN_CLASSIFICATION } from "./privacy-classification";
 
-// Group A task 1 (0170, support tickets: task 2 / 0171): the automatic retention erasure removes every
+// Group A task 1 (0170, support tickets: task 2 / 0171; RSVP answers: group B task 1 / 0179): the automatic retention erasure removes every
 // personal row of an event but keeps the venue's business record (organizer
 // names/contacts, date, money, rooms, tables, menu counts); an erasure on
 // request removes the organizer too. Plus the couple-access end rules
@@ -81,6 +81,26 @@ async function seedEvent(tag: string, eventDate = "2027-06-01"): Promise<Seeded>
     }),
   );
   await must(admin.from("event_greetings").insert({ event_id: eventId, guest_id: guest.id, first_name: "Greeter", last_name: tag, message: `Greeting ${tag}` }));
+  // 0179: an applied answer and one still waiting for the couple (no guest).
+  await must(
+    admin.from("event_rsvp_answers").insert([
+      {
+        event_id: eventId, guest_id: guest.id, source: "shared", full_name: `Guest ${tag}`, phone: `071-${tag}`, status: "confirmed", party_size: 2,
+        allergies: `Nuts ${tag}`, comment: `See you ${tag}`, household_names: [`Plus ${tag}`], match: "exact", review_state: "none",
+        before: { status: "invited", party_size: 1, children_count: 0, menu_counts: {}, allergies: null, household_names: [] },
+        after: { status: "confirmed", party_size: 2, children_count: 0, menu_counts: {}, allergies: `Nuts ${tag}`, household_names: [`Plus ${tag}`] },
+      },
+    ]),
+  );
+  const unsure = await must(
+    admin
+      .from("event_rsvp_answers")
+      .insert({ event_id: eventId, source: "shared", full_name: `Unsure ${tag}`, phone: `072-${tag}`, status: "declined", match: "review", review_state: "pending" })
+      .select("id")
+      .single(),
+  );
+  // 0180: a greeting sent with that pending answer, under a one-word name.
+  await must(admin.from("event_greetings").insert({ event_id: eventId, rsvp_answer_id: unsure.id, first_name: `Unsure${tag}`, last_name: "", message: `Pending ${tag}` }));
   // 0171: a support ticket the couple sent, with a reply in its thread.
   const ticket = await must(
     admin.from("support_tickets").insert({
@@ -159,7 +179,7 @@ describe("erase coverage (0170)", () => {
       couple_names: `Couple ${s.tag}`, contact_email: `${s.tag}@couple.test`, contact_email_2: `${s.tag}-2@couple.test`, contact_phone: `070-${s.tag}`,
       event_date: "2027-06-01", total_price: 1000, deposit_paid: 200, guest_count_estimate: 80, seating_draft: {},
     });
-    for (const table of ["event_guests", "event_greetings", "event_photos", "event_albums", "event_budget_items", "event_notes", "event_invitations", "event_co_organizers"]) {
+    for (const table of ["event_guests", "event_rsvp_answers", "event_greetings", "event_photos", "event_albums", "event_budget_items", "event_notes", "event_invitations", "event_co_organizers"]) {
       expect((await admin.from(table).select("event_id").eq("event_id", s.eventId)).data, table).toEqual([]);
     }
     // Business data the venue keeps: rooms, tables (unlabelled), menu counts.

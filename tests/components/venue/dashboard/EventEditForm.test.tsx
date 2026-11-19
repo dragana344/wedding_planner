@@ -156,6 +156,41 @@ describe("EventEditForm", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("0180: the answer deadline — empty follows the venue's days (shown), a date replaces it and is saved", async () => {
+    mockSupportingCalls();
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    renderForm({ event: { ...baseEvent, rsvp_deadline: null, rsvp_deadline_days: 10 }, onClose: vi.fn(), onChanged: vi.fn() });
+    expect(screen.getByText("Празно: 10 дена пред настанот (02.09.2026), според Поставки.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Рок за одговор на гостите"), { target: { value: "2026-09-01" } });
+    expect(screen.getByText("Гостите можат да одговорат до 01.09.2026.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls[0][1].rsvp_deadline).toBe("2026-09-01");
+  });
+
+  it("0180: clearing the date saves null (back to the venue's default)", async () => {
+    mockSupportingCalls();
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    renderForm({ event: { ...baseEvent, rsvp_deadline: "2026-09-01" }, onClose: vi.fn(), onChanged: vi.fn() });
+    fireEvent.change(screen.getByLabelText("Рок за одговор на гостите"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls[0][1].rsvp_deadline).toBeNull();
+  });
+
+  it("0184: moving the event later with its own deadline before the new default puts it back to the default, with a note", async () => {
+    mockSupportingCalls();
+    const updateSpy = vi.spyOn(eventsClient, "updateEventViaApi").mockResolvedValue();
+    renderForm({ event: { ...baseEvent, rsvp_deadline: "2026-08-20", rsvp_deadline_days: 15 }, onClose: vi.fn(), onChanged: vi.fn() });
+    expect(screen.queryByTestId("rsvp-deadline-reset")).toBeNull();
+    fireEvent.change(document.getElementById("edit-event-date")!, { target: { value: "2026-10-12" } });
+    expect(screen.getByTestId("rsvp-deadline-reset")).toHaveTextContent("Рокот за одговор е вратен на стандардниот");
+    expect(screen.getByLabelText("Рок за одговор на гостите")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: /зачувај промени/i }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    expect(updateSpy.mock.calls[0][1].rsvp_deadline).toBeNull();
+  });
+
   const tplA = { id: "ma", venue_id: "v1", name: "Класично", description: null, items: [{ id: "i1", name: "Супа", course: "starter", photo_path: null }] };
   const tplB = { id: "mb", venue_id: "v1", name: "Посно", description: null, items: [] };
   const withMenus = { ...baseEvent, menus: [
@@ -188,6 +223,22 @@ describe("EventEditForm", () => {
     await waitFor(() => expect(updateSpy).toHaveBeenCalled());
     expect(updateSpy.mock.calls[0][1].added_menu_ids).toEqual(["mb"]);
     expect(updateSpy.mock.calls[0][1].removed_menu_ids).toEqual(["ma"]);
+  });
+
+  it("0181: an archived package the event uses still shows (and stays on) while it is off the venue's list", () => {
+    mockSupportingCalls();
+    const withArchived = { ...baseEvent, menus: [{ id: "old", name: "Стар пакет", isCustom: false, items: [] }] };
+    renderForm({ event: withArchived, menuTemplates: [tplA] as never, onClose: () => {}, onChanged: () => {} });
+    expect(screen.getByRole("button", { name: "Стар пакет" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("0181: going from one menu to two says the confirmed guests will have to choose", () => {
+    mockSupportingCalls();
+    const oneMenu = { ...baseEvent, menus: [{ id: "ma", name: "Класично", isCustom: false, items: [] }] };
+    renderForm({ event: oneMenu, menuTemplates: [tplA, tplB] as never, onClose: () => {}, onChanged: () => {} });
+    expect(screen.queryByText(/ќе треба да изберат мени/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Посно" }));
+    expect(screen.getByText("Гостите што веќе потврдиле ќе треба да изберат мени — парот ќе биде известен.")).toBeInTheDocument();
   });
 
   it("removing a menu guests chose warns \"3 гости го избрале ова мени — нивниот избор ќе се избрише\"", async () => {
@@ -356,6 +407,40 @@ describe("EventEditForm", () => {
     expect(screen.getByLabelText("Вкупна цена (МКД)")).toHaveValue(300000);
   });
 
+  it("0182: shows contracted vs final price from the latest numbers' meals (estimate marked, no-meal children apart)", () => {
+    mockSupportingCalls();
+    const latest = {
+      id: "s1", sentAt: "2026-06-14T08:00:00Z", sentBy: "Младенците", seenAt: null, seenBy: null, source: "couple" as const,
+      unanswered: 3, allergySummary: null, allergyNotes: null,
+      numbers: { menus: [{ id: "m1", name: "Класично", count: 200 }], total: 200, noMeal: 4 },
+      estimate: { menus: [{ id: "m1", name: "Класично", count: 10 }], total: 10 },
+    };
+    renderForm({
+      event: { ...baseEvent, total_price: 300000, price_per_guest: 1500, contracted_guests: 200, menuNumbers: { latest, previous: null } },
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    expect(screen.getByTestId("price-comparison")).toHaveTextContent(
+      "Договорено: 200 × 1.500 ден = 300.000 ден · Конечно: 210 оброци (од кои проценка: 10) → 315.000 ден (+15.000) · Деца без оброк: 4 (не се наплаќаат)",
+    );
+  });
+
+  it("0182: without sent numbers the confirmed guests' meals are the final count; a hand-typed total shows no comparison", () => {
+    mockSupportingCalls();
+    renderForm({
+      event: { ...baseEvent, total_price: 300000, price_per_guest: 1500, contracted_guests: 200, confirmed_people: 182, confirmed_no_meal: 2 },
+      onClose: () => {},
+      onChanged: () => {},
+    });
+    expect(screen.getByTestId("price-comparison")).toHaveTextContent("Конечно: 180 оброци → 270.000 ден (−30.000) · Деца без оброк: 2 (не се наплаќаат)");
+  });
+
+  it("0182: no per-guest price, no comparison line", () => {
+    mockSupportingCalls();
+    renderForm({ event: { ...baseEvent, total_price: 300000 }, onClose: () => {}, onChanged: () => {} });
+    expect(screen.queryByTestId("price-comparison")).toBeNull();
+  });
+
   it("still lets plain staff open a room's seating to look at it, but not change the rooms", async () => {
     mockSupportingCalls();
     const hall = { id: "r1", venue_id: "v1", name: "Голема сала", width_cm: 2000, height_cm: 1500 } as React.ComponentProps<typeof EventEditForm>["rooms"][number];
@@ -520,7 +605,7 @@ describe("EventEditForm custom menu", () => {
       renderForm({ event: { ...baseEvent, menuNumbers: { latest: { ...latest, seenAt: "2026-06-15T10:00:00Z" }, previous } }, onClose: () => {}, onChanged: () => {} });
       expect(screen.getByText("Класично — 180")).toBeInTheDocument();
       expect(screen.getByText("Посно — 23")).toBeInTheDocument();
-      expect(screen.getByText("Вкупно — 203")).toBeInTheDocument();
+      expect(screen.getByText("Вкупно оброци — 203")).toBeInTheDocument();
       expect(screen.getByText("Испратено на 14.06.2026 од Младенците")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Видено" })).not.toBeInTheDocument();
     });

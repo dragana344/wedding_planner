@@ -39,6 +39,8 @@ export const RETENTION_FACTS = {
   deletedFileHours: 24,
   /** Live: lib/couple/session-verify.ts SESSION_DURATION_MS. */
   coupleSessionDays: 30,
+  /** Live: lib/couple/rsvp-remember.ts REMEMBER_SECONDS — the shared-link "remember me" token a guest's browser keeps (localStorage, 0179). */
+  rsvpRememberDays: 180,
   /** Live: pg_cron job in migration 0037. */
   rateLimitCounterDays: 1,
   /** Supabase managed backups (BACKUPS.md). */

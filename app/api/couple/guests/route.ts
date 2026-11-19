@@ -20,6 +20,7 @@ export const POST = withCoupleEvent(
       party_size: body.party_size ?? 1,
       notes: body.notes || null,
       side: body.side || null,
+      invited_party_size: body.invited_party_size ?? null,
     });
     return NextResponse.json(created);
   },

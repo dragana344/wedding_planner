@@ -109,8 +109,8 @@ const dpaDocument: BiDocument = {
             [
               bi("Гости", "Guests"),
               bi(
-                "Име и презиме; телефон (по избор); број на лица; одговор на поканата; страна; белешки; време на последната промена на одговорот преку линкот и претходниот одговор.",
-                "Full name; phone (optional); party size; invitation answer; side; notes; time of the last change of the answer through the link and the previous answer.",
+                `Име и презиме; телефон (по избор, и на заедничкиот формулар за одговор); број на лица и за колку лица е поканет; имиња на лицата што доаѓаат со гостинот (по избор); одговор на поканата (деца, мени, алергии, коментар); страна; белешки; историја на одговорите (секој одговор посебно, со време, извор и состојбата пред и по него); потпишан код „запомни ме“ што прелистувачот на гостинот го чува ${R.rsvpRememberDays} дена по одговор преку заедничкиот линк.`,
+                `Full name; phone (optional, also on the shared answer form); party size and how many people the guest is invited for; names of the people coming with the guest (optional); invitation answer (children, menu, allergies, comment); side; notes; history of answers (every answer separately, with its time, source and the state before and after it); a signed "remember me" code the guest's browser keeps for ${R.rsvpRememberDays} days after an answer through the shared link.`,
               ),
             ],
             [

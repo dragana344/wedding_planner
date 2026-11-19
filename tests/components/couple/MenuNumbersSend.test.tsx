@@ -28,11 +28,11 @@ describe("MenuNumbersSend", () => {
     fireEvent.click(screen.getByRole("button", { name: "Потврди и испрати" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Уште 1 гостин нема конечен одговор.");
     await waitFor(() => expect(gets).toBe(2));
-    expect(await screen.findByText(/чекаме одговор од: Ана Петрова/)).toBeInTheDocument();
+    expect(await screen.findByText(/Без одговор: Ана Петрова/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    // Bug fix: the confirm dialog stays open on a failed send, and a guest
-    // going "not done" while it's open must disable the send button too —
-    // not just the reload before the dialog was ever opened.
+    // Bug fix: the confirm dialog stays open on a failed send. A guest going
+    // "not done" while it's open now needs an estimate (0182): the empty
+    // estimate field keeps the send disabled until it is filled in.
     expect(screen.getByRole("button", { name: "Потврди и испрати" })).toBeDisabled();
   });
 

@@ -266,6 +266,7 @@ function GuestsSection({ data }: { data: KeepsakeData }) {
         <View key={i} style={s.tr} wrap={false}>
           <View style={{ width: "31%" }}>
             <Text style={{ fontWeight: 500 }}>{g.fullName}</Text>
+            {g.householdNames && g.householdNames.length > 0 ? <Text style={s.small}>Со: {g.householdNames.join(", ")}</Text> : null}
             {g.allergies ? <Text style={s.small}>Алергии: {g.allergies}</Text> : null}
             {g.comment ? <Text style={[s.small, { fontStyle: "normal" }]}>„{g.comment}“</Text> : null}
           </View>
@@ -367,7 +368,13 @@ function MenusSection({ data }: { data: KeepsakeData }) {
           Вкупно присутни: {data.attending.people}
           {data.attending.children > 0 ? ` (од кои деца: ${data.attending.children})` : ""}
         </Text>
-        {data.numbersSentAt ? <Text style={s.small}>Конечните бројки се испратени до салата на {formatVenueDatePadded(data.numbersSentAt)}.</Text> : null}
+        {(data.noMeal ?? 0) > 0 ? <Text style={s.small}>Деца без оброк: {data.noMeal}</Text> : null}
+        {data.numbersSentAt ? (
+          <Text style={s.small}>
+            Конечните бројки се испратени до салата на {formatVenueDatePadded(data.numbersSentAt)}
+            {data.numbersSent ? `: ${data.numbersSent.people} лица${data.numbersSent.estimated > 0 ? ` (од кои проценка: ${data.numbersSent.estimated})` : ""}` : ""}.
+          </Text>
+        ) : null}
       </View>
     </Section>
   );

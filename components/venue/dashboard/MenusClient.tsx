@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArchivedPackages } from "./ArchivedPackages";
 import { Modal } from "./Modal";
 import { MenuItemCard } from "./MenuItemCard";
 import { PackageBuilder } from "./PackageBuilder";
@@ -240,6 +241,7 @@ export function MenusClient({
                 </button>
               </div>
             )}
+            <ArchivedPackages venueId={venueId} refreshKey={templates} onRestored={refreshTemplates} />
             <EventCustomMenusSection
               venueId={venueId}
               menus={customMenus}

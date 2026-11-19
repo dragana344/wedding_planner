@@ -100,7 +100,10 @@ describe("GET /api/venue/events/private", () => {
     expect(res.status).toBe(200);
     const { events } = await res.json();
     expect(events).toEqual([
-      { id: eventId, contact_email: "ana@example.mk", contact_email_2: null, contact_phone: "070 111 222", total_price: 300000, deposit_paid: 50000 },
+      {
+        id: eventId, contact_email: "ana@example.mk", contact_email_2: null, contact_phone: "070 111 222", total_price: 300000, deposit_paid: 50000,
+        price_per_guest: null, contracted_guests: null,
+      },
     ]);
     expect(events.map((e: { id: string }) => e.id)).not.toContain(otherEventId);
   });

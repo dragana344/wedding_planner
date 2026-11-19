@@ -120,6 +120,18 @@ describe("PATCH /api/venue/settings", () => {
     expect((await color.json()).error).toBe("Изберете боја во облик #rrggbb.");
   });
 
+  it("0180: the owner sets the guests' answer deadline (days before the event), 0..365 only", async () => {
+    expect((await patch({ field: "rsvp_deadline_days", days: 10 }, ownerToken)).status).toBe(200);
+    expect((await admin.from("venues").select("rsvp_deadline_days").eq("id", venueId).single()).data).toEqual({ rsvp_deadline_days: 10 });
+    expect((await admin.from("venues").select("rsvp_deadline_days").eq("id", otherVenueId).single()).data).toEqual({ rsvp_deadline_days: 15 });
+    expect((await patch({ field: "rsvp_deadline_days", days: 366 }, ownerToken)).status).toBe(400);
+    expect((await patch({ field: "rsvp_deadline_days", days: 1.5 }, ownerToken)).status).toBe(400);
+    expect((await patch({ field: "rsvp_deadline_days", days: 3 }, managerToken)).status).toBe(403);
+    expect((await admin.from("audit_log").select("manager_name").eq("venue_id", venueId).eq("action", "venue_rsvp_deadline_updated").single()).data).toEqual({
+      manager_name: "Сопственик",
+    });
+  });
+
   it("rejects an empty name", async () => {
     expect((await patch({ field: "name", name: "   " }, ownerToken)).status).toBe(400);
   });

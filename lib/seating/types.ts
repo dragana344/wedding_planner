@@ -1,5 +1,7 @@
 // Shared seat-list shapes (server lib, API and client components).
 
+import type { SeatFlag } from "./flags";
+
 export interface SeatTable {
   elementId: string;
   label: string | null;
@@ -21,12 +23,16 @@ export interface SeatGuest {
   partySize: number;
   seatsTaken: number;
   side: "bride" | "groom" | null;
+  /** The guest's answer (0181): a seated "declined" is flagged on the plan. */
+  rsvpStatus?: string;
 }
 
 export interface RoomSeating {
   tables: SeatTable[];
   seats: Seat[];
   guests: SeatGuest[];
+  /** 0181: seated guests who declined or hold more seats than their party (`seatFlags`). */
+  flags?: SeatFlag[];
 }
 
 export interface SeatInput {

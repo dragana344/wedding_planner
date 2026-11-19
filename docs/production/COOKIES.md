@@ -7,7 +7,7 @@
 | `sb-<project-ref>-auth-token-code-verifier` | `@supabase/ssr` | PKCE verifier during password reset / email links | Minutes | as above | Strictly necessary |
 | `maintenance_bypass` | `proxy.ts` (`maintenanceResponse`, REL-007) | Lets the team open the site while `MAINTENANCE_MODE=1`; only set for someone who opens a URL with the bypass token | 12 hours | HttpOnly, Secure, SameSite=Lax, Path=/ | Strictly necessary (team only) |
 
-**Local/session storage:** none. The app stores nothing in `localStorage`, `sessionStorage` or IndexedDB (checked 29 Sep 2026: no references in `app/`, `components/`, `lib/`).
+**Local/session storage:** one entry. `rsvp-remember:<slug>` in `localStorage` (`components/invite/RsvpForm.tsx`, 0179) holds `{token, name}` after a guest's confirmed answer through the invitation's shared link: a signed token (`lib/couple/rsvp-remember.ts`, HMAC, valid 180 days — `RETENTION_FACTS.rsvpRememberDays`) so a later visit updates the same guest, and the name the guest typed. "Не сте вие?" removes it. Strictly necessary for the service the guest asked for (answering and later changing the answer); the privacy policy (`cookies`, `guests`, `retention`) and the DPA list it. Nothing else is stored in `localStorage`, `sessionStorage` or IndexedDB.
 
 **Third-party cookies:** none. No analytics, ads, embeds or social widgets. Fonts are self-hosted by Next.js. Sentry (OBS-001), if enabled, sets no cookies.
 

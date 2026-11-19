@@ -57,6 +57,11 @@ export async function saveCoupleSeatingSelfEdit(enabled: boolean, managerToken: 
   await patch({ field: "couple_seating_self_edit_enabled", enabled }, managerToken);
 }
 
+/** 0180: guests can answer until this many days before the event. */
+export async function saveRsvpDeadlineDays(days: number, managerToken: string | null): Promise<void> {
+  await patch({ field: "rsvp_deadline_days", days }, managerToken);
+}
+
 /** Uploads a new logo and returns its public URL (the server re-checks the file). */
 export async function uploadLogo(file: File, managerToken: string | null): Promise<string> {
   return (await uploadVenuePhoto<{ url: string }>("/api/venue/settings/logo", file, managerToken, "Не успеа прикачувањето на логото.")).url;

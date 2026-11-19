@@ -64,9 +64,27 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     id: N, event_id: N, full_name: P, phone: P, party_size: C, rsvp_status: C, notes: P, created_at: N, side: P,
     rsvp_changed_via_link_at: C, rsvp_previous_status: C, invite_token: S, email: P, allergies: P,
     children_count: C, rsvp_comment: P, invitation_sent_at: C, invitation_channel: C, reminder_sent_at: C,
+    // 0179: names of the people coming with the guest; the couple's invited number.
+    household_names: P, invited_party_size: C,
+    // 0181: children eating no adult menu (a party number, like children_count); when the venue's menu change asked
+    // the guest to choose again (a system time).
+    no_meal_count: C, menu_rechoose_at: N,
+  },
+  // 0179: every RSVP answer on its own. The typed name/phone, health and free-text fields are personal, and so
+  // are before/after (they copy allergies, menus and household names); erased with the event.
+  event_rsvp_answers: {
+    id: N, event_id: N, guest_id: N, source: N, full_name: P, phone: P, status: C, party_size: C, children_count: C,
+    menu_counts: P, allergies: P, comment: P, household_names: P, match: N, review_state: N, before: P, after: P,
+    created_at: C, resolved_at: N, resolved_by: N,
+    // 0180: why a pending answer waits (e.g. the guest limit) — a system reason, names nobody.
+    review_reason: N,
+    // 0181: of the answer's children, those eating no adult menu.
+    no_meal_count: C,
   },
   event_greetings: {
     id: N, event_id: N, guest_id: N, first_name: P, last_name: P, message: P, video_path: P, video_bytes: N, hidden_at: N, created_at: N,
+    // 0180: the pending answer a greeting was sent with (a link, like guest_id).
+    rsvp_answer_id: N,
   },
   event_invitations: { event_id: N, template_id: N, message: P, photo_path: P, public_slug: S, created_at: N },
   event_layout_elements: {
@@ -80,6 +98,11 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   event_menu_submissions: {
     id: N, event_id: N, sent_at: N, sent_by: N, counts: C, menu_titles: N, total: C, seen_at: N, seen_by: P,
     source: N, unanswered: C, allergy_summary: P, allergy_notes: P,
+    // 0181: "Деца без оброк" — an aggregate number, like total.
+    no_meal_count: C,
+    // 0182: the estimated part of a sending — aggregate numbers, like counts/total. allergy_key is a keyed
+    // fingerprint of the allergy notes (no text, but derived from health data): cleared on erasure (0183).
+    estimated_counts: C, estimated_total: C, allergy_key: P, estimated_people: C,
   },
   event_menu_templates: { event_id: N, menu_template_id: N },
   event_notes: { id: N, event_id: N, title: P, content: P, created_at: N, updated_at: N },
@@ -102,6 +125,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
   events: {
     id: N, venue_id: N, couple_names: P, event_date: C, guest_count_estimate: C, created_at: N,
     layout_undo_snapshot: P, contact_email: P, contact_email_2: P, contact_phone: P, start_time: C, end_time: C,
+    // 0182: the per-guest price and contracted guests behind total_price — finance, like it.
+    price_per_guest: C, contracted_guests: C,
     status: C, event_type: C, seating_draft: P, seating_draft_undo: P, seating_confirmed_at: N, total_price: C,
     deposit_paid: C, checklist_seeded_at: N, agenda_seeded_at: N, personal_data_erased_at: N, seating_history: P, layout_history: P, seating_rev: N,
     // Project A (0136/0137): seating_mode/self_edit are plain venue config; seating_baseline is a frozen
@@ -111,6 +136,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     couple_first_login_at: N,
     // 0148: the free-text label shown in place of "Друго", same class as event_type.
     event_type_label: C,
+    // 0180: the venue's answer deadline for this event — a planning date like event_date.
+    rsvp_deadline: C,
     // 0170: couple-access end dates (cancellation / admin extension) — dates only.
     couple_access_until: N, couple_access_extended_until: N,
   },
@@ -119,7 +146,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     venue_id: N, tiers: N,
   },
   menu_template_items: { menu_template_id: N, menu_item_id: N },
-  menu_templates: { id: N, venue_id: N, name: N, description: N, created_at: N, event_id: N },
+  // archived_at (0181): a package taken off the venue's list but kept on the events that use it.
+  menu_templates: { id: N, venue_id: N, name: N, description: N, created_at: N, event_id: N, archived_at: N },
   plan_features: { plan_id: N, feature_key: N, enabled: N, limit_value: N },
   plans: { id: N, name: N, description: N, sort_order: N, is_default: N, is_public: N, created_at: N },
   platform_settings: { id: N, maintenance_mode: N, updated_at: N, updated_by: N },
@@ -177,6 +205,8 @@ export const COLUMN_CLASSIFICATION: Record<string, Record<string, ColumnClass>> 
     address: P, phone: P, logo_path: N, brand_color: N,
     plan_id: N, blocked_at: N, blocked_reason: C,
     couple_seating_self_edit_enabled: N,
+    // 0180: the venue-wide answer deadline (days before the event) — venue config.
+    rsvp_deadline_days: N,
     // 0172: admin-scheduled deletion date and the scheduling admin's user id (platform staff, not a venue/couple subject).
     deletion_scheduled_for: N, deletion_scheduled_by: N,
   },

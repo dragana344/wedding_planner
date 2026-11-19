@@ -23,6 +23,7 @@ import { type Room, type TableType } from "@/lib/venue/rooms";
 import { TableSeatsPanel } from "@/components/seating/TableSeatsPanel";
 import { GuestRail } from "@/components/seating/GuestRail";
 import { AllTablesView } from "@/components/seating/AllTablesView";
+import { SeatingFlags } from "@/components/seating/SeatingFlags";
 import { SeatingGuestList } from "@/components/seating/SeatingGuestList";
 import { ToolbarMenu, type ToolbarMenuItem } from "@/components/seating/ToolbarMenu";
 import { PrinterIcon, QrIcon, SprigIcon } from "@/components/seating/couple-icons";
@@ -1097,6 +1098,7 @@ export function EventSeatingPage({
             Бројот на гости ({guestCountEstimate}) го надминува капацитетот на тековниот распоред ({seatedCount}).
           </p>
         ) : null}
+        <SeatingFlags flags={seating?.flags} className="cs-note" />
         {viewOnly && viewOnlyNotice ? (
           <p role="status" className="cs-note">
             {viewOnlyNotice}
@@ -1519,6 +1521,7 @@ export function EventSeatingPage({
         </p>
       ) : null}
 
+      <SeatingFlags flags={seating?.flags} className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800" />
       {viewOnly && viewOnlyNotice ? (
         <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           {viewOnlyNotice}

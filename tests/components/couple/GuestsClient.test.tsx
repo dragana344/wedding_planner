@@ -38,6 +38,8 @@ function makeStats(overrides: Partial<GuestStats> = {}): GuestStats {
     later: 0,
     totalAttending: 0,
     childrenAttending: 0,
+    noMeal: 0,
+    menuRechoose: 0,
     menus: [],
     notDone: [],
     invitationsSent: 0,
@@ -163,7 +165,7 @@ describe("GuestsClient bride/groom switch (phone remodel)", () => {
 });
 
 describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
-  it("shows when the link last changed a guest's answer and what it was before", () => {
+  it("shows when the link last changed a guest's answer (the earlier answer is in the history, 0181)", () => {
     render(
       <GuestsClient
         initialGuests={[makeGuest({ rsvp_status: "declined", rsvp_changed_via_link_at: "2026-10-03T10:15:00Z", rsvp_previous_status: "confirmed" })]}
@@ -171,7 +173,8 @@ describe("GuestsClient RSVP changes via the invitation link (SEC-021)", () => {
         eventType="birthday"
       />,
     );
-    expect(screen.getByText(/Одговор преку поканата: .*\(претходно: Потврден\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Одговор преку поканата: /)).toBeInTheDocument();
+    expect(screen.queryByText(/претходно/)).not.toBeInTheDocument();
   });
 
   it("offers and counts the 'answer later' status (A2)", () => {
@@ -501,6 +504,42 @@ describe("GuestsClient menu counts", () => {
     expect(names()).toEqual(["Борис"]);
   });
 
+  it("0180: counts the yes-guests who need to choose a menu, and one tap filters to them", () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" />);
+    expect(screen.getByRole("option", { name: "Треба да изберат мени (1)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Треба да изберат мени: 1" }));
+    expect(screen.getByLabelText("Филтер по мени")).toHaveValue("none");
+    expect(names()).toEqual(["Борис"]);
+    expect(screen.queryByRole("button", { name: "Треба да изберат мени: 1" })).not.toBeInTheDocument();
+  });
+
+  it("0181: the venue changed the menus — a warning with the count, one tap filters to those guests", () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={{ ...statsTwo, menuRechoose: 1 }} eventType="birthday" />);
+    expect(screen.getByText("Менијата се променети — 1 гостин треба повторно да избере мени")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Прикажи ги" }));
+    expect(screen.getByLabelText("Филтер по мени")).toHaveValue("none");
+    expect(names()).toEqual(["Борис"]);
+  });
+
+  it("0181: opens filtered when the home page's warning links here", () => {
+    render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" initialMenuFilter="none" />);
+    expect(names()).toEqual(["Борис"]);
+  });
+
+  it("0181: a kept choice of a declined guest is on no menu's list and shows no menus", () => {
+    const keptDeclined = makeGuest({ id: "g4", full_name: "Гоце", rsvp_status: "declined", party_size: 1, menu_counts: { [POSNO]: 1 } });
+    render(<GuestsClient initialGuests={[done, keptDeclined]} initialStats={statsTwo} eventType="birthday" />);
+    fireEvent.change(screen.getByLabelText("Филтер по мени"), { target: { value: POSNO } });
+    expect(names()).toEqual(["Ана"]);
+  });
+
+  it("0180: shows the venue's answer deadline", () => {
+    render(
+      <GuestsClient initialGuests={[done]} initialStats={statsTwo} eventType="birthday" deadlineText="Гостите можат да одговорат до 28.05.2027." />,
+    );
+    expect(screen.getByText("Гостите можат да одговорат до 28.05.2027.")).toBeInTheDocument();
+  });
+
   it("summary shows totals and \"Уште N гости немаат конечен одговор\"", () => {
     render(<GuestsClient initialGuests={[done, incomplete, declined]} initialStats={statsTwo} eventType="birthday" />);
     expect(screen.getByText(/Класично 4 · Посно 1/)).toBeInTheDocument();
@@ -520,7 +559,7 @@ describe("GuestsClient menu counts", () => {
     await waitFor(() =>
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/couple/guests/g2",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ type: "menus", counts: { [CLASSIC]: 1, [POSNO]: 1 } }) }),
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ type: "menus", counts: { [CLASSIC]: 1, [POSNO]: 1 }, no_meal_count: 0 }) }),
       ),
     );
     unmount();

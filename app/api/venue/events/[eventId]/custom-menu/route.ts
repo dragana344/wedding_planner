@@ -8,6 +8,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { saveEventCustomMenu } from "@/lib/venue/event-custom-menu";
 import { requireManagerForEvent } from "@/lib/venue/event-guard";
 import { assertEventNotPast, PastEventError } from "@/lib/venue/events";
+import { flagGuestsToRechooseMenus } from "@/lib/couple/guests";
+import { errorFields, log } from "@/lib/log";
 
 const NO_DISHES_ERROR = "Изберете барем едно јадење.";
 
@@ -44,6 +46,11 @@ export const PUT = withPublic(
       name: body.name,
       itemIds: body.item_ids,
     });
+    // 0181: a first custom menu next to a package makes two — the couple is
+    // told which confirmed guests now have to choose. Only a hint.
+    await flagGuestsToRechooseMenus(params.eventId).catch((err) =>
+      log("error", "menu_rechoose_flag_failed", { event_id: params.eventId, ...errorFields(err) }),
+    );
     return NextResponse.json(saved);
   },
   {

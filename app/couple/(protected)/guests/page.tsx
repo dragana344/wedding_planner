@@ -11,16 +11,20 @@ import { listCoOrganizers } from "@/lib/couple/co-organizers";
 import { COUPLE_ORGANIZER_SIDE_HEADER } from "@/lib/couple/session-verify";
 import { getEventFeatures } from "@/lib/entitlements/server";
 import { loadCoupleMarks } from "@/lib/couple/change-marks";
+import { countPendingAnswers } from "@/lib/couple/rsvp-answers";
+import { todayIn } from "@/lib/date";
+import { coupleDeadlineText } from "@/lib/rsvp-deadline";
 
 export const dynamic = "force-dynamic";
 
-export default async function GuestsPage() {
+export default async function GuestsPage({ searchParams }: { searchParams: Promise<{ menu?: string }> }) {
+  const { menu } = await searchParams;
   const requestHeaders = await headers();
   const eventId = requestHeaders.get("x-couple-event-id")!;
   // A12: set by proxy.ts for a co-organizer's session only.
   const sideHeader = requestHeaders.get(COUPLE_ORGANIZER_SIDE_HEADER);
   const organizerSide = sideHeader === "bride" || sideHeader === "groom" ? sideHeader : null;
-  const [guests, stats, summary, invitation, reminder, features, newReplies] = await Promise.all([
+  const [guests, stats, summary, invitation, reminder, features, newReplies, pendingAnswers] = await Promise.all([
     listGuests(eventId),
     getGuestStats(eventId),
     getEventSummary(eventId),
@@ -34,6 +38,11 @@ export default async function GuestsPage() {
         console.error("Could not load the new guest replies", e);
         return [];
       }),
+    // 0179: the "Да се провери" count is a hint too; the inbox loads its own list.
+    countPendingAnswers(eventId).catch((e) => {
+      console.error("Could not count the answers to check", e);
+      return 0;
+    }),
   ]);
   const newGuestIds = [...new Set(newReplies.flatMap((r) => (r.guestId ? [r.guestId] : [])))];
   // Newest first; the box clears up to this one.
@@ -65,6 +74,10 @@ export default async function GuestsPage() {
         greetingsEnabled={features.guest_greetings.enabled}
         newGuestIds={newGuestIds}
         newestReplyAt={newestReplyAt}
+        pendingAnswers={pendingAnswers}
+        deadlineText={coupleDeadlineText({ deadline: summary.rsvp_deadline, eventDate: summary.event_date, status: summary.status, today: todayIn() })}
+        // 0181: the home page's "Менијата се променети" warning links here.
+        initialMenuFilter={menu === "none" ? "none" : ""}
       />
       {remindersEnabled ? <ReminderPanel initial={reminder} guests={guests} share={share} organizerSide={organizerSide} /> : null}
       {coOrganizers ? <CoOrganizersPanel initial={coOrganizers} /> : null}

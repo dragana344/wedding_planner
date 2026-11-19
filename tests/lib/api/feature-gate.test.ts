@@ -72,6 +72,8 @@ const UNGATED: Record<string, string> = {
   "app/api/couple/logout/route.ts": "signing out must always work",
   "app/api/couple/guests/route.ts": "the guest list is core; its size is limited by max_guests (0049 trigger)",
   "app/api/couple/guests/[id]/route.ts": "editing a guest is core guest-list management",
+  "app/api/couple/guests/[id]/answers/route.ts": "typing in a guest's answer is core guest-list management, like setting their status",
+  "app/api/couple/rsvp-answers/[id]/route.ts": "saying whose an unsure RSVP answer is is core guest-list management, like setting a status",
   "app/api/couple/guests/import/route.ts": "bulk add of the core guest list; max_guests trigger refuses over the limit",
   "app/api/couple/contact-info/route.ts": "the couple's own contact details, core account data",
   "app/api/couple/guest-count/route.ts": "the headcount the venue plans with, core to every event",

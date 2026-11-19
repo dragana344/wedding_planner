@@ -9,18 +9,21 @@ import { ContactInfoEditor } from "@/components/couple/ContactInfoEditor";
 import { Icon } from "@/components/venue/shell/Icon";
 import { StorageMeter } from "@/components/couple/StorageMeter";
 import { getStorageUsage } from "@/lib/media/album";
-import { formatMkDate } from "@/lib/date";
+import { formatMkDate, todayIn } from "@/lib/date";
+import { coupleDeadlineText } from "@/lib/rsvp-deadline";
 import { ChangeNotice } from "@/components/couple/ChangeNotice";
 import { coupleNotice } from "@/lib/changes/couple-notice";
 import { loadCoupleMarks, NO_MARKS } from "@/lib/couple/change-marks";
 import { eventStartInstant, eventEndInstant } from "@/lib/couple/event-hero";
 import { COUPLE_DOWNLOADS_HREF } from "@/lib/couple/access";
+import { getGuestStats } from "@/lib/couple/guests";
+import { menusChangedText } from "@/lib/couple/guest-menus";
 
 export const dynamic = "force-dynamic";
 
 export default async function CoupleDashboardPage() {
   const eventId = (await headers()).get("x-couple-event-id")!;
-  const [summary, agendaItems, checklistItems, storage, marks] = await Promise.all([
+  const [summary, agendaItems, checklistItems, storage, marks, guestStats] = await Promise.all([
     getEventSummary(eventId),
     listAgendaItems(eventId),
     listChecklistItems(eventId),
@@ -30,6 +33,11 @@ export default async function CoupleDashboardPage() {
     loadCoupleMarks(eventId).catch((e) => {
       console.error("Could not load the change marks", e);
       return NO_MARKS;
+    }),
+    // 0181: the confirmed count next to the estimate, and the menu warning — hints too.
+    getGuestStats(eventId).catch((e) => {
+      console.error("Could not load the guest numbers", e);
+      return null;
     }),
   ]);
   // Project B §3: a mini-event never gets a seating editor — this read-only
@@ -43,6 +51,8 @@ export default async function CoupleDashboardPage() {
   const checklistStats = computeChecklistStats(checklistItems);
   const upcomingAgenda = agendaItems.slice(0, 5);
   const openChecklist = checklistItems.filter((i) => !i.is_done).slice(0, 5);
+  // 0180: the venue's deadline for the guests' answers.
+  const deadlineText = coupleDeadlineText({ deadline: summary.rsvp_deadline, eventDate: summary.event_date, status: summary.status, today: todayIn() });
 
   return (
     <main style={{ padding: "18px 22px 28px" }}>
@@ -58,7 +68,26 @@ export default async function CoupleDashboardPage() {
         endTime={summary.end_time}
         venueName={summary.venue_name}
         guestCount={summary.guest_count_estimate}
+        confirmed={guestStats ? { people: guestStats.totalAttending, children: guestStats.childrenAttending } : null}
       />
+
+      {guestStats && guestStats.menuRechoose > 0 ? (
+        <div role="status" className="change-box" style={{ marginBottom: 16 }}>
+          <b>{menusChangedText(guestStats.menuRechoose)}</b>{" "}
+          <Link href="/couple/guests?menu=none" style={{ color: "#8a6a22" }}>
+            Прикажи ги →
+          </Link>
+        </div>
+      ) : null}
+
+      {deadlineText ? (
+        <p className="ev-hint" style={{ margin: "0 0 16px" }}>
+          {deadlineText}{" "}
+          <Link href="/couple/guests" style={{ color: "#8a6a22" }}>
+            Гости →
+          </Link>
+        </p>
+      ) : null}
 
       {miniTables ? (
         <p className="ev-hint" style={{ margin: "0 0 16px" }}>

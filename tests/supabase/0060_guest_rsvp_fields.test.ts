@@ -68,9 +68,13 @@ describe("0060 schema: RSVP answers", () => {
   it("defaults children to 0 and rejects a negative or absurd count", async () => {
     const { data } = await insertGuest();
     expect(data!.children_count).toBe(0);
-    expect((await insertGuest({ children_count: 3 })).error).toBeNull();
+    expect((await insertGuest({ party_size: 3, children_count: 3 })).error).toBeNull();
     expect((await insertGuest({ children_count: -1 })).error?.code).toBe(CHECK_VIOLATION);
-    expect((await insertGuest({ children_count: 101 })).error?.code).toBe(CHECK_VIOLATION);
+    expect((await insertGuest({ party_size: 100, children_count: 101 })).error?.code).toBe(CHECK_VIOLATION);
+    // 0181: never more children than people, and children without a meal never more than the children.
+    expect((await insertGuest({ party_size: 2, children_count: 3 })).error?.code).toBe(CHECK_VIOLATION);
+    expect((await insertGuest({ party_size: 3, children_count: 1, no_meal_count: 1 })).error).toBeNull();
+    expect((await insertGuest({ party_size: 3, children_count: 1, no_meal_count: 2 })).error?.code).toBe(CHECK_VIOLATION);
   });
 
   it("bounds the comment, allergies and email", async () => {

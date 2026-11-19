@@ -17,7 +17,7 @@ export function ChangeBox({
   onSeen,
 }: {
   eventId: string;
-  section: "guest_count" | "contact";
+  section: "guest_count" | "contact" | "numbers";
   changes: EventChange[];
   canConfirm: boolean;
   token: string | null;

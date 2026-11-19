@@ -17,7 +17,7 @@ describe("PriceCalculator", () => {
     await userEvent.type(screen.getByLabelText("Цена по гостин"), "1200");
     expect(screen.getByText("60.000 МКД")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Примени во вкупна цена" }));
-    expect(onApply).toHaveBeenCalledWith(60000);
+    expect(onApply).toHaveBeenCalledWith(60000, { price: 1200, guests: 50 });
   });
 
   it("the keypad tab does basic arithmetic and applies the result", async () => {

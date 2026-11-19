@@ -8,6 +8,8 @@ export type GuestReply = {
   at: string;
   previousStatus: string | null;
   newStatus: string;
+  /** 0179: an answer the matching was unsure about, waiting in "Да се провери". */
+  review: boolean;
 };
 
 /** Guests' answers through the invitation link, newest first. */
@@ -31,7 +33,7 @@ export async function listGuestReplies(eventId: string): Promise<GuestReply[]> {
     for (const g of guests ?? []) names.set(g.id as string, g.full_name as string);
   }
   return rows.map((r) => {
-    const details = (r.details ?? {}) as { previous_status?: unknown; new_status?: unknown };
+    const details = (r.details ?? {}) as { previous_status?: unknown; new_status?: unknown; review?: unknown };
     const guestId = (r.target_id as string | null) ?? null;
     return {
       id: String(r.id),
@@ -40,6 +42,7 @@ export async function listGuestReplies(eventId: string): Promise<GuestReply[]> {
       at: r.occurred_at as string,
       previousStatus: typeof details.previous_status === "string" ? details.previous_status : null,
       newStatus: typeof details.new_status === "string" ? details.new_status : "",
+      review: details.review === true,
     };
   });
 }

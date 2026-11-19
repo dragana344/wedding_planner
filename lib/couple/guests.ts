@@ -1,7 +1,8 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MAX_LIST_ROWS, checkListBound } from "@/lib/list-bound";
-import { isGuestDone, validateMenuCounts, type MenuCounts } from "@/lib/couple/guest-menus";
+import { guestMenuMeals, isGuestDone, menuSplitFits, NO_MEAL_OVER_CHILDREN_ERROR, validateMenuCounts, type MenuCounts } from "@/lib/couple/guest-menus";
+import { CHILDREN_OVER_PARTY_ERROR } from "@/lib/couple/rsvp-answer-view";
 
 export type RsvpStatus = "invited" | "confirmed" | "declined" | "pending" | "later";
 export type GuestSide = "bride" | "groom";
@@ -29,6 +30,14 @@ export interface Guest {
   rsvp_comment: string | null;
   invitation_sent_at: string | null;
   invitation_channel: InvitationChannel | null;
+  /** Names of the people coming with the guest, from their answer (0179). */
+  household_names?: string[];
+  /** How many people the couple invited with this guest; an answer above it is flagged (0179). */
+  invited_party_size?: number | null;
+  /** Of `children_count`: children who eat no adult menu ("дете / без оброк", 0181). */
+  no_meal_count?: number;
+  /** Set when the venue changed the event's menus and this guest's split stopped fitting (0181). */
+  menu_rechoose_at?: string | null;
 }
 
 export interface GuestInput {
@@ -38,6 +47,7 @@ export interface GuestInput {
   notes: string | null;
   side: GuestSide | null;
   email?: string | null;
+  invited_party_size?: number | null;
 }
 
 export interface GuestStats {
@@ -51,10 +61,22 @@ export interface GuestStats {
   totalAttending: number;
   /** Of `totalAttending`. */
   childrenAttending: number;
+  /**
+   * 0181: of the done, confirmed guests' children, those eating no adult menu
+   * — the kitchen's "Деца без оброк" line, next to `menus`.
+   */
+  noMeal: number;
+  /** 0181: confirmed guests who must choose their menus again after the venue changed the event's menus. */
+  menuRechoose: number;
   /** The event's menus with the number of confirmed guests eating each (the kitchen's totals). */
   menus: { id: string; name: string; count: number }[];
   /** Guests the couple still has to hear from or finish choosing menus for, by name. */
-  notDone: { id: string; full_name: string }[];
+  /**
+   * Guests without a final answer. `people` (0182) is how many they are
+   * likely to be — the confirmed party, else "поканети: N", else the party
+   * size — what the menu-numbers estimate is prefilled from.
+   */
+  notDone: { id: string; full_name: string; people?: number }[];
   invitationsSent: number;
   /**
    * Done, confirmed guests' allergy notes, grouped by the menu they chose —
@@ -76,7 +98,7 @@ export interface GuestSeat {
 
 // One literal (not concatenated) so supabase-js can type the rows.
 export const GUEST_COLUMNS =
-  "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status, invite_token, email, children_count, allergies, rsvp_comment, invitation_sent_at, invitation_channel, event_guest_menu_counts(menu_template_id, count)";
+  "id, event_id, full_name, phone, party_size, rsvp_status, notes, side, rsvp_changed_via_link_at, rsvp_previous_status, invite_token, email, children_count, allergies, rsvp_comment, invitation_sent_at, invitation_channel, household_names, invited_party_size, no_meal_count, menu_rechoose_at, event_guest_menu_counts(menu_template_id, count)";
 
 type GuestRow = Omit<Guest, "menu_counts"> & { event_guest_menu_counts: { menu_template_id: string; count: number }[] | null };
 
@@ -111,8 +133,22 @@ export async function addGuest(eventId: string, input: GuestInput): Promise<Gues
   return toGuest(data as unknown as GuestRow);
 }
 
+export const MENUS_OVER_PARTY_ERROR = "Менијата се избрани за повеќе лица од новиот број — поправете ги во „Внеси одговор“.";
+
+/**
+ * The couple's plain edit. A smaller party may not leave more children, or a
+ * bigger menu split, than people (0181): a confirmed guest's split has to be
+ * fixed through their answer first; anyone else's no longer fits, so it goes.
+ */
 export async function updateGuest(eventId: string, guestId: string, input: GuestInput): Promise<Guest> {
   const client = createServiceRoleClient();
+  const current = await getGuest(eventId, guestId);
+  if (input.party_size < current.children_count) throw new Error(CHILDREN_OVER_PARTY_ERROR);
+  const split = Object.values(current.menu_counts).reduce((sum, n) => sum + n, 0) + (current.no_meal_count ?? 0);
+  if (split > input.party_size) {
+    if (current.rsvp_status === "confirmed") throw new Error(MENUS_OVER_PARTY_ERROR);
+    await replaceGuestMenuCounts(guestId, {});
+  }
   const { data, error } = await client
     .from("event_guests")
     .update(input)
@@ -135,17 +171,29 @@ export async function updateGuestStatus(eventId: string, guestId: string, status
     .select("id");
   if (updateError) throw updateError;
   if (!touched || touched.length === 0) throw new Error("Гостинот не е пронајден.");
-  // Someone who is no longer coming eats nothing, so their menu counts go.
-  if (status !== "confirmed") {
-    const { error: clearError } = await client.from("event_guest_menu_counts").delete().eq("guest_id", guestId);
-    if (clearError) throw clearError;
-  }
+  // 0181: the menu choice stays whatever the answer — it is only left out of
+  // the totals while the guest isn't confirmed, and counts again if they
+  // confirm with the same party.
   return getGuest(eventId, guestId);
 }
 
-async function getGuest(eventId: string, guestId: string): Promise<Guest> {
+export async function getGuest(eventId: string, guestId: string): Promise<Guest> {
   const client = createServiceRoleClient();
   const { data, error } = await client.from("event_guests").select(GUEST_COLUMNS).eq("id", guestId).eq("event_id", eventId).single();
+  if (error) throw error;
+  return toGuest(data as unknown as GuestRow);
+}
+
+/** The couple's "Поканети лица" for a guest (null clears it). */
+export async function updateGuestInvited(eventId: string, guestId: string, invited: number | null): Promise<Guest> {
+  const client = createServiceRoleClient();
+  const { data, error } = await client
+    .from("event_guests")
+    .update({ invited_party_size: invited })
+    .eq("id", guestId)
+    .eq("event_id", eventId)
+    .select(GUEST_COLUMNS)
+    .single();
   if (error) throw error;
   return toGuest(data as unknown as GuestRow);
 }
@@ -159,9 +207,11 @@ export async function eventMenuIds(eventId: string): Promise<string[]> {
 
 export const GUEST_NOT_CONFIRMED_ERROR = "Гостинот не е потврден.";
 
-/** Replaces the guest's stored menu split with `counts` (already validated; {} clears it). */
-export async function replaceGuestMenuCounts(guestId: string, counts: MenuCounts): Promise<void> {
+/** Replaces the guest's stored menu split with `counts` (already validated; {} clears it, and the no-meal children with it). */
+export async function replaceGuestMenuCounts(guestId: string, counts: MenuCounts, noMeal = 0): Promise<void> {
   const client = createServiceRoleClient();
+  const { error: noMealError } = await client.from("event_guests").update({ no_meal_count: noMeal }).eq("id", guestId);
+  if (noMealError) throw noMealError;
   const { error: deleteError } = await client.from("event_guest_menu_counts").delete().eq("guest_id", guestId);
   if (deleteError) throw deleteError;
   const rows = Object.entries(counts).map(([menu_template_id, count]) => ({ guest_id: guestId, menu_template_id, count }));
@@ -176,14 +226,36 @@ export async function replaceGuestMenuCounts(guestId: string, counts: MenuCounts
  * Checked against the event's menus and the guest's current party size
  * (`validateMenuCounts`); returns the updated guest.
  */
-export async function setGuestMenuCounts(eventId: string, guestId: string, counts: MenuCounts): Promise<Guest> {
+export async function setGuestMenuCounts(eventId: string, guestId: string, counts: MenuCounts, noMeal?: number): Promise<Guest> {
   const guest = await getGuest(eventId, guestId);
   if (guest.rsvp_status !== "confirmed") throw new Error(GUEST_NOT_CONFIRMED_ERROR);
-  const checked = validateMenuCounts(await eventMenuIds(eventId), guest.party_size, counts);
+  const meals = noMeal ?? guest.no_meal_count ?? 0;
+  if (meals > guest.children_count) throw new Error(NO_MEAL_OVER_CHILDREN_ERROR);
+  const checked = validateMenuCounts(await eventMenuIds(eventId), guest.party_size, counts, meals);
   if (!checked.ok) throw new Error(checked.error);
 
-  await replaceGuestMenuCounts(guestId, checked.counts);
+  await replaceGuestMenuCounts(guestId, checked.counts, meals);
   return getGuest(eventId, guestId);
+}
+
+/**
+ * 0181: after the venue changed the event's menus (one taken off, or a second
+ * one added), marks the confirmed guests whose split no longer fits — the
+ * couple's "N гости треба повторно да изберат мени". Nothing is assigned for
+ * them: going from one menu to two, nobody's choice is guessed.
+ */
+export async function flagGuestsToRechooseMenus(eventId: string): Promise<number> {
+  const [guests, menuIds] = await Promise.all([listGuests(eventId), eventMenuIds(eventId)]);
+  if (menuIds.length < 2) return 0;
+  const ids = guests.filter((g) => g.rsvp_status === "confirmed" && !menuSplitFits(g, menuIds)).map((g) => g.id);
+  if (ids.length === 0) return 0;
+  const { error } = await createServiceRoleClient()
+    .from("event_guests")
+    .update({ menu_rechoose_at: new Date().toISOString() })
+    .eq("event_id", eventId)
+    .in("id", ids);
+  if (error) throw error;
+  return ids.length;
 }
 
 export async function updateGuestSide(eventId: string, guestId: string, side: GuestSide | null): Promise<Guest> {
@@ -213,6 +285,12 @@ export async function assertGuestOnSide(eventId: string, guestId: string, organi
   if (data && data.side !== organizerSide) throw new Error(OTHER_SIDE_ERROR);
 }
 
+/**
+ * Deletes the guest. Their answer history goes with them (0184: the answers'
+ * guest link cascades) — it held their personal data with nothing left to
+ * show it on. Answers still waiting in "Да се провери" belong to no guest
+ * and stay until resolved or the event is erased.
+ */
 export async function deleteGuest(eventId: string, guestId: string): Promise<void> {
   const client = createServiceRoleClient();
   const { error } = await client.from("event_guests").delete().eq("id", guestId).eq("event_id", eventId);
@@ -226,6 +304,8 @@ export interface GuestImportInput {
   email: string | null;
   side: GuestSide | null;
   party_size: number;
+  /** 0181: optional "Деца" column, never more than the party. */
+  children_count?: number;
 }
 
 /**
@@ -258,14 +338,15 @@ export async function importGuests(eventId: string, rows: GuestImportInput[]): P
 export async function getGuestStats(eventId: string): Promise<GuestStats> {
   const [guests, menuIds, menuNames] = await Promise.all([listGuests(eventId), eventMenuIds(eventId), getEventMenuNames(eventId)]);
   const attending = guests.filter((g) => g.rsvp_status === "confirmed");
-  // One menu: nothing to choose, so every confirmed party eats it.
+  const done = attending.filter((g) => isGuestDone(g, menuIds));
+  // One menu: nothing to choose, so every confirmed party eats it (but its
+  // no-meal children). Only guests who are done count: partial or stale
+  // choices are left out — and so is anyone not confirmed, whose kept
+  // choice (0181) waits in case they confirm again.
   const menus = menuNames.map(({ id, name }) => ({
     id,
     name,
-    // Only guests who are done count: partial or stale choices are left out.
-    count: attending
-      .filter((g) => isGuestDone(g, menuIds))
-      .reduce((sum, g) => sum + (menuIds.length === 1 ? g.party_size : (g.menu_counts[id] ?? 0)), 0),
+    count: done.reduce((sum, g) => sum + guestMenuMeals(g, id, menuIds), 0),
   }));
   const noteWorthy = attending.filter((g) => isGuestDone(g, menuIds) && g.allergies && g.allergies.trim());
   const allergyNotes: AllergyMenuGroup[] = menus
@@ -288,10 +369,12 @@ export async function getGuestStats(eventId: string): Promise<GuestStats> {
     later: guests.filter((g) => g.rsvp_status === "later").length,
     totalAttending: attending.reduce((sum, g) => sum + g.party_size, 0),
     childrenAttending: attending.reduce((sum, g) => sum + g.children_count, 0),
+    noMeal: menuIds.length > 0 ? done.reduce((sum, g) => sum + (g.no_meal_count ?? 0), 0) : 0,
+    menuRechoose: menuIds.length > 1 ? attending.filter((g) => g.menu_rechoose_at && !menuSplitFits(g, menuIds)).length : 0,
     menus,
     notDone: guests
       .filter((g) => !isGuestDone(g, menuIds))
-      .map((g) => ({ id: g.id, full_name: g.full_name }))
+      .map((g) => ({ id: g.id, full_name: g.full_name, people: g.rsvp_status === "confirmed" ? g.party_size : (g.invited_party_size ?? g.party_size) }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name, "mk")),
     invitationsSent: guests.filter((g) => g.invitation_sent_at !== null).length,
     allergyNotes,

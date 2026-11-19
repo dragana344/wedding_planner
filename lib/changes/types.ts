@@ -2,7 +2,8 @@
 // has not yet pressed "Видено" on. Types shared by the pure rules and the
 // server data access.
 
-export type ChangeSection = "date_time" | "rooms" | "menus" | "guest_count" | "contact" | "finance";
+/** "numbers" (0182): the couple's guest numbers moved after menu numbers were sent. */
+export type ChangeSection = "date_time" | "rooms" | "menus" | "guest_count" | "contact" | "finance" | "numbers";
 /** Sections a side can have seen: the logged ones, plus two that are seen-only (no log rows). */
 export type SeenSection = ChangeSection | "menu_numbers" | "guest_replies";
 export type Side = "venue" | "couple";

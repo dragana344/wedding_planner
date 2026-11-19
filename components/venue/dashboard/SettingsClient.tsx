@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/venue/shell/Icon";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { saveAccountEmail, saveAccountPassword, saveCoupleSeatingSelfEdit, saveLayoutLockPassword, saveVenueName } from "@/lib/venue/settings-client";
+import {
+  saveAccountEmail,
+  saveAccountPassword,
+  saveCoupleSeatingSelfEdit,
+  saveLayoutLockPassword,
+  saveRsvpDeadlineDays,
+  saveVenueName,
+} from "@/lib/venue/settings-client";
+import { DEFAULT_RSVP_DEADLINE_DAYS, RSVP_DEADLINE_DAYS_MAX } from "@/lib/rsvp-deadline";
 import { confirmationMatches } from "@/lib/privacy/confirm";
 import { VenueProfileForm } from "@/components/venue/dashboard/VenueProfileForm";
 import { BrandColorForm } from "@/components/venue/dashboard/BrandColorForm";
@@ -19,6 +27,8 @@ type SettingsData = {
   profile?: { address: string | null; phone: string | null; logoUrl: string | null };
   branding?: { color: string | null; enabled: boolean };
   coupleSeatingSelfEditEnabled: boolean;
+  /** 0180: guests can answer until this many days before the event. */
+  rsvpDeadlineDays?: number;
 };
 
 async function fetchSettingsData(managerToken: string, signal?: AbortSignal): Promise<SettingsData> {
@@ -58,6 +68,10 @@ export function SettingsClient() {
   const [selfEditStatus, setSelfEditStatus] = useState<string | null>(null);
   const [isSavingSelfEdit, setIsSavingSelfEdit] = useState(false);
 
+  const [deadlineDays, setDeadlineDays] = useState(String(DEFAULT_RSVP_DEADLINE_DAYS));
+  const [deadlineStatus, setDeadlineStatus] = useState<string | null>(null);
+  const [isSavingDeadline, setIsSavingDeadline] = useState(false);
+
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // DATA-006: data export and account deletion.
@@ -83,6 +97,7 @@ export function SettingsClient() {
         setSavedVenueName(d.venueName);
         setEmail(d.email);
         setSelfEditEnabled(d.coupleSeatingSelfEditEnabled);
+        setDeadlineDays(String(d.rsvpDeadlineDays ?? DEFAULT_RSVP_DEADLINE_DAYS));
       })
       .catch((err) => {
         if (err?.name === "AbortError") return; // superseded by a newer token
@@ -173,6 +188,25 @@ export function SettingsClient() {
       setSelfEditStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
     } finally {
       setIsSavingSelfEdit(false);
+    }
+  }
+
+  async function handleSaveDeadline(e: React.FormEvent) {
+    e.preventDefault();
+    setDeadlineStatus(null);
+    const days = Number(deadlineDays);
+    if (!Number.isInteger(days) || days < 0 || days > RSVP_DEADLINE_DAYS_MAX) {
+      setDeadlineStatus(`Внесете број на денови од 0 до ${RSVP_DEADLINE_DAYS_MAX}.`);
+      return;
+    }
+    setIsSavingDeadline(true);
+    try {
+      await saveRsvpDeadlineDays(days, managerToken);
+      setDeadlineStatus("Зачувано.");
+    } catch (err) {
+      setDeadlineStatus(errorMessage(err, "Не успеа зачувувањето. Обидете се повторно."));
+    } finally {
+      setIsSavingDeadline(false);
     }
   }
 
@@ -388,6 +422,38 @@ export function SettingsClient() {
           </p>
           {selfEditStatus ? <p className="muted" style={{ margin: 0 }}>{selfEditStatus}</p> : null}
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-h">
+          <h2 className="panel-t">Одговори на гостите</h2>
+        </div>
+        <form onSubmit={handleSaveDeadline} className="ev-form" style={{ padding: "16px 20px" }}>
+          <div className="ev-field">
+            <label className="lab-s" htmlFor="settings-rsvp-deadline">
+              Рок за одговор на гостите (дена пред настанот)
+            </label>
+            <input
+              id="settings-rsvp-deadline"
+              className="fld"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={RSVP_DEADLINE_DAYS_MAX}
+              value={deadlineDays}
+              onChange={(e) => setDeadlineDays(e.target.value)}
+              required
+            />
+          </div>
+          <p className="ev-hint" style={{ margin: 0 }}>
+            По рокот поканата не прима нови одговори, а парот сè уште може сам да внесува одговори. Важи за сите
+            настани, освен ако конкретен настан има свој датум во уредувањето на настанот.
+          </p>
+          {deadlineStatus ? <p className="muted" style={{ margin: 0 }}>{deadlineStatus}</p> : null}
+          <button type="submit" className="btn btn-gold" disabled={isSavingDeadline}>
+            {isSavingDeadline ? "Се зачувува..." : "Зачувај"}
+          </button>
+        </form>
       </section>
 
       <section className="panel">

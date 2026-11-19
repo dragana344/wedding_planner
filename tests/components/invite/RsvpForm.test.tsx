@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RsvpForm } from "@/components/invite/RsvpForm";
 
@@ -237,5 +237,219 @@ describe("RsvpForm menus", () => {
     fireEvent.click(screen.getByRole("button", { name: "Промени го одговорот" }));
     expect(screen.getByLabelText("Месо")).toHaveValue(2);
     expect(screen.getByLabelText("Посно")).toHaveValue(1);
+  });
+
+  it("0181: a personal guest's summary names the children without a meal", () => {
+    const invitee = {
+      fullName: "Петар", rsvpStatus: "confirmed", partySize: 3, childrenCount: 1, noMealCount: 1,
+      menuCounts: { [A]: 2 }, allergies: null, rsvpComment: null,
+    };
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} invitee={invitee} guestToken="Tok_en-24charsXXXXXXXXXX" />);
+    expect(screen.getByText(/Месо: 2, без оброк: 1/)).toBeInTheDocument();
+    // The split adds up with the child, so the form doesn't ask for the menus again.
+    expect(screen.queryByLabelText("Месо")).not.toBeInTheDocument();
+  });
+
+  it("0181: children without a meal count toward the split, never more than the children", async () => {
+    mockFetch();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Мила Милова" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "3" } });
+    expect(screen.queryByLabelText(/Деца без оброк/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/од кои деца/), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/Деца без оброк/), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText("Децата без оброк не можат да бидат повеќе од децата.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Деца без оброк/), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Месо"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ party_size: 3, children_count: 1, menu_counts: { [A]: 2 }, no_meal_count: 1 });
+    expect(await screen.findByText(/Го забележавме вашето доаѓање/)).toBeInTheDocument();
+  });
+
+  it("0181: with one menu the no-meal question still shows for children, and nothing else is asked", async () => {
+    mockFetch();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={[menus[0]]} />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Мила" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText(/од кои деца/), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/Деца без оброк/), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ party_size: 2, children_count: 1, no_meal_count: 1 });
+    expect(sentBody().menu_counts).toBeUndefined();
+  });
+});
+
+describe("RsvpForm 0179: remembered guest, phone, household names", () => {
+  const KEY = "rsvp-remember:abc123";
+  afterEach(() => window.localStorage.clear());
+
+  it("shared link: sends an optional phone and the names of the people coming along", async () => {
+    mockFetch(true, { ok: true, remember: "tok-1" });
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Мила Милова" } });
+    fireEvent.change(screen.getByLabelText(/Телефон/), { target: { value: "070 111 222" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    expect(screen.queryByText(/Имиња на лицата што доаѓаат со вас/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "3" } });
+    expect(screen.getByText("Имиња на лицата што доаѓаат со вас (не е задолжително)")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Лице 2"), { target: { value: " Марко " } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ full_name: "Мила Милова", phone: "070 111 222", party_size: 3, household_names: ["Марко"] });
+    // The answer was applied: this browser now remembers the guest.
+    await screen.findByText(/Го забележавме вашето доаѓање/);
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ token: "tok-1", name: "Мила Милова" });
+  });
+
+  it("refuses more children than people before sending", async () => {
+    global.fetch = vi.fn();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Ана" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    fireEvent.change(screen.getByLabelText(/Број на лица/), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText(/од кои деца/), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText("Децата не можат да бидат повеќе од бројот на лица.")).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("an answer waiting for the couple gets the same thank-you, and nothing is remembered", async () => {
+    mockFetch(true, { ok: true });
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Ана" } });
+    fireEvent.click(screen.getByRole("button", { name: "Нема да присуствувам" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText(/Ви благодариме што нè известивте/)).toBeInTheDocument();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("greets a remembered guest by name, answers with the token, and 'Не сте вие?' forgets them", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ token: "tok-1", name: "Мила Милова" }));
+    mockFetch(true, { ok: true, remember: "tok-2" });
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    expect(await screen.findByText("Здраво, Мила Милова!")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Име и презиме")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ќе одговорам подоцна" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody()).toEqual({ full_name: "Мила Милова", remember: "tok-1", status: "later", comment: null });
+    await screen.findByText(/можете да одговорите подоцна/);
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ token: "tok-2", name: "Мила Милова" });
+  });
+
+  it("'Не сте вие? Одговорете за друго лице' brings back the name field and clears the memory", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ token: "tok-1", name: "Мила Милова" }));
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Не сте вие? Одговорете за друго лице" }));
+    expect(screen.getByLabelText("Име и презиме")).toHaveValue("");
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("a personal link ignores any remembered guest and prefills the household names", () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ token: "tok-1", name: "Мила Милова" }));
+    const invitee = {
+      fullName: "Петар", rsvpStatus: "invited", partySize: 2, childrenCount: 0, menuCounts: {}, allergies: null, rsvpComment: null, householdNames: ["Ана"],
+    };
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" invitee={invitee} guestToken="Tok_en-24charsXXXXXXXXXX" />);
+    expect(screen.queryByText(/Здраво/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Телефон/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ќе присуствувам" }));
+    expect(screen.getByLabelText("Лице 2")).toHaveValue("Ана");
+  });
+});
+
+describe("RsvpForm 0180: deadline, invitation states, a moved date, a new menu", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  const menus = [
+    { id: A, name: "Месо" },
+    { id: B, name: "Посно" },
+  ];
+  const token = "Tok_en-24charsXXXXXXXXXX";
+  const yes = { fullName: "Петар", rsvpStatus: "confirmed", partySize: 2, childrenCount: 0, menuCounts: {}, allergies: null, rsvpComment: null };
+
+  it("asks for an answer by the deadline while open", () => {
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" deadline="2027-05-28" />);
+    expect(screen.getByText("Ве молиме одговорете до 28.05.2027")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Испрати одговор" })).toBeInTheDocument();
+  });
+
+  it("past the deadline: no form, the closed message, and a personal guest still sees their answer", () => {
+    const { unmount } = render(<RsvpForm slug="abc123" accentColor="#C9992F" phase="closed" deadline="2027-05-28" />);
+    expect(screen.getByText("Рокот за одговор помина. За промени јавете се на младенците.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Име и презиме")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Испрати одговор" })).not.toBeInTheDocument();
+    unmount();
+
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" phase="closed" invitee={yes} guestToken={token} />);
+    expect(screen.getByText(/Вашиот одговор: Ќе присуствувате · 2 лица/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Промени го одговорот" })).not.toBeInTheDocument();
+  });
+
+  it("after the event a thank-you; a cancelled event says so — neither has a form", () => {
+    const { unmount } = render(<RsvpForm slug="abc123" accentColor="#C9992F" phase="after" invitee={yes} guestToken={token} />);
+    expect(screen.getByText("Ви благодариме што бевте дел од нашиот ден!")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    unmount();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" phase="cancelled" />);
+    expect(screen.getByText("Настанот е откажан.")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("a moved date: the banner, and a yes confirms again with one tap (same answer, sent anew)", async () => {
+    mockFetch();
+    const onSaved = vi.fn();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" invitee={yes} guestToken={token} postponedTo="2027-09-04" reconfirm onSaved={onSaved} />);
+    expect(screen.getByText("Датумот е променет на 04.09.2027 — потврдете дали доаѓате")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Потврдувам — доаѓам" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ guest_token: token, status: "confirmed", party_size: 2 });
+    expect(await screen.findByText(/Го забележавме вашето доаѓање/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Потврдувам — доаѓам" })).not.toBeInTheDocument();
+    expect(onSaved).toHaveBeenCalledWith("confirmed");
+  });
+
+  it("a yes without a valid menu split (a second menu was added) opens on the menu question", async () => {
+    mockFetch();
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} invitee={{ ...yes, menuCounts: { [A]: 2, gone: 1 } }} guestToken={token} />);
+    expect(screen.getByText("Изберете мени")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ќе присуствувам" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.change(screen.getByLabelText("Месо"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Посно"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(sentBody().menu_counts).toEqual({ [A]: 1, [B]: 1 });
+  });
+
+  it("a yes whose menus add up is not asked again", () => {
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" menus={menus} invitee={{ ...yes, menuCounts: { [A]: 1, [B]: 1 } }} guestToken={token} />);
+    expect(screen.queryByText("Изберете мени")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Промени го одговорот" })).toBeInTheDocument();
+  });
+
+  it("an answer waiting for the couple still offers a greeting, with the answer's ticket", async () => {
+    mockFetch(true, { ok: true, greeting: { ticket: "a.ticket", sent: false } });
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" greeting={{ enabled: true, videoSeconds: 0, sent: false }} />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Ана" } });
+    fireEvent.click(screen.getByRole("button", { name: "Нема да присуствувам" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText(/Ви благодариме што нè известивте/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Порака/)).toBeInTheDocument();
+  });
+
+  it("shows the server's neutral message when the guest limit stopped the answer", async () => {
+    mockFetch(false, { error: "Одговорот не можеше да се зачува. Ве молиме јавете се на младенците." });
+    render(<RsvpForm slug="abc123" accentColor="#C9992F" />);
+    fireEvent.change(screen.getByLabelText("Име и презиме"), { target: { value: "Ана" } });
+    fireEvent.click(screen.getByRole("button", { name: "Нема да присуствувам" }));
+    fireEvent.click(screen.getByRole("button", { name: "Испрати одговор" }));
+    expect(await screen.findByText("Одговорот не можеше да се зачува. Ве молиме јавете се на младенците.")).toBeInTheDocument();
   });
 });

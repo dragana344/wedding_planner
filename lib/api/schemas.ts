@@ -38,7 +38,9 @@ export const ROOM_ID_REQUIRED_ERROR = "room_id е задолжителен.";
 export const NAME_MAX = 200;
 export const TEXT_MAX = 5000;
 export const NOTE_CONTENT_MAX = 50_000;
-export const PARTY_SIZE_MAX = 50;
+// No cap for guests (group B decision 3) beyond the database's own check
+// (0033: party_size <= 100), so a typo like 500 is still refused.
+export const PARTY_SIZE_MAX = 100;
 export const QUANTITY_MAX = 100_000;
 export const MONEY_MAX = 1_000_000_000_000;
 export const ID_LIST_MAX = 500;
@@ -220,6 +222,7 @@ const guestFields = z.object({
   // Typed by the couple for guests without the app, e.g. grandparents (A6).
   email: optionalText(254),
   party_size: partySize.nullable().optional(),
+  invited_party_size: partySize.nullable().optional(),
   notes: optionalText(TEXT_MAX),
   // "" is tolerated (the route maps it to null) as it was before.
   side: z.union([z.enum(GUEST_SIDES), z.literal("")]).nullable().optional(),
@@ -228,7 +231,14 @@ export const guestCreateBody = guestFields;
 export const guestUpdateBody = z.union([
   z.object({ type: z.literal("status"), rsvp_status: z.enum(RSVP_STATUSES) }),
   z.object({ type: z.literal("side"), side: z.enum(GUEST_SIDES).nullable() }),
-  z.object({ type: z.literal("menus"), counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX)) }),
+  z.object({
+    type: z.literal("menus"),
+    counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX)),
+    // 0181: children eating no adult menu; left out keeps the stored number.
+    no_meal_count: z.number().int().min(0).max(PARTY_SIZE_MAX).optional(),
+  }),
+  // 0179: "Поканети лица" (null clears it).
+  z.object({ type: z.literal("invited"), invited_party_size: partySize.nullable() }),
   guestFields,
 ]);
 
@@ -261,7 +271,11 @@ export const reminderBody = z.object({
 });
 
 /** The couple's optional free-text allergy summary, sent along with the final menu numbers. */
-export const menuNumbersSendBody = z.object({ allergy_summary: optionalText(2000) });
+/** 0182: `estimate` is the unanswered guests' part per menu id, required (server-side) while anyone hasn't answered. */
+export const menuNumbersSendBody = z.object({
+  allergy_summary: optionalText(2000),
+  estimate: z.record(uuid, z.number().int().min(0).max(10_000)).nullable().optional(),
+});
 
 /** A CSV the couple uploads (A20); ~1 MB is thousands of guests. */
 export const guestImportBody = z.object({ csv: z.string().max(1_000_000, { error: "Датотеката е преголема." }) });
@@ -471,6 +485,8 @@ export const createEventBody = z
       // this isn't a follow-up updateEventFinanceViaApi call anymore).
       total_price: z.number().min(0).max(1e12).nullable().optional(),
       deposit_paid: z.number().min(0).max(1e12).nullable().optional(),
+      price_per_guest: z.number().min(0).max(1e9).nullable().optional(),
+      contracted_guests: z.number().int().min(0).max(100_000).nullable().optional(),
       // The event's own menu, built in the new-event form (plan feature "custom_menu").
       custom_menu: z
         .object({ name: z.string().trim().min(1).max(200), item_ids: z.array(uuid).max(200) })
@@ -499,6 +515,8 @@ export const updateEventBody = z.object(
     removed_menu_ids: z.array(uuid).max(20),
     // Project A §4: null follows the venue-wide switch; true/false overrides it for this event.
     seating_self_edit_enabled: z.boolean().nullable(),
+    // 0180: this event's own guest answer deadline; null follows the venue's default, left out keeps it.
+    rsvp_deadline: eventDate.nullable().optional(),
   },
   { error: EVENT_INPUT_REQUIRED_ERROR },
 );
@@ -517,6 +535,9 @@ export const updateEventFinanceBody = z
     {
       total_price: z.number().min(0).max(1e12).nullable(),
       deposit_paid: z.number().min(0).max(1e12).nullable(),
+      // 0182: from the per-guest calculator; null when the total was typed by hand.
+      price_per_guest: z.number().min(0).max(1e9).nullable().optional(),
+      contracted_guests: z.number().int().min(0).max(100_000).nullable().optional(),
     },
     { error: EVENT_INPUT_REQUIRED_ERROR },
   )
@@ -536,9 +557,13 @@ export const RSVP_REQUIRED_ERROR = "Внесете име и одговор.";
 export const RSVP_INVALID_ERROR = "Неважечки податоци во одговорот.";
 export const RSVP_NOT_FOUND_ERROR = "Поканата не е пронајдена.";
 export const RSVP_FAILED_ERROR = "Одговорот не е испратен. Обидете се повторно.";
+/** The package's guest limit stopped a shared-link answer (0180): neutral for the guest, explained to the couple. */
+export const RSVP_GUEST_LIMIT_ERROR = "Одговорот не можеше да се зачува. Ве молиме јавете се на младенците.";
 export const RSVP_ANSWERS = ["confirmed", "declined", "later"] as const;
 const PARTY_SIZE_ERROR = `Бројот на лица мора да е цел број од 1 до ${PARTY_SIZE_MAX}.`;
-const CHILDREN_MAX = 20;
+const CHILDREN_MAX = PARTY_SIZE_MAX;
+
+const householdNames = z.array(z.string().max(NAME_MAX, { error: "Името е предолго." }), { error: RSVP_INVALID_ERROR }).max(PARTY_SIZE_MAX, { error: RSVP_INVALID_ERROR });
 
 export const rsvpBody = z
   .object(
@@ -557,13 +582,43 @@ export const rsvpBody = z
         .optional(),
       children_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
       menu_counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX), { error: RSVP_INVALID_ERROR }).optional(),
+      // 0181: of the children, how many eat no adult menu.
+      no_meal_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
       allergies: z.string().max(300, { error: "Алергиите се предолги (најмногу 300 знаци)." }).nullable().optional(),
       comment: z.string().max(500, { error: "Коментарот е предолг (најмногу 500 знаци)." }).nullable().optional(),
+      // 0179: the people coming with the guest, a phone that helps the shared
+      // link find them, and this browser's token from an earlier answer.
+      household_names: householdNames.optional(),
+      phone: z.string().max(50, { error: RSVP_INVALID_ERROR }).nullable().optional(),
+      remember: z.string().max(200, { error: RSVP_INVALID_ERROR }).nullable().optional(),
     },
     { error: RSVP_REQUIRED_ERROR },
   )
   .refine((body) => body.full_name !== undefined || body.guest_token !== undefined, { error: RSVP_REQUIRED_ERROR })
   .refine((body) => body.status !== undefined || body.attending !== undefined, { error: RSVP_REQUIRED_ERROR });
+
+/** Decision 7: the couple types in an answer a guest gave them (same fields as the guest's form). */
+export const coupleAnswerBody = z.object(
+  {
+    status: z.enum(RSVP_ANSWERS, { error: RSVP_INVALID_ERROR }),
+    party_size: z.number({ error: PARTY_SIZE_ERROR }).int({ error: PARTY_SIZE_ERROR }).min(1, { error: PARTY_SIZE_ERROR }).max(PARTY_SIZE_MAX, { error: PARTY_SIZE_ERROR }).optional(),
+    children_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
+    menu_counts: z.record(uuid, z.number().int().min(1).max(PARTY_SIZE_MAX), { error: RSVP_INVALID_ERROR }).optional(),
+    no_meal_count: z.number().int().min(0).max(CHILDREN_MAX, { error: RSVP_INVALID_ERROR }).optional(),
+    allergies: z.string().max(300, { error: "Алергиите се предолги (најмногу 300 знаци)." }).nullable().optional(),
+    comment: z.string().max(500, { error: "Коментарот е предолг (најмногу 500 знаци)." }).nullable().optional(),
+    household_names: householdNames.optional(),
+  },
+  { error: RSVP_INVALID_ERROR },
+);
+
+/** "Да се провери": whose a pending answer is — a listed guest, a new guest, or nobody's. */
+export const answerResolveBody = z.union([
+  // 0184: `mode` answers "Овој гостин има понов одговор": apply anyway, or only link it.
+  z.object({ action: z.literal("guest"), guest_id: uuid, mode: z.enum(["apply", "link"]).optional() }),
+  z.object({ action: z.literal("new") }),
+  z.object({ action: z.literal("ignore") }),
+]);
 
 /** A16: "Каде седам?" by name on the shared invitation. */
 export const seatLookupBody = z.object(

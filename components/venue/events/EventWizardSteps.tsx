@@ -486,7 +486,8 @@ export function PriceStep({
   totalPrice: string;
   depositPaid: string;
   guestCount: number;
-  onTotalChange: (value: string) => void;
+  /** `perGuest` (0182) when the total came from the per-guest calculator. */
+  onTotalChange: (value: string, perGuest?: { price: number; guests: number }) => void;
   onDepositChange: (value: string) => void;
 }) {
   const total = Number(totalPrice) || 0;
@@ -504,7 +505,7 @@ export function PriceStep({
             <span>МКД</span>
           </div>
           <div style={{ marginTop: 6 }}>
-            <PriceCalculator guestCount={guestCount} onApply={(value) => onTotalChange(String(value))} />
+            <PriceCalculator guestCount={guestCount} onApply={(value, perGuest) => onTotalChange(String(value), perGuest)} />
           </div>
         </div>
         <div className="ev-field">

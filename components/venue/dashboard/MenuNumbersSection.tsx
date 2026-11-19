@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { diffMenuNumbers, hasUnseenMenuNumbers } from "@/lib/menu-numbers";
+import { diffMenuNumbers, estimateNote, hasUnseenMenuNumbers, NO_MEAL_LABEL, sentHeadcount, sentMeals, sentMenus } from "@/lib/menu-numbers";
+import type { EventChange } from "@/lib/changes/types";
+import { ChangeBox } from "./ChangeBox";
 import { formatVenueDatePadded, todayIn, VENUE_TIME_ZONE } from "@/lib/date";
 import { timelineStage } from "@/lib/menu-timeline";
 import { remindCoupleViaApi } from "@/lib/venue/changes-client";
@@ -26,6 +28,9 @@ export function MenuNumbersSection({
   canConfirm,
   token,
   onChanged,
+  menuChoicePending = 0,
+  numbersChanges = [],
+  onChangesSeen,
 }: {
   eventId: string;
   menuNumbers: EventDetail["menuNumbers"];
@@ -38,6 +43,11 @@ export function MenuNumbersSection({
   canConfirm: boolean;
   token: string | null;
   onChanged: () => void;
+  /** 0181: confirmed guests who still have to choose their menus (e.g. after the event's menus changed). */
+  menuChoicePending?: number;
+  /** 0182: the couple's numbers moved after the last sending ("Промена по испратените бројки"), unseen. */
+  numbersChanges?: EventChange[];
+  onChangesSeen?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -84,8 +94,16 @@ export function MenuNumbersSection({
   }
 
   return (
-    <fieldset className="ev-fieldset">
+    <fieldset className={numbersChanges.length > 0 ? "ev-fieldset ev-changed" : "ev-fieldset"}>
       <legend className="lab-s">Бројки за мени</legend>
+      {numbersChanges.length > 0 ? (
+        <>
+          <p role="status" className="ev-hint" style={{ margin: "0 0 4px" }}>
+            <b>Промена по испратените бројки</b>
+          </p>
+          <ChangeBox eventId={eventId} section="numbers" changes={numbersChanges} canConfirm={canConfirm} token={token} onSeen={onChangesSeen ?? onChanged} />
+        </>
+      ) : null}
       {latest ? (
         <>
           {unseen ? (
@@ -107,15 +125,27 @@ export function MenuNumbersSection({
             </div>
           ) : null}
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {latest.numbers.menus.map((m) => (
+            {sentMenus(latest).map((m) => (
               <li key={m.id}>
                 {m.name} — {m.count}
+                {m.estimated > 0 ? ` (${estimateNote(m.estimated)})` : ""}
               </li>
             ))}
+            {(latest.numbers.noMeal ?? 0) > 0 ? (
+              <li>
+                {NO_MEAL_LABEL} — {latest.numbers.noMeal}
+              </li>
+            ) : null}
           </ul>
           <p style={{ margin: "6px 0 0" }}>
-            <b>Вкупно — {latest.numbers.total}</b>
+            <b>Вкупно оброци — {sentMeals(latest)}</b>
+            {latest.estimate ? ` (${estimateNote(latest.estimate.total)})` : ""}
           </p>
+          {(latest.numbers.noMeal ?? 0) > 0 ? (
+            <p style={{ margin: "2px 0 0" }}>
+              Вкупно лица — {sentHeadcount(latest)}
+            </p>
+          ) : null}
           {latest.allergySummary ? (
             <p className="ev-hint" style={{ marginTop: 6 }}>
               <b>Алергии:</b> {latest.allergySummary}
@@ -136,16 +166,30 @@ export function MenuNumbersSection({
             <p className="ev-hint">
               Испратено автоматски — непотполно
               {latest.unanswered !== null ? ` · ${latest.unanswered} гости без одговор` : ""}
+              {latest.estimate ? " · за нив е пресметана проценка" : ""}
             </p>
           ) : latest.source === "venue" ? (
             <p className="ev-hint">Внесено од салата</p>
           ) : (
-            <p className="ev-hint">Испратено на {formatVenueDatePadded(latest.sentAt)} од {latest.sentBy}</p>
+            <p className="ev-hint">
+              Испратено на {formatVenueDatePadded(latest.sentAt)} од {latest.sentBy}
+              {latest.estimate && latest.unanswered ? ` · ${latest.unanswered} гости без одговор, со проценка` : ""}
+            </p>
           )}
+          <p style={{ margin: "8px 0 0" }}>
+            <a className="btn btn-ghost" href={`/venue/events/${eventId}/print/kitchen`} target="_blank" rel="noreferrer">
+              Лист за кујна
+            </a>
+          </p>
         </>
       ) : (
         <p className="ev-hint">Парот сè уште не ги испратил бројките.</p>
       )}
+      {menuChoicePending > 0 && menus.length > 1 ? (
+        <p role="status" className="ev-hint" style={{ marginTop: 8 }}>
+          <b>{menuChoicePending === 1 ? "1 гостин уште треба да избере мени." : `${menuChoicePending} гости уште треба да изберат мени.`}</b>
+        </p>
+      ) : null}
       {showWarning ? (
         <div role="status" className="change-box" style={{ marginTop: 10 }}>
           <b>Бројките уште не се испратени</b>

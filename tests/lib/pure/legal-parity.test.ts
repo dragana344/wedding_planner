@@ -104,6 +104,17 @@ describe("stated facts match the system", () => {
     expect(read("lib/couple/session-verify.ts")).toContain(`SESSION_DURATION_MS = ${RETENTION_FACTS.coupleSessionDays} * DAY_MS`);
   });
 
+  it("the guest's shared-link remember token lasts the days the texts state (0179)", () => {
+    expect(read("lib/couple/rsvp-remember.ts")).toContain(`REMEMBER_SECONDS = ${RETENTION_FACTS.rsvpRememberDays} * 24 * 60 * 60`);
+    for (const d of [privacy.mk, privacy.en]) {
+      const guests = sectionText(d.sections.find((s) => s.id === "guests")!);
+      const cookies = sectionText(d.sections.find((s) => s.id === "cookies")!);
+      expect(numbers(guests)).toContain(String(RETENTION_FACTS.rsvpRememberDays));
+      expect(cookies).toContain("rsvp-remember");
+    }
+    for (const d of [dpa.mk, dpa.en]) expect(numbers(fullText(d))).toContain(String(RETENTION_FACTS.rsvpRememberDays));
+  });
+
   it("rate-limit windows are purged after 1 day and subjects are hashed", () => {
     expect(RETENTION_FACTS.rateLimitCounterDays).toBe(1);
     expect(read("supabase/migrations/0037_rate_limits.sql")).toContain("window_start < now() - interval '1 day'");

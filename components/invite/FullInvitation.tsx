@@ -10,8 +10,10 @@ import {
   Amatic_SC,
   Caveat,
 } from "next/font/google";
+import { useState } from "react";
 import { RsvpForm } from "./RsvpForm";
 import type { Invitee } from "@/lib/couple/rsvp";
+import type { InvitationPhase } from "@/lib/rsvp-deadline";
 import type { InvitationGreetingState } from "@/lib/couple/invite-greetings";
 import { CountdownTimer, DayBanner, formatMkDate, formatMkWeekday } from "./countdown";
 import { SeatFinder, seatText, type SeatView } from "./SeatFinder";
@@ -193,6 +195,7 @@ export function FullInvitation({
   guestToken,
   mySeat,
   greeting = null,
+  rsvp = null,
 }: {
   slug: string;
   invitation: PublicInvitation;
@@ -204,14 +207,20 @@ export function FullInvitation({
   mySeat?: { found: boolean; seat: SeatView | null };
   /** 0151: the greeting offered after the RSVP; null when greetings are off. */
   greeting?: InvitationGreetingState | null;
+  /** 0180: whether guests can answer, the deadline, a moved date, and whether this guest should confirm again. */
+  rsvp?: { phase: InvitationPhase; deadline: string; postponedTo: string | null; reconfirm: boolean } | null;
 }) {
+  // The guest's answer as it is now on this page: the seat section follows
+  // a change made in the form below without a reload.
+  const [answer, setAnswer] = useState(invitee?.rsvpStatus ?? null);
+  const cancelled = rsvp?.phase === "cancelled";
   const theme = THEMES[invitation.template_id] ?? THEMES["romantic-floral"];
   const target = new Date(`${invitation.event_date}T${invitation.start_time ?? "00:00:00"}`);
   const TopMotif = theme.topMotif;
   const BottomMotif = theme.bottomMotif;
   const startTime = invitation.start_time?.slice(0, 5) ?? null;
   const personal = Boolean(invitee && guestToken);
-  const seating = invitation.seating_enabled !== false;
+  const seating = invitation.seating_enabled !== false && !cancelled;
   const sections = [
     { id: "pokana", label: "Покана" },
     ...(personal && mySeat && seating ? [{ id: "moja-masa", label: "Мојата маса" }] : []),
@@ -352,7 +361,11 @@ export function FullInvitation({
         {personal && mySeat && seating ? (
           <Section id="moja-masa" title="Мојата маса" theme={theme}>
             <p style={{ fontSize: 20, margin: 0 }}>
-              {mySeat.seat ? seatText(mySeat.seat) : "Распоредот на маси уште не е готов. Проверете повторно неколку дена пред настанот."}
+              {answer === "declined"
+                ? "Одговоривте дека нема да присуствувате."
+                : mySeat.seat
+                  ? seatText(mySeat.seat)
+                  : "Распоредот на маси уште не е готов. Проверете повторно неколку дена пред настанот."}
             </p>
           </Section>
         ) : null}
@@ -476,6 +489,11 @@ export function FullInvitation({
             guestToken={guestToken}
             menus={invitation.menus.map(({ id, name }) => ({ id, name }))}
             greeting={greeting?.enabled ? greeting : null}
+            phase={rsvp?.phase ?? "open"}
+            deadline={rsvp?.deadline ?? null}
+            postponedTo={rsvp?.postponedTo ?? null}
+            reconfirm={rsvp?.reconfirm ?? false}
+            onSaved={setAnswer}
           />
         </div>
       </div>

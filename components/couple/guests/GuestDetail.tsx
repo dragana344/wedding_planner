@@ -7,6 +7,8 @@ import { GuestSendButtons, type SendActions, type ShareContext } from "@/compone
 import { formatVenueDateTime } from "@/lib/date";
 import { isGuestDone } from "@/lib/couple/guest-menus";
 import { jsonOrThrow } from "@/lib/couple/client-utils";
+import { overInvited, overInvitedLabel } from "@/lib/couple/rsvp-answer-view";
+import { AnswerHistory, CoupleAnswerForm, InvitedEditor } from "@/components/couple/guests/GuestAnswers";
 
 /** Mirrors lib/media/greetings `Greeting` (a server-only module). */
 interface GuestGreeting {
@@ -32,10 +34,9 @@ function seatText(seat: GuestSeat): string {
 function menuText(guest: Guest, menus: { id: string; name: string }[]): string {
   if (guest.rsvp_status !== "confirmed") return "—";
   if (!isGuestDone(guest, menus.map((m) => m.id))) return "Нема избрано мени";
-  return menus
-    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
-    .map((m) => `${m.name} ${guest.menu_counts[m.id]}`)
-    .join(" · ");
+  const parts = menus.filter((m) => (guest.menu_counts[m.id] ?? 0) > 0).map((m) => `${m.name} ${guest.menu_counts[m.id]}`);
+  if ((guest.no_meal_count ?? 0) > 0) parts.push(`Деца без оброк ${guest.no_meal_count}`);
+  return parts.join(" · ");
 }
 
 /** Edits how a confirmed guest's party splits across the event's menus. */
@@ -50,9 +51,11 @@ function MenuCountsEditor({
 }) {
   const initial = () => Object.fromEntries(menus.map((m) => [m.id, String(guest.menu_counts[m.id] ?? 0)]));
   const [values, setValues] = useState<Record<string, string>>(initial);
+  const [noMealInput, setNoMealInput] = useState(String(guest.no_meal_count ?? 0));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const total = menus.reduce((sum, m) => sum + (Number(values[m.id]) || 0), 0);
+  const noMeal = guest.children_count > 0 ? Math.max(0, Math.floor(Number(noMealInput) || 0)) : 0;
+  const total = menus.reduce((sum, m) => sum + (Number(values[m.id]) || 0), 0) + noMeal;
 
   async function save() {
     setError(null);
@@ -67,7 +70,7 @@ function MenuCountsEditor({
         await fetch(`/api/couple/guests/${guest.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "menus", counts }),
+          body: JSON.stringify({ type: "menus", counts, no_meal_count: noMeal }),
         }),
       )) as Guest;
       onSaved?.(saved);
@@ -98,6 +101,22 @@ function MenuCountsEditor({
             />
           </label>
         ))}
+        {guest.children_count > 0 ? (
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
+            <span>Деца без оброк</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              inputMode="numeric"
+              aria-label="Деца без оброк"
+              className="fld"
+              style={{ width: 90 }}
+              value={noMealInput}
+              onChange={(e) => setNoMealInput(e.target.value)}
+            />
+          </label>
+        ) : null}
       </div>
       <p style={{ margin: "8px 0", fontSize: 13.5, color: total === guest.party_size ? "var(--muted)" : "var(--bad)" }}>
         {`Избрано ${total} од ${guest.party_size} лица`}
@@ -142,6 +161,7 @@ export function GuestDetail({
   menus?: { id: string; name: string }[];
   /** A co-organizer edits only their own side's guests. */
   canEditMenus?: boolean;
+  /** The guest changed here (menus, invited number, an answer the couple typed in). */
   onMenusSaved?: (guest: Guest) => void;
   onClose: () => void;
 }) {
@@ -177,9 +197,17 @@ export function GuestDetail({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const over = overInvited(guest.rsvp_status, guest.party_size, guest.invited_party_size);
   const rows: [string, string][] = [
     ["Статус", STATUS_LABELS[guest.rsvp_status] ?? guest.rsvp_status],
-    ["Лица", guest.children_count > 0 ? `${guest.party_size} (од кои ${guest.children_count} деца)` : String(guest.party_size)],
+    [
+      "Лица",
+      (guest.children_count > 0
+        ? `${guest.party_size} (од кои ${guest.children_count} деца${(guest.no_meal_count ?? 0) > 0 ? `, ${guest.no_meal_count} без оброк` : ""})`
+        : String(guest.party_size)) +
+        (over > 0 ? ` · ${overInvitedLabel(over)}` : ""),
+    ],
+    ...((guest.household_names ?? []).length > 0 ? ([["Со", guest.household_names!.join(", ")]] as [string, string][]) : []),
     ...(menus.length > 1 ? ([["Мени", menuText(guest, menus)]] as [string, string][]) : []),
     ["Алергии", guest.allergies ?? "—"],
     ["Коментар", guest.rsvp_comment ?? "—"],
@@ -236,8 +264,11 @@ export function GuestDetail({
           <dd style={{ margin: 0, color: "var(--ink)" }}>{seat === undefined ? "…" : seat ? seatText(seat) : "Сè уште нема маса"}</dd>
         </dl>
         {menus.length > 1 && canEditMenus && guest.rsvp_status === "confirmed" ? (
-          <MenuCountsEditor key={`${guest.id}-${guest.party_size}-${JSON.stringify(guest.menu_counts)}`} guest={guest} menus={menus} onSaved={onMenusSaved} />
+          <MenuCountsEditor key={`${guest.id}-${guest.party_size}-${guest.no_meal_count ?? 0}-${JSON.stringify(guest.menu_counts)}`} guest={guest} menus={menus} onSaved={onMenusSaved} />
         ) : null}
+        {canEditMenus ? <InvitedEditor key={`inv-${guest.id}-${guest.invited_party_size ?? ""}`} guest={guest} onSaved={(g) => onMenusSaved?.(g)} /> : null}
+        <CoupleAnswerForm key={`ans-${guest.id}-${guest.rsvp_status}-${guest.party_size}`} guest={guest} menus={menus} onSaved={(g) => onMenusSaved?.(g)} />
+        <AnswerHistory key={`hist-${guest.id}-${guest.rsvp_status}-${guest.party_size}-${JSON.stringify(guest.menu_counts)}`} guestId={guest.id} menus={menus} />
         {greetingsEnabled ? (
           <>
             <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Честитка</h3>

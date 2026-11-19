@@ -68,6 +68,7 @@ export function GuestsSummary({ stats, canSendNumbers = false }: { stats: GuestS
             <p className="guests-summary-menu">
               {`Мени (порции за потврдени): ${stats.menus.map((m) => `${m.name} ${m.count}`).join(" · ")}`}
               {stats.childrenAttending > 0 ? ` · Деца: ${stats.childrenAttending}` : ""}
+              {stats.noMeal > 0 ? ` · Деца без оброк: ${stats.noMeal}` : ""}
             </p>
           ) : stats.childrenAttending > 0 ? (
             <p className="guests-summary-menu">{`Деца: ${stats.childrenAttending}`}</p>

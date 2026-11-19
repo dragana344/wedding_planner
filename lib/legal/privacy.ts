@@ -123,8 +123,8 @@ const privacyDocument: BiDocument = {
             [
               bi("Гости", "Guests"),
               bi(
-                "Име и презиме, телефон (по избор), број на лица, одговор на поканата, страна (невестина или младоженецова), белешки, време на последната промена на одговорот преку линкот и претходниот одговор.",
-                "Full name, phone (optional), party size, invitation answer, side (bride's or groom's), notes, time of the last change of the answer through the link and the previous answer.",
+                "Име и презиме, телефон (по избор, и на заедничкиот формулар за одговор, за полесно препознавање), број на лица и за колку лица е поканет, имиња на лицата што доаѓаат со гостинот (по избор), одговор на поканата (деца, мени, алергии, коментар), страна (невестина или младоженецова), белешки и историјата на одговорите: секој одговор посебно, со време, извор и состојбата пред и по него.",
+                "Full name, phone (optional, also on the shared answer form, to help recognise the guest), party size and how many people the guest is invited for, names of the people coming with the guest (optional), invitation answer (children, menu, allergies, comment), side (bride's or groom's), notes, and the history of answers: every answer separately, with its time, source and the state before and after it.",
               ),
               bi("Младенците или организаторот, или самиот гостин преку линкот од поканата.", "The couple or organizer, or the guest through the invitation link."),
             ],
@@ -397,8 +397,16 @@ const privacyDocument: BiDocument = {
           type: "ul",
           items: [
             bi(
-              "Младенците или организаторот може да внесле за вас: име и презиме, телефон, број на лица, дали доаѓате, на чија страна сте и белешка (на пример за исхрана). Ако одговорите преку линкот, ги внесувате самите вие: име, дали доаѓате и број на лица.",
-              "The couple or organizer may have entered about you: full name, phone, party size, whether you are coming, whose side you are on and a note (for example about diet). If you answer through the link, you enter them yourself: name, whether you are coming and party size.",
+              "Младенците или организаторот може да внесле за вас: име и презиме, телефон, број на лица, за колку лица сте поканети, дали доаѓате, на чија страна сте и белешка (на пример за исхрана). Ако одговорите преку линкот, ги внесувате самите вие: име, дали доаѓате и број на лица, а по избор и телефон и имиња на лицата што доаѓаат со вас.",
+              "The couple or organizer may have entered about you: full name, phone, party size, how many people you are invited for, whether you are coming, whose side you are on and a note (for example about diet). If you answer through the link, you enter them yourself: name, whether you are coming and party size, and optionally a phone and the names of the people coming with you.",
+            ),
+            bi(
+              "Секој ваш одговор се чува посебно (кога, преку кој линк и што се променило), за младенците да ја видат историјата на одговорите. Одговорот што не може сигурно да се поврзе со гостин од листата чека младенците да го проверат.",
+              "Each of your answers is kept separately (when, through which link and what changed), so the couple can see the history of answers. An answer that cannot be matched to a guest on the list with certainty waits for the couple to check it.",
+            ),
+            bi(
+              `Ако одговорите преку заедничкиот линк, вашиот прелистувач го памети вашиот одговор ${R.rsvpRememberDays} дена (потпишан код во локалното складиште на прелистувачот, не колаче), за следната посета да го промени истиот одговор. Со „Не сте вие?“ кодот се брише.`,
+              `If you answer through the shared link, your browser remembers your answer for ${R.rsvpRememberDays} days (a signed code in the browser's local storage, not a cookie), so a later visit changes the same answer. "Not you?" deletes the code.`,
             ),
             bi(
               "Вашите податоци ги гледаат младенците или организаторот. Локалот може да ги извезе или избрише. Другите гости не ги гледаат.",
@@ -567,6 +575,13 @@ const privacyDocument: BiDocument = {
               ),
             ],
             [
+              bi("Код „запомни ме“ на гостинот во прелистувачот", "The guest's \"remember me\" code in the browser"),
+              bi(
+                `${R.rsvpRememberDays} дена; гостинот може да го избрише со „Не сте вие?“ или со бришење на податоците на прелистувачот.`,
+                `${R.rsvpRememberDays} days; the guest can delete it with "Not you?" or by clearing the browser's data.`,
+              ),
+            ],
+            [
               bi("Бројачи за ограничување на барањата (хаш од IP-адреса)", "Rate-limit counters (hash of the IP address)"),
               bi(`${R.rateLimitCounterDays} ден.`, `${R.rateLimitCounterDays} day.`),
             ],
@@ -631,8 +646,8 @@ const privacyDocument: BiDocument = {
         {
           type: "p",
           text: bi(
-            "Користиме само колачиња што се неопходни за најава и за работата на платформата. Немаме колачиња за аналитика, рекламирање или од трети страни, и не зачувуваме ништо друго во вашиот прелистувач. Затоа не бараме согласност за колачиња.",
-            "We use only cookies that are necessary for signing in and for running the platform. We have no analytics, advertising or third-party cookies, and store nothing else in your browser. That is why we do not ask for cookie consent.",
+            "Користиме само колачиња што се неопходни за најава и за работата на платформата, и еден запис во локалното складиште на прелистувачот на гостинот, за поканата да го памети неговиот одговор. Немаме колачиња за аналитика, рекламирање или од трети страни. Затоа не бараме согласност за колачиња.",
+            "We use only cookies that are necessary for signing in and for running the platform, and one entry in the guest's browser local storage, so the invitation remembers the guest's answer. We have no analytics, advertising or third-party cookies. That is why we do not ask for cookie consent.",
           ),
         },
         {
@@ -661,6 +676,14 @@ const privacyDocument: BiDocument = {
                 "Lets our team open the platform during maintenance. Set only for our team.",
               ),
               bi("До 12 часа.", "Up to 12 hours."),
+            ],
+            [
+              bi("rsvp-remember:… (локално складиште)", "rsvp-remember:… (local storage)"),
+              bi(
+                "Го памети гостинот што одговорил преку заедничкиот линк на поканата, за следниот одговор да го ажурира истиот гостин.",
+                "Remembers the guest who answered through the invitation's shared link, so the next answer updates the same guest.",
+              ),
+              bi(`${R.rsvpRememberDays} дена, или до „Не сте вие?“.`, `${R.rsvpRememberDays} days, or until "Not you?".`),
             ],
           ],
         },

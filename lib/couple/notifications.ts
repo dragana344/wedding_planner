@@ -9,7 +9,7 @@ import { STATUS_LABELS } from "@/lib/couple/guest-labels";
 import type { RsvpStatus } from "@/lib/couple/guests";
 import { listGuestReplies } from "@/lib/couple/guest-replies";
 import { VENUE_TIME_ZONE, todayIn } from "@/lib/date";
-import { toMenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
+import { estimateNote, NO_MEAL_LABEL, sentMeals, sentMenus, toMenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
 import { coupleReminderApplies, daysUntil } from "@/lib/menu-timeline";
 
 export type CoupleNotification = {
@@ -54,14 +54,14 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
   const today = todayIn();
   const now = new Date();
 
-  const [changes, seen, firstLogin, replies, submissions, reminders, seatingProposals] = await Promise.all([
+  const [changes, seen, firstLogin, replies, submissions, reminders, seatingProposals, pendingAnswers] = await Promise.all([
     listEventChanges(eventId),
     getSeen(eventId, "couple"),
     getCoupleFirstLogin(eventId),
     listGuestReplies(eventId),
     client
       .from("event_menu_submissions")
-      .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes")
+      .select("id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes, no_meal_count, estimated_counts, estimated_total")
       .eq("event_id", eventId)
       .order("sent_at", { ascending: false })
       .order("id", { ascending: false }),
@@ -71,10 +71,17 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
       .select("id, proposed_by, status, note, created_at, responded_at")
       .eq("event_id", eventId)
       .order("created_at", { ascending: false }),
+    client
+      .from("event_rsvp_answers")
+      .select("created_at")
+      .eq("event_id", eventId)
+      .eq("review_state", "pending")
+      .order("created_at", { ascending: false }),
   ]);
   if (submissions.error) throw new Error(`Could not load the menu numbers: ${submissions.error.message}`);
   if (reminders.error) throw new Error(`Could not load the reminders: ${reminders.error.message}`);
   if (seatingProposals.error) throw new Error(`Could not load the seating proposals: ${seatingProposals.error.message}`);
+  if (pendingAnswers.error) throw new Error(`Could not load the answers to check: ${pendingAnswers.error.message}`);
 
   const out: CoupleNotification[] = [];
 
@@ -98,8 +105,12 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
     const sent = ((submissions.data ?? []) as unknown as MenuSubmissionRow[]).map(toMenuSubmission);
     for (const [i, s] of sent.entries()) {
       if ((s.source !== "venue" && s.source !== "auto") || Date.parse(s.sentAt) <= Date.parse(firstLogin)) continue;
-      const parts = [...s.numbers.menus.map((m) => `${m.name}: ${m.count}`), `Вкупно: ${s.numbers.total}`];
-      if (s.source === "auto") parts.push("Испратено автоматски — непотполно");
+      const parts = [
+        ...sentMenus(s).map((m) => `${m.name}: ${m.count}${m.estimated > 0 ? ` (${estimateNote(m.estimated)})` : ""}`),
+        `Вкупно: ${sentMeals(s)}${s.estimate ? ` (${estimateNote(s.estimate.total)})` : ""}`,
+      ];
+      if ((s.numbers.noMeal ?? 0) > 0) parts.push(`${NO_MEAL_LABEL}: ${s.numbers.noMeal}`);
+      if (s.source === "auto") parts.push(s.estimate ? "Испратено автоматски — гостите без одговор се проценети" : "Испратено автоматски — непотполно");
       out.push({
         id: `num-${s.id}`,
         at: s.sentAt,
@@ -120,10 +131,23 @@ export async function listCoupleNotifications(eventId: string): Promise<CoupleNo
       id: `rsvp-${r.id}`,
       at: r.at,
       kind: "guest_reply",
-      title: r.guestName ?? "Нов гостин",
+      title: r.review ? "Одговор за проверка" : (r.guestName ?? "Нов гостин"),
       detail: STATUS_LABELS[r.newStatus as RsvpStatus] ?? null,
       // Like every mark: nothing is new on a past event.
       unseen: eventDate >= today && (repliesSeen === null || Date.parse(r.at) > repliesSeen),
+    });
+  }
+
+  // 0179: answers waiting in "Да се провери" stay new until the couple resolves them.
+  const pendingCount = (pendingAnswers.data ?? []).length;
+  if (pendingCount > 0) {
+    out.push({
+      id: `review-${eventId}`,
+      at: pendingAnswers.data![0].created_at as string,
+      kind: "guest_reply",
+      title: `Да се провери: ${pendingCount} ${pendingCount === 1 ? "одговор" : "одговори"}`,
+      detail: "Гости → Одговори: изберете чиј е секој одговор.",
+      unseen: eventDate >= today,
     });
   }
 

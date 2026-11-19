@@ -29,6 +29,7 @@ export const EXPORTED_TABLES = [
   "event_checklist_subtasks",
   "event_invitations",
   "event_guest_menu_counts",
+  "event_rsvp_answers",
   "event_menu_submissions",
   "event_showcase_photos",
   "event_layout_elements",
@@ -77,6 +78,8 @@ export type EventExport = {
   couple_reminders: Row[];
   /** Seating layouts sent for approval between venue and couple (Project A §5). */
   seating_proposals: Row[];
+  /** Every RSVP answer on its own, with what it changed (0179). */
+  rsvp_answers: Row[];
 };
 
 export type VenueExport = {
@@ -162,7 +165,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
   if (ids.length === 0) return [];
   const byEvent = "event_id";
 
-  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, submissions, showcase, layout, seats, photos, greetings, changeLog, changeSeen, reminders, seatingProposals] =
+  const [credentials, coOrganizers, guests, notes, agenda, locations, budget, checklist, invitations, submissions, showcase, layout, seats, photos, greetings, changeLog, changeSeen, reminders, seatingProposals, rsvpAnswers] =
     await Promise.all([
       selectIn(client, "event_credentials", "event_id, username, created_at", byEvent, ids, [byEvent]),
       selectIn(client, "event_co_organizers", "event_id, side, username, created_at", byEvent, ids, [byEvent, "side"]),
@@ -183,6 +186,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       selectIn(client, "event_change_seen", "*", byEvent, ids, ["viewer", "section"]),
       selectIn(client, "event_couple_reminders", "*", byEvent, ids, ["reminded_at", "id"]),
       selectIn(client, "event_seating_proposals", "*", byEvent, ids, ["created_at", "id"]),
+      selectIn(client, "event_rsvp_answers", "*", byEvent, ids, ["created_at", "id"]),
     ]);
   const mediaUrls = await signedUrls(client, [
     ...photos.map((p) => String(p.storage_path)),
@@ -233,6 +237,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
     changeSeen: groupBy(changeSeen, byEvent),
     reminders: groupBy(reminders, byEvent),
     seatingProposals: groupBy(seatingProposals, byEvent),
+    rsvpAnswers: groupBy(rsvpAnswers, byEvent),
   };
 
   return events.map((event) => {
@@ -267,6 +272,7 @@ async function exportEvents(client: SupabaseClient, events: Row[]): Promise<Even
       change_seen: g.changeSeen.get(id) ?? [],
       couple_reminders: g.reminders.get(id) ?? [],
       seating_proposals: g.seatingProposals.get(id) ?? [],
+      rsvp_answers: g.rsvpAnswers.get(id) ?? [],
     };
   });
 }

@@ -37,6 +37,7 @@ Created in `0001_venues_rooms_tables.sql`. Column added in `0012_floor_plan_laye
 |---|---|---|
 | `name` | Only for a sole trader | Business name, shown on public invitations (`getInvitationBySlug`) |
 | `layout_lock_password_hash` | Credential (bcrypt) | Shared venue "layout lock" PIN. Default is `crypt('0000')`. Never selected by clients. Set/checked only via `set_venue_layout_password` / `verify_venue_layout_password` (SECURITY DEFINER, gated by `is_venue_staff_for`) |
+| `rsvp_deadline_days` | No. Venue setting: guests can answer the invitation until this many days before the event (default 15) | 0180 |
 | `deletion_scheduled_for`, `deletion_scheduled_by` | No. When the platform admin's scheduled deletion of the venue runs (now + 15 days), and that admin's user id. The daily retention cron deletes the venue once the date passes (`delete_scheduled_venue`); the venue panel shows the date and links to the data export | 0172 |
 
 - **Subject:** venue as a business (staff for the PIN).
@@ -71,9 +72,11 @@ Created in `0003_events_couples.sql`, then changed by `0010` (dropped `couple_us
 | `guest_count_estimate` | Low | 0003 |
 | `contact_email`, `contact_email_2`, `contact_phone` | **Yes. Direct contact data** | 0013 |
 | `total_price`, `deposit_paid` | **Yes. Financial data about the couple** (manual record, no payments processed) | 0021 |
+| `price_per_guest`, `contracted_guests` | **Yes. Financial data about the couple**, like `total_price`: the per-guest price and guest count the total was agreed on (set by the venue's price calculator; null for a total typed by hand). Private like `total_price` (not in 0117's staff grant; read via `/api/venue/events/private`, written via the manager-gated finance route). Kept on erasure | 0182 |
 | `seating_draft`, `seating_draft_undo`, `seating_confirmed_at`, `layout_undo_snapshot` | Incidental. JSON copies of layout elements including free-text `label` (may hold guest names) | 0020, 0012 |
 | `checklist_seeded_at` | No | 0024 |
 | `personal_data_erased_at` | No. Set by the event erasure (DATA-005) | 0043 |
+| `rsvp_deadline` | Yes, in context (a planning date, like `event_date`). The venue's own answer deadline for this event; null follows `venues.rsvp_deadline_days`. Kept on erasure | 0180 |
 | `couple_access_until`, `couple_access_extended_until` | No. Couple-access end dates: set by cancelling the event (status trigger) / by the platform admin. The retention sweep erases the event after `coalesce(extended, until, event_date + 6 months)` | 0170 |
 
 - **Subject:** couple (and, through labels, possibly guests).
@@ -149,6 +152,10 @@ Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`; RS
 | `invite_token` | **Secret** | opens this guest's personal invitation/RSVP; never exported (0060) |
 | `invitation_sent_at`, `invitation_channel` | Low | when/how the couple sent the invitation (0060) |
 | `notes` | Free text. **May hold special-category data** (dietary needs revealing religion or health, allergies, disability/access needs) | |
+| `household_names` | **Yes** (names of other people: the ones coming with the guest) | optional, typed by the guest in the RSVP or by the couple (0179) |
+| `invited_party_size` | Yes, in context | how many people the couple invited with the guest; an answer above it is flagged (0179) |
+| `no_meal_count` | Yes, in context | of the children, how many eat no adult menu ("дете / без оброк"); checked `≤ children_count ≤ party_size` (0181) |
+| `menu_rechoose_at` | No | when the venue's menu change asked this confirmed guest to choose again (0181) |
 | `created_at` | Low | |
 
 - **Subject:** guest (entered by the couple, or self-entered via RSVP).
@@ -156,10 +163,33 @@ Created in `0022_organizer_tools.sql`. `side` added in `0025_guest_side.sql`; RS
 - **Lawful basis:** couple's legitimate interest / household activity, or the venue's contract. Controller vs processor role is open (*to confirm in COMP-001*, see Open questions).
 - **Access:**
   - Couples via the service role in `lib/couple/guests.ts`, scoped by `event_id`.
-  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row whose name matches. With a personal link (`?g=<invite_token>`) it updates exactly that guest; the page shows that guest their own name, current answer and table only. Guests can **not** read the list.
+  - Guests through `POST /api/invite/[slug]/rsvp`, then `submitRsvpBySlug` (`lib/couple/rsvp.ts`, service role). This can insert a row or update `rsvp_status`/`party_size` on a row the shared link surely matches (remembered browser token, a unique phone together with a name that fits that guest — 0184 —, or exactly one guest with that name — 0179); an unsure match changes no row and waits for the couple in `event_rsvp_answers` (§2.6a). With a personal link (`?g=<invite_token>`) it updates exactly that guest; the page shows that guest their own name, current answer and table only. Guests can **not** read the list.
   - Anyone with the shared link, through `POST /api/invite/[slug]/seat` ("Каде седам?", rate-limited): a typed name that matches exactly one guest returns only that guest's table/seat/room. An unknown name and a listed guest without a table get the same empty answer, so the list cannot be probed.
   - Venue staff have **no** access: RLS is on with no policies, and the table is granted to `service_role` only.
 - **Retention:** none defined, see DATA-007. Cascades with the event.
+
+### 2.6a `event_rsvp_answers`
+Created in `0179_rsvp_answers_inbox.sql`. One row per RSVP answer, never overwritten: from a personal link, the shared link, or typed in by the couple (a phone answer). Since 0184 the couple's own direct changes (quick status toggle, party size, menu split) are recorded too, as `source 'couple'` rows with before/after, and `status` may then also be `invited`/`pending`.
+
+| Field | Personal? | Notes |
+|---|---|---|
+| `full_name` | **Yes** | the name as typed on the shared link (the guest's name for personal-link and couple answers) |
+| `phone` | **Yes** | optional, typed on the shared link to help matching |
+| `status`, `party_size`, `children_count`, `no_meal_count` | Yes, in context | the answer (`no_meal_count`: children eating no adult menu, 0181) |
+| `menu_counts` | **Yes. May reveal religion or health** | like `event_guest_menu_counts` |
+| `allergies` | **Yes. Special-category (health) data** | ≤ 300 chars |
+| `comment` | Free text | ≤ 500 chars |
+| `household_names` | **Yes** | names of the people coming with the guest |
+| `before`, `after` | **Yes** (copies of the guest's answer fields, incl. allergies and household names) | the change history the couple sees |
+| `guest_id`, `source`, `match`, `review_state`, `resolved_at`, `resolved_by` | No | how the answer was matched; `resolved_by` is `couple`/`bride`/`groom` (a role, not a name); `review_state 'linked'` (0184): tied to a guest who had a newer answer without changing them |
+| `review_reason` | No | 0180: why a pending answer waits besides an unsure match (`guest_limit`: the package's guest limit stopped the new guest) |
+| `created_at` | Yes, in context | when the guest answered |
+
+- **Subject:** guest (and the people they name as coming with them).
+- **Purpose:** the couple's "Одговори" inbox and "Да се провери" queue (answers the shared link could not match surely), and each guest's answer history.
+- **Access:** service role only (RLS on, no policies, no API-role grants): the RSVP route writes, the couple's routes (`/api/couple/rsvp-answers`, `/api/couple/guests/[id]/answers`) read and resolve. Guests never read it; the shared-link response never names another guest. Venue staff have no access.
+- **Export / erasure:** exported with the event (`lib/privacy/export.ts`, `rsvp_answers`); deleted by `erase_event_personal_data` (0179) on every reason, and cascades with the event. Deleting a guest deletes their answers (0184: `guest_id` cascades; before, they stayed with `guest_id` null until the event was erased). Pending answers never applied to a guest have no `guest_id` and stay until the couple resolves them or the event is erased.
+- **Retention:** with the event (DATA-007).
 
 ### 2.7 `event_invitations`
 Created in `0022_organizer_tools.sql`.
@@ -183,10 +213,15 @@ Created in `0119_event_menus_guest_counts.sql`.
 | Table | Field | Personal? | Notes |
 |---|---|---|---|
 | `event_guest_menu_counts` | `count` (per `guest_id` × `menu_template_id`) | **Yes. May reveal religion or health** (e.g. how many of a guest's party eat the посно/vegan menu) | set by the guest's RSVP or by the couple |
-| `event_menu_submissions` | `counts`, `menu_titles`, `total` | Yes, in context (aggregate numbers per menu) | the numbers the couple sent to the venue |
+| `event_menu_submissions` | `counts`, `menu_titles`, `total`, `no_meal_count` | Yes, in context (aggregate numbers per menu; `no_meal_count` is "Деца без оброк", 0181) | the numbers the couple sent to the venue |
 | `event_menu_submissions` | `sent_by` | No | always the fixed "Младенците" |
 | `event_menu_submissions` | `seen_by` | **Yes** (the venue manager's name) | set when a manager marks the numbers seen |
+| `event_menu_submissions` | `estimated_counts`, `estimated_total` | Yes, in context (aggregate numbers) | 0182: the unanswered guests' part, estimated per menu by the couple or prefilled by the automatic send; always shown marked "проценка" |
+| `event_menu_submissions` | `estimated_people` | Yes, in context (aggregate number) | 0184: how many people the estimate stood for, so later answers from that group shrink it instead of reading as new people |
+| `event_menu_submissions` | `allergy_key` | **Yes, derived** (keyed HMAC of the allergy notes at sending; no text) | 0182: lets a later allergy change be flagged to the venue; cleared on erasure (0183) |
 
+- **Kept across answers (0181):** a guest's counts stay when they answer "no" or "later" (or the couple changes the status); only confirmed guests count in the totals. Counts go when the guest is deleted, or for a menu the venue takes off the event in the event form (a package the venue deletes from its list while events use it is archived, `menu_templates.archived_at`, and stays on them).
+- **Seating flags (0181):** `event_seat_guest_flags()` lets the venue's staff read, for **seated** guests only, their answer status and party size (names they already see on the plan), so the plan can flag "Одбил — ослободете ги местата".
 - **Subject:** guests (counts); venue manager (`seen_by`).
 - **Purpose:** telling the venue how many portions of each of the event's menus to prepare.
 - **Access:** counts: service role only (couple routes and the RSVP), staff have no access. Submissions: staff read their own venue's rows via RLS; writes through server routes with the service role.
@@ -207,6 +242,7 @@ Created in `0125_event_change_marks.sql` (`mark_change_seen` in 0126, `insert_au
 | `event_couple_reminders` | `reminded_by` | **Yes** (the venue manager's name) | rows deleted on erasure |
 | `events` | `couple_first_login_at` | Low | set by the couple login; marks for the couple only count after it |
 | `event_menu_submissions` | `source`, `unanswered` | No | who produced the numbers (couple, auto-send, venue) and how many guests had not answered |
+| `event_changes` | section `numbers` (0182): `old_value` `{submissionId}`, `new_value` `{menus, noMeal, changes, allergies, allergyKey}` | Yes, in context (aggregate counts per menu, menu names; no guest names, allergies only as yes/no plus a keyed fingerprint) | "Промена по испратените бројки": written by `lib/couple/numbers-changes.ts` after a guest/couple write once numbers were sent; the venue confirms with Видено (any staff can read it, like `guest_count`). Erasure removes `allergyKey` (0183) |
 
 - **Subject:** couple (contact and finance values, names of organizers); venue manager (`changed_by`, `seen_by`, `reminded_by`).
 - **Purpose:** showing each side what the other changed since it last pressed Видено; reminding the couple to send the final menu numbers (25/20/15-day timeline, automatic send at 15 days by the cron).
@@ -298,6 +334,7 @@ Created in `0080` (album, greetings, public token), `0081` (unconfirmed uploads 
 |---|---|
 | `event_photos.storage_path` (photo or video file), `uploader_name` (optional), `consent_at` | **Yes** — files likely show identifiable people |
 | `event_greetings.first_name`, `last_name`, `message`, `video_path`, `guest_id` | **Yes** |
+| `event_greetings.rsvp_answer_id` (0180) | No — a link to the pending RSVP answer the greeting was sent with; it moves to the guest the couple picks |
 | `event_albums.public_token` | Credential (the album link/QR) |
 | sizes, mime, dimensions, `hidden_at`, timestamps | No / low |
 
@@ -322,7 +359,7 @@ Created in `0089_support_tickets.sql`; threads and statuses in `0150_support_inb
 - **Retention:** closed tickets (`status = 'done'`) are deleted **6 months after `resolved_at`** with their threads (`purge_closed_support_tickets()`, 0176/0178; audited `support_tickets_purged`). A couple's tickets also go with the event's erasure (0171). Deleted with the venue by cascade. Not in the venue's data export.
 
 ### 2.13 Tables with no personal data (checked)
-`rooms`, `table_types` (0001), `menu_templates`, `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_menu_templates` (0115; which menus an event offers; `menu_templates.event_id` (0119) marks an event's own custom menu), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
+`rooms`, `table_types` (0001), `menu_templates` (`archived_at`, 0181: a package taken off the venue's list but kept on the events that use it), `menu_items` (0002, 0007, 0019, 0030; `photo_path` points to dish photos), `menu_template_items` (0019), `event_rooms` (0003, 0026), `event_menu_templates` (0115; which menus an event offers; `menu_templates.event_id` (0119) marks an event's own custom menu), `room_fixed_elements` and `room_layout_elements` apart from free-text `label` (0012).
 
 ### 2.14 Entitlements: `plans`, `plan_features`, `venue_feature_overrides`, `event_feature_overrides`, `platform_settings`, and `venues.plan_id`/`blocked_at`/`blocked_reason`
 `plans`/`plan_features`/`venue_feature_overrides`/`event_feature_overrides`/`venues.plan_id`/`blocked_at`/`blocked_reason` created in `0048_plans_and_entitlements.sql`; `plans.is_public` added in `0052_plans_is_public.sql`; `platform_settings` created in `0050_contact_status_and_settings.sql` (admin dashboard task 4.1 — the DB half of the maintenance-mode flag, `lib/platform-settings.ts`; `updated_by` is an `auth.users.id`, no direct personal-data column). See [ADMIN.md](ADMIN.md) for the resolution order and the plans/overrides model in full.

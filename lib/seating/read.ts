@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RoomSeating, Seat, SeatTable } from "./types";
+import { seatFlags, type SeatFlag } from "./flags";
 
 // Reads shared by the couple (service role, server) and venue staff (RLS
 // client, browser or server): numbering comes from event_room_tables*.
@@ -33,9 +34,31 @@ export async function readRoom(client: SupabaseClient, eventId: string, roomId: 
   return { tables: toTables(tables.data as TableRow[]), seats: toSeats(seats.data as SeatListRow[]) };
 }
 
-/** Venue staff's read-only view (RLS client). Staff cannot read the guest list, so `guests` is empty. */
+type FlagRow = { guest_id: string; full_name: string; rsvp_status: string; party_size: number; seats_taken: number };
+
+/**
+ * 0181: the seated guests' answers and party sizes (event_seat_guest_flags,
+ * readable by staff) turned into the plan's flags. Only a hint: a failed read
+ * shows none.
+ */
+async function staffSeatFlags(client: SupabaseClient, eventId: string, seats: Seat[], tables: SeatTable[]): Promise<SeatFlag[]> {
+  try {
+    const { data, error } = await client.rpc("event_seat_guest_flags", { p_event_id: eventId });
+    if (error) throw error;
+    const rows = (data ?? []) as FlagRow[];
+    return seatFlags(
+      rows.map((r) => ({ id: r.guest_id, fullName: r.full_name, rsvpStatus: r.rsvp_status, partySize: r.party_size, seatsTaken: r.seats_taken })),
+      seats,
+      tables,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Venue staff's read-only view (RLS client). Staff cannot read the guest list, so `guests` is empty; the flags come from their own read. */
 export async function getRoomSeatingForStaff(client: SupabaseClient, eventId: string, roomId: string): Promise<RoomSeating> {
   const { tables, seats } = await readRoom(client, eventId, roomId, "event_room_tables_for_staff");
-  return { tables, seats, guests: [] };
+  return { tables, seats, guests: [], flags: await staffSeatFlags(client, eventId, seats, tables) };
 }
 

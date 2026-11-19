@@ -49,6 +49,41 @@
   font-size: 12px;
   font-weight: 600;
 }
+/* 0179: "+2 над поканетите" and the answers inbox. */
+.vp .cg-over {
+  display: inline-block;
+  margin: 0 0 0 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: #8a5a12;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.vp .ca-pending {
+  border-left-color: var(--gold);
+}
+.vp .ca-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.vp .ca-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.vp .ca-changes {
+  color: var(--ink-2);
+  font-weight: 600;
+}
 .vp .cg-status {
   display: none;
   padding: 4px 10px;

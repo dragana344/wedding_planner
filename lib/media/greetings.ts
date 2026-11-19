@@ -29,13 +29,22 @@ const SIGNED_VIEW_SECONDS = 60 * 60;
 
 export async function createGreeting(
   eventId: string,
-  input: { firstName: string; lastName: string; message: string; videoPath?: string | null; guestId?: string | null },
+  input: {
+    firstName: string;
+    lastName: string;
+    message: string;
+    videoPath?: string | null;
+    guestId?: string | null;
+    /** A greeting sent right after an answer that waits for the couple (0180). */
+    rsvpAnswerId?: string | null;
+  },
 ): Promise<{ id: string }> {
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   const message = input.message.trim();
-  // A guest's own greeting takes their name from the guest list, which may be one word.
-  if (!firstName || (!lastName && !input.guestId)) throw new Error(NAME_REQUIRED_ERROR);
+  // A guest's own greeting takes their name from the guest list (or their
+  // answer), which may be one word; the album's QR form asks for both names.
+  if (!firstName || (!lastName && !input.guestId && !input.rsvpAnswerId)) throw new Error(NAME_REQUIRED_ERROR);
   if (!message) throw new Error(MESSAGE_REQUIRED_ERROR);
 
   const video = input.videoPath ? await acceptVideo(eventId, input.videoPath) : null;
@@ -44,6 +53,7 @@ export async function createGreeting(
     .insert({
       event_id: eventId,
       guest_id: input.guestId ?? null,
+      rsvp_answer_id: input.rsvpAnswerId ?? null,
       first_name: firstName,
       last_name: lastName,
       message,

@@ -16,6 +16,8 @@ export type KeepsakeGuest = {
   menuText: string;
   allergies: string | null;
   comment: string | null;
+  /** Names of the people coming with them (0179). */
+  householdNames?: string[];
 };
 
 export type KeepsakeTable = {
@@ -48,6 +50,10 @@ export type KeepsakeData = {
   attending: { people: number; children: number; parties: number };
   /** When the final numbers last went to the venue, if ever. */
   numbersSentAt: string | null;
+  /** 0181: children eating no adult menu (a line of its own). */
+  noMeal?: number;
+  /** 0182: the last sending's people (meals + no-meal) and its estimated part. */
+  numbersSent?: { people: number; estimated: number } | null;
   tables: KeepsakeTable[];
   greetings: { name: string; message: string; hasVideo: boolean; createdAt: string }[];
   budget: {
@@ -60,17 +66,24 @@ export type KeepsakeData = {
   notes: { title: string; content: string; updatedAt: string }[];
 };
 
-/** "Месо ×2, Вегетаријанско ×1" for one guest; one menu means the whole confirmed party eats it. */
+/**
+ * "Месо ×2, Вегетаријанско ×1, без оброк ×1" for one guest; one menu means
+ * the whole confirmed party eats it, but the children without a meal (0181).
+ */
 export function guestMenuText(
-  guest: { rsvp_status: RsvpStatus; party_size: number; menu_counts: Record<string, number> },
+  guest: { rsvp_status: RsvpStatus; party_size: number; menu_counts: Record<string, number>; no_meal_count?: number },
   menus: readonly { id: string; name: string }[],
 ): string {
   if (guest.rsvp_status !== "confirmed") return "";
-  if (menus.length === 1) return `${menus[0].name} ×${guest.party_size}`;
-  return menus
-    .filter((m) => (guest.menu_counts[m.id] ?? 0) > 0)
-    .map((m) => `${m.name} ×${guest.menu_counts[m.id]}`)
-    .join(", ");
+  const noMeal = guest.no_meal_count ?? 0;
+  const parts =
+    menus.length === 1
+      ? guest.party_size - noMeal > 0
+        ? [`${menus[0].name} ×${guest.party_size - noMeal}`]
+        : []
+      : menus.filter((m) => (guest.menu_counts[m.id] ?? 0) > 0).map((m) => `${m.name} ×${guest.menu_counts[m.id]}`);
+  if (noMeal > 0 && menus.length > 0) parts.push(`без оброк ×${noMeal}`);
+  return parts.join(", ");
 }
 
 /** The couple's budget as the book and the spreadsheet show it (category labels, custom ones kept). */

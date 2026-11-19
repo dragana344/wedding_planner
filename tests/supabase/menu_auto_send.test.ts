@@ -77,6 +77,16 @@ describe("runMenuAutoSend", () => {
       { id: menuA, name: "Класично", count: 1 },
       { id: menuB, name: "Посно", count: 1 },
     ]);
+    // 0182: the unanswered guest (party of 2) goes in as the prefilled estimate, split like the real counts, kept apart.
+    expect(sub.estimate).toEqual({
+      menus: [
+        { id: menuA, name: "Класично", count: 1 },
+        { id: menuB, name: "Посно", count: 1 },
+      ],
+      total: 2,
+    });
+    // 0184: and how many people it stood for, so later answers shrink it.
+    expect(sub.estimatedPeople).toBe(2);
     // Auto-send means the couple never finished, so it's always the raw fallback, never a summary.
     expect(sub.allergyNotes).toEqual([
       { menuId: menuA, menuName: "Класично", notes: [{ guestId: anaId, guestName: "Ана", text: "без кашкавал" }] },
@@ -85,6 +95,18 @@ describe("runMenuAutoSend", () => {
 
     expect((await runMenuAutoSend(new Date())).sent).not.toContain(e);
     expect(await listMenuSubmissions(e, 5)).toHaveLength(1);
+  });
+
+  it("0182: everyone answered — no estimate stored", async () => {
+    const e = await newEvent("Сите одговориле", 9);
+    await guest(e, "Ана", "confirmed", { [menuA]: 2 });
+    expect((await runMenuAutoSend(new Date())).sent).toContain(e);
+    const [sub] = await listMenuSubmissions(e);
+    expect(sub.estimate).toBeNull();
+    expect(sub.unanswered).toBe(0);
+    const { data } = await admin.from("event_menu_submissions").select("estimated_total, estimated_counts, allergy_key").eq("id", sub.id).single();
+    expect(data).toMatchObject({ estimated_total: 0, estimated_counts: null });
+    expect(typeof data!.allergy_key).toBe("string");
   });
 
   it("the insert itself refuses an event that already has a submission", async () => {

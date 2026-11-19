@@ -174,7 +174,7 @@ describe("lib/couple/guests", () => {
     await admin.from("venues").delete().eq("id", venueId);
   });
 
-  it("declined guests are done and never counted", async () => {
+  it("declined guests are done and never counted — their choice is kept for a later yes (0181)", async () => {
     const { venueId, eventId, ids } = await eventWithMenus("Guests Declined Venue", ["Класично", "Посно"]);
     const guest = await addGuest(eventId, { full_name: "Ана", phone: null, party_size: 2, notes: null, side: null });
     await updateGuestStatus(eventId, guest.id, "confirmed");
@@ -182,13 +182,16 @@ describe("lib/couple/guests", () => {
     expect((await getGuestStats(eventId)).menus.map((m) => m.count)).toEqual([2, 0]);
 
     const declined = await updateGuestStatus(eventId, guest.id, "declined");
-    expect(declined.menu_counts).toEqual({});
+    expect(declined.menu_counts).toEqual({ [ids[0]]: 2 });
     expect(isGuestDone(declined, ids)).toBe(true);
     const stats = await getGuestStats(eventId);
     expect(stats.menus.map((m) => m.count)).toEqual([0, 0]);
     expect(stats.notDone).toEqual([]);
-    const { data: rows } = await admin.from("event_guest_menu_counts").select("guest_id").eq("guest_id", guest.id);
-    expect(rows).toEqual([]);
+
+    // Confirmed again with the same party: the kept split counts again, nothing to choose.
+    const again = await updateGuestStatus(eventId, guest.id, "confirmed");
+    expect(isGuestDone(again, ids)).toBe(true);
+    expect((await getGuestStats(eventId)).menus.map((m) => m.count)).toEqual([2, 0]);
     await admin.from("venues").delete().eq("id", venueId);
   });
 

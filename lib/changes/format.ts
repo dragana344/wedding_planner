@@ -58,6 +58,21 @@ function describeFinance(c: EventChange): string {
   return parts.length > 0 ? parts.join("; ") : "Финансиите се променети";
 }
 
+/** "+2 Месо, −1 Посно; алергии" — a "numbers" change (0182): counts moved since the last sending or mark. */
+function describeNumbers(c: EventChange): string {
+  const after = obj(c.newValue);
+  const changes = Array.isArray(after.changes) ? (after.changes as unknown[]) : [];
+  const parts = changes
+    .map((ch) => obj(ch))
+    .filter((ch) => typeof ch.from === "number" && typeof ch.to === "number" && str(ch.name))
+    .map((ch) => {
+      const d = (ch.to as number) - (ch.from as number);
+      return `${d > 0 ? "+" : "−"}${Math.abs(d)} ${str(ch.name)}`;
+    });
+  if (after.allergies === true) parts.push("алергии");
+  return parts.length > 0 ? parts.join(", ") : "Бројките се променети";
+}
+
 /** One line for a change. Contact and finance values are hidden when `redactPrivate` (staff without manager elevation). */
 export function describeChange(change: EventChange, opts: { redactPrivate: boolean }): string {
   switch (change.section) {
@@ -85,6 +100,8 @@ export function describeChange(change: EventChange, opts: { redactPrivate: boole
       return opts.redactPrivate ? "Контакт е променет" : describeContact(change);
     case "finance":
       return opts.redactPrivate ? "Финансиите се променети" : describeFinance(change);
+    case "numbers":
+      return describeNumbers(change);
   }
 }
 

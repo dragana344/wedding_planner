@@ -41,6 +41,9 @@ import * as guestsRoute from "@/app/api/couple/guests/route";
 import * as guestsIdRoute from "@/app/api/couple/guests/[id]/route";
 import * as guestsSeatRoute from "@/app/api/couple/guests/[id]/seat/route";
 import * as guestsGreetingsRoute from "@/app/api/couple/guests/[id]/greetings/route";
+import * as guestsAnswersRoute from "@/app/api/couple/guests/[id]/answers/route";
+import * as rsvpAnswersRoute from "@/app/api/couple/rsvp-answers/route";
+import * as rsvpAnswerIdRoute from "@/app/api/couple/rsvp-answers/[id]/route";
 import * as guestsExportRoute from "@/app/api/couple/guests/export/route";
 import * as guestsImportRoute from "@/app/api/couple/guests/import/route";
 import * as guestsSentRoute from "@/app/api/couple/guests/sent/route";
@@ -106,6 +109,8 @@ interface EventFixture {
   /** Guests' album (Session 4): two photos and a greeting. */
   photoIds: [string, string];
   greetingId: string;
+  /** 0179: a shared-link answer waiting in "Да се провери". */
+  answerId: string;
 }
 
 let venueId: string;
@@ -272,6 +277,11 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     event_id: event.id, first_name: text("first"), last_name: "Guest", message: text("greeting"),
   });
 
+  const [answer] = await insert<{ id: string }>("event_rsvp_answers", {
+    event_id: event.id, source: "shared", full_name: text("answer"), phone: tag === "B" ? SECRET.slice(0, 50) : null,
+    status: "confirmed", party_size: 2, comment: text("answer comment"), match: "review", review_state: "pending",
+  });
+
   if (tag === "B") {
     await insert("event_changes", { event_id: event.id, section: "rooms", side: "venue", changed_by: "Салата", field: "added", new_value: { name: SECRET } });
     await insert("event_change_seen", { event_id: event.id, viewer: "couple", section: "menus", seen_up_to: new Date().toISOString() });
@@ -282,6 +292,7 @@ async function createEventFixture(tag: "A" | "B"): Promise<EventFixture> {
     roomId: room.id,
     photoIds: [photos[0].id, photos[1].id],
     greetingId: greeting.id,
+    answerId: answer.id,
     guestId: guest.id,
     budgetId: budget.id,
     checklistId: checklist.id,
@@ -328,6 +339,7 @@ async function snapshotEvent(f: EventFixture): Promise<Record<string, Row[]>> {
     event_greetings: await byEvent("event_greetings"),
     event_changes: await byEvent("event_changes"),
     event_change_seen: await byEvent("event_change_seen", "event_id", "section"),
+    event_rsvp_answers: await byEvent("event_rsvp_answers"),
   };
 }
 
@@ -355,6 +367,7 @@ function bSecrets(): string[] {
     `${RUN}-b-secret@test.local`,
     ...B.photoIds,
     B.greetingId,
+    B.answerId,
   ];
 }
 
@@ -649,6 +662,43 @@ const ROUTES: Record<string, { module: Record<string, unknown>; methods: MethodT
       GET: async () => {
         expect((await call(guestsGreetingsRoute.GET, { id: B.guestId }, "GET")).json).toEqual({ greetings: [] });
         expect((await call(guestsGreetingsRoute.GET, { id: A.guestId }, "GET")).status).toBe(200);
+      },
+    },
+  },
+  "guests/[id]/answers/route.ts": {
+    module: guestsAnswersRoute,
+    methods: {
+      GET: async () => {
+        expect((await call(guestsAnswersRoute.GET, { id: B.guestId }, "GET")).json).toEqual({ history: [] });
+        expect((await call(guestsAnswersRoute.GET, { id: A.guestId }, "GET")).status).toBe(200);
+      },
+      POST: async () => {
+        expect((await call(guestsAnswersRoute.POST, { id: B.guestId }, "POST", { body: { status: "declined" } })).status).toBe(400);
+        const own = await call(guestsAnswersRoute.POST, { id: A.guestId }, "POST", { body: { status: "later" } });
+        expect(own.status).toBe(200);
+        expect((await adminRow("event_guests", A.guestId))!.rsvp_status).toBe("later");
+      },
+    },
+  },
+  "rsvp-answers/route.ts": {
+    module: rsvpAnswersRoute,
+    methods: {
+      GET: async () => {
+        const res = await call(rsvpAnswersRoute.GET, NONE, "GET");
+        expect(res.status).toBe(200);
+        expect(res.text).toContain(A.answerId);
+      },
+    },
+  },
+  "rsvp-answers/[id]/route.ts": {
+    module: rsvpAnswerIdRoute,
+    methods: {
+      POST: async () => {
+        expect((await call(rsvpAnswerIdRoute.POST, { id: B.answerId }, "POST", { body: { action: "ignore" } })).status).toBe(400);
+        // A's own answer onto B's guest: refused, nothing applied.
+        expect((await call(rsvpAnswerIdRoute.POST, { id: A.answerId }, "POST", { body: { action: "guest", guest_id: B.guestId } })).status).toBe(400);
+        expect((await adminRow("event_rsvp_answers", A.answerId))!.review_state).toBe("pending");
+        expect((await call(rsvpAnswerIdRoute.POST, { id: A.answerId }, "POST", { body: { action: "ignore" } })).status).toBe(200);
       },
     },
   },

@@ -6,6 +6,8 @@ import { getInvitationBySlug, getInvitationPhotoUrl } from "@/lib/couple/invitat
 import { getInviteeByToken } from "@/lib/couple/rsvp";
 import { getSeatByToken } from "@/lib/couple/guest-page";
 import { getInvitationGreetingState } from "@/lib/couple/invite-greetings";
+import { getInvitationRsvpState } from "@/lib/couple/rsvp-window";
+import { needsReconfirm } from "@/lib/rsvp-deadline";
 import { FullInvitation } from "@/components/invite/FullInvitation";
 
 // One read per request, shared by the metadata and the page.
@@ -57,6 +59,24 @@ export default async function PublicInvitationPage({
   // 0151: after the RSVP the guest can send the couple a greeting. If the
   // package can't be read, the invitation still works, just without it.
   const greeting = await getInvitationGreetingState(slug, invitee ? guestToken : undefined).catch(() => null);
+  // 0180: the venue's deadline, the event's state and a moved date. If it
+  // can't be read the form stays as it was (the server still checks).
+  const rsvpState = await getInvitationRsvpState(slug).catch(() => null);
+  // A personal-link guest hears about the moved date only if they had
+  // answered before it moved; the shared link can't tell, so it tells everyone.
+  const answeredBeforeMove =
+    invitee && rsvpState?.postponedAt
+      ? ["confirmed", "declined", "later"].includes(invitee.rsvpStatus) &&
+        needsReconfirm("confirmed", invitee.answeredAt ?? null, rsvpState.postponedAt)
+      : false;
+  const rsvp = rsvpState
+    ? {
+        phase: rsvpState.phase,
+        deadline: rsvpState.deadline,
+        postponedTo: invitee ? (answeredBeforeMove ? rsvpState.postponedTo : null) : rsvpState.postponedTo,
+        reconfirm: invitee ? needsReconfirm(invitee.rsvpStatus, invitee.answeredAt ?? null, rsvpState.postponedAt) : false,
+      }
+    : null;
 
   const photoUrl = getInvitationPhotoUrl(invitation.photo_path);
 
@@ -70,6 +90,7 @@ export default async function PublicInvitationPage({
         guestToken={invitee ? guestToken : undefined}
         mySeat={mySeat}
         greeting={greeting}
+        rsvp={rsvp}
       />
       {/* COMP-001: guests are data subjects too. */}
       <p style={{ textAlign: "center", fontSize: 12, padding: "16px 0 24px", margin: 0 }}>

@@ -127,6 +127,9 @@ describe("keepsake download", () => {
       ["Борис Стојанов", "declined", 1],
     ]);
     expect(data.attending).toEqual({ people: 2, children: 0, parties: 1 });
+    // 0182: nothing sent in this fixture; no menus, so no no-meal children either.
+    expect(data.numbersSent).toBeNull();
+    expect(data.noMeal).toBe(0);
     expect(data.tables).toEqual([
       { room: "Голема сала", title: "Маса 1", capacity: 8, seats: [{ number: 1, name: "Ана Петрова" }, { number: 2, name: "Ана Петрова" }, { number: 3, name: "Чичко Јован" }] },
     ]);

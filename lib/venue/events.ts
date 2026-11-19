@@ -10,6 +10,7 @@ import type { SeenSection } from "@/lib/changes/types";
 import { toMenuSubmission, type MenuSubmission, type MenuSubmissionRow } from "@/lib/menu-numbers";
 import type { SnapshotElement } from "@/lib/venue/room-presets";
 import { normalizeEventTypeLabel } from "@/lib/venue/event-display";
+import { DEFAULT_RSVP_DEADLINE_DAYS, RSVP_DEADLINE_AFTER_EVENT_ERROR, rsvpDeadlineResets } from "@/lib/rsvp-deadline";
 
 export interface EventSummary {
   id: string;
@@ -93,6 +94,13 @@ export interface EventDetail {
   contact_phone: string | null;
   total_price: number | null;
   deposit_paid: number | null;
+  /** 0182: the per-guest price and guest count the total was agreed on (price calculator); null when typed by hand. Private, like total_price. */
+  price_per_guest?: number | null;
+  contracted_guests?: number | null;
+  /** 0182: confirmed people (private route only), for "Конечно" while no numbers were sent. */
+  confirmed_people?: number | null;
+  /** Of `confirmed_people`: children eating no meal, not priced (private route only). */
+  confirmed_no_meal?: number | null;
   /** Sections the couple changed (or numbers they sent) that the venue hasn't seen yet. */
   unseenSections: SeenSection[];
   /** What the couple sent the venue: the newest sending and the one before it. */
@@ -101,6 +109,12 @@ export interface EventDetail {
   seating_self_edit_enabled: boolean | null;
   /** Project B §1: 'mini' claims part of a room's capacity (a linked reservations row), 'full' claims the whole room. */
   seating_mode: "full" | "mini";
+  /** 0180: this event's own guest answer deadline; null follows the venue's "N days before". */
+  rsvp_deadline?: string | null;
+  /** 0180: the venue's "N days before the event" default. */
+  rsvp_deadline_days?: number;
+  /** 0181: confirmed guests who still have to choose their menus (2+ menus only). */
+  menuChoicePending?: number;
 }
 
 /**
@@ -108,11 +122,27 @@ export interface EventDetail {
  * (migration 0117 withholds these columns from plain staff sessions). Read
  * only server-side with the service-role client, behind an elevation check.
  */
-export const EVENT_PRIVATE_COLUMNS = "contact_email, contact_email_2, contact_phone, total_price, deposit_paid";
+export const EVENT_PRIVATE_COLUMNS = "contact_email, contact_email_2, contact_phone, total_price, deposit_paid, price_per_guest, contracted_guests";
 
-export type EventPrivateDetails = Pick<EventDetail, "id" | "contact_email" | "contact_email_2" | "contact_phone" | "total_price" | "deposit_paid">;
+export type EventPrivateDetails = Pick<
+  EventDetail,
+  | "id"
+  | "contact_email"
+  | "contact_email_2"
+  | "contact_phone"
+  | "total_price"
+  | "deposit_paid"
+  | "price_per_guest"
+  | "contracted_guests"
+  | "confirmed_people"
+  | "confirmed_no_meal"
+>;
 
-/** Every event's private details for a venue (manager/owner routes only). */
+/**
+ * Every event's private details for a venue (manager/owner routes only).
+ * Events priced per guest also get `confirmed_people` (0182): the confirmed
+ * guests' party sizes, the "final" count while no menu numbers were sent.
+ */
 export async function listEventPrivateDetails(venueId: string, client: SupabaseClient): Promise<EventPrivateDetails[]> {
   const { data, error } = await client
     .from("events")
@@ -120,16 +150,45 @@ export async function listEventPrivateDetails(venueId: string, client: SupabaseC
     .eq("venue_id", venueId)
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
-  return checkListBound(data, "events (private)") as EventPrivateDetails[];
+  const rows = (checkListBound(data, "events (private)") as EventPrivateDetails[]).map((r) => ({
+    ...r,
+    price_per_guest: r.price_per_guest === null || r.price_per_guest === undefined ? null : Number(r.price_per_guest),
+  }));
+  const perGuest = rows.filter((r) => r.price_per_guest !== null).map((r) => r.id);
+  if (perGuest.length === 0) return rows;
+  const { data: guests, error: guestsError } = await client
+    .from("event_guests")
+    .select("event_id, party_size, no_meal_count")
+    .in("event_id", perGuest)
+    .eq("rsvp_status", "confirmed");
+  if (guestsError) throw guestsError;
+  const people = new Map<string, number>();
+  const noMeal = new Map<string, number>();
+  for (const g of (guests ?? []) as { event_id: string; party_size: number; no_meal_count: number | null }[]) {
+    people.set(g.event_id, (people.get(g.event_id) ?? 0) + g.party_size);
+    noMeal.set(g.event_id, (noMeal.get(g.event_id) ?? 0) + (g.no_meal_count ?? 0));
+  }
+  return rows.map((r) => (r.price_per_guest !== null ? { ...r, confirmed_people: people.get(r.id) ?? 0, confirmed_no_meal: noMeal.get(r.id) ?? 0 } : r));
 }
 
 /** Clears the private fields — what a plain staff session is given. */
 export function withoutPrivateDetails<T extends EventDetail>(event: T): T {
-  return { ...event, contact_email: null, contact_email_2: null, contact_phone: null, total_price: null, deposit_paid: null };
+  return {
+    ...event,
+    contact_email: null,
+    contact_email_2: null,
+    contact_phone: null,
+    total_price: null,
+    deposit_paid: null,
+    price_per_guest: null,
+    contracted_guests: null,
+    confirmed_people: null,
+    confirmed_no_meal: null,
+  };
 }
 
 const EVENT_DETAIL_COLUMNS =
-  "id, couple_names, event_date, start_time, end_time, status, event_type, event_type_label, guest_count_estimate, seating_self_edit_enabled, seating_mode, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes)";
+  "id, couple_names, event_date, start_time, end_time, status, event_type, event_type_label, guest_count_estimate, seating_self_edit_enabled, seating_mode, rsvp_deadline, created_at, event_rooms(room_id), event_showcase_photos(id), event_layout_elements(element_type, table_types(seats)), event_menu_templates(menu_templates(id, name, event_id, menu_template_items(menu_items(id, name, course, photo_path)))), event_menu_submissions(id, sent_at, sent_by, counts, menu_titles, total, seen_at, seen_by, source, unanswered, allergy_summary, allergy_notes, no_meal_count, estimated_counts, estimated_total)";
 
 type EventDetailRow = {
   id: string;
@@ -144,6 +203,7 @@ type EventDetailRow = {
   guest_count_estimate: number | null;
   seating_self_edit_enabled: boolean | null;
   seating_mode: string;
+  rsvp_deadline: string | null;
   event_rooms: { room_id: string }[] | null;
   event_showcase_photos: { id: string }[] | null;
   event_layout_elements: unknown;
@@ -211,6 +271,25 @@ export async function listEventsWithDetails(
     .limit(MAX_LIST_ROWS);
   if (error) throw error;
   checkListBound(data, "events (details)");
+  // 0180: the venue's answer deadline default, shown as a hint next to each
+  // event's own; like the marks below, a failing lookup only loses the hint.
+  let rsvpDeadlineDays = DEFAULT_RSVP_DEADLINE_DAYS;
+  try {
+    const { data: venueRow, error: venueError } = await client.from("venues").select("rsvp_deadline_days").eq("id", venueId).maybeSingle();
+    if (venueError) throw venueError;
+    rsvpDeadlineDays = (venueRow?.rsvp_deadline_days as number | undefined) ?? DEFAULT_RSVP_DEADLINE_DAYS;
+  } catch (err) {
+    log("error", "venue rsvp_deadline_days read failed", { venueId, ...errorFields(err) });
+  }
+  // 0181: guests still to choose a menu, per event — a hint, like the marks below.
+  const menuPendingByEvent = new Map<string, number>();
+  try {
+    const { data: pending, error: pendingError } = await client.rpc("venue_menu_choice_pending", { p_venue_id: venueId });
+    if (pendingError) throw pendingError;
+    for (const row of (pending ?? []) as { event_id: string; guests: number }[]) menuPendingByEvent.set(row.event_id, row.guests);
+  } catch (err) {
+    log("error", "venue_menu_choice_pending failed", { venueId, ...errorFields(err) });
+  }
   // The "!" marks are decorative: a failing lookup must not take the list down.
   const unseenByEvent = await listUnseenSections(venueId, client).catch((err) => {
     log("error", "venue_unseen_change_sections failed", { venueId, ...errorFields(err) });
@@ -241,6 +320,8 @@ export async function listEventsWithDetails(
       guest_count_estimate: event.guest_count_estimate,
       seating_self_edit_enabled: event.seating_self_edit_enabled,
       seating_mode: event.seating_mode as "full" | "mini",
+      rsvp_deadline: event.rsvp_deadline,
+      rsvp_deadline_days: rsvpDeadlineDays,
       created_at: event.created_at,
       menus: toEventMenus(event.event_menu_templates),
       room_ids: ((event.event_rooms ?? []) as { room_id: string }[]).map((r) => r.room_id),
@@ -253,6 +334,7 @@ export async function listEventsWithDetails(
       deposit_paid: event.deposit_paid ?? null,
       unseenSections: unseenByEvent.get(event.id) ?? [],
       menuNumbers: toMenuNumbers(event.event_menu_submissions),
+      menuChoicePending: menuPendingByEvent.get(event.id) ?? 0,
     };
   });
 }
@@ -319,7 +401,8 @@ async function assertMenusAllowed(
 ): Promise<void> {
   const unique = [...new Set(menuTemplateIds)];
   if (unique.length === 0) return;
-  let query = client.from("menu_templates").select("id").eq("venue_id", venueId).in("id", unique);
+  // 0181: an archived package is offered to no new event (one already on the event stays).
+  let query = client.from("menu_templates").select("id").eq("venue_id", venueId).in("id", unique).is("archived_at", null);
   query = eventId ? query.or(`event_id.is.null,event_id.eq.${eventId}`) : query.is("event_id", null);
   const { data, error } = await query;
   if (error) throw error;
@@ -354,6 +437,9 @@ export interface CreateEventInput {
    * has no "past" state to violate; only *editing* an existing event does. */
   total_price?: number | null;
   deposit_paid?: number | null;
+  /** 0182: set when the total came from the per-guest calculator (written right after the insert). */
+  price_per_guest?: number | null;
+  contracted_guests?: number | null;
   /** Security review fix: the couple's login is created here, server-side,
    * in the same call as the event row — create_event_credentials' direct
    * `authenticated` grant was revoked (0111) since it let any staff session
@@ -429,6 +515,14 @@ export async function createEvent(input: CreateEventInput, client: SupabaseClien
     const { error: labelError } = await supabase.from("events").update({ event_type_label: typeLabel }).eq("id", eventId as string);
     if (labelError) log("error", "event_type_label update failed", { eventId, ...errorFields(labelError) });
   }
+  // 0182: the per-guest price, same follow-up pattern (logged, not thrown).
+  if (input.price_per_guest !== undefined && input.price_per_guest !== null) {
+    const { error: priceError } = await supabase
+      .from("events")
+      .update({ price_per_guest: input.price_per_guest, contracted_guests: input.contracted_guests ?? null })
+      .eq("id", eventId as string);
+    if (priceError) log("error", "price_per_guest update failed", { eventId, ...errorFields(priceError) });
+  }
   return { id: eventId as string };
 }
 
@@ -449,6 +543,8 @@ export interface UpdateEventInput {
   removed_menu_ids: string[];
   /** Project A §4: null follows the venue-wide switch; true/false overrides it. */
   seating_self_edit_enabled: boolean | null;
+  /** 0180: this event's own guest answer deadline (null: the venue's default); left out, it is kept. */
+  rsvp_deadline?: string | null;
 }
 
 /** Thrown by the gated-route write helpers below when the eventId/venueId
@@ -491,9 +587,16 @@ export async function updateEvent(
   venueId: string,
   input: UpdateEventInput,
   client: SupabaseClient = resolveSupabaseClient()
-): Promise<void> {
+): Promise<{ rsvpDeadlineReset: boolean }> {
   const supabase = client;
   await assertEventNotPast(eventId, venueId, supabase);
+  const { data: stored, error: storedError } = await supabase
+    .from("events")
+    .select("event_date, rsvp_deadline, venues(rsvp_deadline_days)")
+    .eq("id", eventId)
+    .eq("venue_id", venueId)
+    .maybeSingle();
+  if (storedError) throw storedError;
 
   if (input.room_ids.length > 0) {
     const { data: rooms, error: roomsCheckError } = await supabase
@@ -506,6 +609,8 @@ export async function updateEvent(
       throw new Error("Една или повеќе сали не припаѓаат на овој локал.");
     }
   }
+
+  if (input.rsvp_deadline && input.rsvp_deadline > input.event_date) throw new Error(RSVP_DEADLINE_AFTER_EVENT_ERROR);
 
   const added = [...new Set(input.added_menu_ids)];
   const removed = [...new Set(input.removed_menu_ids)];
@@ -536,17 +641,34 @@ export async function updateEvent(
   if (error) throw error;
   if (!found) throw new EventNotFoundError();
 
+  // 0184: moved later with its own deadline left as it was, and that
+  // deadline now falls before the new date's default: back to the default.
+  const venueDays = (stored?.venues as unknown as { rsvp_deadline_days: number } | null)?.rsvp_deadline_days ?? DEFAULT_RSVP_DEADLINE_DAYS;
+  const rsvpDeadlineReset = stored
+    ? rsvpDeadlineResets({
+        oldDate: stored.event_date as string,
+        newDate: input.event_date,
+        oldDeadline: (stored.rsvp_deadline as string | null) ?? null,
+        newDeadline: input.rsvp_deadline,
+        defaultDays: venueDays,
+      })
+    : false;
+  const deadline = rsvpDeadlineReset ? null : input.rsvp_deadline;
+
   // Project A §4: a plain column, no room/menu diffing involved — a direct
-  // follow-up update rather than another update_event_full parameter.
+  // follow-up update rather than another update_event_full parameter. The
+  // answer deadline (0180) is the same kind of plain column.
   const { error: selfEditError } = await supabase
     .from("events")
     .update({
       seating_self_edit_enabled: input.seating_self_edit_enabled,
       event_type_label: normalizeEventTypeLabel(input.event_type, input.event_type_label),
+      ...(deadline !== undefined ? { rsvp_deadline: deadline } : {}),
     })
     .eq("id", eventId)
     .eq("venue_id", venueId);
   if (selfEditError) throw selfEditError;
+  return { rsvpDeadlineReset };
 }
 
 // The routes call these with the service-role client, which bypasses RLS —
@@ -590,6 +712,9 @@ export async function updateEventContactInfo(
 export interface EventFinanceInfo {
   total_price: number | null;
   deposit_paid: number | null;
+  /** 0182: left out = unchanged; null = the total was typed by hand (no per-guest comparison). */
+  price_per_guest?: number | null;
+  contracted_guests?: number | null;
 }
 
 export async function updateEventFinance(
